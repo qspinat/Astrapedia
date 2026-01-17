@@ -1,0 +1,8 @@
+{
+  "appId": "com.skymap.app",
+  "appName": "SkyMap",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
