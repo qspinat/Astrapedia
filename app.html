@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' https: data: blob:;
+        connect-src 'self'
+            https://en.wikipedia.org
+            https://commons.wikimedia.org
+            https://upload.wikimedia.org
+            https://images-api.nasa.gov
+            https://simbad.u-strasbg.fr
+            https://tapvizier.u-strasbg.fr
+            https://vizier.cds.unistra.fr
+            https://skyview.gsfc.nasa.gov
+            https://skyserver.sdss.org
+            https://archive.stsci.edu
+            https://alasky.cds.unistra.fr
+            https://raw.githubusercontent.com;
+        font-src 'self';
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+    ">
+    <title>Interactive Sky Map</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a3a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading celestial data...</div>
+    </div>
+
+    <!-- Main Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-overlay">
+        <!-- Compact Header with Search -->
+        <div class="header">
+            <div class="header-top">
+                <h1>Sky Map</h1>
+                <div class="header-buttons">
+                    <button class="icon-btn icon-btn--constellations active" id="constellations-quick-toggle" aria-label="Toggle Constellation Lines">
+                        ★
+                    </button>
+                    <button class="icon-btn icon-btn--compass" id="compass-toggle" aria-label="Compass Mode">
+                        🧭
+                    </button>
+                    <button class="icon-btn icon-btn--settings" id="settings-toggle" aria-label="Settings">
+                        ⚙
+                    </button>
+                </div>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Search stars, galaxies, nebulae...">
+                <button class="icon-btn icon-btn--location" id="auto-location-btn" aria-label="My Location">
+                    ◎
+                </button>
+            </div>
+            <div class="search-results" id="search-results"></div>
+        </div>
+
+        <!-- Floating Info Badge (replaces full info panel on mobile) -->
+        <div class="info-badge" id="info-badge">
+            <span id="fov-badge">60°</span>
+            <span class="badge-separator">|</span>
+            <span id="coords-badge">RA 0° Dec 0°</span>
+        </div>
+
+        <!-- Hidden data elements (used by skymap.js) -->
+        <span id="ra-display" class="data-hidden">0°</span>
+        <span id="dec-display" class="data-hidden">0°</span>
+        <span id="fov-display" class="data-hidden">60°</span>
+        <span id="visible-count" class="data-hidden">0</span>
+        <span id="dynamic-stars-count" class="data-hidden">0</span>
+
+        <!-- Panel Backdrop (closes panels when clicked) -->
+        <div id="panel-backdrop" class="panel-backdrop"></div>
+
+        <!-- Settings Panel (retractable) -->
+        <div id="settings-panel" class="slide-panel">
+            <div class="panel-header">
+                <h2 class="panel-title--accent">Settings & Tours</h2>
+                <button class="close-btn close-btn--panel" id="settings-close-btn">✕</button>
+            </div>
+
+            <div class="panel-section">
+                <h3 class="panel-section__title">Display</h3>
+                <label class="toggle-row">
+                    <span class="toggle-row__label">Constellation Lines</span>
+                    <input type="checkbox" id="constellation-lines-toggle" checked>
+                    <span class="toggle-switch"></span>
+                </label>
+                <label class="toggle-row">
+                    <span class="toggle-row__label">Night Mode</span>
+                    <input type="checkbox" id="night-mode-toggle" checked>
+                    <span class="toggle-switch"></span>
+                </label>
+            </div>
+
+            <div class="panel-section">
+                <h3 class="panel-section__title">Language</h3>
+                <select id="constellation-language" class="language-select">
+                    <option value="en">English</option>
+                    <option value="la">Latin (Scientific)</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="es">Spanish</option>
+                    <option value="zh">Chinese</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ar">Arabic</option>
+                </select>
+            </div>
+
+            <div class="panel-section">
+                <h3 class="panel-section__title">Performance</h3>
+                <div class="performance-settings">
+                    <div class="performance-header">
+                        <span class="performance-label">Max Dynamic Objects</span>
+                        <span id="max-dynamic-stars-value" class="performance-value">30K</span>
+                    </div>
+                    <input type="range" id="max-dynamic-stars" min="5000" max="100000" step="5000" value="30000" class="performance-slider">
+                    <span class="performance-hint">Stars, galaxies, nebulae loaded when zooming</span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3 class="panel-section__title">Guided Tours</h3>
+                <div class="tour-grid">
+                    <button class="tour-btn" id="tour-tonight-btn">
+                        <span class="tour-btn__icon">🌙</span>
+                        <span class="tour-btn__text">Tonight</span>
+                    </button>
+                    <button class="tour-btn" id="tour-messier-btn">
+                        <span class="tour-btn__icon">📋</span>
+                        <span class="tour-btn__text">Messier</span>
+                    </button>
+                    <button class="tour-btn" id="tour-nebulae-btn">
+                        <span class="tour-btn__icon">☁</span>
+                        <span class="tour-btn__text">Nebulae</span>
+                    </button>
+                    <button class="tour-btn" id="tour-galaxies-btn">
+                        <span class="tour-btn__icon">🌀</span>
+                        <span class="tour-btn__text">Galaxies</span>
+                    </button>
+                    <button class="tour-btn" id="tour-clusters-btn">
+                        <span class="tour-btn__icon">✨</span>
+                        <span class="tour-btn__text">Clusters</span>
+                    </button>
+                    <button class="tour-btn" id="tour-constellations-btn">
+                        <span class="tour-btn__icon">★</span>
+                        <span class="tour-btn__text">Constellations</span>
+                    </button>
+                    <button class="tour-btn" id="tour-planets-btn">
+                        <span class="tour-btn__icon">◐</span>
+                        <span class="tour-btn__text">Planets</span>
+                    </button>
+                    <button class="tour-btn" id="tour-winter-btn">
+                        <span class="tour-btn__icon">❄</span>
+                        <span class="tour-btn__text">Winter Sky</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3 class="panel-section__title">Actions</h3>
+                <div class="action-buttons">
+                    <button class="action-btn secondary" id="set-location-btn">
+                        <span class="action-btn__icon">◎</span> Set Location
+                    </button>
+                    <button class="action-btn secondary" id="reset-view-btn">
+                        <span class="action-btn__icon">↺</span> Reset View
+                    </button>
+                    <button class="action-btn secondary" id="events-btn">
+                        <span class="action-btn__icon">📅</span> Upcoming Events
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Controls (minimal floating) -->
+        <div class="controls-panel" id="controls-panel">
+            <button id="start-game-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                Play
+            </button>
+        </div>
+
+        <!-- Game Selection Modal -->
+        <div class="game-select-modal" id="game-select-modal">
+            <div class="game-select-content">
+                <h3>Choose a Game</h3>
+                <div class="game-select-grid">
+                    <button class="game-select-btn" data-category="known-constellations">
+                        <span class="game-select-icon">★</span>
+                        <span class="game-select-name">Known Constellations</span>
+                        <span class="game-select-count">12</span>
+                    </button>
+                    <button class="game-select-btn" data-category="north-constellations">
+                        <span class="game-select-icon">★</span>
+                        <span class="game-select-name">North Constellations</span>
+                        <span class="game-select-count">44</span>
+                    </button>
+                    <button class="game-select-btn" data-category="south-constellations">
+                        <span class="game-select-icon">★</span>
+                        <span class="game-select-name">South Constellations</span>
+                        <span class="game-select-count">44</span>
+                    </button>
+                    <button class="game-select-btn" data-category="all-constellations">
+                        <span class="game-select-icon">★</span>
+                        <span class="game-select-name">All Constellations</span>
+                        <span class="game-select-count">88</span>
+                    </button>
+                    <button class="game-select-btn" data-category="famous-objects">
+                        <span class="game-select-icon">🌟</span>
+                        <span class="game-select-name">Famous Objects</span>
+                        <span class="game-select-count">20</span>
+                    </button>
+                    <button class="game-select-btn" data-category="star-clusters">
+                        <span class="game-select-icon">✨</span>
+                        <span class="game-select-name">Star Clusters</span>
+                        <span class="game-select-count">15</span>
+                    </button>
+                    <button class="game-select-btn" data-category="nebulae">
+                        <span class="game-select-icon">☁</span>
+                        <span class="game-select-name">Nebulae</span>
+                        <span class="game-select-count">15</span>
+                    </button>
+                    <button class="game-select-btn" data-category="galaxies">
+                        <span class="game-select-icon">🌀</span>
+                        <span class="game-select-name">Galaxies</span>
+                        <span class="game-select-count">15</span>
+                    </button>
+                    <button class="game-select-btn" data-category="bright-stars">
+                        <span class="game-select-icon">⭐</span>
+                        <span class="game-select-name">Bright Stars</span>
+                        <span class="game-select-count">25</span>
+                    </button>
+                    <button class="game-select-btn" data-category="messier-objects">
+                        <span class="game-select-icon">📋</span>
+                        <span class="game-select-name">Messier Objects</span>
+                        <span class="game-select-count">110</span>
+                    </button>
+                </div>
+                <button class="game-select-cancel" id="game-select-cancel">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Game Panel -->
+        <div class="game-panel" id="game-panel">
+            <h2>Find This Object:</h2>
+            <div class="game-question" id="game-question">Loading...</div>
+            <div class="game-buttons">
+                <button class="secondary" id="pass-btn">Pass</button>
+                <button id="stop-game-btn">Stop Game</button>
+            </div>
+            <div class="game-stats">
+                <div class="game-stat">
+                    <span class="game-stat-label">Score</span>
+                    <span class="game-stat-value" id="game-score">0</span>
+                </div>
+                <div class="game-stat">
+                    <span class="game-stat-label">Time</span>
+                    <span class="game-stat-value" id="game-time">0:00</span>
+                </div>
+                <div class="game-stat">
+                    <span class="game-stat-label">Correct</span>
+                    <span class="game-stat-value" id="game-correct">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Object Information Panel -->
+        <div id="info-panel" class="slide-panel right">
+            <div class="panel-header">
+                <h2 id="object-title">Object</h2>
+                <button class="close-btn close-btn--panel" id="info-close-btn">✕</button>
+            </div>
+            <div id="info-content"></div>
+        </div>
+
+        <!-- Time Controls (compact) -->
+        <div class="time-controls">
+            <button class="time-btn" id="time-rewind-btn">⏪</button>
+            <button class="time-btn" id="time-play-btn">⏯</button>
+            <div class="time-display">
+                <div id="time-display">Loading...</div>
+                <div id="time-speed-display">Paused</div>
+            </div>
+            <button class="time-btn" id="time-forward-btn">⏩</button>
+            <button class="time-btn small" id="time-now-btn">Now</button>
+        </div>
+
+        <!-- Magnitude Control (floating) -->
+        <div class="magnitude-control">
+            <span class="mag-label">MAG</span>
+            <input type="range" id="magnitude-slider" min="0" max="25" step="0.5" value="8.0">
+            <span id="mag-value" class="mag-value">8.0</span>
+        </div>
+
+        <!-- Visible Tonight Panel -->
+        <div id="visible-tonight-panel" class="slide-panel">
+            <div class="panel-header">
+                <h2>Visible Tonight</h2>
+                <button class="close-btn close-btn--panel" id="visible-tonight-close-btn">✕</button>
+            </div>
+            <div class="panel-content"></div>
+        </div>
+
+        <!-- Events Calendar Panel -->
+        <div id="events-panel" class="slide-panel right">
+            <div class="panel-header">
+                <h2>Events</h2>
+                <button class="close-btn close-btn--panel" id="events-close-btn">✕</button>
+            </div>
+            <div class="panel-content"></div>
+        </div>
+
+        <!-- Tour Panel -->
+        <div id="tour-panel"></div>
+
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+            integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"></script>
+
+    <!-- Astronomy Engine - High-precision planetary positions (VSOP87) -->
+    <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"></script>
+
+    <!-- Main Application (ES6 Module) -->
+    <script type="module" src="skymap.js"></script>
+
+    <!-- UI Controller (extracted from inline JavaScript) -->
+    <script src="ui-controller.js"></script>
+</body>
+</html>

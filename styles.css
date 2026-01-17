@@ -1,0 +1,1545 @@
+/**
+ * Interactive Sky Map - Mobile-First Stylesheet
+ */
+
+/* ==========================================================================
+   1. CSS VARIABLES & BASE
+   ========================================================================== */
+
+:root {
+    /* Colors */
+    --bg-primary: rgba(19, 27, 46, 0.95);
+    --bg-secondary: rgba(31, 41, 55, 0.8);
+    --bg-dark: #0A0F1C;
+    --text-primary: #F3F4F6;
+    --text-secondary: #9CA3AF;
+    --accent: #3B82F6;
+    --accent-hover: #2563EB;
+    --accent-blue: #60A5FA;
+    --border: rgba(255, 255, 255, 0.1);
+    --shadow: rgba(0, 0, 0, 0.4);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+    /* Z-index system */
+    --z-canvas: 1;
+    --z-ui-overlay: 10;
+    --z-floating: 50;
+    --z-header: 100;
+    --z-dropdown: 150;
+    --z-backdrop: 199;
+    --z-modal: 200;
+    --z-loading: 1000;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    overflow: hidden;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ==========================================================================
+   2. CANVAS & OVERLAY
+   ========================================================================== */
+
+#canvas-container {
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: var(--z-canvas);
+}
+
+canvas {
+    display: block;
+    cursor: grab;
+    touch-action: none;
+}
+
+canvas:active {
+    cursor: grabbing;
+}
+
+#ui-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: var(--z-ui-overlay);
+}
+
+#ui-overlay > * {
+    pointer-events: auto;
+}
+
+/* ==========================================================================
+   3. HEADER (Compact & Mobile-Friendly)
+   ========================================================================== */
+
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #131B2E;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    z-index: var(--z-header);
+}
+
+.header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.header-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: #F3F4F6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.icon-btn svg {
+    stroke: #F3F4F6;
+}
+
+/* Only apply hover on devices that support it (not touch) */
+@media (hover: hover) {
+    .icon-btn:hover {
+        background: var(--accent);
+        transform: scale(1.05);
+    }
+
+    .icon-btn:hover svg {
+        stroke: white;
+    }
+}
+
+.icon-btn:active {
+    transform: scale(0.95);
+}
+
+/* Remove focus outline but keep active state visible */
+.icon-btn:focus {
+    outline: none;
+}
+
+.icon-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ==========================================================================
+   4. SEARCH BAR
+   ========================================================================== */
+
+.search-bar {
+    display: flex;
+    gap: 8px;
+}
+
+.search-bar input {
+    flex: 1;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    color: var(--text-primary);
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-bar input:focus {
+    border-color: var(--accent);
+}
+
+.search-bar input::placeholder {
+    color: var(--text-secondary);
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 12px;
+    right: 12px;
+    margin-top: 4px;
+    background: var(--bg-primary);
+    border-radius: var(--radius);
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    box-shadow: 0 10px 40px var(--shadow);
+    z-index: var(--z-dropdown);
+}
+
+.search-results.active {
+    display: block;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover,
+.search-result-item.selected {
+    background: rgba(59, 130, 246, 0.15);
+}
+
+.search-result-item .name {
+    font-weight: 600;
+    flex: 1;
+}
+
+.search-result-item .type {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.search-result-item .mag {
+    font-size: 12px;
+    color: #60A5FA;
+}
+
+.search-result-item.no-results {
+    color: var(--text-secondary);
+    justify-content: center;
+}
+
+/* ==========================================================================
+   5. INFO BADGE (Floating coordinates display)
+   ========================================================================== */
+
+.info-badge {
+    position: fixed;
+    top: 120px;
+    left: 12px;
+    background: var(--bg-primary);
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    backdrop-filter: blur(10px);
+    z-index: var(--z-floating);
+}
+
+.badge-separator {
+    color: var(--border);
+}
+
+#fov-badge {
+    color: #60A5FA;
+    font-weight: 600;
+}
+
+#coords-badge {
+    color: var(--text-secondary);
+}
+
+/* Hidden original info displays (used for data) */
+#ra-display, #dec-display, #fov-display, #visible-count, #dynamic-stars-count {
+    display: none;
+}
+
+/* ==========================================================================
+   6. PANEL BACKDROP & SLIDE PANELS
+   ========================================================================== */
+
+.panel-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    z-index: var(--z-backdrop);
+}
+
+.panel-backdrop.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Hide UI elements when a panel is open */
+body.panel-open .search-bar,
+body.panel-open .search-results,
+body.panel-open .controls-panel,
+body.panel-open .info-badge {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.slide-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 320px;
+    max-width: 90vw;
+    height: 100vh;
+    background: var(--bg-primary);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: var(--z-modal);
+    overflow-y: auto;
+    box-shadow: 5px 0 30px var(--shadow);
+}
+
+.slide-panel.right {
+    left: auto;
+    right: 0;
+    transform: translateX(100%);
+    box-shadow: -5px 0 30px var(--shadow);
+}
+
+.slide-panel.visible {
+    transform: translateX(0);
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg-primary);
+    z-index: 10;
+}
+
+.panel-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.close-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: #EF4444;
+    color: white;
+}
+
+/* ==========================================================================
+   7. SETTINGS PANEL CONTENT
+   ========================================================================== */
+
+.panel-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    color: #F3F4F6;
+}
+
+.panel-section:last-child {
+    border-bottom: none;
+}
+
+.panel-section h3 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #9CA3AF;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.panel-section span,
+.panel-section label {
+    color: #F3F4F6;
+}
+
+/* Toggle Switch */
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    cursor: pointer;
+}
+
+.toggle-row span:first-child {
+    font-size: 15px;
+}
+
+.toggle-row input[type="checkbox"] {
+    display: none;
+}
+
+.toggle-switch {
+    width: 48px;
+    height: 28px;
+    background: var(--bg-secondary);
+    border-radius: 14px;
+    position: relative;
+    transition: background 0.2s;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.toggle-row input:checked + .toggle-switch {
+    background: var(--accent);
+}
+
+.toggle-row input:checked + .toggle-switch::after {
+    transform: translateX(20px);
+}
+
+/* Slider */
+.slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.slider-row input[type="range"] {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-secondary);
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.slider-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+}
+
+.slider-row span {
+    min-width: 40px;
+    text-align: right;
+    font-family: 'Monaco', monospace;
+    color: var(--accent);
+}
+
+/* Select */
+select {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    cursor: pointer;
+    outline: none;
+}
+
+select:focus {
+    border-color: var(--accent);
+}
+
+/* Tour Grid */
+.tour-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.tour-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: #F3F4F6 !important;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tour-btn span {
+    color: #F3F4F6;
+}
+
+.tour-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.tour-icon {
+    width: 28px;
+    height: 28px;
+    stroke: #60A5FA;
+    flex-shrink: 0;
+}
+
+.tour-btn:hover .tour-icon {
+    stroke: white;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: var(--accent-hover);
+}
+
+.action-btn.secondary {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+}
+
+.action-btn.secondary:hover {
+    background: #374151;
+}
+
+/* ==========================================================================
+   8. CONTROLS PANEL (Minimal Game Start)
+   ========================================================================== */
+
+.controls-panel {
+    position: fixed;
+    top: 120px;
+    right: 12px;
+    z-index: var(--z-floating);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.game-category-select {
+    padding: 10px 12px;
+    background: var(--bg-primary);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    max-width: 180px;
+}
+
+.game-category-select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.controls-panel button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 20px;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    white-space: nowrap;
+}
+
+.controls-panel button:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   9. GAME PANEL
+   ========================================================================== */
+
+.game-panel {
+    position: fixed;
+    top: 165px;
+    left: 12px;
+    width: auto;
+    max-width: 260px;
+    background: var(--bg-primary);
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    backdrop-filter: blur(20px);
+    text-align: center;
+    display: none;
+    z-index: var(--z-dropdown);
+    box-shadow: 0 4px 20px var(--shadow);
+}
+
+.game-panel.active {
+    display: block;
+}
+
+.game-panel h2 {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.game-question {
+    font-size: 18px;
+    font-weight: 700;
+    color: #60A5FA;
+    margin: 6px 0;
+}
+
+.game-stats {
+    display: flex;
+    justify-content: space-around;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.game-stat {
+    text-align: center;
+}
+
+.game-stat-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.game-stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.game-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.game-buttons button {
+    flex: 1;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+/* ==========================================================================
+   9b. GAME SELECTION MODAL
+   ========================================================================== */
+
+.game-select-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    padding: 20px;
+}
+
+.game-select-modal.visible {
+    display: flex;
+}
+
+.game-select-content {
+    background: var(--bg-primary);
+    border-radius: var(--radius);
+    padding: 20px;
+    max-width: 400px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    backdrop-filter: blur(20px);
+}
+
+.game-select-content h3 {
+    text-align: center;
+    margin-bottom: 16px;
+    font-size: 18px;
+    color: var(--text-primary);
+}
+
+.game-select-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.game-select-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+}
+
+.game-select-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.game-select-btn:active {
+    transform: scale(0.98);
+}
+
+.game-select-icon {
+    font-size: 20px;
+    width: 28px;
+    text-align: center;
+}
+
+.game-select-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.game-select-count {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.game-select-cancel {
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.game-select-cancel:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* Night mode for game selection modal */
+body.night-mode .game-select-modal {
+    background: rgba(30, 0, 0, 0.8);
+}
+
+body.night-mode .game-select-content {
+    background: rgba(30, 10, 10, 0.95);
+}
+
+/* ==========================================================================
+   10. OBJECT INFO PANEL
+   ========================================================================== */
+
+#info-panel {
+    padding-top: 0;
+}
+
+#info-panel #info-content {
+    padding: 16px;
+    color: var(--text-primary);
+}
+
+#info-panel #info-content p {
+    margin: 8px 0;
+    font-size: 14px;
+}
+
+#info-panel #info-content strong {
+    color: var(--text-secondary);
+}
+
+#info-panel h2,
+#info-panel .panel-header h2 {
+    color: #60A5FA;
+}
+
+.image-loading,
+.image-unavailable {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* Object Images */
+.object-images {
+    margin: 12px 0;
+}
+
+.object-image-container {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 8px;
+    text-align: center;
+}
+
+.object-image {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 6px;
+    object-fit: contain;
+}
+
+.image-source {
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    text-transform: uppercase;
+}
+
+.object-description {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-top: 12px;
+}
+
+/* ==========================================================================
+   11. TIME CONTROLS
+   ========================================================================== */
+
+.time-controls {
+    position: fixed;
+    bottom: calc(20px + var(--safe-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-primary);
+    padding: 8px 12px;
+    border-radius: 25px;
+    backdrop-filter: blur(20px);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: var(--z-header);
+}
+
+.time-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.time-btn:hover {
+    background: var(--accent);
+}
+
+.time-btn.small {
+    width: auto;
+    padding: 0 12px;
+    border-radius: 18px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.time-display {
+    text-align: center;
+    min-width: 100px;
+    padding: 0 8px;
+}
+
+#time-display {
+    font-family: 'Monaco', monospace;
+    font-size: 12px;
+    color: #60A5FA;
+}
+
+#time-speed-display {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   11b. MAGNITUDE CONTROL (floating above time)
+   ========================================================================== */
+
+.magnitude-control {
+    position: fixed;
+    bottom: calc(70px + var(--safe-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-primary);
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: var(--z-header);
+    backdrop-filter: blur(10px);
+}
+
+.magnitude-control input[type="range"] {
+    width: 100px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--bg-secondary);
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.magnitude-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+}
+
+/* ==========================================================================
+   12. BOTTOM BAR
+   ========================================================================== */
+
+.bottom-bar {
+    position: fixed;
+    bottom: calc(12px + var(--safe-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: var(--z-header);
+}
+
+.quick-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 20px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+}
+
+.quick-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.quick-btn .btn-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #F3F4F6;
+}
+
+.quick-btn svg {
+    stroke: #60A5FA;
+}
+
+.quick-btn:hover svg {
+    stroke: white;
+}
+
+/* ==========================================================================
+   13. TOUR PANEL (During active tour)
+   ========================================================================== */
+
+#tour-panel {
+    position: fixed;
+    bottom: calc(140px + var(--safe-bottom));
+    left: 12px;
+    right: 12px;
+    max-width: 360px;
+    background: var(--bg-primary);
+    padding: 16px;
+    border-radius: var(--radius);
+    backdrop-filter: blur(20px);
+    display: none;
+    z-index: var(--z-dropdown);
+    box-shadow: 0 10px 40px var(--shadow);
+}
+
+#tour-panel h2 {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+#tour-panel h3 {
+    font-size: 18px;
+    color: #60A5FA;
+    margin-bottom: 8px;
+}
+
+#tour-panel p {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+#tour-panel button {
+    padding: 10px 16px;
+    font-size: 13px;
+    margin-right: 8px;
+}
+
+/* ==========================================================================
+   14. LOADING SCREEN
+   ========================================================================== */
+
+#loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-dark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-loading);
+}
+
+#loading.hidden {
+    display: none;
+}
+
+.loading-spinner {
+    width: 44px;
+    height: 44px;
+    border: 3px solid var(--bg-secondary);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-text {
+    margin-top: 16px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   15. SIDE PANELS (Visible Tonight, Events)
+   ========================================================================== */
+
+#visible-tonight-panel,
+#events-panel {
+    padding-top: 0;
+}
+
+/* Events list styling */
+.events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.event-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+}
+
+.event-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.event-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.event-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.event-date {
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+
+.event-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.events-loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.events-source {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: center;
+    opacity: 0.7;
+}
+
+.side-panel .panel-content {
+    padding: 16px;
+}
+
+.side-panel h3 {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 16px 0 8px;
+}
+
+.side-panel h3:first-child {
+    margin-top: 0;
+}
+
+.side-panel ul {
+    list-style: none;
+}
+
+.side-panel li {
+    padding: 12px;
+    margin-bottom: 8px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.side-panel li:hover {
+    background: rgba(59, 130, 246, 0.2);
+}
+
+.side-panel a {
+    color: #60A5FA;
+    text-decoration: none;
+}
+
+/* ==========================================================================
+   16. BUTTONS (Global)
+   ========================================================================== */
+
+button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+button:hover {
+    background: var(--accent-hover);
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+button.secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+button.secondary:hover {
+    background: #374151;
+}
+
+/* ==========================================================================
+   17. RESPONSIVE - DESKTOP
+   ========================================================================== */
+
+@media (min-width: 768px) {
+    .header {
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+    }
+
+    .info-badge {
+        top: 130px;
+        left: 24px;
+    }
+
+    .controls-panel {
+        top: 130px;
+        right: 24px;
+    }
+
+    .slide-panel {
+        top: 12px;
+        height: calc(100vh - 24px);
+        border-radius: var(--radius);
+    }
+
+    .slide-panel.right {
+        border-radius: var(--radius);
+    }
+
+    .time-controls {
+        bottom: 20px;
+    }
+
+    .magnitude-control {
+        bottom: 70px;
+    }
+
+    #tour-panel {
+        bottom: 160px;
+        left: 24px;
+        right: auto;
+    }
+}
+
+/* ==========================================================================
+   18. NIGHT MODE ADJUSTMENTS
+   ========================================================================== */
+
+body.night-mode {
+    --accent: #DC2626;
+    --accent-hover: #B91C1C;
+}
+
+body.night-mode .header,
+body.night-mode .slide-panel,
+body.night-mode .game-panel,
+body.night-mode .time-controls,
+body.night-mode .bottom-bar,
+body.night-mode .info-badge,
+body.night-mode #tour-panel {
+    background: rgba(30, 10, 10, 0.95);
+}
+
+body.night-mode .icon-btn:hover,
+body.night-mode .tour-btn:hover,
+body.night-mode .quick-btn:hover {
+    background: var(--accent);
+}
+
+/* ==========================================================================
+   19. SCROLLBAR STYLING
+   ========================================================================== */
+
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+/* ==========================================================================
+   20. ACCESSIBILITY
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+/* Focus states for keyboard navigation */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ==========================================================================
+   21. EXTRACTED INLINE STYLES
+   CSS classes for styles previously inline in HTML
+   ========================================================================== */
+
+/* Icon button variants */
+.icon-btn--settings {
+    font-size: 20px;
+    color: var(--text-primary);
+}
+
+.icon-btn--location {
+    font-size: 18px;
+    color: var(--text-primary);
+}
+
+/* Compass button */
+.icon-btn--compass {
+    font-size: 18px;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border-color: var(--border);
+    animation: none;
+}
+
+.icon-btn--compass.active {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+    animation: compass-pulse 2s ease-in-out infinite;
+}
+
+.icon-btn--compass:not(.active) {
+    background: var(--bg-secondary) !important;
+    border-color: var(--border) !important;
+    animation: none !important;
+}
+
+@keyframes compass-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+}
+
+/* Constellation lines quick toggle button */
+.icon-btn--constellations {
+    font-size: 18px;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border-color: var(--border);
+}
+
+.icon-btn--constellations.active {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: white;
+}
+
+.icon-btn--constellations:not(.active) {
+    background: var(--bg-secondary) !important;
+    border-color: var(--border) !important;
+    opacity: 0.6;
+}
+
+/* Panel styling */
+.panel-title--accent {
+    color: var(--accent-blue);
+}
+
+.panel-section__title {
+    color: var(--text-secondary);
+}
+
+.toggle-row__label {
+    color: var(--text-primary);
+}
+
+/* Performance settings */
+.performance-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.performance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.performance-label {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.performance-value {
+    color: var(--accent-blue);
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.performance-hint {
+    color: #6B7280;
+    font-size: 10px;
+}
+
+.performance-slider {
+    width: 100%;
+}
+
+/* Tour buttons */
+.tour-btn__icon {
+    font-size: 24px;
+    color: var(--accent-blue);
+}
+
+.tour-btn__text {
+    color: var(--text-primary);
+}
+
+/* Action button icons */
+.action-btn__icon {
+    margin-right: 8px;
+}
+
+/* Close button styling */
+.close-btn--panel {
+    font-size: 18px;
+    color: var(--text-primary);
+}
+
+/* Language select styling */
+.language-select {
+    color: var(--text-primary);
+    background: #1F2937;
+}
+
+/* Magnitude control labels */
+.mag-label {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.mag-value {
+    color: var(--accent-blue);
+    font-size: 12px;
+    min-width: 28px;
+}
+
+/* Hidden data elements - more explicit class */
+.data-hidden {
+    display: none;
+}

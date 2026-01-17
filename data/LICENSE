@@ -1,0 +1,42 @@
+Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+
+The data files in this directory are licensed under CC BY-SA 4.0.
+https://creativecommons.org/licenses/by-sa/4.0/
+
+## You are free to:
+
+- **Share** — copy and redistribute the material in any medium or format
+- **Adapt** — remix, transform, and build upon the material for any purpose, even commercially
+
+## Under the following terms:
+
+- **Attribution** — You must give appropriate credit, provide a link to the license, and indicate if changes were made.
+- **ShareAlike** — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+
+## Data Sources and Attribution
+
+### Stars (stars.json, stars_bright.json, stars_medium.json, stars_all.json)
+
+**HYG Database v4.1**
+- Author: David Nash (astronexus)
+- License: CC BY-SA 4.0
+- Source: https://github.com/astronexus/HYG-Database
+- Description: Compilation of Hipparcos, Yale Bright Star, and Gliese catalogs
+
+### Deep Sky Objects (deep_sky_objects.json)
+
+**OpenNGC**
+- Author: Mattia Verga
+- License: CC BY-SA 4.0
+- Source: https://github.com/mattiaverga/OpenNGC
+- Description: NGC/IC objects database compiled from NED, HyperLEDA, SIMBAD
+
+### Constellation Lines (constellations.json)
+
+**Stellarium / IAU Constellation Data**
+- Source: https://github.com/Stellarium/stellarium
+- License: GPL v2+ (constellation line data used with attribution)
+
+### Named Objects (named_objects.json)
+
+Derived from HYG Database - CC BY-SA 4.0

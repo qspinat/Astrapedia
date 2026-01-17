@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Sky Map Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0B1120 0%, #1a1f35 100%);
+            color: #E5E7EB;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            background: rgba(19, 27, 46, 0.95);
+            padding: 40px;
+            border-radius: 24px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            font-size: 36px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #60A5FA, #A78BFA);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: #9CA3AF;
+            margin-bottom: 30px;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin: 30px 0;
+        }
+
+        .feature-list li {
+            padding: 12px 0;
+            padding-left: 30px;
+            position: relative;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .feature-list li:before {
+            content: "✨";
+            position: absolute;
+            left: 0;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: #3B82F6;
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            margin-top: 20px;
+        }
+
+        .cta-button:hover {
+            background: #2563EB;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 20px;
+            background: rgba(31, 41, 55, 0.5);
+            border-radius: 12px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: #60A5FA;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #9CA3AF;
+        }
+
+        .note {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid #3B82F6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #D1D5DB;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Interactive Sky Map Game</h1>
+        <p class="subtitle">Learn the cosmos through an immersive 3D celestial sphere</p>
+
+        <div class="stats">
+            <div class="stat">
+                <span class="stat-value">117K+</span>
+                <span class="stat-label">Real Stars</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">1,700+</span>
+                <span class="stat-label">Deep Sky Objects</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">160</span>
+                <span class="stat-label">Constellations</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">9</span>
+                <span class="stat-label">Object Images</span>
+            </div>
+        </div>
+
+        <ul class="feature-list">
+            <li>Navigate inside a 3D celestial sphere with real astronomical coordinates</li>
+            <li>See real images of famous galaxies, nebulae, and clusters when zoomed in</li>
+            <li>Play the game: find and click on named celestial objects</li>
+            <li>Adjust magnitude limits to see more or fewer stars</li>
+            <li>Three difficulty levels for different skill levels</li>
+            <li>All data from professional astronomical catalogs (HYG, OpenNGC)</li>
+        </ul>
+
+        <div class="note">
+            <strong>New:</strong> Deep sky object images (M31, M42, M45, etc.) now appear when you zoom in! Images fade in naturally as you get closer to these cosmic wonders.
+        </div>
+
+        <a href="app.html" class="cta-button">Launch Sky Map Explorer</a>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #6B7280;">
+            <strong>Quick Start:</strong> Drag to rotate, scroll to zoom. Images appear when zoomed in.<br>
+            Check <a href="QUICKSTART.md" style="color: #60A5FA;">QUICKSTART.md</a> for detailed instructions.
+        </p>
+    </div>
+</body>
+</html>

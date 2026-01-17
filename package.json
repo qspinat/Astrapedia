@@ -1,0 +1,37 @@
+{
+  "name": "skymap",
+  "version": "1.0.0",
+  "description": "An interactive 3D celestial sphere application for learning astronomical coordinates and finding celestial objects. Built with Three.js and real astronomical data.",
+  "main": "skymap.js",
+  "scripts": {
+    "clean": "rm -rf www",
+    "build:web": "mkdir -p www && cp app.html www/index.html && cp skymap.js styles.css ui-controller.js sw.js manifest.json favicon.svg icon-192.png icon-512.png www/ && cp -r modules www/ && cp -r data www/",
+    "build:android": "npm run build:web && npx cap sync android && cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew assembleDebug",
+    "build:android:release": "npm run build:web && npx cap sync android && cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew assembleRelease",
+    "dev": "python3 -m http.server 8000",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qspinat/SkyMap.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/qspinat/SkyMap/issues"
+  },
+  "homepage": "https://github.com/qspinat/SkyMap#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.0.1",
+    "@capacitor/cli": "^8.0.1",
+    "@capacitor/core": "^8.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}
