@@ -31,15 +31,28 @@ const IDB_NAME = 'skymap-cache-db';
 const IDB_VERSION = 1;
 const IDB_STORE = 'cache-metadata';
 
+// In-memory fallback for cache metadata when IndexedDB is unavailable
+const memoryCache = new Map();
+let idbAvailable = true;
+
 /**
  * Open IndexedDB connection.
  * @returns {Promise<IDBDatabase>} Database connection
  */
 function openDB() {
     return new Promise((resolve, reject) => {
+        if (!idbAvailable) {
+            reject(new Error('IndexedDB unavailable'));
+            return;
+        }
+
         const request = indexedDB.open(IDB_NAME, IDB_VERSION);
 
-        request.onerror = () => reject(request.error);
+        request.onerror = () => {
+            idbAvailable = false;
+            console.warn('IndexedDB unavailable, using in-memory fallback');
+            reject(request.error);
+        };
         request.onsuccess = () => resolve(request.result);
 
         request.onupgradeneeded = (event) => {
@@ -52,99 +65,140 @@ function openDB() {
 }
 
 /**
- * Get cache metadata for a URL from IndexedDB.
+ * Get cache metadata for a URL from IndexedDB or memory fallback.
  * @param {string} url - URL to look up
  * @returns {Promise<Object|null>} Metadata entry or null
  */
 async function getCacheEntry(url) {
-    try {
-        const db = await openDB();
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(IDB_STORE, 'readonly');
-            const store = tx.objectStore(IDB_STORE);
-            const request = store.get(url);
-
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(request.result || null);
-        });
-    } catch (e) {
-        console.warn('IndexedDB read error:', e);
-        return null;
+    // Try memory cache first (fast path)
+    if (memoryCache.has(url)) {
+        return memoryCache.get(url);
     }
+
+    // Try IndexedDB if available
+    if (idbAvailable) {
+        try {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readonly');
+                const store = tx.objectStore(IDB_STORE);
+                const request = store.get(url);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const result = request.result || null;
+                    // Populate memory cache for fast subsequent access
+                    if (result) {
+                        memoryCache.set(url, result);
+                    }
+                    resolve(result);
+                };
+            });
+        } catch (e) {
+            console.warn('IndexedDB read error:', e);
+        }
+    }
+
+    return null;
 }
 
 /**
- * Save cache metadata for a URL to IndexedDB.
+ * Save cache metadata for a URL to IndexedDB and memory.
  * @param {string} url - URL to save
  * @param {number} timestamp - Cache timestamp
  * @param {number} size - Response size in bytes
  */
 async function saveCacheEntry(url, timestamp, size) {
-    try {
-        const db = await openDB();
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(IDB_STORE, 'readwrite');
-            const store = tx.objectStore(IDB_STORE);
-            const request = store.put({ url, timestamp, size });
+    const entry = { url, timestamp, size };
 
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve();
-        });
-    } catch (e) {
-        console.warn('IndexedDB write error:', e);
+    // Always save to memory cache
+    memoryCache.set(url, entry);
+
+    // Try IndexedDB if available
+    if (idbAvailable) {
+        try {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readwrite');
+                const store = tx.objectStore(IDB_STORE);
+                const request = store.put(entry);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve();
+            });
+        } catch (e) {
+            console.warn('IndexedDB write error:', e);
+        }
     }
 }
 
 /**
- * Delete cache metadata for a URL from IndexedDB.
+ * Delete cache metadata for a URL from IndexedDB and memory.
  * @param {string} url - URL to delete
  */
 async function deleteCacheEntry(url) {
-    try {
-        const db = await openDB();
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(IDB_STORE, 'readwrite');
-            const store = tx.objectStore(IDB_STORE);
-            const request = store.delete(url);
+    // Always remove from memory cache
+    memoryCache.delete(url);
 
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve();
-        });
-    } catch (e) {
-        console.warn('IndexedDB delete error:', e);
+    // Try IndexedDB if available
+    if (idbAvailable) {
+        try {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readwrite');
+                const store = tx.objectStore(IDB_STORE);
+                const request = store.delete(url);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve();
+            });
+        } catch (e) {
+            console.warn('IndexedDB delete error:', e);
+        }
     }
 }
 
 /**
- * Clean up expired entries from IndexedDB.
+ * Clean up expired entries from IndexedDB and memory.
  */
 async function cleanupExpiredEntries() {
-    try {
-        const db = await openDB();
-        const now = Date.now();
+    const now = Date.now();
 
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(IDB_STORE, 'readwrite');
-            const store = tx.objectStore(IDB_STORE);
-            const request = store.openCursor();
+    // Clean up memory cache
+    for (const [url, entry] of memoryCache.entries()) {
+        if (now - entry.timestamp > EXTERNAL_CACHE_TTL * 2) {
+            memoryCache.delete(url);
+        }
+    }
 
-            request.onerror = () => reject(request.error);
-            request.onsuccess = (event) => {
-                const cursor = event.target.result;
-                if (cursor) {
-                    const entry = cursor.value;
-                    // Delete entries older than 2x TTL
-                    if (now - entry.timestamp > EXTERNAL_CACHE_TTL * 2) {
-                        cursor.delete();
+    // Clean up IndexedDB if available
+    if (idbAvailable) {
+        try {
+            const db = await openDB();
+
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(IDB_STORE, 'readwrite');
+                const store = tx.objectStore(IDB_STORE);
+                const request = store.openCursor();
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        const entry = cursor.value;
+                        // Delete entries older than 2x TTL
+                        if (now - entry.timestamp > EXTERNAL_CACHE_TTL * 2) {
+                            cursor.delete();
+                        }
+                        cursor.continue();
+                    } else {
+                        resolve();
                     }
-                    cursor.continue();
-                } else {
-                    resolve();
-                }
-            };
-        });
-    } catch (e) {
-        console.warn('IndexedDB cleanup error:', e);
+                };
+            });
+        } catch (e) {
+            console.warn('IndexedDB cleanup error:', e);
+        }
     }
 }
 
@@ -181,6 +235,22 @@ function shouldCacheResponse(response) {
     if (cacheControl.includes('no-store')) return false;
 
     return true;
+}
+
+/**
+ * Create a network error response.
+ * @param {string} message - Error message
+ * @returns {Response} Error response
+ */
+function createNetworkErrorResponse(message) {
+    return new Response(
+        JSON.stringify({ error: 'Network error', message }),
+        {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'application/json' },
+        }
+    );
 }
 
 // Install: cache static assets
@@ -280,11 +350,16 @@ self.addEventListener('fetch', event => {
 
                 return response;
             } catch (error) {
+                console.warn('Fetch failed:', event.request.url, error.message);
+
                 // Offline fallback for HTML pages
                 if (event.request.headers.get('accept')?.includes('text/html')) {
-                    return cache.match('/app.html');
+                    const fallback = await cache.match('/app.html');
+                    if (fallback) return fallback;
                 }
-                throw error;
+
+                // Return a proper error response instead of throwing
+                return createNetworkErrorResponse(error.message);
             }
         })()
     );

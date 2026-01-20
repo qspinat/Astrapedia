@@ -7,6 +7,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 import hashlib
+import warnings
 
 
 @dataclass
@@ -160,7 +161,6 @@ class Config:
                 f"The catalog may have been updated or tampered with."
             )
             if warn_only:
-                import warnings
                 warnings.warn(msg, RuntimeWarning)
                 return False
             raise ValueError(msg)

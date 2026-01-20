@@ -193,8 +193,7 @@ describe('DynamicDataLoader Rate Limiting', () => {
   });
 
   describe('request timestamp cleanup', () => {
-    test('filters out old timestamps when checking rate limit', async () => {
-      // Add timestamps that would exceed the limit
+    test('shouldRateLimit_ does not mutate timestamps (read-only)', () => {
       const now = Date.now();
       // Add old timestamps (> 60 seconds ago)
       loader.requestTimestamps_ = [
@@ -203,11 +202,40 @@ describe('DynamicDataLoader Rate Limiting', () => {
         now - 61000,
       ];
 
-      // These old timestamps should be filtered out
+      // These old timestamps should NOT affect rate limiting
       expect(loader.shouldRateLimit_('vizier')).toBe(false);
 
-      // After check, old timestamps should be removed
-      expect(loader.requestTimestamps_.length).toBe(0);
+      // shouldRateLimit_ should NOT mutate the array (it's read-only now)
+      expect(loader.requestTimestamps_.length).toBe(3);
+    });
+
+    test('recordRequest_ cleans up old timestamps', () => {
+      const now = Date.now();
+      // Add old timestamps (> 60 seconds ago)
+      loader.requestTimestamps_ = [
+        now - 70000,
+        now - 65000,
+        now - 61000,
+      ];
+
+      // Record a new request, which triggers cleanup
+      loader.recordRequest_('vizier');
+
+      // Old timestamps should be removed, only new one remains
+      expect(loader.requestTimestamps_.length).toBe(1);
+    });
+
+    test('cleanupOldTimestamps_ removes entries older than 60 seconds', () => {
+      const now = Date.now();
+      loader.requestTimestamps_ = [
+        now - 70000, // old, should be removed
+        now - 30000, // recent, should be kept
+        now - 5000,  // recent, should be kept
+      ];
+
+      loader.cleanupOldTimestamps_();
+
+      expect(loader.requestTimestamps_.length).toBe(2);
     });
   });
 });

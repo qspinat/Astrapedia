@@ -47,39 +47,7 @@ import {
   dateToJulianDate as _dateToJulianDate,
   calculateLST as _calculateLST,
 } from './modules/core/CoordinateUtils.js';
-
-/* ==========================================================================
-   SECURITY UTILITIES
-   ========================================================================== */
-
-/**
- * Escape HTML special characters to prevent XSS.
- * @param {string} str - String to escape
- * @returns {string} Escaped string
- */
-const escapeHtml = (str) => {
-  if (typeof str !== 'string') return String(str);
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-};
-
-/**
- * Fetch from Wikipedia API with proper User-Agent header.
- * @param {string} url - Wikipedia API URL
- * @returns {Promise<Response>} Fetch response
- */
-const fetchWikipedia = (url) => {
-  return fetch(url, {
-    headers: {
-      'Api-User-Agent': 'SkyMap/1.0 (https://github.com/qspinat/SkyMap; ' +
-                        'contact@skymap.app) fetch/1.0',
-    },
-  });
-};
+import {escapeHtml, fetchWikipedia} from './modules/core/SecurityUtils.js';
 
 /* ==========================================================================
    1. SHARED CONSTANTS

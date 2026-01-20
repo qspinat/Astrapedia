@@ -87,7 +87,19 @@ export class DynamicDataLoader {
   }
 
   /**
+   * Clean up old request timestamps (older than 1 minute).
+   * @private
+   */
+  cleanupOldTimestamps_() {
+    const now = Date.now();
+    this.requestTimestamps_ = this.requestTimestamps_.filter(
+      (t) => now - t < 60000
+    );
+  }
+
+  /**
    * Check if we should rate limit a request to an API.
+   * This is a read-only check that does not mutate state.
    * @param {string} apiName - Name of the API (e.g., 'vizier', 'simbad')
    * @returns {boolean} True if request should be delayed
    * @private
@@ -101,11 +113,11 @@ export class DynamicDataLoader {
       return true;
     }
 
-    // Check global requests per minute
-    this.requestTimestamps_ = this.requestTimestamps_.filter(
+    // Check global requests per minute (count only recent timestamps)
+    const recentRequests = this.requestTimestamps_.filter(
       (t) => now - t < 60000
-    );
-    if (this.requestTimestamps_.length >= this.maxRequestsPerMinute_) {
+    ).length;
+    if (recentRequests >= this.maxRequestsPerMinute_) {
       console.warn('Rate limit: Too many requests per minute');
       return true;
     }
@@ -136,6 +148,8 @@ export class DynamicDataLoader {
     this.lastRequestTime_.set(apiName, now);
     this.requestTimestamps_.push(now);
     this.consecutiveFailures_ = 0;
+    // Periodically clean up old timestamps to prevent memory growth
+    this.cleanupOldTimestamps_();
   }
 
   /**

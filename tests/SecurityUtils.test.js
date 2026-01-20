@@ -4,20 +4,9 @@
  */
 
 import {jest} from '@jest/globals';
+import {escapeHtml, fetchWikipedia} from '../modules/core/SecurityUtils.js';
 
 describe('escapeHtml', () => {
-  // Import the function by reading the file (since it's not exported)
-  // We'll test it via a simple implementation
-  const escapeHtml = (str) => {
-    if (typeof str !== 'string') return String(str);
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  };
-
   test('escapes ampersand', () => {
     expect(escapeHtml('foo & bar')).toBe('foo &amp; bar');
   });
@@ -86,7 +75,6 @@ describe('escapeHtml', () => {
 });
 
 describe('fetchWikipedia', () => {
-  // Test that the function adds proper headers
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -101,17 +89,9 @@ describe('fetchWikipedia', () => {
   });
 
   test('adds Api-User-Agent header to requests', async () => {
-    // Simulate the fetchWikipedia function
-    const fetchWikipedia = (url) => {
-      return fetch(url, {
-        headers: {
-          'Api-User-Agent': 'SkyMap/1.0 (https://github.com/qspinat/SkyMap; ' +
-                            'contact@skymap.app) fetch/1.0',
-        },
-      });
-    };
-
-    await fetchWikipedia('https://en.wikipedia.org/api/rest_v1/page/summary/Test');
+    await fetchWikipedia(
+      'https://en.wikipedia.org/api/rest_v1/page/summary/Test'
+    );
 
     expect(global.fetch).toHaveBeenCalledWith(
       'https://en.wikipedia.org/api/rest_v1/page/summary/Test',
@@ -123,9 +103,12 @@ describe('fetchWikipedia', () => {
     );
   });
 
-  test('User-Agent contains required Wikipedia API format', () => {
-    const userAgent = 'SkyMap/1.0 (https://github.com/qspinat/SkyMap; ' +
-                      'contact@skymap.app) fetch/1.0';
+  test('Api-User-Agent contains required Wikipedia API format', async () => {
+    await fetchWikipedia('https://en.wikipedia.org/api/rest_v1/page/summary/X');
+
+    const callArgs = global.fetch.mock.calls[0];
+    const headers = callArgs[1].headers;
+    const userAgent = headers['Api-User-Agent'];
 
     // Wikipedia requires: AppName/Version (URL; contact) library/version
     expect(userAgent).toMatch(/^\w+\/[\d.]+\s+\(/);
