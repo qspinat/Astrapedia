@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
+import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -12,25 +13,32 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         // Harden WebView security settings
-        WebView webView = getBridge().getWebView();
-        if (webView != null) {
-            WebSettings settings = webView.getSettings();
+        Bridge bridge = getBridge();
+        if (bridge == null) {
+            return;
+        }
 
-            // Disable file access from web content
-            settings.setAllowFileAccess(false);
-            settings.setAllowFileAccessFromFileURLs(false);
-            settings.setAllowUniversalAccessFromFileURLs(false);
+        WebView webView = bridge.getWebView();
+        if (webView == null) {
+            return;
+        }
 
-            // Disable content URL access
-            settings.setAllowContentAccess(false);
+        WebSettings settings = webView.getSettings();
 
-            // Disable geolocation by default (will be requested via JS)
-            settings.setGeolocationEnabled(true);
+        // Disable file access from web content
+        settings.setAllowFileAccess(false);
+        settings.setAllowFileAccessFromFileURLs(false);
+        settings.setAllowUniversalAccessFromFileURLs(false);
 
-            // Enable safe browsing
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                settings.setSafeBrowsingEnabled(true);
-            }
+        // Disable content URL access
+        settings.setAllowContentAccess(false);
+
+        // Enable geolocation (will be requested via JS with user consent)
+        settings.setGeolocationEnabled(true);
+
+        // Enable safe browsing (Android O+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            settings.setSafeBrowsingEnabled(true);
         }
     }
 }

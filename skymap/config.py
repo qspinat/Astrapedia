@@ -66,21 +66,26 @@ class Config:
 
     # Catalog sources with optional SHA256 checksums for integrity verification
     # Note: Checksums may need updating when upstream catalogs change
+    # To regenerate checksums, run: uv run python -m skymap.config --checksums
     CATALOG_SOURCES: Dict[str, CatalogSource] = {
         "hyg": CatalogSource(
             url=HYG_URL,
-            expected_sha256=None,  # Set after first verified download
+            expected_sha256=(
+                "d9f69fd86bbf90a4e4d52b4c5c53eacfa6dfc0bfdef85bfd94f095e0bebe4ebd"
+            ),
             description="HYG v4.1 star database",
         ),
         "openngc": CatalogSource(
             url=OPENNGC_URL,
-            expected_sha256=None,  # Set after first verified download
+            expected_sha256=(
+                "d3a7aa38796a33c9fbd4966b392e02fd59b6fd04175c2a69f152a8097df2d535"
+            ),
             description="OpenNGC deep sky objects catalog",
         ),
         "constellations": CatalogSource(
             url=CONSTELLATION_LINES_URL,
-            expected_sha256=None,  # Set after first verified download
-            description="IAU constellation line data from Stellarium",
+            expected_sha256=None,  # URL defunct as of 2025 - Stellarium changed format
+            description="IAU constellation line data from Stellarium (legacy format)",
         ),
     }
 
@@ -229,3 +234,46 @@ CONSTELLATION_ABBREVS = {
     "Tuc": "Tucana", "UMa": "UrsaMajor", "UMi": "UrsaMinor", "Vel": "Vela",
     "Vir": "Virgo", "Vol": "Volans", "Vul": "Vulpecula",
 }
+
+
+def print_checksums() -> None:
+    """Download catalogs and print their SHA256 checksums.
+
+    Use this to update CATALOG_SOURCES checksums when upstream data changes.
+    """
+    import urllib.request
+
+    print("Computing SHA256 checksums for catalog sources...\n")
+
+    for name, source in Config.CATALOG_SOURCES.items():
+        print(f"{name}:")
+        print(f"  URL: {source.url}")
+        try:
+            with urllib.request.urlopen(
+                source.url, timeout=Config.DOWNLOAD_TIMEOUT
+            ) as response:
+                data = response.read()
+                checksum = Config.compute_sha256(data)
+                print(f"  Size: {len(data):,} bytes")
+                print(f"  SHA256: {checksum}")
+                if source.expected_sha256:
+                    if checksum == source.expected_sha256:
+                        print("  Status: ✓ Matches expected checksum")
+                    else:
+                        print("  Status: ✗ MISMATCH!")
+                        print(f"  Expected: {source.expected_sha256}")
+                else:
+                    print("  Status: No expected checksum configured")
+        except Exception as e:
+            print(f"  Error: {e}")
+        print()
+
+
+if __name__ == "__main__":
+    import sys
+
+    if "--checksums" in sys.argv:
+        print_checksums()
+    else:
+        print("Usage: python -m skymap.config --checksums")
+        print("  --checksums  Download catalogs and print SHA256 checksums")

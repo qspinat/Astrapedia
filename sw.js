@@ -26,42 +26,135 @@ const EXTERNAL_CACHE_PATTERNS = [
     'esawebb.org'
 ];
 
-// Cache metadata store for TTL tracking
-const CACHE_METADATA_KEY = 'skymap-cache-metadata';
+// IndexedDB configuration for cache metadata
+const IDB_NAME = 'skymap-cache-db';
+const IDB_VERSION = 1;
+const IDB_STORE = 'cache-metadata';
 
 /**
- * Get cache metadata from IndexedDB or localStorage fallback.
- * @returns {Promise<Object>} Cache metadata object
+ * Open IndexedDB connection.
+ * @returns {Promise<IDBDatabase>} Database connection
  */
-async function getCacheMetadata() {
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(IDB_STORE)) {
+                db.createObjectStore(IDB_STORE, { keyPath: 'url' });
+            }
+        };
+    });
+}
+
+/**
+ * Get cache metadata for a URL from IndexedDB.
+ * @param {string} url - URL to look up
+ * @returns {Promise<Object|null>} Metadata entry or null
+ */
+async function getCacheEntry(url) {
     try {
-        const stored = localStorage.getItem(CACHE_METADATA_KEY);
-        return stored ? JSON.parse(stored) : {};
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, 'readonly');
+            const store = tx.objectStore(IDB_STORE);
+            const request = store.get(url);
+
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve(request.result || null);
+        });
     } catch (e) {
-        return {};
+        console.warn('IndexedDB read error:', e);
+        return null;
     }
 }
 
 /**
- * Save cache metadata.
- * @param {Object} metadata - Metadata to save
+ * Save cache metadata for a URL to IndexedDB.
+ * @param {string} url - URL to save
+ * @param {number} timestamp - Cache timestamp
+ * @param {number} size - Response size in bytes
  */
-async function saveCacheMetadata(metadata) {
+async function saveCacheEntry(url, timestamp, size) {
     try {
-        localStorage.setItem(CACHE_METADATA_KEY, JSON.stringify(metadata));
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            const store = tx.objectStore(IDB_STORE);
+            const request = store.put({ url, timestamp, size });
+
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve();
+        });
     } catch (e) {
-        // Ignore storage errors
+        console.warn('IndexedDB write error:', e);
+    }
+}
+
+/**
+ * Delete cache metadata for a URL from IndexedDB.
+ * @param {string} url - URL to delete
+ */
+async function deleteCacheEntry(url) {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            const store = tx.objectStore(IDB_STORE);
+            const request = store.delete(url);
+
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve();
+        });
+    } catch (e) {
+        console.warn('IndexedDB delete error:', e);
+    }
+}
+
+/**
+ * Clean up expired entries from IndexedDB.
+ */
+async function cleanupExpiredEntries() {
+    try {
+        const db = await openDB();
+        const now = Date.now();
+
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            const store = tx.objectStore(IDB_STORE);
+            const request = store.openCursor();
+
+            request.onerror = () => reject(request.error);
+            request.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                    const entry = cursor.value;
+                    // Delete entries older than 2x TTL
+                    if (now - entry.timestamp > EXTERNAL_CACHE_TTL * 2) {
+                        cursor.delete();
+                    }
+                    cursor.continue();
+                } else {
+                    resolve();
+                }
+            };
+        });
+    } catch (e) {
+        console.warn('IndexedDB cleanup error:', e);
     }
 }
 
 /**
  * Check if a cached response is still valid based on TTL.
  * @param {string} url - URL to check
- * @param {Object} metadata - Cache metadata
- * @returns {boolean} True if cache is still valid
+ * @returns {Promise<boolean>} True if cache is still valid
  */
-function isCacheValid(url, metadata) {
-    const entry = metadata[url];
+async function isCacheValid(url) {
+    const entry = await getCacheEntry(url);
     if (!entry) return false;
 
     const age = Date.now() - entry.timestamp;
@@ -114,17 +207,8 @@ self.addEventListener('activate', event => {
                         .map(name => caches.delete(name))
                 );
             }),
-            // Clean up old metadata
-            getCacheMetadata().then(metadata => {
-                const now = Date.now();
-                const cleaned = {};
-                for (const [url, entry] of Object.entries(metadata)) {
-                    if (now - entry.timestamp < EXTERNAL_CACHE_TTL * 2) {
-                        cleaned[url] = entry;
-                    }
-                }
-                return saveCacheMetadata(cleaned);
-            }),
+            // Clean up expired metadata entries
+            cleanupExpiredEntries(),
             self.clients.claim()
         ])
     );
@@ -160,12 +244,13 @@ self.addEventListener('fetch', event => {
 
             // For external resources, check TTL
             if (cachedResponse && isExternal) {
-                const metadata = await getCacheMetadata();
-                if (isCacheValid(event.request.url, metadata)) {
+                const valid = await isCacheValid(event.request.url);
+                if (valid) {
                     return cachedResponse;
                 }
                 // Cache expired, delete it
                 await cache.delete(event.request);
+                await deleteCacheEntry(event.request.url);
             } else if (cachedResponse) {
                 // Static assets don't expire
                 return cachedResponse;
@@ -184,12 +269,11 @@ self.addEventListener('fetch', event => {
 
                         // Update metadata for external resources
                         if (isExternal) {
-                            const metadata = await getCacheMetadata();
-                            metadata[event.request.url] = {
-                                timestamp: Date.now(),
-                                size: parseInt(response.headers.get('content-length') || '0', 10)
-                            };
-                            await saveCacheMetadata(metadata);
+                            const size = parseInt(
+                                response.headers.get('content-length') || '0',
+                                10
+                            );
+                            await saveCacheEntry(event.request.url, Date.now(), size);
                         }
                     }
                 }
