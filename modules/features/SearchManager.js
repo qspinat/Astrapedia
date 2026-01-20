@@ -136,10 +136,13 @@ export class SearchManager {
           });
         }
 
-        // Common name alias
+        // Common name alias - handle both string and array formats
         if (dso.common_names) {
-          dso.common_names.forEach((commonName) => {
-            if (commonName !== primaryName) {
+          const names = Array.isArray(dso.common_names)
+            ? dso.common_names
+            : dso.common_names.split(',').map((n) => n.trim());
+          names.forEach((commonName) => {
+            if (commonName && commonName !== primaryName) {
               this.index_.push({
                 name: commonName,
                 type: dso.type || 'DSO',

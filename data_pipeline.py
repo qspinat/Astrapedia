@@ -235,7 +235,59 @@ def process_deep_sky_objects() -> Optional[Dict]:
         }
         dso_list.append(dso)
 
-    print(f"  Processed {len(dso_list)} deep sky objects")
+    print(f"  Processed {len(dso_list)} deep sky objects from OpenNGC")
+
+    # Add Messier objects not in OpenNGC
+    # These are objects that don't have NGC/IC designations or are not in the catalog
+    supplementary_messier = [
+        {
+            'name': 'Mel22',  # Melotte 22
+            'type': 'OCl',
+            'ra': 56.87,  # 03h 47m
+            'dec': 24.12,  # +24° 07'
+            'mag': 1.6,
+            'size_major': 110.0,  # Very large cluster
+            'size_minor': 110.0,
+            'pos_angle': None,
+            'messier': 45,
+            'common_names': ['Pleiades', 'Seven Sisters', 'Subaru'],
+        },
+        {
+            'name': 'WNC4',  # Winnecke 4
+            'type': '**',  # Double star
+            'ra': 185.55,  # 12h 22m 12.5s
+            'dec': 58.08,  # +58° 05'
+            'mag': 8.4,
+            'size_major': None,
+            'size_minor': None,
+            'pos_angle': None,
+            'messier': 40,
+            'common_names': ['Winnecke 4'],
+        },
+        {
+            'name': 'NGC5866',  # M102 is disputed, commonly identified as NGC 5866
+            'type': 'G',
+            'ra': 226.62,  # 15h 06m 29.5s
+            'dec': 55.76,  # +55° 45' 48"
+            'mag': 9.9,
+            'size_major': 6.5,
+            'size_minor': 3.1,
+            'pos_angle': 128.0,
+            'messier': 102,
+            'common_names': ['Spindle Galaxy'],
+        },
+    ]
+
+    # Check if these Messier numbers already exist
+    existing_messiers = {dso['messier'] for dso in dso_list if dso.get('messier')}
+    added_count = 0
+    for supp in supplementary_messier:
+        if supp['messier'] not in existing_messiers:
+            dso_list.append(supp)
+            added_count += 1
+            print(f"  Added M{supp['messier']} ({supp['common_names'][0]})")
+
+    print(f"  Total: {len(dso_list)} deep sky objects ({added_count} supplementary)")
 
     # Group by type for statistics
     dso_by_type = {}
