@@ -48,6 +48,9 @@ export class DynamicDataLoader {
    * @param {number=} config.maxRequestsPerMinute - Max requests/min (default: 30)
    * @param {boolean=} config.disableRateLimiting - Set true to disable rate
    *     limiting (useful for development/testing)
+   * @param {number=} config.backoffBase - Exponential backoff base (default: 2)
+   * @param {number=} config.backoffInitialMs - Initial backoff delay in ms (default: 1000)
+   * @param {number=} config.maxBackoffMs - Maximum backoff delay in ms (default: 60000)
    */
   constructor(config = {}) {
     /** @private @const {number} */
@@ -96,8 +99,15 @@ export class DynamicDataLoader {
     /** @private {number} Consecutive failure count for backoff */
     this.consecutiveFailures_ = 0;
 
-    /** @private @const {number} Max backoff delay in ms (60 seconds) */
-    this.maxBackoffMs_ = 60000;
+    // Exponential backoff configuration
+    /** @private @const {number} Backoff base for exponential calculation */
+    this.backoffBase_ = config.backoffBase || 2;
+
+    /** @private @const {number} Initial backoff delay in ms */
+    this.backoffInitialMs_ = config.backoffInitialMs || 1000;
+
+    /** @private @const {number} Max backoff delay in ms */
+    this.maxBackoffMs_ = config.maxBackoffMs || 60000;
   }
 
   /**
@@ -149,10 +159,12 @@ export class DynamicDataLoader {
     }
 
     // Check exponential backoff after failures
+    // Formula: min(maxBackoff, base^failures * initialDelay)
     if (!reason && this.consecutiveFailures_ > 0) {
       const backoffMs = Math.min(
         this.maxBackoffMs_,
-        Math.pow(2, this.consecutiveFailures_) * 1000
+        Math.pow(this.backoffBase_, this.consecutiveFailures_) *
+          this.backoffInitialMs_
       );
       const lastFailureTime = this.lastRequestTime_.get('_failure') || 0;
       if (now - lastFailureTime < backoffMs) {

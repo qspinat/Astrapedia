@@ -6,17 +6,18 @@
 import {jest} from '@jest/globals';
 
 // Mock the EventBus and Constants before importing DynamicDataLoader
+// Note: Event names use colon convention to match actual EventBus.js format
 const mockEmit = jest.fn();
 jest.unstable_mockModule('../modules/core/EventBus.js', () => ({
   globalEventBus: {
     emit: mockEmit,
   },
   Events: {
-    DYNAMIC_QUERY_STARTED: 'dynamic_query_started',
-    DYNAMIC_QUERY_COMPLETE: 'dynamic_query_complete',
-    DYNAMIC_STARS_LOADED: 'dynamic_stars_loaded',
-    DYNAMIC_DSOS_LOADED: 'dynamic_dsos_loaded',
-    DYNAMIC_QUERY_RATE_LIMITED: 'dynamic_query_ratelimited',
+    DYNAMIC_QUERY_STARTED: 'dynamic:query:started',
+    DYNAMIC_QUERY_COMPLETE: 'dynamic:query:complete',
+    DYNAMIC_STARS_LOADED: 'dynamic:stars:loaded',
+    DYNAMIC_DSOS_LOADED: 'dynamic:dsos:loaded',
+    DYNAMIC_QUERY_RATE_LIMITED: 'dynamic:query:ratelimited',
   },
 }));
 
@@ -139,7 +140,7 @@ describe('DynamicDataLoader Rate Limiting', () => {
 
       // Should have emitted the rate limited event
       expect(mockEmit).toHaveBeenCalledWith(
-        'dynamic_query_ratelimited',
+        'dynamic:query:ratelimited',
         expect.objectContaining({
           api: 'vizier',
           reason: 'per-api',
@@ -160,7 +161,7 @@ describe('DynamicDataLoader Rate Limiting', () => {
 
       // Should have emitted with backoff reason
       expect(mockEmit).toHaveBeenCalledWith(
-        'dynamic_query_ratelimited',
+        'dynamic:query:ratelimited',
         expect.objectContaining({
           api: 'vizier',
           reason: 'backoff',
@@ -181,7 +182,7 @@ describe('DynamicDataLoader Rate Limiting', () => {
 
       // Should have emitted with global reason
       expect(mockEmit).toHaveBeenCalledWith(
-        'dynamic_query_ratelimited',
+        'dynamic:query:ratelimited',
         expect.objectContaining({
           api: 'newapi',
           reason: 'global',
@@ -197,7 +198,7 @@ describe('DynamicDataLoader Rate Limiting', () => {
 
       // Should not have emitted rate limited event
       expect(mockEmit).not.toHaveBeenCalledWith(
-        'dynamic_query_ratelimited',
+        'dynamic:query:ratelimited',
         expect.anything()
       );
     });
@@ -217,7 +218,7 @@ describe('DynamicDataLoader Rate Limiting', () => {
 
       // Should not have emitted rate limited event
       expect(mockEmit).not.toHaveBeenCalledWith(
-        'dynamic_query_ratelimited',
+        'dynamic:query:ratelimited',
         expect.anything()
       );
     });
@@ -366,6 +367,8 @@ describe('DynamicDataLoader Configuration', () => {
     expect(loader.maxRequestsPerMinute_).toBe(30);
     expect(loader.maxBackoffMs_).toBe(60000);
     expect(loader.rateLimitingDisabled_).toBe(false);
+    expect(loader.backoffBase_).toBe(2);
+    expect(loader.backoffInitialMs_).toBe(1000);
   });
 
   test('accepts custom configuration', () => {
@@ -390,5 +393,45 @@ describe('DynamicDataLoader Configuration', () => {
     const loader = new DynamicDataLoader({});
 
     expect(loader.rateLimitingDisabled_).toBe(false);
+  });
+
+  test('accepts custom backoff configuration', () => {
+    const loader = new DynamicDataLoader({
+      backoffBase: 3,
+      backoffInitialMs: 500,
+      maxBackoffMs: 30000,
+    });
+
+    expect(loader.backoffBase_).toBe(3);
+    expect(loader.backoffInitialMs_).toBe(500);
+    expect(loader.maxBackoffMs_).toBe(30000);
+  });
+
+  test('uses custom backoff parameters in calculation', () => {
+    // Create loader with custom backoff: base 3, initial 500ms
+    // 1 failure = 3^1 * 500 = 1500ms backoff
+    const loader = new DynamicDataLoader({
+      rateLimitMs: 100,
+      backoffBase: 3,
+      backoffInitialMs: 500,
+      maxBackoffMs: 30000,
+    });
+
+    // Record one failure
+    loader.recordFailure_();
+
+    // Should be rate limited due to backoff
+    expect(loader.shouldRateLimit_('vizier')).toBe(true);
+
+    // Verify the event was emitted with correct wait time
+    // With base=3, initial=500, 1 failure: backoff = 3^1 * 500 = 1500ms
+    expect(mockEmit).toHaveBeenCalledWith(
+      'dynamic:query:ratelimited',
+      expect.objectContaining({
+        reason: 'backoff',
+        // waitMs should be approximately 1500ms (minus small elapsed time)
+        waitMs: expect.any(Number),
+      })
+    );
   });
 });
