@@ -47,6 +47,7 @@ import {
   dateToJulianDate as _dateToJulianDate,
   calculateLST as _calculateLST,
 } from './modules/core/CoordinateUtils.js';
+import {escapeHtml, fetchWikipedia} from './modules/core/SecurityUtils.js';
 
 /* ==========================================================================
    1. SHARED CONSTANTS
@@ -2197,8 +2198,8 @@ class SkyMapApp {
 
     // Convert type abbreviation to full name
     const typeFullName = this.getTypeFullName(obj.type);
-    html += `<p><strong>Type:</strong> ${typeFullName}</p>`;
-    if (obj.subtype) html += `<p><strong>Subtype:</strong> ${this.getTypeFullName(obj.subtype)}</p>`;
+    html += `<p><strong>Type:</strong> ${escapeHtml(typeFullName)}</p>`;
+    if (obj.subtype) html += `<p><strong>Subtype:</strong> ${escapeHtml(this.getTypeFullName(obj.subtype))}</p>`;
     html += `<p><strong>RA:</strong> ${obj.ra.toFixed(4)}°</p>`;
     html += `<p><strong>Dec:</strong> ${obj.dec.toFixed(4)}°</p>`;
     if (obj.mag !== undefined && obj.mag !== null) html += `<p><strong>Magnitude:</strong> ${obj.mag.toFixed(1)}</p>`;
@@ -2254,15 +2255,15 @@ class SkyMapApp {
     // Add constellation info if available
     const constName = this.getConstellation(obj.ra, obj.dec);
     if (constName) {
-      html += `<p><strong>Constellation:</strong> ${constName}</p>`;
+      html += `<p><strong>Constellation:</strong> ${escapeHtml(constName)}</p>`;
 
       // Feature 12: Add constellation story
       const story = this.getConstellationStory(constName);
       if (story) {
         html += `<div class="constellation-story">`;
-        html += `<h3>About ${constName}</h3>`;
-        html += `<p>${story.mythology}</p>`;
-        html += `<p><strong>Best Seen:</strong> ${story.bestSeen}</p>`;
+        html += `<h3>About ${escapeHtml(constName)}</h3>`;
+        html += `<p>${escapeHtml(story.mythology)}</p>`;
+        html += `<p><strong>Best Seen:</strong> ${escapeHtml(story.bestSeen)}</p>`;
         html += `</div>`;
       }
     }
@@ -2615,20 +2616,20 @@ class SkyMapApp {
     const names = this.getConstellationNames();
     const englishName = names['en'][abbrev] || constName;
 
-    let html = `<h2>${fullName}</h2>`;
-    html += `<p><strong>Abbreviation:</strong> ${abbrev}</p>`;
+    let html = `<h2>${escapeHtml(fullName)}</h2>`;
+    html += `<p><strong>Abbreviation:</strong> ${escapeHtml(abbrev)}</p>`;
 
     // Show Latin name if current language is not English/Latin
     if (this.constellationLanguage !== 'en' && this.constellationLanguage !== 'la') {
-      html += `<p><strong>Latin:</strong> ${englishName}</p>`;
+      html += `<p><strong>Latin:</strong> ${escapeHtml(englishName)}</p>`;
     }
 
     // Get constellation story if available (try both abbrev and original name)
     const story = this.getConstellationStory(abbrev) || this.getConstellationStory(constName);
     if (story) {
       html += `<div class="constellation-story">`;
-      html += `<p>${story.mythology}</p>`;
-      html += `<p><strong>Best Seen:</strong> ${story.bestSeen}</p>`;
+      html += `<p>${escapeHtml(story.mythology)}</p>`;
+      html += `<p><strong>Best Seen:</strong> ${escapeHtml(story.bestSeen)}</p>`;
       html += `</div>`;
     }
 
@@ -2664,7 +2665,7 @@ class SkyMapApp {
     try {
       const searchName = `${constellationName} (constellation)`;
       const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchName)}`;
-      const response = await fetch(searchUrl);
+      const response = await fetchWikipedia(searchUrl);
 
       if (response.ok) {
         const data = await response.json();
@@ -2680,7 +2681,7 @@ class SkyMapApp {
 
       // Fallback: search without "(constellation)"
       const fallbackUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(constellationName)}`;
-      const fallbackResponse = await fetch(fallbackUrl);
+      const fallbackResponse = await fetchWikipedia(fallbackUrl);
 
       if (fallbackResponse.ok) {
         const fallbackData = await fallbackResponse.json();
@@ -2952,7 +2953,7 @@ class SkyMapApp {
 
     for (const term of searchTerms) {
       try {
-        const response = await fetch(
+        const response = await fetchWikipedia(
           `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`
         );
 
@@ -3359,13 +3360,13 @@ class SkyMapApp {
 
     html += '<h3>Bright Stars</h3><ul>';
     visible.brightStars.forEach(star => {
-      html += `<li><a href="#" data-ra="${star.ra}" data-dec="${star.dec}">${star.name}</a> (mag ${star.magnitude.toFixed(1)})</li>`;
+      html += `<li><a href="#" data-ra="${star.ra}" data-dec="${star.dec}">${escapeHtml(star.name)}</a> (mag ${star.magnitude.toFixed(1)})</li>`;
     });
     html += '</ul>';
 
     html += '<h3>Messier Objects</h3><ul>';
     visible.messierObjects.forEach(obj => {
-      html += `<li><a href="#" data-ra="${obj.ra}" data-dec="${obj.dec}">${obj.name}</a> - ${obj.type} (mag ${obj.magnitude.toFixed(1)})</li>`;
+      html += `<li><a href="#" data-ra="${obj.ra}" data-dec="${obj.dec}">${escapeHtml(obj.name)}</a> - ${escapeHtml(obj.type)} (mag ${obj.magnitude.toFixed(1)})</li>`;
     });
     html += '</ul>';
 
@@ -4524,11 +4525,11 @@ class SkyMapApp {
       const description = event.description || 'Astronomical event';
 
       html += `<div class="event-item">`;
-      html += `<span class="event-icon">${icon}</span>`;
+      html += `<span class="event-icon">${escapeHtml(icon)}</span>`;
       html += `<div class="event-details">`;
-      html += `<div class="event-name">${event.name}</div>`;
-      html += `<div class="event-date">${dateStr} (${daysText})</div>`;
-      html += `<div class="event-desc">${description}</div>`;
+      html += `<div class="event-name">${escapeHtml(event.name)}</div>`;
+      html += `<div class="event-date">${escapeHtml(dateStr)} (${escapeHtml(daysText)})</div>`;
+      html += `<div class="event-desc">${escapeHtml(description)}</div>`;
       html += `</div></div>`;
     });
     html += '</div>';
