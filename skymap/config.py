@@ -5,7 +5,8 @@ Contains URLs, file paths, and processing parameters.
 
 from pathlib import Path
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Dict, Optional
+import hashlib
 
 
 @dataclass
@@ -14,6 +15,14 @@ class MagnitudeLevel:
     mag_limit: float
     filename: str
     description: str
+
+
+@dataclass
+class CatalogSource:
+    """Defines a catalog source with optional checksum verification."""
+    url: str
+    expected_sha256: Optional[str] = None
+    description: str = ""
 
 
 class Config:
@@ -41,10 +50,39 @@ class Config:
         MagnitudeLevel(12.0, "stars_all.json", "All catalog stars (mag <= 12.0)"),
     ]
 
-    # Catalog URLs
-    HYG_URL = "https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/CURRENT/hygdata_v41.csv"
-    OPENNGC_URL = "https://raw.githubusercontent.com/mattiaverga/OpenNGC/master/database_files/NGC.csv"
-    CONSTELLATION_LINES_URL = "https://raw.githubusercontent.com/Stellarium/stellarium/master/skycultures/modern/constellationship.fab"
+    # Catalog URLs (legacy - prefer CATALOG_SOURCES for new code)
+    HYG_URL = (
+        "https://raw.githubusercontent.com/astronexus/"
+        "HYG-Database/main/hyg/CURRENT/hygdata_v41.csv"
+    )
+    OPENNGC_URL = (
+        "https://raw.githubusercontent.com/mattiaverga/"
+        "OpenNGC/master/database_files/NGC.csv"
+    )
+    CONSTELLATION_LINES_URL = (
+        "https://raw.githubusercontent.com/Stellarium/"
+        "stellarium/master/skycultures/modern/constellationship.fab"
+    )
+
+    # Catalog sources with optional SHA256 checksums for integrity verification
+    # Note: Checksums may need updating when upstream catalogs change
+    CATALOG_SOURCES: Dict[str, CatalogSource] = {
+        "hyg": CatalogSource(
+            url=HYG_URL,
+            expected_sha256=None,  # Set after first verified download
+            description="HYG v4.1 star database",
+        ),
+        "openngc": CatalogSource(
+            url=OPENNGC_URL,
+            expected_sha256=None,  # Set after first verified download
+            description="OpenNGC deep sky objects catalog",
+        ),
+        "constellations": CatalogSource(
+            url=CONSTELLATION_LINES_URL,
+            expected_sha256=None,  # Set after first verified download
+            description="IAU constellation line data from Stellarium",
+        ),
+    }
 
     # Download settings
     DOWNLOAD_TIMEOUT = 60  # seconds
@@ -71,6 +109,71 @@ class Config:
     def ensure_data_dir(cls) -> None:
         """Create data directory if it doesn't exist."""
         cls.DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def compute_sha256(data: bytes) -> str:
+        """Compute SHA256 hash of data.
+
+        Args:
+            data: Bytes to hash
+
+        Returns:
+            Hex-encoded SHA256 hash
+        """
+        return hashlib.sha256(data).hexdigest()
+
+    @classmethod
+    def verify_checksum(
+        cls,
+        data: bytes,
+        catalog_name: str,
+        warn_only: bool = True
+    ) -> bool:
+        """Verify downloaded data against expected checksum.
+
+        Args:
+            data: Downloaded data bytes
+            catalog_name: Name of catalog (key in CATALOG_SOURCES)
+            warn_only: If True, only warn on mismatch; if False, raise exception
+
+        Returns:
+            True if checksum matches or no checksum configured
+
+        Raises:
+            ValueError: If checksum doesn't match and warn_only is False
+        """
+        source = cls.CATALOG_SOURCES.get(catalog_name)
+        if not source or not source.expected_sha256:
+            return True
+
+        actual_hash = cls.compute_sha256(data)
+        if actual_hash != source.expected_sha256:
+            msg = (
+                f"Checksum mismatch for {catalog_name}!\n"
+                f"Expected: {source.expected_sha256}\n"
+                f"Got: {actual_hash}\n"
+                f"The catalog may have been updated or tampered with."
+            )
+            if warn_only:
+                import warnings
+                warnings.warn(msg, RuntimeWarning)
+                return False
+            raise ValueError(msg)
+
+        return True
+
+    @classmethod
+    def get_catalog_url(cls, catalog_name: str) -> Optional[str]:
+        """Get URL for a catalog by name.
+
+        Args:
+            catalog_name: Name of catalog (key in CATALOG_SOURCES)
+
+        Returns:
+            URL string or None if not found
+        """
+        source = cls.CATALOG_SOURCES.get(catalog_name)
+        return source.url if source else None
 
 
 # DSO type mappings

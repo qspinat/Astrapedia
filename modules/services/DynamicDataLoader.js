@@ -31,6 +31,7 @@ let DSOData;
 
 /**
  * DynamicDataLoader queries VizieR and SIMBAD for additional celestial data.
+ * Includes rate limiting to prevent API abuse.
  */
 export class DynamicDataLoader {
   /**
@@ -64,6 +65,86 @@ export class DynamicDataLoader {
 
     /** @private {boolean} */
     this.isQueryingDSOs_ = false;
+
+    // Rate limiting configuration
+    /** @private @const {number} Minimum ms between requests to same API */
+    this.rateLimitMs_ = config.rateLimitMs || 1000;
+
+    /** @private @const {number} Max requests per minute */
+    this.maxRequestsPerMinute_ = config.maxRequestsPerMinute || 30;
+
+    /** @private {!Map<string, number>} Last request time per API */
+    this.lastRequestTime_ = new Map();
+
+    /** @private {!Array<number>} Request timestamps for rate tracking */
+    this.requestTimestamps_ = [];
+
+    /** @private {number} Consecutive failure count for backoff */
+    this.consecutiveFailures_ = 0;
+
+    /** @private @const {number} Max backoff delay in ms */
+    this.maxBackoffMs_ = 60000;
+  }
+
+  /**
+   * Check if we should rate limit a request to an API.
+   * @param {string} apiName - Name of the API (e.g., 'vizier', 'simbad')
+   * @returns {boolean} True if request should be delayed
+   * @private
+   */
+  shouldRateLimit_(apiName) {
+    const now = Date.now();
+
+    // Check per-API rate limit
+    const lastRequest = this.lastRequestTime_.get(apiName) || 0;
+    if (now - lastRequest < this.rateLimitMs_) {
+      return true;
+    }
+
+    // Check global requests per minute
+    this.requestTimestamps_ = this.requestTimestamps_.filter(
+      (t) => now - t < 60000
+    );
+    if (this.requestTimestamps_.length >= this.maxRequestsPerMinute_) {
+      console.warn('Rate limit: Too many requests per minute');
+      return true;
+    }
+
+    // Check exponential backoff after failures
+    if (this.consecutiveFailures_ > 0) {
+      const backoffMs = Math.min(
+        this.maxBackoffMs_,
+        Math.pow(2, this.consecutiveFailures_) * 1000
+      );
+      const lastFailureTime = this.lastRequestTime_.get('_failure') || 0;
+      if (now - lastFailureTime < backoffMs) {
+        console.warn(`Rate limit: Backoff for ${backoffMs}ms after failures`);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Record a successful request.
+   * @param {string} apiName - Name of the API
+   * @private
+   */
+  recordRequest_(apiName) {
+    const now = Date.now();
+    this.lastRequestTime_.set(apiName, now);
+    this.requestTimestamps_.push(now);
+    this.consecutiveFailures_ = 0;
+  }
+
+  /**
+   * Record a failed request for backoff calculation.
+   * @private
+   */
+  recordFailure_() {
+    this.consecutiveFailures_++;
+    this.lastRequestTime_.set('_failure', Date.now());
   }
 
   /**
@@ -198,6 +279,12 @@ export class DynamicDataLoader {
    * @private
    */
   async queryTycho_(ra, dec, fov, magLimit) {
+    // Check rate limit before querying
+    if (this.shouldRateLimit_('vizier')) {
+      console.log('Tycho-2 query rate limited');
+      return [];
+    }
+
     const radius = Math.max(fov * 0.8, 0.2);
     const mag = Math.min(12, magLimit);
     const limit = fov < 1 ? 5000 : 3000;
@@ -215,13 +302,18 @@ export class DynamicDataLoader {
 
     try {
       const response = await this.fetchWithTimeout_(url);
-      if (!response.ok) throw new Error(`Tycho query failed: ${response.status}`);
+      if (!response.ok) {
+        this.recordFailure_();
+        throw new Error(`Tycho query failed: ${response.status}`);
+      }
 
+      this.recordRequest_('vizier');
       const text = await response.text();
       const stars = this.parseVOTableStars_(text);
       console.log(`✓ Loaded ${stars.length} stars from Tycho-2`);
       return stars;
     } catch (error) {
+      this.recordFailure_();
       console.warn('Tycho-2 query error:', error.message);
       return [];
     }
@@ -237,6 +329,12 @@ export class DynamicDataLoader {
    * @private
    */
   async queryUCAC4_(ra, dec, fov, magLimit) {
+    // Check rate limit before querying
+    if (this.shouldRateLimit_('vizier')) {
+      console.log('UCAC4 query rate limited');
+      return [];
+    }
+
     const radius = Math.max(fov * 0.8, 0.1);
     const mag = Math.min(16, magLimit);
     const limit = fov < 0.5 ? 8000 : 4000;
@@ -254,13 +352,18 @@ export class DynamicDataLoader {
 
     try {
       const response = await this.fetchWithTimeout_(url);
-      if (!response.ok) return [];
+      if (!response.ok) {
+        this.recordFailure_();
+        return [];
+      }
 
+      this.recordRequest_('vizier');
       const text = await response.text();
       const stars = this.parseVOTableStars_(text);
       console.log(`✓ Loaded ${stars.length} stars from UCAC4`);
       return stars;
     } catch (error) {
+      this.recordFailure_();
       return [];
     }
   }
@@ -275,6 +378,12 @@ export class DynamicDataLoader {
    * @private
    */
   async querySimbadStars_(ra, dec, fov, magLimit) {
+    // Check rate limit before querying
+    if (this.shouldRateLimit_('simbad')) {
+      console.log('SIMBAD query rate limited');
+      return [];
+    }
+
     const radius = Math.max(fov * 0.7, 0.1);
     const mag = Math.min(25, magLimit);
     const limit = 5000;
@@ -305,8 +414,12 @@ export class DynamicDataLoader {
         }),
       });
 
-      if (!response.ok) return [];
+      if (!response.ok) {
+        this.recordFailure_();
+        return [];
+      }
 
+      this.recordRequest_('simbad');
       const data = await response.json();
       if (!data.data?.length) return [];
 
@@ -320,6 +433,7 @@ export class DynamicDataLoader {
       console.log(`✓ Loaded ${stars.length} stars from SIMBAD`);
       return stars;
     } catch (error) {
+      this.recordFailure_();
       return [];
     }
   }
@@ -335,6 +449,13 @@ export class DynamicDataLoader {
   async queryDSOs(ra, dec, fov, magLimit) {
     if (fov > 10) return [];
     if (this.isQueryingDSOs_) return [];
+
+    // Check rate limit before querying
+    if (this.shouldRateLimit_('vizier')) {
+      console.log('DSO query rate limited');
+      return [];
+    }
+
     this.isQueryingDSOs_ = true;
 
     globalEventBus.emit(Events.DYNAMIC_QUERY_STARTED, {type: 'dsos', ra, dec, fov});
@@ -355,8 +476,12 @@ export class DynamicDataLoader {
         `&Bmag=${encodeURIComponent('<' + params.mag.toFixed(2))}`;
 
       const response = await this.fetchWithTimeout_(url);
-      if (!response.ok) return [];
+      if (!response.ok) {
+        this.recordFailure_();
+        return [];
+      }
 
+      this.recordRequest_('vizier');
       const text = await response.text();
       const dsos = this.parseVOTableDSOs_(text);
 
@@ -372,6 +497,7 @@ export class DynamicDataLoader {
 
       return dsos;
     } catch (error) {
+      this.recordFailure_();
       console.warn('DSO query error:', error.message);
       return [];
     } finally {
