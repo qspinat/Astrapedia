@@ -6,15 +6,17 @@
 import {jest} from '@jest/globals';
 
 // Mock the EventBus and Constants before importing DynamicDataLoader
+const mockEmit = jest.fn();
 jest.unstable_mockModule('../modules/core/EventBus.js', () => ({
   globalEventBus: {
-    emit: jest.fn(),
+    emit: mockEmit,
   },
   Events: {
     DYNAMIC_QUERY_STARTED: 'dynamic_query_started',
     DYNAMIC_QUERY_COMPLETE: 'dynamic_query_complete',
     DYNAMIC_STARS_LOADED: 'dynamic_stars_loaded',
     DYNAMIC_DSOS_LOADED: 'dynamic_dsos_loaded',
+    DYNAMIC_QUERY_RATE_LIMITED: 'dynamic_query_ratelimited',
   },
 }));
 
@@ -43,12 +45,35 @@ describe('DynamicDataLoader Rate Limiting', () => {
       maxRequestsPerMinute: 5,
     });
     jest.clearAllMocks();
+    mockEmit.mockClear();
   });
 
   describe('shouldRateLimit_', () => {
     test('allows first request to any API', () => {
       expect(loader.shouldRateLimit_('vizier')).toBe(false);
       expect(loader.shouldRateLimit_('simbad')).toBe(false);
+    });
+
+    test('respects disableRateLimiting config option', () => {
+      const noLimitLoader = new DynamicDataLoader({
+        rateLimitMs: 100,
+        maxRequestsPerMinute: 5,
+        disableRateLimiting: true,
+      });
+
+      // Record a request
+      noLimitLoader.recordRequest_('vizier');
+
+      // Should NOT be rate limited even immediately after
+      expect(noLimitLoader.shouldRateLimit_('vizier')).toBe(false);
+
+      // Make many requests
+      for (let i = 0; i < 10; i++) {
+        noLimitLoader.recordRequest_(`api${i}`);
+      }
+
+      // Still should not be rate limited
+      expect(noLimitLoader.shouldRateLimit_('newapi')).toBe(false);
     });
 
     test('blocks rapid requests to same API', () => {
@@ -102,6 +127,99 @@ describe('DynamicDataLoader Rate Limiting', () => {
 
       // Failure count should be reset
       expect(loader.consecutiveFailures_).toBe(0);
+    });
+
+    test('emits DYNAMIC_QUERY_RATE_LIMITED event when rate limited', () => {
+      // Record a request
+      loader.recordRequest_('vizier');
+      mockEmit.mockClear();
+
+      // Trigger rate limit
+      loader.shouldRateLimit_('vizier');
+
+      // Should have emitted the rate limited event
+      expect(mockEmit).toHaveBeenCalledWith(
+        'dynamic_query_ratelimited',
+        expect.objectContaining({
+          api: 'vizier',
+          reason: 'per-api',
+          waitMs: expect.any(Number),
+          consecutiveFailures: 0,
+        })
+      );
+    });
+
+    test('emits event with backoff reason after failures', () => {
+      // Record failures
+      loader.recordFailure_();
+      loader.recordFailure_();
+      mockEmit.mockClear();
+
+      // Trigger rate limit
+      loader.shouldRateLimit_('vizier');
+
+      // Should have emitted with backoff reason
+      expect(mockEmit).toHaveBeenCalledWith(
+        'dynamic_query_ratelimited',
+        expect.objectContaining({
+          api: 'vizier',
+          reason: 'backoff',
+          consecutiveFailures: 2,
+        })
+      );
+    });
+
+    test('emits event with global reason when per-minute limit reached', () => {
+      // Make 5 requests (the limit)
+      for (let i = 0; i < 5; i++) {
+        loader.recordRequest_(`api${i}`);
+      }
+      mockEmit.mockClear();
+
+      // Trigger rate limit on new API
+      loader.shouldRateLimit_('newapi');
+
+      // Should have emitted with global reason
+      expect(mockEmit).toHaveBeenCalledWith(
+        'dynamic_query_ratelimited',
+        expect.objectContaining({
+          api: 'newapi',
+          reason: 'global',
+        })
+      );
+    });
+
+    test('does not emit event when not rate limited', () => {
+      mockEmit.mockClear();
+
+      // First request should not be rate limited
+      loader.shouldRateLimit_('vizier');
+
+      // Should not have emitted rate limited event
+      expect(mockEmit).not.toHaveBeenCalledWith(
+        'dynamic_query_ratelimited',
+        expect.anything()
+      );
+    });
+
+    test('does not emit event when rate limiting is disabled', () => {
+      const noLimitLoader = new DynamicDataLoader({
+        rateLimitMs: 100,
+        maxRequestsPerMinute: 5,
+        disableRateLimiting: true,
+      });
+
+      // Record a request and try to trigger rate limit
+      noLimitLoader.recordRequest_('vizier');
+      mockEmit.mockClear();
+
+      noLimitLoader.shouldRateLimit_('vizier');
+
+      // Should not have emitted rate limited event
+      expect(mockEmit).not.toHaveBeenCalledWith(
+        'dynamic_query_ratelimited',
+        expect.anything()
+      );
     });
   });
 
@@ -247,6 +365,7 @@ describe('DynamicDataLoader Configuration', () => {
     expect(loader.rateLimitMs_).toBe(1000);
     expect(loader.maxRequestsPerMinute_).toBe(30);
     expect(loader.maxBackoffMs_).toBe(60000);
+    expect(loader.rateLimitingDisabled_).toBe(false);
   });
 
   test('accepts custom configuration', () => {
@@ -257,5 +376,19 @@ describe('DynamicDataLoader Configuration', () => {
 
     expect(loader.rateLimitMs_).toBe(500);
     expect(loader.maxRequestsPerMinute_).toBe(10);
+  });
+
+  test('accepts disableRateLimiting option', () => {
+    const loader = new DynamicDataLoader({
+      disableRateLimiting: true,
+    });
+
+    expect(loader.rateLimitingDisabled_).toBe(true);
+  });
+
+  test('disableRateLimiting defaults to false', () => {
+    const loader = new DynamicDataLoader({});
+
+    expect(loader.rateLimitingDisabled_).toBe(false);
   });
 });

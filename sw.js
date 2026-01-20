@@ -4,6 +4,10 @@ const CACHE_VERSION = 3;
 // Cache TTL in milliseconds (24 hours for external resources)
 const EXTERNAL_CACHE_TTL = 24 * 60 * 60 * 1000;
 
+// Multiplier for cleanup threshold (entries older than TTL * this are deleted)
+// Using 2x means we keep entries up to 48 hours before cleanup
+const CLEANUP_TTL_MULTIPLIER = 2;
+
 const STATIC_ASSETS = [
     '/app.html',
     '/skymap.js',
@@ -163,10 +167,11 @@ async function deleteCacheEntry(url) {
  */
 async function cleanupExpiredEntries() {
     const now = Date.now();
+    const cleanupThreshold = EXTERNAL_CACHE_TTL * CLEANUP_TTL_MULTIPLIER;
 
     // Clean up memory cache
     for (const [url, entry] of memoryCache.entries()) {
-        if (now - entry.timestamp > EXTERNAL_CACHE_TTL * 2) {
+        if (now - entry.timestamp > cleanupThreshold) {
             memoryCache.delete(url);
         }
     }
@@ -186,8 +191,8 @@ async function cleanupExpiredEntries() {
                     const cursor = event.target.result;
                     if (cursor) {
                         const entry = cursor.value;
-                        // Delete entries older than 2x TTL
-                        if (now - entry.timestamp > EXTERNAL_CACHE_TTL * 2) {
+                        // Delete entries older than TTL * CLEANUP_TTL_MULTIPLIER
+                        if (now - entry.timestamp > cleanupThreshold) {
                             cursor.delete();
                         }
                         cursor.continue();
@@ -268,19 +273,23 @@ self.addEventListener('install', event => {
 // Activate: clean up old caches
 self.addEventListener('activate', event => {
     event.waitUntil(
-        Promise.all([
+        (async () => {
             // Delete old cache versions
-            caches.keys().then(cacheNames => {
-                return Promise.all(
-                    cacheNames
-                        .filter(name => name.startsWith('skymap-') && name !== CACHE_NAME)
-                        .map(name => caches.delete(name))
-                );
-            }),
+            const cacheNames = await caches.keys();
+            await Promise.all(
+                cacheNames
+                    .filter(name => name.startsWith('skymap-') && name !== CACHE_NAME)
+                    .map(name => caches.delete(name))
+            );
+
             // Clean up expired metadata entries
-            cleanupExpiredEntries(),
-            self.clients.claim()
-        ])
+            await cleanupExpiredEntries();
+
+            // Take control of all clients
+            await self.clients.claim();
+
+            console.log('Service worker activated, old caches cleaned');
+        })()
     );
 });
 

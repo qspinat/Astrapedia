@@ -32,11 +32,22 @@ let DSOData;
 /**
  * DynamicDataLoader queries VizieR and SIMBAD for additional celestial data.
  * Includes rate limiting to prevent API abuse.
+ *
+ * Rate limiting can be disabled for development/testing by setting
+ * `disableRateLimiting: true` in the config.
  */
 export class DynamicDataLoader {
   /**
    * Creates a new DynamicDataLoader instance.
    * @param {Object=} config - Optional configuration
+   * @param {number=} config.maxStars - Maximum stars to keep in memory
+   * @param {number=} config.maxDSOs - Maximum DSOs to keep in memory
+   * @param {number=} config.maxRegions - Maximum cached regions
+   * @param {number=} config.timeout - Query timeout in ms
+   * @param {number=} config.rateLimitMs - Minimum ms between requests (default: 1000)
+   * @param {number=} config.maxRequestsPerMinute - Max requests/min (default: 30)
+   * @param {boolean=} config.disableRateLimiting - Set true to disable rate
+   *     limiting (useful for development/testing)
    */
   constructor(config = {}) {
     /** @private @const {number} */
@@ -67,6 +78,9 @@ export class DynamicDataLoader {
     this.isQueryingDSOs_ = false;
 
     // Rate limiting configuration
+    /** @private @const {boolean} Whether rate limiting is disabled */
+    this.rateLimitingDisabled_ = config.disableRateLimiting || false;
+
     /** @private @const {number} Minimum ms between requests to same API */
     this.rateLimitMs_ = config.rateLimitMs || 1000;
 
@@ -82,7 +96,7 @@ export class DynamicDataLoader {
     /** @private {number} Consecutive failure count for backoff */
     this.consecutiveFailures_ = 0;
 
-    /** @private @const {number} Max backoff delay in ms */
+    /** @private @const {number} Max backoff delay in ms (60 seconds) */
     this.maxBackoffMs_ = 60000;
   }
 
@@ -105,34 +119,58 @@ export class DynamicDataLoader {
    * @private
    */
   shouldRateLimit_(apiName) {
+    // Skip rate limiting if disabled (for development/testing)
+    if (this.rateLimitingDisabled_) {
+      return false;
+    }
+
     const now = Date.now();
+    let reason = null;
+    let waitMs = 0;
 
     // Check per-API rate limit
     const lastRequest = this.lastRequestTime_.get(apiName) || 0;
-    if (now - lastRequest < this.rateLimitMs_) {
-      return true;
+    const timeSinceLastRequest = now - lastRequest;
+    if (timeSinceLastRequest < this.rateLimitMs_) {
+      reason = 'per-api';
+      waitMs = this.rateLimitMs_ - timeSinceLastRequest;
     }
 
     // Check global requests per minute (count only recent timestamps)
-    const recentRequests = this.requestTimestamps_.filter(
-      (t) => now - t < 60000
-    ).length;
-    if (recentRequests >= this.maxRequestsPerMinute_) {
-      console.warn('Rate limit: Too many requests per minute');
-      return true;
+    if (!reason) {
+      const recentRequests = this.requestTimestamps_.filter(
+        (t) => now - t < 60000
+      ).length;
+      if (recentRequests >= this.maxRequestsPerMinute_) {
+        reason = 'global';
+        waitMs = 60000; // Wait up to a minute
+        console.warn('Rate limit: Too many requests per minute');
+      }
     }
 
     // Check exponential backoff after failures
-    if (this.consecutiveFailures_ > 0) {
+    if (!reason && this.consecutiveFailures_ > 0) {
       const backoffMs = Math.min(
         this.maxBackoffMs_,
         Math.pow(2, this.consecutiveFailures_) * 1000
       );
       const lastFailureTime = this.lastRequestTime_.get('_failure') || 0;
       if (now - lastFailureTime < backoffMs) {
+        reason = 'backoff';
+        waitMs = backoffMs - (now - lastFailureTime);
         console.warn(`Rate limit: Backoff for ${backoffMs}ms after failures`);
-        return true;
       }
+    }
+
+    // Emit event for UI feedback if rate limited
+    if (reason) {
+      globalEventBus.emit(Events.DYNAMIC_QUERY_RATE_LIMITED, {
+        api: apiName,
+        reason,
+        waitMs,
+        consecutiveFailures: this.consecutiveFailures_,
+      });
+      return true;
     }
 
     return false;

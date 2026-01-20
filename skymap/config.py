@@ -65,9 +65,14 @@ class Config:
         "stellarium/master/skycultures/modern/constellationship.fab"
     )
 
-    # Catalog sources with optional SHA256 checksums for integrity verification
-    # Note: Checksums may need updating when upstream catalogs change
-    # To regenerate checksums, run: uv run python -m skymap.config --checksums
+    # Catalog sources with optional SHA256 checksums for integrity verification.
+    #
+    # CHECKSUM VERIFICATION:
+    # - Checksums were last verified: January 2026
+    # - Checksums may need updating when upstream catalogs are updated
+    # - To regenerate/verify checksums: uv run python -m skymap.config --checksums
+    # - A checksum mismatch will emit a warning but not block processing (warn_only=True)
+    # - For strict verification, use Config.verify_checksum(data, name, warn_only=False)
     CATALOG_SOURCES: Dict[str, CatalogSource] = {
         "hyg": CatalogSource(
             url=HYG_URL,
@@ -85,8 +90,13 @@ class Config:
         ),
         "constellations": CatalogSource(
             url=CONSTELLATION_LINES_URL,
-            expected_sha256=None,  # URL defunct as of 2025 - Stellarium changed format
-            description="IAU constellation line data from Stellarium (legacy format)",
+            # NOTE: No checksum configured because:
+            # 1. Stellarium changed their sky culture format in 2024
+            # 2. The legacy .fab format URL may be removed or changed
+            # 3. We have a local fallback (data/constellations.json) if download fails
+            # Consider migrating to the new Stellarium format or a dedicated source
+            expected_sha256=None,
+            description="IAU constellation line data from Stellarium (legacy .fab format)",
         ),
     }
 

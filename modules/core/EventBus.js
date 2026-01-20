@@ -261,6 +261,7 @@ export const Events = {
   DYNAMIC_DSOS_LOADED: 'dynamic:dsos:loaded',
   DYNAMIC_QUERY_STARTED: 'dynamic:query:started',
   DYNAMIC_QUERY_COMPLETE: 'dynamic:query:complete',
+  DYNAMIC_QUERY_RATE_LIMITED: 'dynamic:query:ratelimited',
 
   // Compass events
   COMPASS_ENABLED: 'compass:enabled',
