@@ -226,3 +226,30 @@ describe('Date picker input styling', () => {
     expect(cssContent).toMatch(/\.time-picker-actions\s*\{/);
   });
 });
+
+describe('Time picker accessibility and UX', () => {
+  let jsContent;
+
+  beforeAll(() => {
+    const jsPath = path.resolve(process.cwd(), 'ui-controller.js');
+    jsContent = fs.readFileSync(jsPath, 'utf8');
+  });
+
+  test('implements backdrop click to close time picker', () => {
+    // Should have document click listener that checks for clicks outside panel
+    expect(jsContent).toContain('document.addEventListener(\'click\'');
+    expect(jsContent).toContain('isClickInsidePanel');
+    expect(jsContent).toContain('isClickOnButton');
+  });
+
+  test('implements Escape key to close time picker', () => {
+    // Should have keydown listener for Escape key
+    expect(jsContent).toContain('document.addEventListener(\'keydown\'');
+    expect(jsContent).toMatch(/e\.key\s*===\s*['"]Escape['"]/);
+  });
+
+  test('prevents event propagation on Escape', () => {
+    // Should call preventDefault to stop Escape from affecting other elements
+    expect(jsContent).toMatch(/Escape.*preventDefault|preventDefault.*Escape/s);
+  });
+});

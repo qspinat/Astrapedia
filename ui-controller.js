@@ -500,6 +500,29 @@ class TimeControlsHandler {
         timePickerPanel?.classList.remove('visible');
       });
     }
+
+    // Close time picker on backdrop click (clicking outside the panel)
+    if (timePickerPanel) {
+      document.addEventListener('click', (e) => {
+        if (!timePickerPanel.classList.contains('visible')) return;
+
+        // Check if click is outside both the panel and the trigger button
+        const isClickInsidePanel = timePickerPanel.contains(e.target);
+        const isClickOnButton = timePickerBtn?.contains(e.target);
+
+        if (!isClickInsidePanel && !isClickOnButton) {
+          timePickerPanel.classList.remove('visible');
+        }
+      });
+
+      // Close time picker on Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && timePickerPanel.classList.contains('visible')) {
+          timePickerPanel.classList.remove('visible');
+          e.preventDefault();
+        }
+      });
+    }
   }
 }
 
