@@ -284,13 +284,11 @@ class SearchController {
 class SettingsHandler {
   /** Sets up event listeners for settings controls. */
   setupEventListeners() {
-    // Night mode toggle
-    const nightModeToggle = document.getElementById('night-mode-toggle');
-    if (nightModeToggle) {
-      nightModeToggle.addEventListener('change', () => {
-        if (window.app && window.app.toggleNightMode) {
-          window.app.toggleNightMode();
-        }
+    // Equator line toggle
+    const equatorToggle = document.getElementById('equator-line-toggle');
+    if (equatorToggle) {
+      equatorToggle.addEventListener('change', (e) => {
+        window.app?.setEquatorLineVisible?.(e.target.checked);
       });
     }
 
@@ -431,6 +429,94 @@ class TimeControlsHandler {
       timeNowBtn.addEventListener('click', () => {
         if (window.app && window.app.jumpToTime) {
           window.app.jumpToTime(new Date());
+        }
+      });
+    }
+
+    // Date/Time Picker
+    const timePickerBtn = document.getElementById('time-picker-btn');
+    const timePickerPanel = document.getElementById('time-picker-panel');
+    const datePicker = document.getElementById('date-picker');
+    const timePicker = document.getElementById('time-picker');
+    const timePickerApply = document.getElementById('time-picker-apply');
+    const timePickerCancel = document.getElementById('time-picker-cancel');
+
+    if (timePickerBtn && timePickerPanel) {
+      // Toggle picker panel
+      timePickerBtn.addEventListener('click', () => {
+        const isVisible = timePickerPanel.classList.contains('visible');
+        if (!isVisible) {
+          // Pre-fill with current simulation time in local timezone
+          const currentTime = window.app?.simulationTime || new Date();
+          if (datePicker) {
+            // Format as YYYY-MM-DD in local timezone
+            const year = currentTime.getFullYear();
+            const month = String(currentTime.getMonth() + 1).padStart(2, '0');
+            const day = String(currentTime.getDate()).padStart(2, '0');
+            datePicker.value = `${year}-${month}-${day}`;
+          }
+          if (timePicker) {
+            // Format as HH:MM in local timezone
+            const hours = String(currentTime.getHours()).padStart(2, '0');
+            const minutes = String(currentTime.getMinutes()).padStart(2, '0');
+            timePicker.value = `${hours}:${minutes}`;
+          }
+        }
+        timePickerPanel.classList.toggle('visible');
+      });
+    }
+
+    if (timePickerApply && datePicker && timePicker) {
+      timePickerApply.addEventListener('click', () => {
+        const dateValue = datePicker.value;
+        const timeValue = timePicker.value;
+        if (dateValue && timeValue) {
+          // Parse date and time components explicitly in local timezone
+          const [year, month, day] = dateValue.split('-').map(Number);
+          const [hours, minutes] = timeValue.split(':').map(Number);
+
+          // Validate parsed values
+          if (isNaN(year) || isNaN(month) || isNaN(day) ||
+              isNaN(hours) || isNaN(minutes)) {
+            timePickerPanel?.classList.remove('visible');
+            return;
+          }
+
+          // Create date in local timezone (month is 0-indexed)
+          const newDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+          if (!isNaN(newDate.getTime()) && window.app?.jumpToTime) {
+            window.app.jumpToTime(newDate);
+          }
+        }
+        timePickerPanel?.classList.remove('visible');
+      });
+    }
+
+    if (timePickerCancel) {
+      timePickerCancel.addEventListener('click', () => {
+        timePickerPanel?.classList.remove('visible');
+      });
+    }
+
+    // Close time picker on backdrop click (clicking outside the panel)
+    if (timePickerPanel) {
+      document.addEventListener('click', (e) => {
+        if (!timePickerPanel.classList.contains('visible')) return;
+
+        // Check if click is outside both the panel and the trigger button
+        const isClickInsidePanel = timePickerPanel.contains(e.target);
+        const isClickOnButton = timePickerBtn?.contains(e.target);
+
+        if (!isClickInsidePanel && !isClickOnButton) {
+          timePickerPanel.classList.remove('visible');
+        }
+      });
+
+      // Close time picker on Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && timePickerPanel.classList.contains('visible')) {
+          timePickerPanel.classList.remove('visible');
+          e.preventDefault();
         }
       });
     }

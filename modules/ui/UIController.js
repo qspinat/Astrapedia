@@ -234,11 +234,11 @@ export class SettingsHandler {
    * @private
    */
   setupEventListeners_() {
-    // Night mode toggle
-    const nightModeToggle = document.getElementById('night-mode-toggle');
-    if (nightModeToggle) {
-      nightModeToggle.addEventListener('change', () => {
-        this.deps_.toggleNightMode?.();
+    // Equator line toggle
+    const equatorToggle = document.getElementById('equator-line-toggle');
+    if (equatorToggle) {
+      equatorToggle.addEventListener('change', (e) => {
+        this.deps_.setEquatorLineVisible?.(e.target.checked);
       });
     }
 
