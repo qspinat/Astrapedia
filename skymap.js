@@ -215,6 +215,7 @@ class SkyMapApp {
 
     // Game panel drag state
     this.gamePanelDragging = false;
+    this.gamePanelDragSetup_ = false;  // Guard against multiple setup calls
 
     // Dynamic image loading for nebulae/clusters
     this.dynamicImageCache = new Map();    // Cache: objectName -> { url: string | null, loading: boolean }
@@ -667,12 +668,8 @@ class SkyMapApp {
    * @param {boolean} visible - Whether the equator line should be visible
    */
   setEquatorLineVisible(visible) {
-    console.log('setEquatorLineVisible called:', visible, 'equatorLine:', !!this.equatorLine);
     if (this.equatorLine) {
       this.equatorLine.visible = visible;
-      console.log('Equator line visibility set to:', visible);
-    } else {
-      console.warn('equatorLine is null/undefined');
     }
   }
 
@@ -4796,11 +4793,16 @@ class SkyMapApp {
    * Uses dynamic listener attachment to avoid memory leaks.
    */
   setupGamePanelDrag() {
+    // Guard against multiple setup calls
+    if (this.gamePanelDragSetup_) return;
+
     const gamePanel = document.getElementById('game-panel');
     if (!gamePanel) return;
 
     const header = gamePanel.querySelector('h2');
     if (!header) return;
+
+    this.gamePanelDragSetup_ = true;
 
     let startX = 0;
     let startY = 0;

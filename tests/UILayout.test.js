@@ -275,7 +275,7 @@ describe('UI Controller event wiring', () => {
     });
 
     test('calls setEquatorLineVisible on change', () => {
-      expect(jsContent).toContain('setEquatorLineVisible(e.target.checked)');
+      expect(jsContent).toContain('setEquatorLineVisible?.(e.target.checked)');
     });
 
     test('retrieves constellation-lines-toggle element', () => {
@@ -367,5 +367,122 @@ describe('Skymap equator line methods', () => {
 
   test('initializes equatorLine to null', () => {
     expect(jsContent).toContain('this.equatorLine = null');
+  });
+});
+
+describe('Skymap game panel drag functionality', () => {
+  let jsContent;
+
+  beforeAll(() => {
+    const jsPath = path.resolve(process.cwd(), 'skymap.js');
+    jsContent = fs.readFileSync(jsPath, 'utf8');
+  });
+
+  test('has setupGamePanelDrag method', () => {
+    expect(jsContent).toMatch(/setupGamePanelDrag\s*\(\s*\)/);
+  });
+
+  test('has guard against multiple setup calls', () => {
+    expect(jsContent).toContain('if (this.gamePanelDragSetup_) return');
+  });
+
+  test('initializes gamePanelDragSetup_ flag to false', () => {
+    expect(jsContent).toContain('this.gamePanelDragSetup_ = false');
+  });
+
+  test('sets gamePanelDragSetup_ flag after setup', () => {
+    expect(jsContent).toContain('this.gamePanelDragSetup_ = true');
+  });
+
+  test('gets game panel element', () => {
+    expect(jsContent).toMatch(
+      /setupGamePanelDrag[\s\S]*getElementById\s*\(\s*['"]game-panel['"]\s*\)/
+    );
+  });
+
+  test('gets header element for drag handle', () => {
+    expect(jsContent).toMatch(
+      /setupGamePanelDrag[\s\S]*querySelector\s*\(\s*['"]h2['"]\s*\)/
+    );
+  });
+
+  test('adds mousedown listener to header', () => {
+    expect(jsContent).toMatch(
+      /header\.addEventListener\s*\(\s*['"]mousedown['"]/
+    );
+  });
+
+  test('adds touchstart listener to header', () => {
+    expect(jsContent).toMatch(
+      /header\.addEventListener\s*\(\s*['"]touchstart['"]/
+    );
+  });
+
+  test('removes event listeners on drag end to prevent memory leaks', () => {
+    expect(jsContent).toContain('document.removeEventListener(\'mousemove\'');
+    expect(jsContent).toContain('document.removeEventListener(\'mouseup\'');
+    expect(jsContent).toContain('document.removeEventListener(\'touchmove\'');
+    expect(jsContent).toContain('document.removeEventListener(\'touchend\'');
+  });
+
+  test('constrains panel to viewport bounds', () => {
+    expect(jsContent).toContain('window.innerWidth - panelRect.width');
+    expect(jsContent).toContain('window.innerHeight - panelRect.height');
+    expect(jsContent).toMatch(/Math\.max\s*\(\s*0/);
+    expect(jsContent).toMatch(/Math\.min\s*\([^)]*max/i);
+  });
+
+  test('prevents canvas drag when game panel is being dragged', () => {
+    // onMouseDown and onTouchStart should check gamePanelDragging
+    expect(jsContent).toMatch(/onMouseDown[\s\S]*if\s*\(\s*this\.gamePanelDragging\s*\)\s*return/);
+    expect(jsContent).toMatch(/onTouchStart[\s\S]*if\s*\(\s*this\.gamePanelDragging\s*\)\s*return/);
+  });
+});
+
+describe('Skymap search index planet updates', () => {
+  let jsContent;
+
+  beforeAll(() => {
+    const jsPath = path.resolve(process.cwd(), 'skymap.js');
+    jsContent = fs.readFileSync(jsPath, 'utf8');
+  });
+
+  test('has updateSearchIndexPlanets_ method', () => {
+    expect(jsContent).toMatch(/updateSearchIndexPlanets_\s*\(\s*\)/);
+  });
+
+  test('updateSearchIndexPlanets_ is called from createPlanets', () => {
+    // Find createPlanets method and verify it calls updateSearchIndexPlanets_
+    expect(jsContent).toMatch(
+      /createPlanets\s*\(\s*\)[\s\S]*?this\.updateSearchIndexPlanets_\s*\(\s*\)/
+    );
+  });
+
+  test('removes old planet entries before adding new ones', () => {
+    expect(jsContent).toMatch(
+      /this\.searchIndex\s*=\s*this\.searchIndex\.filter\s*\([^)]*type\s*!==\s*['"]Planet['"]/
+    );
+  });
+
+  test('adds planets to search index with required fields', () => {
+    // Check that planet entries include name, type, ra, dec
+    expect(jsContent).toMatch(
+      /updateSearchIndexPlanets_[\s\S]*?this\.searchIndex\.push\s*\(\s*\{[\s\S]*?name:\s*planet\.name/
+    );
+    expect(jsContent).toMatch(
+      /updateSearchIndexPlanets_[\s\S]*?type:\s*['"]Planet['"]/
+    );
+    expect(jsContent).toMatch(
+      /updateSearchIndexPlanets_[\s\S]*?ra:\s*planet\.ra/
+    );
+    expect(jsContent).toMatch(
+      /updateSearchIndexPlanets_[\s\S]*?dec:\s*planet\.dec/
+    );
+  });
+
+  test('guards against null searchIndex or planets', () => {
+    expect(jsContent).toMatch(
+      /updateSearchIndexPlanets_[\s\S]*?if\s*\(\s*!this\.searchIndex\s*\|\|\s*!this\.planets\s*\)/
+    );
   });
 });

@@ -4,8 +4,6 @@
  * navigating to RA/Dec coordinates.
  */
 
-import {jest} from '@jest/globals';
-
 describe('Camera Navigation', () => {
   /**
    * Calculate camera theta for given RA and celestial sphere rotation.
