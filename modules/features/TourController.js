@@ -308,8 +308,10 @@ export class TourController {
       this.setFOV_?.(requiredFov);
     }
 
-    // Navigate to target
-    this.navigateToRaDec_?.(step.ra, step.dec);
+    // Navigate to target (defer to ensure animation triggers after panel opens)
+    requestAnimationFrame(() => {
+      this.navigateToRaDec_?.(step.ra, step.dec);
+    });
 
     // Handle different tour types
     if (this.currentTour_.type === 'constellation') {

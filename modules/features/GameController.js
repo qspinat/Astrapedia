@@ -90,6 +90,12 @@ export class GameController {
     /** @private {?GameQuestion} */
     this.currentQuestion_ = null;
 
+    /** @private {boolean} - Prevents scoring during pass answer reveal */
+    this.isShowingPassedAnswer_ = false;
+
+    /** @private {boolean} - Prevents double game over alerts */
+    this.isGameEnding_ = false;
+
     /** @private {number} */
     this.score_ = 0;
 
@@ -238,6 +244,8 @@ export class GameController {
     this.startTime_ = Date.now();
     this.askedQuestions_ = [];
     this.passedQuestions_ = [];
+    this.isShowingPassedAnswer_ = false;
+    this.isGameEnding_ = false;
 
     // Update UI
     this.updateUI_();
@@ -264,6 +272,10 @@ export class GameController {
    * Stop the game.
    */
   stop() {
+    // Guard against double alerts
+    if (this.isGameEnding_ || !this.active_) return;
+    this.isGameEnding_ = true;
+
     this.active_ = false;
 
     // Stop timer
@@ -300,6 +312,9 @@ export class GameController {
     );
 
     if (remaining.length === 0) {
+      // Guard against double alerts
+      if (this.isGameEnding_) return;
+
       // Game complete
       this.stop();
       return;
@@ -328,6 +343,8 @@ export class GameController {
    */
   checkAnswer(ra, dec) {
     if (!this.currentQuestion_) return false;
+    // Prevent scoring during pass answer reveal
+    if (this.isShowingPassedAnswer_) return false;
 
     const target = this.currentQuestion_.data;
     const distance = this.angularDistance_(ra, dec, target.ra, target.dec);
@@ -350,6 +367,8 @@ export class GameController {
    */
   checkAnswerByName(name) {
     if (!this.currentQuestion_) return false;
+    // Prevent scoring during pass answer reveal
+    if (this.isShowingPassedAnswer_) return false;
 
     if (name.toLowerCase() === this.currentQuestion_.name.toLowerCase()) {
       this.markCorrect_();
@@ -364,6 +383,9 @@ export class GameController {
    */
   passQuestion() {
     if (!this.currentQuestion_) return;
+
+    // Set flag to prevent scoring during answer reveal
+    this.isShowingPassedAnswer_ = true;
 
     this.passedQuestions_.push(this.currentQuestion_);
 
@@ -399,6 +421,9 @@ export class GameController {
 
     // Wait then continue
     setTimeout(() => {
+      // Reset the pass flag before moving to next question
+      this.isShowingPassedAnswer_ = false;
+
       if (questionEl) {
         questionEl.style.color = '#60A5FA';
       }

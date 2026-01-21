@@ -332,6 +332,86 @@ describe('GameController', () => {
       jest.advanceTimersByTime(3500);
       // Should have moved to next question
     });
+
+    test('prevents checkAnswer from scoring during pass reveal', () => {
+      const question = controller.getCurrentQuestion();
+      const initialScore = controller.getScore();
+      const initialCorrect = controller.getCorrect();
+
+      // Pass the question
+      controller.passQuestion();
+
+      // Try to answer during the reveal period - should return false
+      const result = controller.checkAnswer(question.data.ra, question.data.dec);
+      expect(result).toBe(false);
+
+      // Score and correct count should remain unchanged
+      expect(controller.getScore()).toBe(initialScore);
+      expect(controller.getCorrect()).toBe(initialCorrect);
+    });
+
+    test('prevents checkAnswerByName from scoring during pass reveal', () => {
+      const question = controller.getCurrentQuestion();
+      const initialScore = controller.getScore();
+      const initialCorrect = controller.getCorrect();
+
+      // Pass the question
+      controller.passQuestion();
+
+      // Try to answer by name during the reveal period - should return false
+      const result = controller.checkAnswerByName(question.name);
+      expect(result).toBe(false);
+
+      // Score and correct count should remain unchanged
+      expect(controller.getScore()).toBe(initialScore);
+      expect(controller.getCorrect()).toBe(initialCorrect);
+    });
+
+    test('allows answering after pass reveal period ends', () => {
+      controller.passQuestion();
+
+      // Advance past the reveal period
+      jest.advanceTimersByTime(3500);
+
+      // Now answering should work again for the next question
+      const newQuestion = controller.getCurrentQuestion();
+      if (newQuestion) {
+        const result = controller.checkAnswer(newQuestion.data.ra, newQuestion.data.dec);
+        expect(result).toBe(true);
+      }
+    });
+  });
+
+  describe('double alert prevention', () => {
+    beforeEach(() => {
+      controller.setCategory('all-constellations');
+      controller.start();
+    });
+
+    test('stop() only emits GAME_STOPPED once', () => {
+      const callback = jest.fn();
+      globalEventBus.on(Events.GAME_STOPPED, callback);
+
+      // Call stop multiple times
+      controller.stop();
+      controller.stop();
+      controller.stop();
+
+      // Should only emit once
+      expect(callback).toHaveBeenCalledTimes(1);
+    });
+
+    test('stop() does nothing if game is not active', () => {
+      const callback = jest.fn();
+      controller.stop(); // First stop
+      globalEventBus.on(Events.GAME_STOPPED, callback);
+
+      // Try to stop again
+      controller.stop();
+
+      // Should not emit again
+      expect(callback).toHaveBeenCalledTimes(0);
+    });
   });
 
   describe('category: known-constellations', () => {

@@ -670,6 +670,8 @@ select:focus {
     font-size: 11px;
     color: var(--text-secondary);
     margin-bottom: 4px;
+    cursor: move;
+    user-select: none;
 }
 
 .game-question {
@@ -950,6 +952,62 @@ body.night-mode .game-select-content {
     border-radius: 18px;
     font-size: 12px;
     font-weight: 600;
+}
+
+.time-btn.small.secondary {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+}
+
+.time-btn.small.secondary:hover {
+    background: #374151;
+}
+
+/* Date/Time Picker Panel */
+.time-picker-panel {
+    position: fixed;
+    /* Position above time controls (which is at 20px) with some spacing */
+    bottom: calc(75px + var(--safe-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-primary);
+    padding: 12px;
+    border-radius: var(--radius);
+    backdrop-filter: blur(20px);
+    display: none;
+    /* Higher z-index than magnitude control to ensure visibility */
+    z-index: calc(var(--z-dropdown) + 1);
+    box-shadow: 0 -4px 20px var(--shadow);
+}
+
+.time-picker-panel.visible {
+    display: block;
+}
+
+.time-picker-inputs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.time-input {
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+}
+
+.time-input:focus {
+    border-color: var(--accent);
+}
+
+.time-picker-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
 }
 
 .time-display {
