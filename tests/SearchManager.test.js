@@ -81,10 +81,55 @@ describe('SearchManager', () => {
       expect(ngc.isAlias).toBe(true);
     });
 
-    test('indexes common names', () => {
+    test('indexes common names from array format', () => {
       manager.buildIndex({deepSkyObjects: testDSOs});
       const helix = manager.findByName('Helix Nebula');
       expect(helix).not.toBeNull();
+    });
+
+    test('indexes common names from comma-separated string format', () => {
+      const dsosWithStringNames = [
+        {
+          name: 'Mel22',
+          messier: 45,
+          ra: 56.87,
+          dec: 24.12,
+          mag: 1.6,
+          type: 'OCl',
+          common_names: 'Pleiades, Seven Sisters, Subaru',
+        },
+      ];
+      manager.buildIndex({deepSkyObjects: dsosWithStringNames});
+
+      // Should find by primary Messier designation
+      const m45 = manager.findByName('M45');
+      expect(m45).not.toBeNull();
+
+      // Should find by each common name parsed from string
+      const pleiades = manager.findByName('Pleiades');
+      expect(pleiades).not.toBeNull();
+      expect(pleiades.ra).toBe(56.87);
+
+      const sevenSisters = manager.findByName('Seven Sisters');
+      expect(sevenSisters).not.toBeNull();
+
+      const subaru = manager.findByName('Subaru');
+      expect(subaru).not.toBeNull();
+    });
+
+    test('handles mixed common_names formats in same dataset', () => {
+      const mixedDSOs = [
+        {ngc: 7293, common_names: ['Helix Nebula'], ra: 337.41, dec: -20.84, mag: 7.6, type: 'PN'},
+        {name: 'Mel22', messier: 45, common_names: 'Pleiades, Seven Sisters', ra: 56.87, dec: 24.12, mag: 1.6, type: 'OCl'},
+      ];
+      manager.buildIndex({deepSkyObjects: mixedDSOs});
+
+      // Array format
+      expect(manager.findByName('Helix Nebula')).not.toBeNull();
+
+      // String format
+      expect(manager.findByName('Pleiades')).not.toBeNull();
+      expect(manager.findByName('Seven Sisters')).not.toBeNull();
     });
 
     test('indexes constellations', () => {
