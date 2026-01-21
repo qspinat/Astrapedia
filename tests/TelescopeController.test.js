@@ -236,9 +236,51 @@ describe('TelescopeController', () => {
           exitPupil: expect.any(Number),
           realFieldOfView: expect.any(Number),
           limitingMagnitude: expect.any(Number),
+          theoreticalLimitingMag: expect.any(Number),
           isOverMagnified: expect.any(Boolean),
         })
       );
+    });
+
+    test('includes theoreticalLimitingMag in computed properties', () => {
+      const props = controller.computeProperties();
+      // Theoretical limit = 2.7 + 5 × log10(200) ≈ 14.2
+      expect(props.theoreticalLimitingMag).toBeCloseTo(14.2, 1);
+    });
+
+    test('uses sky conditions when available', () => {
+      // Create controller with sky conditions dependency
+      const skyController = new TelescopeController({
+        ...mockDependencies,
+        getSkyLimitingMagnitude: jest.fn().mockReturnValue(5.0), // Poor sky
+      });
+      skyController.setTelescope({diameter: 200, focalLength: 1000});
+      skyController.setEyepiece({focalLength: 10, apparentFov: 52});
+
+      const props = skyController.computeProperties();
+
+      // Telescope gain = 5 × log10(200/7) ≈ 7.3
+      // Sky-limited mag = 5.0 + 7.3 ≈ 12.3
+      // Theoretical = 14.2, so sky-limited wins
+      expect(props.limitingMagnitude).toBeLessThan(props.theoreticalLimitingMag);
+      expect(props.limitingMagnitude).toBeCloseTo(12.3, 0);
+    });
+
+    test('uses theoretical limit when sky is darker', () => {
+      // Create controller with excellent sky conditions
+      const skyController = new TelescopeController({
+        ...mockDependencies,
+        getSkyLimitingMagnitude: jest.fn().mockReturnValue(7.5), // Excellent sky
+      });
+      skyController.setTelescope({diameter: 200, focalLength: 1000});
+      skyController.setEyepiece({focalLength: 10, apparentFov: 52});
+
+      const props = skyController.computeProperties();
+
+      // Telescope gain = 5 × log10(200/7) ≈ 7.3
+      // Sky-limited mag = 7.5 + 7.3 ≈ 14.8
+      // Theoretical = 14.2, so theoretical wins (min of both)
+      expect(props.limitingMagnitude).toBeCloseTo(props.theoreticalLimitingMag, 1);
     });
   });
 

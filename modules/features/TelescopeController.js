@@ -32,6 +32,7 @@ let EyepieceConfig;
  *   exitPupil: number,
  *   realFieldOfView: number,
  *   limitingMagnitude: number,
+ *   theoreticalLimitingMag: number,
  *   isOverMagnified: boolean
  * }}
  */
@@ -57,6 +58,7 @@ export class TelescopeController {
    * @param {function(number): void=} dependencies.setMagnitudeLimit - Set mag limit
    * @param {function(): number=} dependencies.getCurrentFOV - Get current FOV
    * @param {function(): number=} dependencies.getCurrentMagnitude - Get current magnitude
+   * @param {function(): number=} dependencies.getSkyLimitingMagnitude - Get sky NELM
    */
   constructor(dependencies = {}) {
     /** @private @const */
@@ -129,8 +131,20 @@ export class TelescopeController {
     // Real field of view = Apparent FOV / Magnification
     const realFieldOfView = apparentFov / magnification;
 
-    // Limiting magnitude = 2.7 + 5 × log10(Diameter_mm)
-    const limitingMagnitude = 2.7 + 5 * Math.log10(diameter);
+    // Theoretical limiting magnitude = 2.7 + 5 × log10(Diameter_mm)
+    // This is the telescope's optical limit under perfect conditions
+    const theoreticalLimitingMag = 2.7 + 5 * Math.log10(diameter);
+
+    // Calculate sky-limited magnitude if sky conditions are available
+    // Telescope gain = 5 × log10(aperture / 7mm pupil)
+    // Effective limit = min(theoretical, sky NELM + telescope gain)
+    let limitingMagnitude = theoreticalLimitingMag;
+    const skyNelm = this.deps_.getSkyLimitingMagnitude?.();
+    if (skyNelm !== undefined && skyNelm !== null) {
+      const telescopeGain = 5 * Math.log10(diameter / 7);
+      const skyLimitedMag = skyNelm + telescopeGain;
+      limitingMagnitude = Math.min(theoreticalLimitingMag, skyLimitedMag);
+    }
 
     // Check if over-magnified
     const isOverMagnified = magnification > maxUsefulMagnification;
@@ -141,6 +155,7 @@ export class TelescopeController {
       exitPupil,
       realFieldOfView,
       limitingMagnitude,
+      theoreticalLimitingMag,
       isOverMagnified,
     };
 

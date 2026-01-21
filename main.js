@@ -254,11 +254,14 @@ function initializeFeatureModules() {
   );
 
   // Initialize telescope controller
+  // TODO: Add SkyConditionsController module and wire getSkyLimitingMagnitude
+  // Currently, sky conditions integration is handled in ui-controller.js
   app.telescopeController = initializeTelescopeController({
     setFOV: (fov) => app.sceneManager?.setFOV(fov),
     setMagnitudeLimit: (mag) => setMagnitudeLimit(mag),
     getCurrentFOV: () => app.sceneManager?.getFOV() || 60,
     getCurrentMagnitude: () => app.currentMagnitude,
+    // getSkyLimitingMagnitude: () => app.skyConditionsController?.getNakedEyeLimit(),
   });
 }
 

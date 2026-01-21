@@ -1067,6 +1067,7 @@ class TelescopeSettingsHandler {
         },
         presets: this.presets_,
       };
+      // Storage key matches TELESCOPE.STORAGE_KEY in modules/core/Constants.js
       localStorage.setItem('skymap_telescope_settings', JSON.stringify(data));
     } catch (e) {
       console.warn('Failed to save telescope settings:', e);

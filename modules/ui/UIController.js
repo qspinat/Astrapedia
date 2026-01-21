@@ -656,6 +656,11 @@ export class TourButtonsHandler {
 
 /**
  * Telescope Settings Handler - handles telescope simulation controls.
+ *
+ * @deprecated This modular version is not currently used. The app loads
+ * ui-controller.js (legacy) which has its own TelescopeSettingsHandler
+ * implementation that directly accesses window.app. This class is kept
+ * for future migration to the modular main.js architecture.
  */
 export class TelescopeSettingsHandler {
   /**
