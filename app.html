@@ -107,8 +107,8 @@
                     <span class="toggle-switch"></span>
                 </label>
                 <label class="toggle-row">
-                    <span class="toggle-row__label">Night Mode</span>
-                    <input type="checkbox" id="night-mode-toggle" checked>
+                    <span class="toggle-row__label">Equator Line</span>
+                    <input type="checkbox" id="equator-line-toggle" checked>
                     <span class="toggle-switch"></span>
                 </label>
             </div>
@@ -306,6 +306,19 @@
             </div>
             <button class="time-btn" id="time-forward-btn">⏩</button>
             <button class="time-btn small" id="time-now-btn">Now</button>
+            <button class="time-btn small" id="time-picker-btn" title="Set date/time">📅</button>
+        </div>
+
+        <!-- Date/Time Picker Panel -->
+        <div class="time-picker-panel" id="time-picker-panel">
+            <div class="time-picker-inputs">
+                <input type="date" id="date-picker" class="time-input">
+                <input type="time" id="time-picker" class="time-input">
+            </div>
+            <div class="time-picker-actions">
+                <button class="time-btn small" id="time-picker-apply">Go</button>
+                <button class="time-btn small secondary" id="time-picker-cancel">Cancel</button>
+            </div>
         </div>
 
         <!-- Magnitude Control (floating) -->

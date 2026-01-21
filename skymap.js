@@ -154,6 +154,7 @@ class SkyMapApp {
     this.localHorizon = null;  // Local horizon line (fixed, green)
     this.latitudeTiltGroup = null;  // Group for latitude-based sky tilt
     this.gridLines = null;
+    this.equatorLine = null;  // Separate reference for equator line toggle
     this.planets = [];  // Planet objects
     this.planetSprites = [];  // Planet sprites for rendering
     this.cardinalLabels = [];
@@ -208,6 +209,11 @@ class SkyMapApp {
     this.gameCorrect = 0;
     this.gameStartTime = null;
     this.passedQuestions = [];
+    this.isShowingPassedAnswer = false;  // Flag to prevent scoring during pass reveal
+    this.isGameEnding = false;  // Flag to prevent double game over alerts
+
+    // Game panel drag state
+    this.gamePanelDragging = false;
 
     // Dynamic image loading for nebulae/clusters
     this.dynamicImageCache = new Map();    // Cache: objectName -> { url: string | null, loading: boolean }
@@ -630,25 +636,39 @@ class SkyMapApp {
       gridGroup.add(line);
     }
 
-    // Add horizon line (dec = 0) - subtle orange color
-    const horizonPoints = [];
+    this.gridLines = gridGroup;
+    this.celestialSphere.add(this.gridLines);
+
+    // Add equator line (dec = 0) - subtle orange color (separate from grid for toggle)
+    // Remove old equator line if exists
+    if (this.equatorLine) {
+      this.celestialSphere.remove(this.equatorLine);
+    }
+    const equatorPoints = [];
     for (let ra = 0; ra <= 360; ra += 2) {
       const pos = this.raDecToCartesian(ra, 0, radius + 0.5);
-      horizonPoints.push(pos);
+      equatorPoints.push(pos);
     }
-    const horizonGeometry = new THREE.BufferGeometry().setFromPoints(horizonPoints);
-    const horizonMaterial = new THREE.LineBasicMaterial({
-      color: 0xCC5530,  // Subtle orange for horizon
+    const equatorGeometry = new THREE.BufferGeometry().setFromPoints(equatorPoints);
+    const equatorMaterial = new THREE.LineBasicMaterial({
+      color: 0xCC5530,  // Subtle orange for equator
       transparent: true,
       opacity: 0.5,
       linewidth: 2,
-      depthWrite: false
+      depthWrite: false,
     });
-    const horizonLine = new THREE.Line(horizonGeometry, horizonMaterial);
-    gridGroup.add(horizonLine);
+    this.equatorLine = new THREE.Line(equatorGeometry, equatorMaterial);
+    this.celestialSphere.add(this.equatorLine);
+  }
 
-    this.gridLines = gridGroup;
-    this.celestialSphere.add(this.gridLines);
+  /**
+   * Set the visibility of the equator line.
+   * @param {boolean} visible - Whether the equator line should be visible
+   */
+  setEquatorLineVisible(visible) {
+    if (this.equatorLine) {
+      this.equatorLine.visible = visible;
+    }
   }
 
   // Feature 1: Constellation Lines
@@ -4703,6 +4723,95 @@ class SkyMapApp {
 
     // Window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
+
+    // Setup game panel drag functionality
+    this.setupGamePanelDrag();
+  }
+
+  /**
+   * Setup drag functionality for the game panel.
+   * Only draggable by the header (h2 element).
+   */
+  setupGamePanelDrag() {
+    const gamePanel = document.getElementById('game-panel');
+    if (!gamePanel) return;
+
+    const header = gamePanel.querySelector('h2');
+    if (!header) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    const onDragStart = (e) => {
+      isDragging = true;
+      this.gamePanelDragging = true;
+
+      // Get current position (use computed style if not set)
+      const rect = gamePanel.getBoundingClientRect();
+      startLeft = rect.left;
+      startTop = rect.top;
+
+      // Get pointer position
+      if (e.type === 'touchstart') {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      } else {
+        startX = e.clientX;
+        startY = e.clientY;
+      }
+
+      e.preventDefault();
+    };
+
+    const onDragMove = (e) => {
+      if (!isDragging) return;
+
+      let clientX, clientY;
+      if (e.type === 'touchmove') {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      const deltaX = clientX - startX;
+      const deltaY = clientY - startY;
+
+      let newLeft = startLeft + deltaX;
+      let newTop = startTop + deltaY;
+
+      // Constrain to viewport bounds
+      const panelRect = gamePanel.getBoundingClientRect();
+      const maxLeft = window.innerWidth - panelRect.width;
+      const maxTop = window.innerHeight - panelRect.height;
+
+      newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+      newTop = Math.max(0, Math.min(newTop, maxTop));
+
+      gamePanel.style.left = `${newLeft}px`;
+      gamePanel.style.top = `${newTop}px`;
+
+      e.preventDefault();
+    };
+
+    const onDragEnd = () => {
+      isDragging = false;
+      this.gamePanelDragging = false;
+    };
+
+    // Mouse events
+    header.addEventListener('mousedown', onDragStart);
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
+
+    // Touch events
+    header.addEventListener('touchstart', onDragStart, {passive: false});
+    document.addEventListener('touchmove', onDragMove, {passive: false});
+    document.addEventListener('touchend', onDragEnd);
   }
 
   onMouseDown(event) {
@@ -5980,8 +6089,14 @@ class SkyMapApp {
     this.gameStartTime = Date.now();
     this.passedQuestions = [];
     this.askedQuestions = [];  // Track which questions have been asked
+    this.isShowingPassedAnswer = false;  // Reset pass flag
+    this.isGameEnding = false;  // Reset game ending flag
 
-    document.getElementById('game-panel').classList.add('active');
+    const gamePanel = document.getElementById('game-panel');
+    gamePanel.classList.add('active');
+    // Reset game panel position to default
+    gamePanel.style.top = '';
+    gamePanel.style.left = '';
     document.getElementById('game-score').textContent = '0';
     document.getElementById('game-correct').textContent = '0';
 
@@ -5990,6 +6105,10 @@ class SkyMapApp {
   }
 
   stopGame() {
+    // Guard against double alerts
+    if (this.isGameEnding || !this.gameActive) return;
+    this.isGameEnding = true;
+
     this.gameActive = false;
     document.getElementById('game-panel').classList.remove('active');
 
@@ -6007,6 +6126,10 @@ class SkyMapApp {
     );
 
     if (remaining.length === 0) {
+      // Guard against double alerts
+      if (this.isGameEnding) return;
+      this.isGameEnding = true;
+
       // All questions answered - game complete!
       this.gameActive = false;
       document.getElementById('game-panel').classList.remove('active');
@@ -6032,6 +6155,8 @@ class SkyMapApp {
 
   checkGameAnswer(clickedStar) {
     if (!this.currentQuestion) return;
+    // Prevent scoring during pass answer reveal
+    if (this.isShowingPassedAnswer) return;
 
     // Check if clicked star matches the question
     const targetData = this.currentQuestion.data;
@@ -6057,6 +6182,8 @@ class SkyMapApp {
    */
   checkGameAnswerByName(clickedName) {
     if (!this.currentQuestion) return;
+    // Prevent scoring during pass answer reveal
+    if (this.isShowingPassedAnswer) return;
 
     const targetName = this.currentQuestion.name;
 
@@ -6109,6 +6236,9 @@ class SkyMapApp {
   passQuestion() {
     if (!this.currentQuestion) return;
 
+    // Set flag to prevent scoring during answer reveal
+    this.isShowingPassedAnswer = true;
+
     // Add to passed questions to ask again later
     this.passedQuestions.push(this.currentQuestion);
 
@@ -6141,6 +6271,9 @@ class SkyMapApp {
 
     // Wait 3 seconds to let user see the answer, then continue
     setTimeout(() => {
+      // Reset the pass flag before moving to next question
+      this.isShowingPassedAnswer = false;
+
       questionEl.style.color = '#60A5FA'; // Reset to blue
       // Remove highlight ring
       this.hideTourHighlight();

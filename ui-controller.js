@@ -284,12 +284,12 @@ class SearchController {
 class SettingsHandler {
   /** Sets up event listeners for settings controls. */
   setupEventListeners() {
-    // Night mode toggle
-    const nightModeToggle = document.getElementById('night-mode-toggle');
-    if (nightModeToggle) {
-      nightModeToggle.addEventListener('change', () => {
-        if (window.app && window.app.toggleNightMode) {
-          window.app.toggleNightMode();
+    // Equator line toggle
+    const equatorToggle = document.getElementById('equator-line-toggle');
+    if (equatorToggle) {
+      equatorToggle.addEventListener('change', (e) => {
+        if (window.app?.setEquatorLineVisible) {
+          window.app.setEquatorLineVisible(e.target.checked);
         }
       });
     }
@@ -432,6 +432,52 @@ class TimeControlsHandler {
         if (window.app && window.app.jumpToTime) {
           window.app.jumpToTime(new Date());
         }
+      });
+    }
+
+    // Date/Time Picker
+    const timePickerBtn = document.getElementById('time-picker-btn');
+    const timePickerPanel = document.getElementById('time-picker-panel');
+    const datePicker = document.getElementById('date-picker');
+    const timePicker = document.getElementById('time-picker');
+    const timePickerApply = document.getElementById('time-picker-apply');
+    const timePickerCancel = document.getElementById('time-picker-cancel');
+
+    if (timePickerBtn && timePickerPanel) {
+      // Toggle picker panel
+      timePickerBtn.addEventListener('click', () => {
+        const isVisible = timePickerPanel.classList.contains('visible');
+        if (!isVisible) {
+          // Pre-fill with current simulation time
+          const currentTime = window.app?.simulationTime || new Date();
+          if (datePicker) {
+            datePicker.value = currentTime.toISOString().split('T')[0];
+          }
+          if (timePicker) {
+            timePicker.value = currentTime.toTimeString().slice(0, 5);
+          }
+        }
+        timePickerPanel.classList.toggle('visible');
+      });
+    }
+
+    if (timePickerApply && datePicker && timePicker) {
+      timePickerApply.addEventListener('click', () => {
+        const dateValue = datePicker.value;
+        const timeValue = timePicker.value;
+        if (dateValue && timeValue) {
+          const newDate = new Date(`${dateValue}T${timeValue}`);
+          if (!isNaN(newDate.getTime()) && window.app?.jumpToTime) {
+            window.app.jumpToTime(newDate);
+          }
+        }
+        timePickerPanel?.classList.remove('visible');
+      });
+    }
+
+    if (timePickerCancel) {
+      timePickerCancel.addEventListener('click', () => {
+        timePickerPanel?.classList.remove('visible');
       });
     }
   }

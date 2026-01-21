@@ -104,6 +104,9 @@ const app = {
 async function initializeApp() {
   console.log('Initializing Sky Map Application...');
 
+  // Always use night mode
+  document.body.classList.add('night-mode');
+
   // Get canvas container
   const container = document.getElementById('canvas-container');
   if (!container) {
@@ -257,7 +260,7 @@ function initializeUIModules() {
     panelManager,
     performSearch: (query) => searchManager.search(query),
     selectObject: (obj) => selectObject(obj),
-    toggleNightMode: () => toggleNightMode(),
+    setEquatorLineVisible: (visible) => setEquatorLineVisible(visible),
     setConstellationLines: (visible) => setConstellationLinesVisible(visible),
     setLanguage: (lang) => setConstellationLanguage(lang),
     setMagnitudeLimit: (mag) => setMagnitudeLimit(mag),
@@ -478,10 +481,14 @@ function checkObjectAtPosition(ra, dec, tolerance) {
 }
 
 /**
- * Toggle night mode.
+ * Set equator line visibility.
+ * @param {boolean} visible - Whether the equator line should be visible
  */
-function toggleNightMode() {
-  document.body.classList.toggle('night-mode');
+function setEquatorLineVisible(visible) {
+  // This is handled by skymap.js app.setEquatorLineVisible
+  if (window.app?.setEquatorLineVisible) {
+    window.app.setEquatorLineVisible(visible);
+  }
 }
 
 /**
