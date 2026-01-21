@@ -178,6 +178,101 @@
             </div>
 
             <div class="panel-section">
+                <h3 class="panel-section__title">Sky Conditions</h3>
+
+                <div class="input-row">
+                    <label for="light-pollution-select">Light Pollution</label>
+                    <select id="light-pollution-select" class="language-select">
+                        <option value="city">City (Bortle 8-9)</option>
+                        <option value="suburban">Suburban (Bortle 5-6)</option>
+                        <option value="rural" selected>Rural (Bortle 4)</option>
+                        <option value="dark">Dark Sky (Bortle 2-3)</option>
+                    </select>
+                </div>
+
+                <div class="sky-conditions-display">
+                    <div class="sky-condition-item">
+                        <span class="sky-condition-label">Moon Phase</span>
+                        <span class="sky-condition-value" id="moon-phase-display">🌑 New Moon</span>
+                    </div>
+                    <div class="sky-condition-item">
+                        <span class="sky-condition-label">Moon Altitude</span>
+                        <span class="sky-condition-value" id="moon-altitude-display">Below horizon</span>
+                    </div>
+                    <div class="sky-condition-item sky-condition-item--highlight">
+                        <span class="sky-condition-label">Naked Eye Limit</span>
+                        <span class="sky-condition-value" id="naked-eye-limit-display">mag 6.5</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3 class="panel-section__title">Telescope Simulation</h3>
+                <label class="toggle-row">
+                    <span class="toggle-row__label">Telescope Mode</span>
+                    <input type="checkbox" id="telescope-mode-toggle">
+                    <span class="toggle-switch"></span>
+                </label>
+
+                <div class="telescope-presets">
+                    <select id="telescope-preset-select" class="language-select">
+                        <option value="">Select preset...</option>
+                    </select>
+                    <button class="telescope-preset-btn" id="telescope-save-preset-btn" title="Save current as preset">Save</button>
+                    <button class="telescope-preset-btn" id="telescope-delete-preset-btn" title="Delete selected preset">Delete</button>
+                </div>
+
+                <div class="telescope-inputs">
+                    <h4 class="telescope-section-title">Telescope</h4>
+                    <div class="input-row">
+                        <label for="telescope-diameter">Diameter (mm)</label>
+                        <input type="number" id="telescope-diameter" value="200" min="25" max="1000" step="1">
+                    </div>
+                    <div class="input-row">
+                        <label for="telescope-focal-length">Focal Length (mm)</label>
+                        <input type="number" id="telescope-focal-length" value="1000" min="100" max="10000" step="10">
+                    </div>
+
+                    <h4 class="telescope-section-title">Eyepiece</h4>
+                    <div class="input-row">
+                        <label for="eyepiece-focal-length">Focal Length (mm)</label>
+                        <input type="number" id="eyepiece-focal-length" value="25" min="2" max="100" step="0.5">
+                    </div>
+                    <div class="input-row">
+                        <label for="eyepiece-afov">Apparent FOV (deg)</label>
+                        <input type="number" id="eyepiece-afov" value="52" min="30" max="120" step="1">
+                    </div>
+                </div>
+
+                <div class="computed-grid" id="telescope-computed">
+                    <div class="computed-item">
+                        <span class="computed-label">Magnification</span>
+                        <span class="computed-value" id="computed-magnification">40x</span>
+                    </div>
+                    <div class="computed-item">
+                        <span class="computed-label">Max Useful Mag</span>
+                        <span class="computed-value" id="computed-max-mag">400x</span>
+                    </div>
+                    <div class="computed-item">
+                        <span class="computed-label">Exit Pupil</span>
+                        <span class="computed-value" id="computed-exit-pupil">5.0mm</span>
+                    </div>
+                    <div class="computed-item">
+                        <span class="computed-label">Real FOV</span>
+                        <span class="computed-value" id="computed-real-fov">1.30°</span>
+                    </div>
+                    <div class="computed-item computed-item--wide">
+                        <span class="computed-label">Limiting Magnitude</span>
+                        <span class="computed-value" id="computed-limiting-mag">14.2</span>
+                    </div>
+                </div>
+
+                <div class="telescope-warning" id="telescope-warning">
+                    Over-magnified! Image quality will be reduced.
+                </div>
+            </div>
+
+            <div class="panel-section">
                 <h3 class="panel-section__title">Actions</h3>
                 <div class="action-buttons">
                     <button class="action-btn secondary" id="set-location-btn">
@@ -348,6 +443,35 @@
 
         <!-- Tour Panel -->
         <div id="tour-panel"></div>
+
+        <!-- Telescope Reticle Overlay -->
+        <div id="telescope-reticle" class="telescope-reticle">
+            <svg viewBox="0 0 200 200" class="reticle-svg">
+                <!-- Concentric circles for different apparent FOVs -->
+                <!-- Radius = (afov / 120) * 95 to fit in viewBox -->
+                <circle cx="100" cy="100" r="31.7" class="reticle-circle reticle-afov" data-afov="40"/>
+                <circle cx="100" cy="100" r="41.2" class="reticle-circle reticle-afov" data-afov="52"/>
+                <circle cx="100" cy="100" r="53.8" class="reticle-circle reticle-afov" data-afov="68"/>
+                <circle cx="100" cy="100" r="65.0" class="reticle-circle reticle-afov" data-afov="82"/>
+                <circle cx="100" cy="100" r="79.2" class="reticle-circle reticle-afov" data-afov="100"/>
+                <circle cx="100" cy="100" r="95.0" class="reticle-circle reticle-afov" data-afov="120"/>
+                <!-- Crosshairs -->
+                <line x1="100" y1="5" x2="100" y2="25" class="reticle-line"/>
+                <line x1="100" y1="175" x2="100" y2="195" class="reticle-line"/>
+                <line x1="5" y1="100" x2="25" y2="100" class="reticle-line"/>
+                <line x1="175" y1="100" x2="195" y2="100" class="reticle-line"/>
+                <!-- AFOV labels -->
+                <text x="100" y="70" class="reticle-label" data-afov="40">40°</text>
+                <text x="100" y="60" class="reticle-label" data-afov="52">52°</text>
+                <text x="100" y="48" class="reticle-label" data-afov="68">68°</text>
+                <text x="100" y="37" class="reticle-label" data-afov="82">82°</text>
+                <text x="100" y="23" class="reticle-label" data-afov="100">100°</text>
+            </svg>
+            <div class="reticle-info">
+                <span id="reticle-fov">0.52°</span>
+                <span id="reticle-mag">100x</span>
+            </div>
+        </div>
 
     </div>
 

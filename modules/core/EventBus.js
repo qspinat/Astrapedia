@@ -280,6 +280,11 @@ export const Events = {
   // Application events
   APP_INITIALIZED: 'app:initialized',
   PLANETS_UPDATED: 'planets:updated',
+
+  // Telescope events
+  TELESCOPE_COMPUTED: 'telescope:computed',
+  TELESCOPE_MODE_ACTIVATED: 'telescope:mode:activated',
+  TELESCOPE_MODE_DEACTIVATED: 'telescope:mode:deactivated',
 };
 
 /**

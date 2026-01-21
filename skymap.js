@@ -4954,6 +4954,9 @@ class SkyMapApp {
   onMouseWheel(event) {
     event.preventDefault();
 
+    // Block zooming in telescope mode
+    if (this.telescopeModeActive) return;
+
     // Sync targets with current state if not already animating
     if (Math.abs(this.targetFov - this.camera.fov) < 0.1) {
       this.targetFov = this.camera.fov;
@@ -5326,8 +5329,8 @@ class SkyMapApp {
   onTouchMove(event) {
     event.preventDefault();
 
-    if (event.touches.length === 2 && this.initialPinchDistance) {
-      // Pinch-to-zoom: calculate new distance and adjust FOV
+    if (event.touches.length === 2 && this.initialPinchDistance && !this.telescopeModeActive) {
+      // Pinch-to-zoom: calculate new distance and adjust FOV (blocked in telescope mode)
       const dx = event.touches[1].clientX - event.touches[0].clientX;
       const dy = event.touches[1].clientY - event.touches[0].clientY;
       const currentDistance = Math.sqrt(dx * dx + dy * dy);

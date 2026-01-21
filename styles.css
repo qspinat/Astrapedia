@@ -1064,6 +1064,16 @@ body.night-mode .game-select-content {
     cursor: pointer;
 }
 
+.magnitude-control input[type="range"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.magnitude-control input[type="range"]:disabled::-webkit-slider-thumb {
+    background: var(--text-secondary);
+    cursor: not-allowed;
+}
+
 /* ==========================================================================
    12. BOTTOM BAR
    ========================================================================== */
@@ -1600,4 +1610,298 @@ select:focus-visible {
 /* Hidden data elements - more explicit class */
 .data-hidden {
     display: none;
+}
+
+/* ==========================================================================
+   22. TELESCOPE SIMULATION
+   ========================================================================== */
+
+/* Sky conditions display */
+.sky-conditions-display {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.sky-condition-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sky-condition-item--highlight {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.sky-condition-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.sky-condition-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.sky-condition-item--highlight .sky-condition-value {
+    font-size: 15px;
+    color: var(--accent-blue);
+}
+
+/* Telescope presets row */
+.telescope-presets {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.telescope-presets select {
+    flex: 1;
+    font-size: 13px;
+    padding: 8px 10px;
+}
+
+.telescope-preset-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.telescope-preset-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+/* Telescope section titles */
+.telescope-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 12px 0 8px;
+}
+
+.telescope-section-title:first-child {
+    margin-top: 0;
+}
+
+/* Input rows */
+.telescope-inputs {
+    margin-bottom: 16px;
+}
+
+.input-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.input-row label {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.input-row input[type="number"] {
+    width: 90px;
+    padding: 8px 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    text-align: right;
+    outline: none;
+}
+
+.input-row input[type="number"]:focus {
+    border-color: var(--accent);
+}
+
+/* Computed values grid */
+.computed-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+}
+
+.computed-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.computed-item--wide {
+    grid-column: span 2;
+}
+
+.computed-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.computed-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--accent-blue);
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+/* Telescope warning */
+.telescope-warning {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: var(--radius-sm);
+    color: #EF4444;
+    font-size: 12px;
+    font-weight: 500;
+    display: none;
+}
+
+.telescope-warning.visible {
+    display: block;
+}
+
+/* Telescope reticle overlay */
+.telescope-reticle,
+#ui-overlay > .telescope-reticle,
+#ui-overlay > .telescope-reticle * {
+    pointer-events: none !important;
+}
+
+.telescope-reticle {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(70vw, 70vh);
+    height: min(70vw, 70vh);
+    z-index: var(--z-canvas);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+
+.telescope-reticle.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.reticle-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.reticle-circle {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.15);
+    stroke-width: 1;
+}
+
+.reticle-circle.active {
+    stroke: rgba(255, 255, 255, 0.8);
+    stroke-width: 2.5;
+}
+
+.reticle-line {
+    stroke: rgba(255, 255, 255, 0.4);
+    stroke-width: 1.5;
+}
+
+.reticle-label {
+    fill: rgba(255, 255, 255, 0.2);
+    font-size: 6px;
+    text-anchor: middle;
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.reticle-label.active {
+    fill: rgba(255, 255, 255, 0.9);
+    font-size: 7px;
+    font-weight: bold;
+}
+
+.reticle-info {
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: nowrap;
+}
+
+/* Telescope mode vignette effect */
+body.telescope-mode::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: radial-gradient(
+        circle at center,
+        transparent 30%,
+        rgba(0, 0, 0, 0.2) 45%,
+        rgba(0, 0, 0, 0.4) 60%,
+        rgba(0, 0, 0, 0.6) 80%
+    );
+    z-index: calc(var(--z-canvas) + 1);
+}
+
+/* Night mode adjustments for telescope */
+body.night-mode .telescope-warning {
+    background: rgba(220, 38, 38, 0.15);
+    border-color: rgba(220, 38, 38, 0.4);
+    color: #DC2626;
+}
+
+body.night-mode .reticle-circle {
+    stroke: rgba(200, 100, 100, 0.15);
+}
+
+body.night-mode .reticle-circle.active {
+    stroke: rgba(200, 100, 100, 0.8);
+}
+
+body.night-mode .reticle-line {
+    stroke: rgba(200, 100, 100, 0.4);
+}
+
+body.night-mode .reticle-label {
+    fill: rgba(200, 100, 100, 0.2);
+}
+
+body.night-mode .reticle-label.active {
+    fill: rgba(200, 100, 100, 0.9);
+}
+
+body.night-mode .reticle-info {
+    color: rgba(200, 100, 100, 0.7);
 }

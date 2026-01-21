@@ -38,6 +38,10 @@ import {
   TimeController,
   initializeTimeController,
 } from './modules/features/TimeController.js';
+import {
+  TelescopeController,
+  initializeTelescopeController,
+} from './modules/features/TelescopeController.js';
 
 // UI
 import {panelManager} from './modules/ui/PanelManager.js';
@@ -65,6 +69,8 @@ const app = {
   tourController: null,
   /** @type {?TimeController} */
   timeController: null,
+  /** @type {?TelescopeController} */
+  telescopeController: null,
   /** @type {?UIController} */
   uiController: null,
   /** @type {?DOMCache} */
@@ -246,6 +252,14 @@ function initializeFeatureModules() {
     (sprite) => app.celestialSphere?.add(sprite),
     (sprite) => app.celestialSphere?.remove(sprite)
   );
+
+  // Initialize telescope controller
+  app.telescopeController = initializeTelescopeController({
+    setFOV: (fov) => app.sceneManager?.setFOV(fov),
+    setMagnitudeLimit: (mag) => setMagnitudeLimit(mag),
+    getCurrentFOV: () => app.sceneManager?.getFOV() || 60,
+    getCurrentMagnitude: () => app.currentMagnitude,
+  });
 }
 
 /**
@@ -279,6 +293,18 @@ function initializeUIModules() {
     toggleCompassMode: () => toggleCompassMode(),
     getFOV: () => app.sceneManager?.getFOV(),
     getViewDirection: () => app.sceneManager?.getViewDirectionCelestial(),
+    // Telescope dependencies
+    getTelescope: () => app.telescopeController?.getTelescope(),
+    setTelescope: (config) => app.telescopeController?.setTelescope(config),
+    getEyepiece: () => app.telescopeController?.getEyepiece(),
+    setEyepiece: (config) => app.telescopeController?.setEyepiece(config),
+    toggleTelescopeMode: () => app.telescopeController?.toggleTelescopeMode(),
+    isTelescopeModeActive: () => app.telescopeController?.isActive(),
+    saveTelescopePreset: (name) => app.telescopeController?.savePreset(name),
+    loadTelescopePreset: (name) => app.telescopeController?.loadPreset(name),
+    deleteTelescopePreset: (name) => app.telescopeController?.deletePreset(name),
+    getTelescopePresetNames: () => app.telescopeController?.getPresetNames() || [],
+    getTelescopeComputedProperties: () => app.telescopeController?.getComputedProperties(),
   });
 
   // Expose for legacy compatibility
@@ -523,7 +549,14 @@ function setConstellationLanguage(lang) {
  */
 function setMagnitudeLimit(mag) {
   app.currentMagnitude = mag;
-  // TODO: Update star visibility
+
+  // Update UI slider
+  const slider = document.getElementById('magnitude-slider');
+  const display = document.getElementById('mag-value');
+  if (slider) slider.value = mag;
+  if (display) display.textContent = mag.toFixed(1);
+
+  globalEventBus.emit(Events.MAGNITUDE_CHANGED, {magnitude: mag});
 }
 
 /**
