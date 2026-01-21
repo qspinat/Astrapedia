@@ -966,7 +966,8 @@ body.night-mode .game-select-content {
 /* Date/Time Picker Panel */
 .time-picker-panel {
     position: fixed;
-    bottom: calc(70px + var(--safe-bottom));
+    /* Position above time controls (which is at 20px) with some spacing */
+    bottom: calc(75px + var(--safe-bottom));
     left: 50%;
     transform: translateX(-50%);
     background: var(--bg-primary);
@@ -974,7 +975,8 @@ body.night-mode .game-select-content {
     border-radius: var(--radius);
     backdrop-filter: blur(20px);
     display: none;
-    z-index: var(--z-dropdown);
+    /* Higher z-index than magnitude control to ensure visibility */
+    z-index: calc(var(--z-dropdown) + 1);
     box-shadow: 0 -4px 20px var(--shadow);
 }
 

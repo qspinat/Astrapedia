@@ -448,13 +448,20 @@ class TimeControlsHandler {
       timePickerBtn.addEventListener('click', () => {
         const isVisible = timePickerPanel.classList.contains('visible');
         if (!isVisible) {
-          // Pre-fill with current simulation time
+          // Pre-fill with current simulation time in local timezone
           const currentTime = window.app?.simulationTime || new Date();
           if (datePicker) {
-            datePicker.value = currentTime.toISOString().split('T')[0];
+            // Format as YYYY-MM-DD in local timezone
+            const year = currentTime.getFullYear();
+            const month = String(currentTime.getMonth() + 1).padStart(2, '0');
+            const day = String(currentTime.getDate()).padStart(2, '0');
+            datePicker.value = `${year}-${month}-${day}`;
           }
           if (timePicker) {
-            timePicker.value = currentTime.toTimeString().slice(0, 5);
+            // Format as HH:MM in local timezone
+            const hours = String(currentTime.getHours()).padStart(2, '0');
+            const minutes = String(currentTime.getMinutes()).padStart(2, '0');
+            timePicker.value = `${hours}:${minutes}`;
           }
         }
         timePickerPanel.classList.toggle('visible');
@@ -466,7 +473,20 @@ class TimeControlsHandler {
         const dateValue = datePicker.value;
         const timeValue = timePicker.value;
         if (dateValue && timeValue) {
-          const newDate = new Date(`${dateValue}T${timeValue}`);
+          // Parse date and time components explicitly in local timezone
+          const [year, month, day] = dateValue.split('-').map(Number);
+          const [hours, minutes] = timeValue.split(':').map(Number);
+
+          // Validate parsed values
+          if (isNaN(year) || isNaN(month) || isNaN(day) ||
+              isNaN(hours) || isNaN(minutes)) {
+            console.warn('Invalid date/time values:', dateValue, timeValue);
+            timePickerPanel?.classList.remove('visible');
+            return;
+          }
+
+          // Create date in local timezone (month is 0-indexed)
+          const newDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
           if (!isNaN(newDate.getTime()) && window.app?.jumpToTime) {
             window.app.jumpToTime(newDate);
           }

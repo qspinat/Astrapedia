@@ -4731,6 +4731,7 @@ class SkyMapApp {
   /**
    * Setup drag functionality for the game panel.
    * Only draggable by the header (h2 element).
+   * Uses dynamic listener attachment to avoid memory leaks.
    */
   setupGamePanelDrag() {
     const gamePanel = document.getElementById('game-panel');
@@ -4739,36 +4740,13 @@ class SkyMapApp {
     const header = gamePanel.querySelector('h2');
     if (!header) return;
 
-    let isDragging = false;
     let startX = 0;
     let startY = 0;
     let startLeft = 0;
     let startTop = 0;
 
-    const onDragStart = (e) => {
-      isDragging = true;
-      this.gamePanelDragging = true;
-
-      // Get current position (use computed style if not set)
-      const rect = gamePanel.getBoundingClientRect();
-      startLeft = rect.left;
-      startTop = rect.top;
-
-      // Get pointer position
-      if (e.type === 'touchstart') {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-      } else {
-        startX = e.clientX;
-        startY = e.clientY;
-      }
-
-      e.preventDefault();
-    };
-
+    // Define handlers as arrow functions to preserve 'this' context
     const onDragMove = (e) => {
-      if (!isDragging) return;
-
       let clientX, clientY;
       if (e.type === 'touchmove') {
         clientX = e.touches[0].clientX;
@@ -4799,31 +4777,59 @@ class SkyMapApp {
     };
 
     const onDragEnd = () => {
-      isDragging = false;
       this.gamePanelDragging = false;
+
+      // Remove document-level listeners to prevent memory leaks
+      document.removeEventListener('mousemove', onDragMove);
+      document.removeEventListener('mouseup', onDragEnd);
+      document.removeEventListener('touchmove', onDragMove);
+      document.removeEventListener('touchend', onDragEnd);
     };
 
-    // Mouse events
-    header.addEventListener('mousedown', onDragStart);
-    document.addEventListener('mousemove', onDragMove);
-    document.addEventListener('mouseup', onDragEnd);
+    const onDragStart = (e) => {
+      this.gamePanelDragging = true;
 
-    // Touch events
+      // Get current position (use computed style if not set)
+      const rect = gamePanel.getBoundingClientRect();
+      startLeft = rect.left;
+      startTop = rect.top;
+
+      // Get pointer position
+      if (e.type === 'touchstart') {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      } else {
+        startX = e.clientX;
+        startY = e.clientY;
+      }
+
+      // Add document-level listeners only when dragging starts
+      document.addEventListener('mousemove', onDragMove);
+      document.addEventListener('mouseup', onDragEnd);
+      document.addEventListener('touchmove', onDragMove, {passive: false});
+      document.addEventListener('touchend', onDragEnd);
+
+      e.preventDefault();
+    };
+
+    // Only attach start listeners to header
+    header.addEventListener('mousedown', onDragStart);
     header.addEventListener('touchstart', onDragStart, {passive: false});
-    document.addEventListener('touchmove', onDragMove, {passive: false});
-    document.addEventListener('touchend', onDragEnd);
   }
 
   onMouseDown(event) {
+    // Don't start canvas drag if game panel is being dragged
+    if (this.gamePanelDragging) return;
+
     this.isDragging = true;
     this.dragMoved = false;  // Track if mouse actually moved
     this.mouseDownPosition = {
       x: event.clientX,
-      y: event.clientY
+      y: event.clientY,
     };
     this.previousMousePosition = {
       x: event.clientX,
-      y: event.clientY
+      y: event.clientY,
     };
     this.requestRender();  // Wake up animation
   }
@@ -5223,6 +5229,9 @@ class SkyMapApp {
   }
 
   onTouchStart(event) {
+    // Don't start canvas drag if game panel is being dragged
+    if (this.gamePanelDragging) return;
+
     event.preventDefault();
     this.requestRender();  // Wake up animation
 
