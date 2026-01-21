@@ -300,3 +300,31 @@ def calculate_star_count_by_magnitude(
         counts[mag_limit] = count
 
     return counts
+
+
+def inject_supplementary_objects(
+    objects: List[Dict[str, Any]],
+    supplementary: List[Dict[str, Any]],
+    key: str = "messier",
+) -> Tuple[List[Dict[str, Any]], int]:
+    """
+    Inject supplementary objects into a list if not already present.
+
+    Checks for duplicates based on a unique key (e.g., Messier number).
+
+    Args:
+        objects: Existing list of objects
+        supplementary: Objects to add if not present
+        key: Dictionary key to check for duplicates
+
+    Returns:
+        Tuple of (combined list, count of objects added)
+    """
+    existing_keys = {obj[key] for obj in objects if obj.get(key) is not None}
+    added = []
+
+    for supp in supplementary:
+        if supp.get(key) is not None and supp[key] not in existing_keys:
+            added.append(supp)
+
+    return objects + added, len(added)

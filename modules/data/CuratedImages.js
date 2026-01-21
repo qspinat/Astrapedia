@@ -50,6 +50,7 @@ export const CURATED_IMAGES = {
   'M27': {url: `${HUBBLE_BASE}opo0119a.jpg`, source: 'ESA/Hubble'},
   'M28': {url: `${HUBBLE_BASE}potw2221a.jpg`, source: 'ESA/Hubble'},
   'M30': {url: `${HUBBLE_BASE}heic0918a.jpg`, source: 'ESA/Hubble'},
+  'M32': {url: `${HUBBLE_BASE}opo2509.jpg`, source: 'ESA/Hubble'},
   'M33': {url: `${HUBBLE_BASE}heic1901a.jpg`, source: 'ESA/Hubble'},
   'M44': {url: `${HUBBLE_BASE}potw1908a.jpg`, source: 'ESA/Hubble'},
   'M45': {url: `${HUBBLE_BASE}opo0420a.jpg`, source: 'ESA/Hubble'},
