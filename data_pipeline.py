@@ -86,9 +86,9 @@ def process_hyg_stars(max_magnitude: float = Config.MAX_MAGNITUDE_LIMIT) -> Opti
     for category, count in magnitude_bins.items():
         print(f"    {category}: {count} stars")
 
-    # Save to JSON
+    # Save to JSON (compact to reduce file size and diff noise)
     output_file = Config.get_data_path("stars.json")
-    write_json(stars, output_file)
+    write_json(stars, output_file, compact=True)
 
     return {
         'stars': stars,
@@ -154,9 +154,9 @@ def process_constellation_lines() -> Optional[Dict]:
 
     print(f"  Loaded {len(constellations)} constellations")
 
-    # Save to JSON
+    # Save to JSON (compact to reduce file size and diff noise)
     output_file = Config.get_data_path("constellations.json")
-    write_json(constellations, output_file)
+    write_json(constellations, output_file, compact=True)
 
     return constellations
 
@@ -300,9 +300,9 @@ def process_deep_sky_objects() -> Optional[Dict]:
         type_name = DSO_TYPE_NAMES.get(obj_type, obj_type)
         print(f"    {type_name}: {count}")
 
-    # Save to JSON
+    # Save to JSON (compact to reduce file size and diff noise)
     output_file = Config.get_data_path("deep_sky_objects.json")
-    write_json(dso_list, output_file)
+    write_json(dso_list, output_file, compact=True)
 
     return {
         'objects': dso_list,
@@ -351,7 +351,7 @@ def create_optimized_files(stars: List[Dict]) -> None:
     for level in Config.MAGNITUDE_LEVELS:
         filtered = filter_by_magnitude(stars, level.mag_limit)
         output_file = Config.get_data_path(level.filename)
-        write_json(filtered, output_file)
+        write_json(filtered, output_file, compact=True)
         print(f"  {level.description}: {len(filtered)} stars")
 
 
