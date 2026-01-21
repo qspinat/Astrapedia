@@ -253,3 +253,119 @@ describe('Time picker accessibility and UX', () => {
     expect(jsContent).toMatch(/Escape.*preventDefault|preventDefault.*Escape/s);
   });
 });
+
+describe('UI Controller event wiring', () => {
+  let jsContent;
+
+  beforeAll(() => {
+    const jsPath = path.resolve(process.cwd(), 'ui-controller.js');
+    jsContent = fs.readFileSync(jsPath, 'utf8');
+  });
+
+  describe('SettingsHandler', () => {
+    test('retrieves equator-line-toggle element', () => {
+      expect(jsContent).toContain('getElementById(\'equator-line-toggle\')');
+    });
+
+    test('adds change event listener to equator toggle', () => {
+      // Check that there's a change event listener on the equator toggle
+      expect(jsContent).toMatch(
+        /equatorToggle.*addEventListener\s*\(\s*['"]change['"]/s
+      );
+    });
+
+    test('calls setEquatorLineVisible on change', () => {
+      expect(jsContent).toContain('setEquatorLineVisible(e.target.checked)');
+    });
+
+    test('retrieves constellation-lines-toggle element', () => {
+      expect(jsContent).toContain('getElementById(\'constellation-lines-toggle\')');
+    });
+
+    test('retrieves magnitude-slider element', () => {
+      expect(jsContent).toContain('getElementById(\'magnitude-slider\')');
+    });
+  });
+
+  describe('TimeControlsHandler', () => {
+    test('retrieves time-picker-btn element', () => {
+      expect(jsContent).toContain('getElementById(\'time-picker-btn\')');
+    });
+
+    test('retrieves time-picker-panel element', () => {
+      expect(jsContent).toContain('getElementById(\'time-picker-panel\')');
+    });
+
+    test('adds click event listener to time picker button', () => {
+      expect(jsContent).toMatch(
+        /timePickerBtn.*addEventListener\s*\(\s*['"]click['"]/s
+      );
+    });
+
+    test('toggles visible class on time picker panel', () => {
+      expect(jsContent).toContain('timePickerPanel.classList.toggle(\'visible\')');
+    });
+
+    test('retrieves date-picker and time-picker inputs', () => {
+      expect(jsContent).toContain('getElementById(\'date-picker\')');
+      expect(jsContent).toContain('getElementById(\'time-picker\')');
+    });
+
+    test('retrieves apply and cancel buttons', () => {
+      expect(jsContent).toContain('getElementById(\'time-picker-apply\')');
+      expect(jsContent).toContain('getElementById(\'time-picker-cancel\')');
+    });
+
+    test('calls jumpToTime on apply', () => {
+      expect(jsContent).toMatch(/jumpToTime\s*\(\s*newDate\s*\)/);
+    });
+  });
+
+  describe('UIController initialization', () => {
+    test('waits for window.app before setting up listeners', () => {
+      expect(jsContent).toContain('if (!window.app)');
+    });
+
+    test('calls all handler setupEventListeners methods', () => {
+      expect(jsContent).toContain('this.settingsHandler_.setupEventListeners()');
+      expect(jsContent).toContain('this.timeControlsHandler_.setupEventListeners()');
+    });
+
+    test('logs initialization status', () => {
+      expect(jsContent).toContain('UI Controller initialized');
+    });
+  });
+});
+
+describe('Skymap equator line methods', () => {
+  let jsContent;
+
+  beforeAll(() => {
+    const jsPath = path.resolve(process.cwd(), 'skymap.js');
+    jsContent = fs.readFileSync(jsPath, 'utf8');
+  });
+
+  test('has setEquatorLineVisible method', () => {
+    expect(jsContent).toMatch(/setEquatorLineVisible\s*\(\s*visible\s*\)/);
+  });
+
+  test('setEquatorLineVisible checks for equatorLine existence', () => {
+    expect(jsContent).toMatch(/if\s*\(\s*this\.equatorLine\s*\)/);
+  });
+
+  test('setEquatorLineVisible sets visible property', () => {
+    expect(jsContent).toContain('this.equatorLine.visible = visible');
+  });
+
+  test('creates equatorLine in createGrid method', () => {
+    expect(jsContent).toContain('this.equatorLine = new THREE.Line');
+  });
+
+  test('adds equatorLine to celestialSphere', () => {
+    expect(jsContent).toContain('this.celestialSphere.add(this.equatorLine)');
+  });
+
+  test('initializes equatorLine to null', () => {
+    expect(jsContent).toContain('this.equatorLine = null');
+  });
+});

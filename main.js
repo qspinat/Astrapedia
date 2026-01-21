@@ -374,7 +374,14 @@ function startAnimationLoop() {
  */
 function animateCameraTo(ra, dec) {
   // Convert RA/Dec to camera theta/phi
-  const theta = -ra * Math.PI / 180 + Math.PI;
+  let theta = -ra * Math.PI / 180 + Math.PI;
+
+  // Account for celestial sphere rotation (time offset)
+  // Objects are children of celestialSphere, so camera needs to adjust for its rotation
+  if (app.celestialSphere) {
+    theta -= app.celestialSphere.rotation.y;
+  }
+
   const phi = (90 - dec) * Math.PI / 180;
   app.sceneManager?.setCameraRotation(theta, phi, true);
 }

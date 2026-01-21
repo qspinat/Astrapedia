@@ -288,10 +288,17 @@ class SettingsHandler {
     const equatorToggle = document.getElementById('equator-line-toggle');
     if (equatorToggle) {
       equatorToggle.addEventListener('change', (e) => {
+        console.log('Equator toggle changed:', e.target.checked);
         if (window.app?.setEquatorLineVisible) {
+          console.log('Calling setEquatorLineVisible');
           window.app.setEquatorLineVisible(e.target.checked);
+        } else {
+          console.warn('setEquatorLineVisible not available on window.app');
         }
       });
+      console.log('Equator toggle listener attached');
+    } else {
+      console.warn('Equator toggle element not found');
     }
 
     // Constellation lines toggle
@@ -443,9 +450,17 @@ class TimeControlsHandler {
     const timePickerApply = document.getElementById('time-picker-apply');
     const timePickerCancel = document.getElementById('time-picker-cancel');
 
+    console.log('Time picker elements:', {
+      btn: !!timePickerBtn,
+      panel: !!timePickerPanel,
+      datePicker: !!datePicker,
+      timePicker: !!timePicker,
+    });
+
     if (timePickerBtn && timePickerPanel) {
       // Toggle picker panel
       timePickerBtn.addEventListener('click', () => {
+        console.log('Time picker button clicked');
         const isVisible = timePickerPanel.classList.contains('visible');
         if (!isVisible) {
           // Pre-fill with current simulation time in local timezone
@@ -465,7 +480,11 @@ class TimeControlsHandler {
           }
         }
         timePickerPanel.classList.toggle('visible');
+        console.log('Time picker panel visible:', timePickerPanel.classList.contains('visible'));
       });
+      console.log('Time picker button listener attached');
+    } else {
+      console.warn('Time picker button or panel not found');
     }
 
     if (timePickerApply && datePicker && timePicker) {
@@ -669,12 +688,17 @@ class UIController {
 
   /** Initializes the UI controller. */
   init() {
+    console.log('UIController.init() called, waiting 1s for app...');
     // Wait for app to be available
     setTimeout(() => {
+      console.log('UIController timeout fired, window.app:', !!window.app);
       if (!window.app) {
         console.error('SkyMapApp instance not found');
         return;
       }
+
+      console.log('window.app.equatorLine:', !!window.app.equatorLine);
+      console.log('window.app.setEquatorLineVisible:', !!window.app.setEquatorLineVisible);
 
       // Setup all event listeners
       this.panelManager_.setupEventListeners();

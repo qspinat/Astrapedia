@@ -176,6 +176,7 @@ class SkyMapApp {
     this.currentTour = null;
     this.tourStep = 0;
     this.tourHighlight = null;  // Highlight sprite for current tour object
+    this.searchHighlightTimeout_ = null;  // Timeout for auto-hiding search highlight
 
     // Camera control
     this.isDragging = false;
@@ -666,8 +667,12 @@ class SkyMapApp {
    * @param {boolean} visible - Whether the equator line should be visible
    */
   setEquatorLineVisible(visible) {
+    console.log('setEquatorLineVisible called:', visible, 'equatorLine:', !!this.equatorLine);
     if (this.equatorLine) {
       this.equatorLine.visible = visible;
+      console.log('Equator line visibility set to:', visible);
+    } else {
+      console.warn('equatorLine is null/undefined');
     }
   }
 
@@ -1288,7 +1293,35 @@ class SkyMapApp {
       this.celestialSphere.add(sprite);
     });
 
+    // Update search index with new planet positions
+    this.updateSearchIndexPlanets_();
+
     console.log(`✓ Created ${this.planets.length} solar system objects (Sun, Moon, and planets)`);
+  }
+
+  /**
+   * Update planet entries in the search index with current positions.
+   * Called after createPlanets() to keep search results in sync.
+   * @private
+   */
+  updateSearchIndexPlanets_() {
+    if (!this.searchIndex || !this.planets) return;
+
+    // Remove old planet entries from search index
+    this.searchIndex = this.searchIndex.filter(entry => entry.type !== 'Planet');
+
+    // Add updated planet entries
+    this.planets.forEach(planet => {
+      this.searchIndex.push({
+        name: planet.name,
+        type: 'Planet',
+        ra: planet.ra,
+        dec: planet.dec,
+        mag: planet.mag,
+        angularSize: planet.angularSize,
+        data: planet,
+      });
+    });
   }
 
   // Update planet sizes - use realistic magnitude-based sizing like stars
@@ -2149,12 +2182,19 @@ class SkyMapApp {
   selectObject(obj) {
     this.selectedObject = obj;
 
+    // Clear any existing search highlight timeout
+    if (this.searchHighlightTimeout_) {
+      clearTimeout(this.searchHighlightTimeout_);
+      this.searchHighlightTimeout_ = null;
+    }
+
     const panel = document.getElementById('info-panel');
     if (!panel) return;
 
     if (!obj) {
-      // Hide info panel
+      // Hide info panel and any highlight
       this.unhighlightConstellation();
+      this.hideTourHighlight();
       if (window.closeAllPanels) {
         window.closeAllPanels();
       } else {
@@ -2168,6 +2208,7 @@ class SkyMapApp {
 
     // Handle constellations specially
     if (obj.type === 'Constellation') {
+      this.hideTourHighlight();
       this.highlightConstellation(obj.name);
       this.showConstellationInfo(obj.name);
       if (window.openPanel) {
@@ -2180,6 +2221,16 @@ class SkyMapApp {
 
     // Unhighlight any previously highlighted constellation
     this.unhighlightConstellation();
+
+    // Show temporary highlight ring around the object
+    const angularSize = obj.size_major || obj.angularSize || 20;
+    this.showTourHighlight(obj.ra, obj.dec, angularSize);
+
+    // Auto-hide the highlight after 4 seconds
+    this.searchHighlightTimeout_ = setTimeout(() => {
+      this.hideTourHighlight();
+      this.searchHighlightTimeout_ = null;
+    }, 4000);
 
     // Show info panel
     this.showObjectInfo(obj);
@@ -3219,6 +3270,9 @@ class SkyMapApp {
     if (this.camera.fov > 30) {
       this.targetFov = 30;
     }
+
+    // Wake up animation loop to perform the camera movement
+    this.requestRender();
   }
 
   // Feature 7: Time Machine Controls
@@ -3289,6 +3343,14 @@ class SkyMapApp {
     this.createPlanets();
 
     this.updateSimulationTime(0);
+
+    // Re-navigate to selected object if any (so it stays centered after rotation)
+    if (this.selectedObject) {
+      this.animateCameraTo(this.selectedObject.ra, this.selectedObject.dec);
+    }
+
+    // Wake up rendering
+    this.requestRender();
   }
 
   // Calculate Local Sidereal Time and set celestial sphere rotation
