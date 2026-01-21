@@ -1,4 +1,4 @@
-# Interactive Sky Map Game
+# Interactive Sky Map
 
 An interactive 3D celestial sphere application for learning astronomical coordinates and finding celestial objects. Built with Three.js and real astronomical data.
 
@@ -8,226 +8,154 @@ An interactive 3D celestial sphere application for learning astronomical coordin
 - **Real Astronomical Data**:
   - 117,931 stars from the HYG Database
   - 1,701 deep sky objects from OpenNGC
-  - 160 constellations with proper star connections
-  - Real-time planetary positions (with Astropy)
+  - 88 constellations with proper star connections
+  - Real-time planetary positions (via Astropy/JPL ephemeris)
 - **Interactive Navigation**:
   - Drag to rotate the view
   - Scroll to zoom in/out
   - Smooth camera controls
-- **Celestial Object Images**: Real images of famous deep sky objects (M31, M42, M45, etc.) appear when zoomed in
-- **Coordinate Grid**: RA/Dec grid lines that adjust with zoom level
-- **Magnitude Filtering**: Choose which objects to display based on brightness
-- **Difficulty Levels**:
-  - Level 1: Constellations only
-  - Level 2: Bright objects only (magnitude < 4)
-  - Level 3: Custom magnitude limit
-- **Game Mode**: Test your knowledge by finding named celestial objects
-- **Observer Location**: Set your Earth coordinates to see horizon lines
-- **Real-time Updates**: Calculate positions for any location and time
+- **Search**: Find any star, constellation, or deep sky object with fuzzy matching
+- **Celestial Object Images**: Real images from ESA/Hubble, NASA, and Wikimedia appear when zoomed in
+- **Guided Tours**: Explore Messier objects, constellations, or tonight's best objects
+- **Game Mode**: Test your knowledge by finding named celestial objects (10 difficulty categories)
+- **Time Controls**: Simulate the sky at any date/time with play/pause and speed controls
+- **Telescope Simulation**: Configure virtual telescope and eyepiece to see realistic field of view and limiting magnitude
+- **Observer Location**: Set your Earth coordinates to see horizon and altitude/azimuth grid
+- **Multi-language**: Constellation names in 8 languages (en, la, fr, de, es, ja, zh, ar)
+- **Dynamic Loading**: Fetches additional faint stars from VizieR when zoomed in
+- **Android App**: Build native Android APK via Capacitor
 
-## Project Structure
+## Quick Start
 
-```
-skymap/
-├── data/                           # Astronomical data (generated)
-│   ├── stars.json                  # 117K stars from HYG
-│   ├── constellations.json         # Constellation line data
-│   ├── deep_sky_objects.json       # NGC/IC/Messier objects
-│   ├── named_objects.json          # Index of named stars
-│   └── transformed_sky.json        # Observer-transformed coordinates
-├── data_pipeline.py                # Download and process astronomical catalogs
-├── coordinate_transform.py         # Real-time coordinate transformation
-├── requirements.txt                # Python dependencies
-├── app.html                        # Main application HTML
-├── skymap.js                       # Three.js application code
-├── index.html                      # Simple landing page (optional)
-└── README.md                       # This file
-```
-
-## Setup
-
-### 1. Install Python Dependencies
-
-This project uses [uv](https://github.com/astral-sh/uv) for fast Python dependency management.
+### 1. Install Dependencies
 
 ```bash
-# Install uv if not already installed
+# Install uv for Python (if needed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install all dependencies (creates .venv and installs packages)
+# Install Python and Node.js dependencies
 uv sync
+npm install
 ```
-
-**Alternative (using pip):**
-```bash
-pip install -r requirements.txt
-```
-
-Dependencies:
-- `astropy>=5.0` - Astronomical coordinate transformations
-- `pandas>=1.3.0` - Data processing
-- `numpy>=1.21.0` - Numerical operations
-- `jplephem>=2.17` - Planetary ephemerides
 
 ### 2. Download Astronomical Data
 
-Run the data pipeline to download all catalogs:
-
 ```bash
 uv run python data_pipeline.py
-# Or if you have activated the venv: python3 data_pipeline.py
+uv run python create_optimized_data.py
 ```
 
-This will download and process:
-- HYG Star Database v4.1 (~10MB)
-- OpenNGC catalog
-- Constellation line data
-
-Output files will be created in the `data/` directory.
-
-### 3. Open the Application
-
-Simply open `app.html` in a modern web browser:
+### 3. Run the Application
 
 ```bash
-open app.html
+npm run dev
 ```
 
-Or use a local server:
-
-```bash
-python3 -m http.server 8000
-```
-
-Then navigate to `http://localhost:8000/app.html`
+Then open http://localhost:8000/app.html
 
 ## Usage
 
 ### Navigation
 
 - **Rotate View**: Click and drag on the celestial sphere
-- **Zoom**: Use mouse wheel or pinch gesture
-- **Reset View**: Click "Reset View" button
+- **Zoom**: Mouse wheel or pinch gesture
+- **Reset View**: Click the reset button or double-click
 
 ### Controls
 
-1. **Difficulty Level**: Choose between 3 difficulty modes
-   - Level 1: Only shows constellation stars
-   - Level 2: Shows bright objects (mag < 4)
-   - Level 3: Custom magnitude limit (use slider)
+- **Search**: Type any object name (M31, Vega, Orion, NGC 7293)
+- **Magnitude Limit**: Adjust slider to show fainter/brighter objects
+- **Time**: Use time controls to see the sky at different dates
+- **Location**: Set observer coordinates for accurate horizon display
+- **Telescope Mode**: Configure aperture, focal length, and eyepiece to simulate telescope views
 
-2. **Magnitude Limit**: Adjust the slider to show fainter/brighter objects
-   - Lower values = only brightest objects
-   - Higher values = more faint objects visible
+### Game Mode
 
-3. **Observer Location**: Set your latitude/longitude to see horizon effects
-   - Click "Set Observer Location"
-   - Enter your coordinates (e.g., Paris: 48.8566, 2.3522)
+- Select a difficulty category (Messier, bright stars, constellations, etc.)
+- Find and click on the target object shown
+- Track your score, time, and accuracy
 
-4. **Game Mode**: Test your celestial object knowledge
-   - Click "Start Sky Map Game"
-   - Find and click on the named object shown
-   - Click "Pass" to skip difficult questions
-   - Game tracks score, time, and accuracy
+### Guided Tours
 
-### Info Display
+- **Messier Marathon**: Visit all 110 Messier objects
+- **Constellation Tour**: Learn the 88 modern constellations
+- **Tonight's Best**: Objects visible from your location tonight
 
-The info panel shows:
-- **RA**: Right Ascension (0-360°)
-- **Dec**: Declination (-90 to +90°)
-- **FOV**: Field of View
-- **Visible**: Number of objects currently displayed
+## Project Structure
 
-## Real-time Coordinate Transformation
+```
+skymap/
+├── app.html                    # Main application HTML
+├── main.js                     # Application entry point
+├── modules/                    # ES6 modules
+│   ├── core/                   # Core utilities (EventBus, Constants, CoordinateUtils)
+│   ├── services/               # Data loading, image fetching, geolocation
+│   ├── features/               # Game, search, tours, time, telescope
+│   ├── ui/                     # UI controllers and panel management
+│   └── data/                   # Curated image database
+├── data/                       # Generated astronomical data (JSON)
+├── skymap/                     # Python package for data processing
+├── data_pipeline.py            # Download and process catalogs
+├── create_optimized_data.py    # Create magnitude-filtered star files
+└── coordinate_transform.py     # Observer-specific coordinate transformation
+```
 
-To calculate positions for your specific location and time:
+## Data Pipeline
+
+### Download and Process Catalogs
+
+```bash
+uv run python data_pipeline.py
+```
+
+Downloads and processes:
+- HYG Star Database v4.1 (117K stars)
+- OpenNGC catalog (1.7K deep sky objects)
+- IAU constellation line data
+
+### Create Optimized Files
+
+```bash
+uv run python create_optimized_data.py
+```
+
+Creates magnitude-filtered star files:
+- `stars_bright.json` (mag ≤ 6.5) - naked eye stars
+- `stars_medium.json` (mag ≤ 8.0) - binocular stars
+- `stars_all.json` (mag ≤ 12.0) - telescope stars
+
+### Observer-Specific Transformation
 
 ```bash
 uv run python coordinate_transform.py \
-    --lat 48.8566 \
-    --lon 2.3522 \
+    --lat 48.8566 --lon 2.3522 \
     --magnitude 6.5 \
     --include-planets \
-    --include-horizon \
-    --output data/transformed_sky.json
-
-# Or if venv is activated:
-python3 coordinate_transform.py \
-    --lat 48.8566 \
-    --lon 2.3522 \
-    --magnitude 6.5 \
-    --include-planets \
-    --include-horizon \
-    --output data/transformed_sky.json
+    --include-horizon
 ```
 
-Parameters:
-- `--lat`: Observer latitude in degrees
-- `--lon`: Observer longitude in degrees
-- `--height`: Observer height in meters (default: 0)
-- `--time`: Observation time (ISO format or "now")
-- `--magnitude`: Maximum magnitude to include
-- `--include-planets`: Calculate planetary positions
-- `--include-horizon`: Calculate horizon line in RA/Dec
-- `--output`: Output JSON file path
+## Android Build
 
-Example output:
-```
-Observer Location: Lat=48.8566°, Lon=2.3522°, Height=0m
-Observation Time: 2026-01-16 10:18:34.663
-Magnitude Limit: 6.5
+Requires Java 21:
 
-Loaded 117931 stars and 1701 deep sky objects
-Filtered to 8921 stars and 122 DSOs (mag <= 6.5)
-Transforming coordinates...
-Visible objects: 3777 stars, 58 DSOs
-Calculating planetary positions...
-Visible planets: 7/9
-Calculating horizon line...
-Horizon line: 360 points
+```bash
+brew install openjdk@21  # macOS
+npm run build:android
 ```
 
-## Advanced Features
+APK output: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-### Constellation Lines
+## Testing
 
-Constellation lines are automatically loaded but currently need to be implemented in the renderer. The data structure includes:
-- Constellation abbreviations (IAU standard)
-- HIP star numbers defining line segments
-- All 88 modern astronomical constellations
+```bash
+# JavaScript tests
+npm test
+npm test -- tests/EventBus.test.js  # Single file
 
-### Object Size Scaling
-
-Objects remain white points until zoomed in enough to match their real angular size. This matches how objects appear in the night sky.
-
-### Deep Sky Object Images
-
-When you zoom in close enough (camera distance < 15 units), real images of famous Messier objects will fade in. Currently supported objects:
-- **M31** - Andromeda Galaxy
-- **M42** - Orion Nebula
-- **M45** - Pleiades (Seven Sisters)
-- **M1** - Crab Nebula
-- **M13** - Great Globular Cluster in Hercules
-- **M51** - Whirlpool Galaxy
-- **M57** - Ring Nebula
-- **M8** - Lagoon Nebula
-- **M20** - Trifid Nebula
-
-Images are loaded from Wikimedia Commons and appear as sprites at the correct celestial coordinates. The opacity gradually increases as you zoom in, making them appear naturally in the sky.
-
-To add more images, edit the `imageDatabase` object in `skymap.js` and add URLs for additional Messier or NGC objects.
-
-### Magnitude-based Brightness
-
-Stars shine with brightness proportional to their real magnitude:
-- Brighter stars (lower magnitude) = larger, more visible
-- Fainter stars (higher magnitude) = smaller, dimmer
-
-### Coordinate Grid Precision
-
-The grid automatically adjusts precision based on zoom level:
-- Zoomed out: 15° spacing
-- Zoomed in: Finer grid spacing (to be implemented)
+# Python tests
+uv run pytest
+uv run pytest tests/python/test_astronomy.py  # Single file
+```
 
 ## Data Sources
 
@@ -235,82 +163,22 @@ The grid automatically adjusts precision based on zoom level:
 - **Deep Sky Objects**: [OpenNGC](https://github.com/mattiaverga/OpenNGC) (CC BY-SA 4.0)
 - **Constellations**: [dcf21/constellation-stick-figures](https://github.com/dcf21/constellation-stick-figures) (GPL v3+)
 - **Planetary Data**: JPL DE430 Ephemeris via Astropy
-
-## Technical Details
-
-### Coordinate Systems
-
-- **ICRS**: International Celestial Reference System (J2000)
-  - RA: 0-360° (right ascension)
-  - Dec: -90 to +90° (declination)
-- **Alt/Az**: Altitude-Azimuth (observer-based)
-  - Alt: 0-90° (altitude above horizon)
-  - Az: 0-360° (azimuth compass direction)
-
-### Transformations
-
-The app uses Astropy for accurate coordinate transformations:
-1. Load star positions in ICRS (RA/Dec)
-2. Convert to observer's Alt/Az based on location and time
-3. Filter objects below horizon (Alt < 0)
-4. Render on 3D sphere using spherical coordinates
-
-### Performance
-
-- Stars are filtered by magnitude before rendering
-- Uses Three.js BufferGeometry for efficient rendering
-- Supports 100,000+ stars with smooth performance
-- Automatic level-of-detail based on zoom
+- **Images**: ESA/Hubble, NASA, Wikimedia Commons (various CC licenses)
 
 ## Browser Compatibility
 
-Requires a modern browser with:
-- WebGL support
-- ES6 JavaScript
-- Three.js r128+
-
-Tested on:
+Requires a modern browser with WebGL and ES6 support:
 - Chrome 90+
 - Firefox 88+
 - Safari 14+
 - Edge 90+
 
-## Future Enhancements
-
-Planned features:
-- [ ] Render constellation lines when found in game
-- [ ] Adaptive grid precision based on zoom
-- [ ] Real angular size for planets
-- [ ] Horizon line rendering
-- [ ] Search function for celestial objects
-- [ ] Time controls (fast-forward, rewind)
-- [ ] Mobile app packaging (Cordova/Capacitor)
-- [ ] Offline mode with cached data
-- [ ] Multiple cultural constellation systems
-- [ ] Satellite tracking (ISS, Starlink)
-
 ## License
 
-This project uses data from multiple sources:
 - Application code: MIT License
 - HYG Database: CC BY-SA 4.0
 - OpenNGC: CC BY-SA 4.0
 - Constellation data: GPL v3+
-
-## Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## Support
-
-For issues or questions:
-- Open an issue on GitHub
-- Check existing issues for solutions
-- Consult Astropy documentation for coordinate questions
 
 ## Acknowledgments
 
