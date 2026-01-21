@@ -140,9 +140,9 @@ export class SearchManager {
         if (dso.common_names) {
           const names = Array.isArray(dso.common_names)
             ? dso.common_names
-            : dso.common_names.split(',').map((n) => n.trim());
+            : dso.common_names.split(',').map((n) => n.trim()).filter(Boolean);
           names.forEach((commonName) => {
-            if (commonName && commonName !== primaryName) {
+            if (commonName !== primaryName) {
               this.index_.push({
                 name: commonName,
                 type: dso.type || 'DSO',

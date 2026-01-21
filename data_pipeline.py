@@ -19,7 +19,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from skymap.config import Config, DSO_TYPE_NAMES
 from skymap.io import download_file, write_json, ensure_directory
-from skymap.astronomy import filter_by_magnitude, ra_hms_to_degrees
+from skymap.astronomy import (
+    filter_by_magnitude,
+    inject_supplementary_objects,
+    ra_hms_to_degrees,
+)
 
 
 def download_catalog(url: str, filename: str) -> Optional[Path]:
@@ -278,13 +282,17 @@ def process_deep_sky_objects() -> Optional[Dict]:
         },
     ]
 
-    # Check if these Messier numbers already exist
-    existing_messiers = {dso['messier'] for dso in dso_list if dso.get('messier')}
-    added_count = 0
+    # Inject supplementary Messier objects
+    dso_list, added_count = inject_supplementary_objects(
+        dso_list, supplementary_messier, key='messier'
+    )
+
+    # Log which objects were added
+    existing_messiers = {
+        dso['messier'] for dso in dso_list[:-added_count] if dso.get('messier')
+    } if added_count > 0 else set()
     for supp in supplementary_messier:
         if supp['messier'] not in existing_messiers:
-            dso_list.append(supp)
-            added_count += 1
             print(f"  Added M{supp['messier']} ({supp['common_names'][0]})")
 
     print(f"  Total: {len(dso_list)} deep sky objects ({added_count} supplementary)")
