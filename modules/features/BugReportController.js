@@ -7,6 +7,14 @@ import {globalEventBus, Events} from '../core/EventBus.js';
 import {APP_VERSION, FORMSPREE_ENDPOINT} from '../core/Constants.js';
 
 /**
+ * Check if Formspree endpoint is configured.
+ * @returns {boolean} True if endpoint is configured
+ */
+function isEndpointConfigured() {
+  return FORMSPREE_ENDPOINT && !FORMSPREE_ENDPOINT.includes('YOUR_FORM_ID');
+}
+
+/**
  * BugReportController handles bug report form submission.
  */
 export class BugReportController {
@@ -27,6 +35,16 @@ export class BugReportController {
      * @private {boolean}
      */
     this.submitting_ = false;
+
+    /**
+     * Bound event handlers for cleanup.
+     * @private {!Object}
+     */
+    this.boundHandlers_ = {
+      handleOpen: null,
+      handleClose: null,
+      handleSubmit: null,
+    };
   }
 
   /**
@@ -41,28 +59,33 @@ export class BugReportController {
    * @private
    */
   setupEventListeners_() {
+    // Create bound handlers for cleanup
+    this.boundHandlers_.handleOpen = () => {
+      this.panelManager_.open('bug-report-panel');
+    };
+    this.boundHandlers_.handleClose = () => {
+      this.panelManager_.closeAll();
+    };
+    this.boundHandlers_.handleSubmit = () => {
+      this.handleSubmit_();
+    };
+
     // Bug report button
     const bugReportBtn = document.getElementById('bug-report-btn');
     if (bugReportBtn) {
-      bugReportBtn.addEventListener('click', () => {
-        this.panelManager_.open('bug-report-panel');
-      });
+      bugReportBtn.addEventListener('click', this.boundHandlers_.handleOpen);
     }
 
     // Close button
     const closeBtn = document.getElementById('bug-report-close-btn');
     if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        this.panelManager_.closeAll();
-      });
+      closeBtn.addEventListener('click', this.boundHandlers_.handleClose);
     }
 
     // Submit button
     const submitBtn = document.getElementById('bug-report-submit');
     if (submitBtn) {
-      submitBtn.addEventListener('click', () => {
-        this.handleSubmit_();
-      });
+      submitBtn.addEventListener('click', this.boundHandlers_.handleSubmit);
     }
 
     // Clear form when panel closes
@@ -116,6 +139,16 @@ export class BugReportController {
    */
   async handleSubmit_() {
     if (this.submitting_) return;
+
+    // Check if endpoint is configured
+    if (!isEndpointConfigured()) {
+      this.showNotification_(
+        'Bug reporting is not configured. Please contact the developer.',
+        'error'
+      );
+      console.warn('Bug report: Formspree endpoint not configured');
+      return;
+    }
 
     if (!this.validateForm_()) return;
 
@@ -210,6 +243,27 @@ export class BugReportController {
    * Dispose of resources.
    */
   dispose() {
+    // Remove event listeners
+    const bugReportBtn = document.getElementById('bug-report-btn');
+    if (bugReportBtn && this.boundHandlers_.handleOpen) {
+      bugReportBtn.removeEventListener('click', this.boundHandlers_.handleOpen);
+    }
+
+    const closeBtn = document.getElementById('bug-report-close-btn');
+    if (closeBtn && this.boundHandlers_.handleClose) {
+      closeBtn.removeEventListener('click', this.boundHandlers_.handleClose);
+    }
+
+    const submitBtn = document.getElementById('bug-report-submit');
+    if (submitBtn && this.boundHandlers_.handleSubmit) {
+      submitBtn.removeEventListener('click', this.boundHandlers_.handleSubmit);
+    }
+
+    this.boundHandlers_ = {
+      handleOpen: null,
+      handleClose: null,
+      handleSubmit: null,
+    };
     this.submitting_ = false;
   }
 }
