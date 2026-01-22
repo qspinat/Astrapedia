@@ -285,6 +285,9 @@ export const Events = {
   TELESCOPE_COMPUTED: 'telescope:computed',
   TELESCOPE_MODE_ACTIVATED: 'telescope:mode:activated',
   TELESCOPE_MODE_DEACTIVATED: 'telescope:mode:deactivated',
+
+  // Bug report events
+  BUG_REPORT_SUBMITTED: 'bugreport:submitted',
 };
 
 /**

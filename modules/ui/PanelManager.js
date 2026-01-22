@@ -16,6 +16,7 @@ const PANEL_IDS = [
   'events-panel',
   'tour-panel',
   'game-panel',
+  'bug-report-panel',
 ];
 
 /**

@@ -42,6 +42,10 @@ import {
   TelescopeController,
   initializeTelescopeController,
 } from './modules/features/TelescopeController.js';
+import {
+  BugReportController,
+  initializeBugReportController,
+} from './modules/features/BugReportController.js';
 
 // UI
 import {panelManager} from './modules/ui/PanelManager.js';
@@ -71,6 +75,8 @@ const app = {
   timeController: null,
   /** @type {?TelescopeController} */
   telescopeController: null,
+  /** @type {?BugReportController} */
+  bugReportController: null,
   /** @type {?UIController} */
   uiController: null,
   /** @type {?DOMCache} */
@@ -271,6 +277,11 @@ function initializeFeatureModules() {
 function initializeUIModules() {
   // Initialize panel manager
   panelManager.initialize();
+
+  // Initialize bug report controller
+  app.bugReportController = initializeBugReportController({
+    panelManager,
+  });
 
   // Initialize UI controller with all dependencies
   app.uiController = initializeUIController({

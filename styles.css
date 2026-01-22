@@ -1905,3 +1905,88 @@ body.night-mode .reticle-label.active {
 body.night-mode .reticle-info {
     color: rgba(200, 100, 100, 0.7);
 }
+
+/* ==========================================================================
+   BUG REPORT PANEL
+   ========================================================================== */
+
+.input-row--vertical {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.bug-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+}
+
+.bug-textarea:focus {
+    border-color: var(--accent);
+}
+
+.bug-textarea::placeholder {
+    color: var(--text-secondary);
+}
+
+.bug-input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+}
+
+.bug-input:focus {
+    border-color: var(--accent);
+}
+
+.bug-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.helper-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 12px;
+    line-height: 1.4;
+}
+
+/* Notification panel */
+.notification-panel {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 20px var(--shadow);
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, transform 0.3s, visibility 0.3s;
+    max-width: 90vw;
+    text-align: center;
+}
+
+.notification-panel.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}

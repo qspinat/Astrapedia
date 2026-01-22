@@ -5,6 +5,19 @@
  */
 
 /**
+ * Application version.
+ * @const {string}
+ */
+export const APP_VERSION = '0.2.0';
+
+/**
+ * Formspree endpoint for bug reports.
+ * Replace YOUR_FORM_ID with your Formspree form ID.
+ * @const {string}
+ */
+export const FORMSPREE_ENDPOINT = 'https://formspree.io/f/YOUR_FORM_ID';
+
+/**
  * Celestial sphere and rendering constants.
  * @const {!Object}
  */
