@@ -19,6 +19,51 @@ export const escapeHtml = (str) => {
 };
 
 /**
+ * Maximum length for preset names.
+ * @const {number}
+ */
+const MAX_PRESET_NAME_LENGTH = 50;
+
+/**
+ * Validates and sanitizes a preset name.
+ * @param {string} name - The raw preset name from user input
+ * @returns {{valid: boolean, sanitized: string, error: string}} Validation result
+ */
+export function validatePresetName(name) {
+  if (!name) {
+    return {valid: false, sanitized: '', error: 'Preset name is required.'};
+  }
+
+  // Trim whitespace
+  let sanitized = name.trim();
+
+  if (!sanitized) {
+    return {valid: false, sanitized: '', error: 'Preset name cannot be empty.'};
+  }
+
+  // Check length
+  if (sanitized.length > MAX_PRESET_NAME_LENGTH) {
+    return {
+      valid: false,
+      sanitized: '',
+      error: `Preset name must be ${MAX_PRESET_NAME_LENGTH} characters or less.`,
+    };
+  }
+
+  // Only allow alphanumeric, spaces, hyphens, underscores
+  const validPattern = /^[\w\s-]+$/;
+  if (!validPattern.test(sanitized)) {
+    return {
+      valid: false,
+      sanitized: '',
+      error: 'Preset name can only contain letters, numbers, spaces, hyphens, and underscores.',
+    };
+  }
+
+  return {valid: true, sanitized, error: ''};
+}
+
+/**
  * Search Controller - handles search input and results.
  */
 export class SearchController {
@@ -848,21 +893,30 @@ export class TelescopeSettingsHandler {
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
         const name = prompt('Enter preset name:');
-        if (name && name.trim()) {
-          const trimmedName = name.trim();
-          // Check if preset already exists
-          const existingPresets = this.deps_.getPresetNames?.() || [];
-          if (existingPresets.includes(trimmedName)) {
-            if (!confirm(`Preset "${trimmedName}" already exists. Overwrite?`)) {
-              return;
-            }
-          }
-          this.deps_.savePreset?.(trimmedName);
-          this.populatePresets_();
-          // Select the newly saved preset
-          const select = document.getElementById('telescope-preset-select');
-          if (select) select.value = trimmedName;
+        if (!name) return;
+
+        // Validate and sanitize the name
+        const validation = validatePresetName(name);
+        if (!validation.valid) {
+          alert(validation.error);
+          return;
         }
+
+        const sanitizedName = validation.sanitized;
+
+        // Check if preset already exists
+        const existingPresets = this.deps_.getPresetNames?.() || [];
+        if (existingPresets.includes(sanitizedName)) {
+          if (!confirm(`Preset "${sanitizedName}" already exists. Overwrite?`)) {
+            return;
+          }
+        }
+
+        this.deps_.savePreset?.(sanitizedName);
+        this.populatePresets_();
+        // Select the newly saved preset
+        const select = document.getElementById('telescope-preset-select');
+        if (select) select.value = sanitizedName;
       });
     }
 

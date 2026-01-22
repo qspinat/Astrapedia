@@ -915,6 +915,51 @@ class SkyConditionsHandler {
 }
 
 /**
+ * Maximum length for preset names.
+ * @const {number}
+ */
+const MAX_PRESET_NAME_LENGTH = 50;
+
+/**
+ * Validates and sanitizes a preset name.
+ * @param {string} name - The raw preset name from user input
+ * @returns {{valid: boolean, sanitized: string, error: string}} Validation result
+ */
+function validatePresetName(name) {
+  if (!name) {
+    return {valid: false, sanitized: '', error: 'Preset name is required.'};
+  }
+
+  // Trim whitespace
+  let sanitized = name.trim();
+
+  if (!sanitized) {
+    return {valid: false, sanitized: '', error: 'Preset name cannot be empty.'};
+  }
+
+  // Check length
+  if (sanitized.length > MAX_PRESET_NAME_LENGTH) {
+    return {
+      valid: false,
+      sanitized: '',
+      error: `Preset name must be ${MAX_PRESET_NAME_LENGTH} characters or less.`,
+    };
+  }
+
+  // Only allow alphanumeric, spaces, hyphens, underscores
+  const validPattern = /^[\w\s-]+$/;
+  if (!validPattern.test(sanitized)) {
+    return {
+      valid: false,
+      sanitized: '',
+      error: 'Preset name can only contain letters, numbers, spaces, hyphens, and underscores.',
+    };
+  }
+
+  return {valid: true, sanitized, error: ''};
+}
+
+/**
  * Telescope Settings Handler - handles telescope simulation controls.
  */
 class TelescopeSettingsHandler {
@@ -1351,23 +1396,32 @@ class TelescopeSettingsHandler {
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
         const name = prompt('Enter preset name:');
-        if (name && name.trim()) {
-          const trimmedName = name.trim();
-          // Check if preset already exists
-          if (this.presets_[trimmedName]) {
-            if (!confirm(`Preset "${trimmedName}" already exists. Overwrite?`)) {
-              return;
-            }
-          }
-          this.presets_[trimmedName] = {
-            telescope: {...this.telescope_},
-            eyepiece: {...this.eyepiece_},
-          };
-          this.saveToStorage_();
-          this.populatePresets_();
-          const select = document.getElementById('telescope-preset-select');
-          if (select) select.value = trimmedName;
+        if (!name) return;
+
+        // Validate and sanitize the name
+        const validation = validatePresetName(name);
+        if (!validation.valid) {
+          alert(validation.error);
+          return;
         }
+
+        const sanitizedName = validation.sanitized;
+
+        // Check if preset already exists
+        if (this.presets_[sanitizedName]) {
+          if (!confirm(`Preset "${sanitizedName}" already exists. Overwrite?`)) {
+            return;
+          }
+        }
+
+        this.presets_[sanitizedName] = {
+          telescope: {...this.telescope_},
+          eyepiece: {...this.eyepiece_},
+        };
+        this.saveToStorage_();
+        this.populatePresets_();
+        const select = document.getElementById('telescope-preset-select');
+        if (select) select.value = sanitizedName;
       });
     }
 
@@ -1481,6 +1535,22 @@ class UIController {
       console.log('UI Controller initialized');
     }, 1000);
   }
+
+  /**
+   * Disposes of the UI controller and cleans up resources.
+   * Should be called when the controller is no longer needed.
+   */
+  dispose() {
+    // Stop periodic intervals
+    this.skyConditionsHandler_.dispose();
+    this.infoBadgeUpdater_.stop();
+
+    // Remove global functions
+    delete window.openPanel;
+    delete window.closeAllPanels;
+
+    console.log('UI Controller disposed');
+  }
 }
 
 // Register service worker for PWA
@@ -1491,9 +1561,19 @@ if ('serviceWorker' in navigator) {
 }
 
 // Initialize UI controller when the page loads
+let uiControllerInstance = null;
+
 window.addEventListener('load', () => {
-  const uiController = new UIController();
-  uiController.init();
+  uiControllerInstance = new UIController();
+  uiControllerInstance.init();
+});
+
+// Clean up on page unload
+window.addEventListener('beforeunload', () => {
+  if (uiControllerInstance) {
+    uiControllerInstance.dispose();
+    uiControllerInstance = null;
+  }
 });
 
 // Export for testing (CommonJS for Node.js/Jest)
