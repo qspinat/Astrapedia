@@ -1990,3 +1990,10 @@ body.night-mode .reticle-info {
     visibility: visible;
     transform: translateX(-50%) translateY(0);
 }
+
+/* Night mode for notification panel */
+body.night-mode .notification-panel {
+    background: rgba(40, 20, 20, 0.95);
+    color: rgba(200, 100, 100, 0.9);
+    border: 1px solid rgba(200, 100, 100, 0.3);
+}

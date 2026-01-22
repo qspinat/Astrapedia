@@ -206,6 +206,50 @@ describe('BugReportController', () => {
 
       expect(mockElements['bug-description'].focus).toHaveBeenCalled();
     });
+
+    test('returns false when email is invalid', () => {
+      mockElements['bug-description'].value = 'This is a valid bug description with enough detail.';
+      mockElements['bug-email'].value = 'invalid-email';
+      mockElements['bug-email'].focus = jest.fn();
+
+      const result = controller.validateForm_();
+
+      expect(result).toBe(false);
+      expect(mockPanelManager.showNotification).toHaveBeenCalledWith(
+        'Please enter a valid email address.',
+        expect.any(Number)
+      );
+    });
+
+    test('returns true when email is valid', () => {
+      mockElements['bug-description'].value = 'This is a valid bug description with enough detail.';
+      mockElements['bug-email'].value = 'test@example.com';
+
+      const result = controller.validateForm_();
+
+      expect(result).toBe(true);
+      expect(mockPanelManager.showNotification).not.toHaveBeenCalled();
+    });
+
+    test('returns true when email is empty (optional field)', () => {
+      mockElements['bug-description'].value = 'This is a valid bug description with enough detail.';
+      mockElements['bug-email'].value = '';
+
+      const result = controller.validateForm_();
+
+      expect(result).toBe(true);
+      expect(mockPanelManager.showNotification).not.toHaveBeenCalled();
+    });
+
+    test('focuses email field on email validation error', () => {
+      mockElements['bug-description'].value = 'This is a valid bug description with enough detail.';
+      mockElements['bug-email'].value = 'not-an-email';
+      mockElements['bug-email'].focus = jest.fn();
+
+      controller.validateForm_();
+
+      expect(mockElements['bug-email'].focus).toHaveBeenCalled();
+    });
   });
 
   describe('handleSubmit_', () => {

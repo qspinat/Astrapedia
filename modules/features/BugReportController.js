@@ -15,6 +15,17 @@ function isEndpointConfigured() {
 }
 
 /**
+ * Validate email format.
+ * @param {string} email - Email address to validate
+ * @returns {boolean} True if email is valid or empty
+ */
+function isValidEmail(email) {
+  if (!email) return true; // Empty is valid (optional field)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
  * BugReportController handles bug report form submission.
  */
 export class BugReportController {
@@ -127,6 +138,15 @@ export class BugReportController {
     if (description.value.trim().length < 10) {
       this.showNotification_('Please provide a more detailed description.', 'error');
       description?.focus();
+      return false;
+    }
+
+    // Validate email if provided
+    const emailInput = document.getElementById('bug-email');
+    const email = emailInput?.value.trim() || '';
+    if (email && !isValidEmail(email)) {
+      this.showNotification_('Please enter a valid email address.', 'error');
+      emailInput?.focus();
       return false;
     }
 
