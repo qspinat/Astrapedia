@@ -162,6 +162,7 @@ class SkyMapApp {
     this.showConstellationLines = true;
     this.constellationLanguage = 'en';  // Default to English
     this.forceNightMode = true;  // Force night mode by default
+    this.telescopeModeActive = false;  // Telescope simulation mode blocks zoom
 
     // Time simulation
     this.simulationTime = new Date();

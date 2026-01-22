@@ -849,11 +849,19 @@ export class TelescopeSettingsHandler {
       saveBtn.addEventListener('click', () => {
         const name = prompt('Enter preset name:');
         if (name && name.trim()) {
-          this.deps_.savePreset?.(name.trim());
+          const trimmedName = name.trim();
+          // Check if preset already exists
+          const existingPresets = this.deps_.getPresetNames?.() || [];
+          if (existingPresets.includes(trimmedName)) {
+            if (!confirm(`Preset "${trimmedName}" already exists. Overwrite?`)) {
+              return;
+            }
+          }
+          this.deps_.savePreset?.(trimmedName);
           this.populatePresets_();
           // Select the newly saved preset
           const select = document.getElementById('telescope-preset-select');
-          if (select) select.value = name.trim();
+          if (select) select.value = trimmedName;
         }
       });
     }
@@ -884,11 +892,25 @@ export class TelescopeSettingsHandler {
     globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, () => {
       const toggle = document.getElementById('telescope-mode-toggle');
       if (toggle) toggle.checked = true;
+
+      // Show reticle
+      const reticle = document.getElementById('telescope-reticle');
+      if (reticle) reticle.classList.add('visible');
+
+      // Add vignette effect
+      document.body.classList.add('telescope-mode');
     });
 
     globalEventBus.on(Events.TELESCOPE_MODE_DEACTIVATED, () => {
       const toggle = document.getElementById('telescope-mode-toggle');
       if (toggle) toggle.checked = false;
+
+      // Hide reticle
+      const reticle = document.getElementById('telescope-reticle');
+      if (reticle) reticle.classList.remove('visible');
+
+      // Remove vignette effect
+      document.body.classList.remove('telescope-mode');
     });
   }
 }

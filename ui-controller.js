@@ -612,6 +612,23 @@ class TourButtonsHandler {
  * - Sky & Telescope: https://skyandtelescope.org/astronomy-resources/light-pollution-and-astronomy-the-bortle-dark-sky-scale/
  * - Moon effect: https://skyandtelescope.org/astronomy-resources/astronomy-questions-answers/how-does-the-moons-phase-affect-the-skyglow-of-any-given-location-and-how-many-days-before-or-after-a-new-moon-is-a-dark-site-not-compromised/
  */
+
+/**
+ * Moon phase threshold constants.
+ * Each phase spans 1/8 of the cycle (0.125), boundaries are at midpoints.
+ * @const {!Object<string, number>}
+ */
+const MOON_PHASE_THRESHOLDS = {
+  NEW_MOON_END: 0.0625,        // 1/16 - end of new moon
+  WAXING_CRESCENT_END: 0.1875, // 3/16 - end of waxing crescent
+  FIRST_QUARTER_END: 0.3125,   // 5/16 - end of first quarter
+  WAXING_GIBBOUS_END: 0.4375,  // 7/16 - end of waxing gibbous
+  FULL_MOON_END: 0.5625,       // 9/16 - end of full moon
+  WANING_GIBBOUS_END: 0.6875,  // 11/16 - end of waning gibbous
+  LAST_QUARTER_END: 0.8125,    // 13/16 - end of last quarter
+  WANING_CRESCENT_END: 0.9375, // 15/16 - end of waning crescent
+};
+
 class SkyConditionsHandler {
   /** Creates a new SkyConditionsHandler instance. */
   constructor() {
@@ -669,14 +686,15 @@ class SkyConditionsHandler {
    */
   getMoonPhaseName_(phase) {
     // Phase: 0 = new moon, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter
-    if (phase < 0.0625) return {name: 'New Moon', emoji: '🌑'};
-    if (phase < 0.1875) return {name: 'Waxing Crescent', emoji: '🌒'};
-    if (phase < 0.3125) return {name: 'First Quarter', emoji: '🌓'};
-    if (phase < 0.4375) return {name: 'Waxing Gibbous', emoji: '🌔'};
-    if (phase < 0.5625) return {name: 'Full Moon', emoji: '🌕'};
-    if (phase < 0.6875) return {name: 'Waning Gibbous', emoji: '🌖'};
-    if (phase < 0.8125) return {name: 'Last Quarter', emoji: '🌗'};
-    if (phase < 0.9375) return {name: 'Waning Crescent', emoji: '🌘'};
+    const T = MOON_PHASE_THRESHOLDS;
+    if (phase < T.NEW_MOON_END) return {name: 'New Moon', emoji: '🌑'};
+    if (phase < T.WAXING_CRESCENT_END) return {name: 'Waxing Crescent', emoji: '🌒'};
+    if (phase < T.FIRST_QUARTER_END) return {name: 'First Quarter', emoji: '🌓'};
+    if (phase < T.WAXING_GIBBOUS_END) return {name: 'Waxing Gibbous', emoji: '🌔'};
+    if (phase < T.FULL_MOON_END) return {name: 'Full Moon', emoji: '🌕'};
+    if (phase < T.WANING_GIBBOUS_END) return {name: 'Waning Gibbous', emoji: '🌖'};
+    if (phase < T.LAST_QUARTER_END) return {name: 'Last Quarter', emoji: '🌗'};
+    if (phase < T.WANING_CRESCENT_END) return {name: 'Waning Crescent', emoji: '🌘'};
     return {name: 'New Moon', emoji: '🌑'};
   }
 
@@ -1334,14 +1352,21 @@ class TelescopeSettingsHandler {
       saveBtn.addEventListener('click', () => {
         const name = prompt('Enter preset name:');
         if (name && name.trim()) {
-          this.presets_[name.trim()] = {
+          const trimmedName = name.trim();
+          // Check if preset already exists
+          if (this.presets_[trimmedName]) {
+            if (!confirm(`Preset "${trimmedName}" already exists. Overwrite?`)) {
+              return;
+            }
+          }
+          this.presets_[trimmedName] = {
             telescope: {...this.telescope_},
             eyepiece: {...this.eyepiece_},
           };
           this.saveToStorage_();
           this.populatePresets_();
           const select = document.getElementById('telescope-preset-select');
-          if (select) select.value = name.trim();
+          if (select) select.value = trimmedName;
         }
       });
     }
@@ -1471,19 +1496,17 @@ window.addEventListener('load', () => {
   uiController.init();
 });
 
-// Export for potential module use
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    UIController,
-    PanelManager,
-    SearchController,
-    SettingsHandler,
-    TimeControlsHandler,
-    GameControlsHandler,
-    TourButtonsHandler,
-    SkyConditionsHandler,
-    TelescopeSettingsHandler,
-    InfoBadgeUpdater,
-    escapeHtml,
-  };
-}
+// ESM exports for testing and module use
+export {
+  UIController,
+  PanelManager,
+  SearchController,
+  SettingsHandler,
+  TimeControlsHandler,
+  GameControlsHandler,
+  TourButtonsHandler,
+  SkyConditionsHandler,
+  TelescopeSettingsHandler,
+  InfoBadgeUpdater,
+  escapeHtml,
+};

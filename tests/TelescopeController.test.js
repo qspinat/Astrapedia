@@ -31,20 +31,8 @@ Object.defineProperty(global, 'localStorage', {
   value: localStorageMock,
 });
 
-// Mock document
-const mockElements = {};
-const bodyClassListAdd = jest.fn();
-const bodyClassListRemove = jest.fn();
-
-global.document = {
-  getElementById: jest.fn((id) => mockElements[id] || null),
-  body: {
-    classList: {
-      add: bodyClassListAdd,
-      remove: bodyClassListRemove,
-    },
-  },
-};
+// Note: DOM manipulation was moved to the UI layer (modules/ui/UIController.js)
+// TelescopeController now only emits events for mode changes
 
 describe('TelescopeController', () => {
   let controller;
@@ -58,13 +46,8 @@ describe('TelescopeController', () => {
       getCurrentMagnitude: jest.fn().mockReturnValue(8.0),
     };
     localStorageMock.clear();
-    bodyClassListAdd.mockClear();
-    bodyClassListRemove.mockClear();
     jest.clearAllMocks();
     globalEventBus.clear();
-
-    // Reset mock elements
-    Object.keys(mockElements).forEach((key) => delete mockElements[key]);
 
     controller = new TelescopeController(mockDependencies);
   });
@@ -333,16 +316,6 @@ describe('TelescopeController', () => {
       expect(controller.isActive()).toBe(true);
     });
 
-    test('handles missing reticle element gracefully', () => {
-      // Should not throw when element doesn't exist
-      expect(() => controller.activateTelescopeMode()).not.toThrow();
-    });
-
-    test('handles missing body classList gracefully', () => {
-      // Should not throw even if document.body is not available
-      expect(() => controller.activateTelescopeMode()).not.toThrow();
-    });
-
     test('emits TELESCOPE_MODE_ACTIVATED event', () => {
       const callback = jest.fn();
       globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, callback);
@@ -369,8 +342,6 @@ describe('TelescopeController', () => {
       controller.initialize();
       controller.activateTelescopeMode();
       jest.clearAllMocks();
-      bodyClassListAdd.mockClear();
-      bodyClassListRemove.mockClear();
     });
 
     test('restores previous FOV', () => {
@@ -386,16 +357,6 @@ describe('TelescopeController', () => {
     test('sets isActive to false', () => {
       controller.deactivateTelescopeMode();
       expect(controller.isActive()).toBe(false);
-    });
-
-    test('handles missing reticle element gracefully', () => {
-      // Should not throw when element doesn't exist
-      expect(() => controller.deactivateTelescopeMode()).not.toThrow();
-    });
-
-    test('handles missing body classList gracefully', () => {
-      // Should not throw even if document.body is not available
-      expect(() => controller.deactivateTelescopeMode()).not.toThrow();
     });
 
     test('emits TELESCOPE_MODE_DEACTIVATED event', () => {

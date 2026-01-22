@@ -241,15 +241,7 @@ export class TelescopeController {
 
     this.isActive_ = true;
 
-    // Show reticle
-    const reticle = document.getElementById('telescope-reticle');
-    if (reticle) {
-      reticle.classList.add('visible');
-    }
-
-    // Add vignette effect
-    document.body.classList.add('telescope-mode');
-
+    // Emit event for UI layer to handle DOM changes (reticle, vignette)
     globalEventBus.emit(Events.TELESCOPE_MODE_ACTIVATED, {
       fov,
       magnitudeLimit: limitingMagnitude,
@@ -275,15 +267,7 @@ export class TelescopeController {
     this.previousFOV_ = null;
     this.previousMagnitude_ = null;
 
-    // Hide reticle
-    const reticle = document.getElementById('telescope-reticle');
-    if (reticle) {
-      reticle.classList.remove('visible');
-    }
-
-    // Remove vignette effect
-    document.body.classList.remove('telescope-mode');
-
+    // Emit event for UI layer to handle DOM changes (reticle, vignette)
     globalEventBus.emit(Events.TELESCOPE_MODE_DEACTIVATED, {});
   }
 
