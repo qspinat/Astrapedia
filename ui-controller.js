@@ -1496,17 +1496,20 @@ window.addEventListener('load', () => {
   uiController.init();
 });
 
-// ESM exports for testing and module use
-export {
-  UIController,
-  PanelManager,
-  SearchController,
-  SettingsHandler,
-  TimeControlsHandler,
-  GameControlsHandler,
-  TourButtonsHandler,
-  SkyConditionsHandler,
-  TelescopeSettingsHandler,
-  InfoBadgeUpdater,
-  escapeHtml,
-};
+// Export for testing (CommonJS for Node.js/Jest)
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    UIController,
+    PanelManager,
+    SearchController,
+    SettingsHandler,
+    TimeControlsHandler,
+    GameControlsHandler,
+    TourButtonsHandler,
+    SkyConditionsHandler,
+    TelescopeSettingsHandler,
+    InfoBadgeUpdater,
+    escapeHtml,
+    MOON_PHASE_THRESHOLDS,
+  };
+}

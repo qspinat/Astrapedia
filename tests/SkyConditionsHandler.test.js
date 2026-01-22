@@ -3,7 +3,7 @@
  */
 
 import {jest} from '@jest/globals';
-import {SkyConditionsHandler} from '../ui-controller.js';
+import {SkyConditionsHandler} from '../modules/features/SkyConditionsHandler.js';
 
 describe('SkyConditionsHandler', () => {
   let handler;
