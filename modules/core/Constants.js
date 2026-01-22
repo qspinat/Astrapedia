@@ -353,3 +353,24 @@ export const IMAGE_SOURCES = {
   WEBB: 'https://cdn.esawebb.org/archives/images/screen/',
   HUBBLE: 'https://cdn.esahubble.org/archives/images/screen/',
 };
+
+/**
+ * Telescope simulation constants.
+ * @const {!Object}
+ */
+export const TELESCOPE = {
+  /** Default telescope aperture diameter in mm. */
+  DEFAULT_DIAMETER: 200,
+  /** Default telescope focal length in mm. */
+  DEFAULT_FOCAL_LENGTH: 1000,
+  /** Default eyepiece focal length in mm. */
+  DEFAULT_EYEPIECE_FL: 25,
+  /** Default eyepiece apparent field of view in degrees. */
+  DEFAULT_EYEPIECE_AFOV: 52,
+  /** Minimum telescope field of view in degrees. */
+  MIN_TELESCOPE_FOV: 0.1,
+  /** Maximum useful magnification multiplier (times aperture in mm). */
+  MAX_MAG_MULTIPLIER: 2,
+  /** localStorage key for telescope settings. */
+  STORAGE_KEY: 'skymap_telescope_settings',
+};
