@@ -11,10 +11,11 @@ import {debounce} from './modules/core/Utils.js';
 
 /**
  * Time speed cycle for the forward button.
- * Cycles through: 100x → 1000x → 1x → 100x...
+ * Cycles through: 1x → 100x → 1000x → 1x...
+ * Progressive speeds for intuitive user experience.
  * @const {!Array<number>}
  */
-const TIME_SPEED_CYCLE = [100, 1000, 1];
+const TIME_SPEED_CYCLE = [1, 100, 1000];
 
 /**
  * HTML escape function to prevent XSS.
@@ -308,6 +309,8 @@ class SearchController {
       this.selectedIndex_ = 0;
 
       if (query.length < 2) {
+        // Cancel any pending debounced search to prevent stale results
+        this.debouncedSearch_.cancel();
         this.searchResults_.classList.remove('active');
         this.searchResults_.innerHTML = '';
         this.currentResults_ = [];

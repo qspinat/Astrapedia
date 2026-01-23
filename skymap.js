@@ -223,16 +223,6 @@ class SkyMapApp {
     this.dynamicImageCache = new Map();    // Cache: objectName -> { url: string | null, loading: boolean }
 
     // === PERFORMANCE OPTIMIZATIONS ===
-    // Cached DOM references for frequently-accessed elements
-    this._domCache = {
-      raDisplay: null,
-      decDisplay: null,
-      fovDisplay: null,
-      visibleCount: null,
-      timeDisplay: null,
-      timeSpeedDisplay: null,
-    };
-
     // Reusable TextureLoader (avoid creating new instances per image)
     this._textureLoader = null;
 
@@ -363,12 +353,6 @@ class SkyMapApp {
 
       // Initialize DOM cache for frequently-accessed elements
       domCache.initialize();
-      this._domCache.raDisplay = domCache.raDisplay;
-      this._domCache.decDisplay = domCache.decDisplay;
-      this._domCache.fovDisplay = domCache.fovDisplay;
-      this._domCache.visibleCount = domCache.visibleCount;
-      this._domCache.timeDisplay = domCache.timeDisplay;
-      this._domCache.timeSpeedDisplay = domCache.timeSpeedDisplay;
 
       // Create celestial objects
       this.createCelestialSphere();
@@ -1720,9 +1704,9 @@ class SkyMapApp {
     const raDec = this.cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
 
     // Use optional chaining for cleaner null checks
-    if (this._domCache.raDisplay) this._domCache.raDisplay.textContent = `${raDec.ra.toFixed(1)}°`;
-    if (this._domCache.decDisplay) this._domCache.decDisplay.textContent = `${raDec.dec.toFixed(1)}°`;
-    if (this._domCache.fovDisplay) this._domCache.fovDisplay.textContent = this.formatAngle(this.camera.fov);
+    if (domCache.raDisplay) domCache.raDisplay.textContent = `${raDec.ra.toFixed(1)}°`;
+    if (domCache.decDisplay) domCache.decDisplay.textContent = `${raDec.dec.toFixed(1)}°`;
+    if (domCache.fovDisplay) domCache.fovDisplay.textContent = this.formatAngle(this.camera.fov);
   }
 
   formatAngle(degrees) {
@@ -1783,8 +1767,8 @@ class SkyMapApp {
   }
 
   updateVisibleCount(count) {
-    if (this._domCache.visibleCount) {
-      this._domCache.visibleCount.textContent = count;
+    if (domCache.visibleCount) {
+      domCache.visibleCount.textContent = count;
     }
   }
 
@@ -3402,8 +3386,8 @@ class SkyMapApp {
     this.simulationTime = new Date(this.simulationTime.getTime() + deltaMs);
 
     // Update UI using cached DOM reference
-    if (this._domCache.timeDisplay) {
-      this._domCache.timeDisplay.textContent = this.simulationTime.toLocaleString();
+    if (domCache.timeDisplay) {
+      domCache.timeDisplay.textContent = this.simulationTime.toLocaleString();
     }
 
     // Rotate celestial sphere to simulate Earth's rotation
@@ -3449,13 +3433,13 @@ class SkyMapApp {
   setTimeSpeed(speed) {
     this.timeSpeed = speed;
     // Use cached DOM reference
-    if (this._domCache.timeSpeedDisplay) {
+    if (domCache.timeSpeedDisplay) {
       if (speed === 0) {
-        this._domCache.timeSpeedDisplay.textContent = 'Paused';
+        domCache.timeSpeedDisplay.textContent = 'Paused';
       } else if (speed === 1) {
-        this._domCache.timeSpeedDisplay.textContent = 'Real-time';
+        domCache.timeSpeedDisplay.textContent = 'Real-time';
       } else {
-        this._domCache.timeSpeedDisplay.textContent = `${speed}x`;
+        domCache.timeSpeedDisplay.textContent = `${speed}x`;
       }
     }
     // Ensure animation is running when speed is set
@@ -6796,8 +6780,8 @@ class SkyMapApp {
       this._lastFov = this.camera.fov;
       this._fovDirty = true;
       // Update FOV display immediately when it changes (using cached DOM ref)
-      if (this._domCache.fovDisplay) {
-        this._domCache.fovDisplay.textContent = this.formatAngle(this.camera.fov);
+      if (domCache.fovDisplay) {
+        domCache.fovDisplay.textContent = this.formatAngle(this.camera.fov);
       }
     }
 

@@ -7,9 +7,11 @@
  * The debounced function will wait until `delay` milliseconds have passed
  * since the last call before executing.
  *
+ * The returned function has a `cancel()` method to cancel any pending execution.
+ *
  * @param {function(...*): void} fn - Function to debounce
  * @param {number} delay - Delay in milliseconds
- * @returns {function(...*): void} Debounced function
+ * @returns {function(...*): void} Debounced function with cancel() method
  *
  * @example
  * const debouncedSearch = debounce((query) => {
@@ -20,13 +22,21 @@
  * debouncedSearch('a');
  * debouncedSearch('ab');
  * debouncedSearch('abc'); // Only this one executes
+ *
+ * // Cancel pending execution
+ * debouncedSearch.cancel();
  */
 export function debounce(fn, delay) {
   let timeoutId;
-  return function(...args) {
+  const debouncedFn = function(...args) {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => fn.apply(this, args), delay);
   };
+  debouncedFn.cancel = function() {
+    clearTimeout(timeoutId);
+    timeoutId = null;
+  };
+  return debouncedFn;
 }
 
 /**

@@ -117,6 +117,49 @@ describe('Utils', () => {
       jest.advanceTimersByTime(100);
       expect(fn2).toHaveBeenCalledTimes(1);
     });
+
+    test('cancel prevents pending execution', () => {
+      const fn = jest.fn();
+      const debouncedFn = debounce(fn, 100);
+
+      debouncedFn();
+      expect(fn).not.toHaveBeenCalled();
+
+      // Cancel before timeout
+      debouncedFn.cancel();
+
+      jest.advanceTimersByTime(100);
+      expect(fn).not.toHaveBeenCalled();
+    });
+
+    test('cancel does nothing if no pending execution', () => {
+      const fn = jest.fn();
+      const debouncedFn = debounce(fn, 100);
+
+      // Cancel without calling debounced function first
+      expect(() => debouncedFn.cancel()).not.toThrow();
+
+      // Cancel after execution completes
+      debouncedFn();
+      jest.advanceTimersByTime(100);
+      expect(fn).toHaveBeenCalledTimes(1);
+
+      expect(() => debouncedFn.cancel()).not.toThrow();
+    });
+
+    test('can call debounced function again after cancel', () => {
+      const fn = jest.fn();
+      const debouncedFn = debounce(fn, 100);
+
+      debouncedFn('first');
+      debouncedFn.cancel();
+
+      debouncedFn('second');
+      jest.advanceTimersByTime(100);
+
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenCalledWith('second');
+    });
   });
 
   describe('throttle', () => {
