@@ -303,21 +303,23 @@ describe('BugReportController', () => {
 
       const body = JSON.parse(global.fetch.mock.calls[0][1].body);
       expect(body).toMatchObject({
-        description: 'This is a valid bug description for testing.',
+        message: 'This is a valid bug description for testing.',
         category: 'performance',
         email: 'test@example.com',
+        _replyto: 'test@example.com',
         appVersion: '1.0.0-test',
       });
     });
 
-    test('uses "Not provided" when email is empty', async () => {
+    test('omits email field when email is empty', async () => {
       global.fetch.mockResolvedValue({ok: true});
       mockElements['bug-email'].value = '';
 
       await controller.handleSubmit_();
 
       const body = JSON.parse(global.fetch.mock.calls[0][1].body);
-      expect(body.email).toBe('Not provided');
+      expect(body.email).toBeUndefined();
+      expect(body._replyto).toBeUndefined();
     });
   });
 

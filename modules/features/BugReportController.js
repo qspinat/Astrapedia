@@ -179,11 +179,16 @@ export class BugReportController {
     const diagnosticInfo = this.collectDiagnosticInfo_();
 
     const reportData = {
-      description,
+      _subject: `Bug Report: ${category}`,
+      message: description,
       category,
-      email: email || 'Not provided',
       ...diagnosticInfo,
     };
+    // Only include email if provided (Formspree rejects invalid emails)
+    if (email) {
+      reportData.email = email;
+      reportData._replyto = email;
+    }
 
     await this.submitReport_(reportData);
   }
