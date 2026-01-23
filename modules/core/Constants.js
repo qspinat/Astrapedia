@@ -15,7 +15,7 @@ export const APP_VERSION = '0.2.0';
  * Replace YOUR_FORM_ID with your Formspree form ID.
  * @const {string}
  */
-export const FORMSPREE_ENDPOINT = 'https://formspree.io/f/YOUR_FORM_ID';
+export const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xaqeoelv';
 
 /**
  * Celestial sphere and rendering constants.
