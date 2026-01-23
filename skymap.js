@@ -1356,17 +1356,18 @@ class SkyMapApp {
     // Calculate new positions using current simulation time
     // Reuse cached positions object to avoid allocation
     const simTime = this.simulationTime || new Date();
-    const defaultPos = {ra: 0, dec: 0};
 
     this._planetPositions['Sun'] = this.calculateSunPosition(simTime);
     this._planetPositions['Moon'] = this.calculateMoonPosition(simTime);
-    this._planetPositions['Mercury'] = this.getPlanetPosition('Mercury', simTime) || defaultPos;
-    this._planetPositions['Venus'] = this.getPlanetPosition('Venus', simTime) || defaultPos;
-    this._planetPositions['Mars'] = this.getPlanetPosition('Mars', simTime) || defaultPos;
-    this._planetPositions['Jupiter'] = this.getPlanetPosition('Jupiter', simTime) || defaultPos;
-    this._planetPositions['Saturn'] = this.getPlanetPosition('Saturn', simTime) || defaultPos;
-    this._planetPositions['Uranus'] = this.getPlanetPosition('Uranus', simTime) || defaultPos;
-    this._planetPositions['Neptune'] = this.getPlanetPosition('Neptune', simTime) || defaultPos;
+    // For outer planets, use calculated position or fallback to origin (0,0)
+    // Note: Each planet gets its own object from getPlanetPosition, so no shared reference issues
+    this._planetPositions['Mercury'] = this.getPlanetPosition('Mercury', simTime) || {ra: 0, dec: 0};
+    this._planetPositions['Venus'] = this.getPlanetPosition('Venus', simTime) || {ra: 0, dec: 0};
+    this._planetPositions['Mars'] = this.getPlanetPosition('Mars', simTime) || {ra: 0, dec: 0};
+    this._planetPositions['Jupiter'] = this.getPlanetPosition('Jupiter', simTime) || {ra: 0, dec: 0};
+    this._planetPositions['Saturn'] = this.getPlanetPosition('Saturn', simTime) || {ra: 0, dec: 0};
+    this._planetPositions['Uranus'] = this.getPlanetPosition('Uranus', simTime) || {ra: 0, dec: 0};
+    this._planetPositions['Neptune'] = this.getPlanetPosition('Neptune', simTime) || {ra: 0, dec: 0};
 
     const radius = 99;
 

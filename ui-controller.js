@@ -515,8 +515,9 @@ class TimeControlsHandler {
           // Cycle through speeds using TIME_SPEED_CYCLE constant
           const currentSpeed = window.app.timeSpeed || 0;
           const currentIndex = TIME_SPEED_CYCLE.indexOf(currentSpeed);
-          const nextIndex = (currentIndex + 1) % TIME_SPEED_CYCLE.length;
-          const newSpeed = TIME_SPEED_CYCLE[nextIndex >= 0 ? nextIndex : 0];
+          // If currentSpeed not in array, indexOf returns -1, so (-1+1)%3=0 → first speed
+          // Otherwise cycles to next speed in array
+          const newSpeed = TIME_SPEED_CYCLE[(currentIndex + 1) % TIME_SPEED_CYCLE.length];
           // Always set isTimePlaying to true when using forward button
           window.app.isTimePlaying = true;
           window.app.setTimeSpeed(newSpeed);
