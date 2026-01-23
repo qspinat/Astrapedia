@@ -9,6 +9,20 @@ import {
 } from './modules/features/SkyConditionsHandler.js';
 
 /**
+ * Debounce helper function to limit how often a function is called.
+ * @param {function(...*): void} fn - Function to debounce
+ * @param {number} delay - Delay in milliseconds
+ * @returns {function(...*): void} Debounced function
+ */
+function debounce(fn, delay) {
+  let timeoutId;
+  return function(...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+/**
  * HTML escape function to prevent XSS.
  * @param {?string} str - String to escape
  * @returns {string} Escaped HTML string
@@ -205,6 +219,12 @@ class SearchController {
     this.currentResults_ = [];
     /** @private {number} */
     this.selectedIndex_ = -1;
+    /** @private {boolean} - Guard against multiple event delegation setup */
+    this.eventDelegationSetup_ = false;
+    /** @private {function(string): void} - Debounced search function */
+    this.debouncedSearch_ = debounce((query) => {
+      this.performSearch_(query);
+    }, 300);
   }
 
   /**
@@ -237,9 +257,57 @@ class SearchController {
     }
   }
 
+  /**
+   * Perform the search and update results display.
+   * @param {string} query - Search query
+   * @private
+   */
+  performSearch_(query) {
+    if (!window.app) return;
+    this.currentResults_ = window.app.performSearch(query);
+
+    if (this.currentResults_.length === 0) {
+      this.searchResults_.innerHTML =
+          '<div class="search-result-item no-results">No results found</div>';
+      this.searchResults_.classList.add('active');
+      return;
+    }
+
+    let html = '';
+    this.currentResults_.forEach((result, index) => {
+      const magInfo = result.mag !== null && result.mag !== undefined
+          ? `<span class="mag">mag ${result.mag.toFixed(1)}</span>`
+          : '';
+      const selectedClass = index === 0 ? 'selected' : '';
+      html += `
+        <div class="search-result-item ${selectedClass}" data-index="${index}">
+          <span class="name">${escapeHtml(result.name)}</span>
+          <span class="type">${escapeHtml(result.type)}</span>
+          ${magInfo}
+        </div>
+      `;
+    });
+
+    this.searchResults_.innerHTML = html;
+    this.searchResults_.classList.add('active');
+  }
+
   /** Sets up event listeners for search functionality. */
   setupEventListeners() {
     if (!this.searchInput_ || !this.searchResults_) return;
+
+    // Use event delegation for click handling (one listener on parent container)
+    // This prevents memory leaks from adding new listeners on every keystroke
+    if (!this.eventDelegationSetup_) {
+      this.searchResults_.addEventListener('click', (e) => {
+        const item = e.target.closest('.search-result-item');
+        if (item && item.dataset.index !== undefined) {
+          const index = parseInt(item.dataset.index, 10);
+          if (!isNaN(index)) this.selectResult_(index);
+        }
+      });
+      this.eventDelegationSetup_ = true;
+    }
 
     this.searchInput_.addEventListener('input', (e) => {
       const query = e.target.value.trim();
@@ -252,41 +320,8 @@ class SearchController {
         return;
       }
 
-      if (!window.app) return;
-      this.currentResults_ = window.app.performSearch(query);
-
-      if (this.currentResults_.length === 0) {
-        this.searchResults_.innerHTML =
-            '<div class="search-result-item no-results">No results found</div>';
-        this.searchResults_.classList.add('active');
-        return;
-      }
-
-      let html = '';
-      this.currentResults_.forEach((result, index) => {
-        const magInfo = result.mag !== null && result.mag !== undefined
-            ? `<span class="mag">mag ${result.mag.toFixed(1)}</span>`
-            : '';
-        const selectedClass = index === 0 ? 'selected' : '';
-        html += `
-          <div class="search-result-item ${selectedClass}" data-index="${index}">
-            <span class="name">${escapeHtml(result.name)}</span>
-            <span class="type">${escapeHtml(result.type)}</span>
-            ${magInfo}
-          </div>
-        `;
-      });
-
-      this.searchResults_.innerHTML = html;
-      this.searchResults_.classList.add('active');
-
-      // Add click handlers to results
-      this.searchResults_.querySelectorAll('.search-result-item').forEach((item) => {
-        item.addEventListener('click', () => {
-          const index = parseInt(item.dataset.index, 10);
-          if (!isNaN(index)) this.selectResult_(index);
-        });
-      });
+      // Use debounced search to avoid excessive searches on every keystroke
+      this.debouncedSearch_(query);
     });
 
     this.searchInput_.addEventListener('keydown', (e) => {

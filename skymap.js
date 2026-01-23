@@ -48,6 +48,7 @@ import {
   calculateLST as _calculateLST,
 } from './modules/core/CoordinateUtils.js';
 import {escapeHtml, fetchWikipedia} from './modules/core/SecurityUtils.js';
+import {domCache} from './modules/ui/DOMCache.js';
 
 /* ==========================================================================
    1. SHARED CONSTANTS
@@ -222,6 +223,19 @@ class SkyMapApp {
     this.dynamicImageCache = new Map();    // Cache: objectName -> { url: string | null, loading: boolean }
 
     // === PERFORMANCE OPTIMIZATIONS ===
+    // Cached DOM references for frequently-accessed elements
+    this._domCache = {
+      raDisplay: null,
+      decDisplay: null,
+      fovDisplay: null,
+      visibleCount: null,
+      timeDisplay: null,
+      timeSpeedDisplay: null,
+    };
+
+    // Reusable TextureLoader (avoid creating new instances per image)
+    this._textureLoader = null;
+
     // Cached bound function for animation loop (prevents new function creation each frame)
     this._boundAnimate = this.animate.bind(this);
 
@@ -300,7 +314,12 @@ class SkyMapApp {
     this._tempVec3 = new THREE.Vector3();
     this._tempVec3B = new THREE.Vector3();
     this._tempMatrix4 = new THREE.Matrix4();
+    this._tempMatrix4B = new THREE.Matrix4();
     this._tempMatrix3 = new THREE.Matrix3();
+
+    // Initialize reusable TextureLoader
+    this._textureLoader = new THREE.TextureLoader();
+    this._textureLoader.setCrossOrigin('anonymous');
   }
 
   /* ======================================================================
@@ -320,12 +339,23 @@ class SkyMapApp {
 
       // Setup Three.js
       this.setupScene();
+
+      // Initialize reusable objects for performance (must be before setupCamera
+      // since updateCameraPosition uses temp vectors)
+      this.initTempObjects();
+
       this.setupCamera();
       this.setupRenderer();
       this.setupLights();
 
-      // Initialize reusable objects for performance
-      this.initTempObjects();
+      // Initialize DOM cache for frequently-accessed elements
+      domCache.initialize();
+      this._domCache.raDisplay = domCache.raDisplay;
+      this._domCache.decDisplay = domCache.decDisplay;
+      this._domCache.fovDisplay = domCache.fovDisplay;
+      this._domCache.visibleCount = domCache.visibleCount;
+      this._domCache.timeDisplay = domCache.timeDisplay;
+      this._domCache.timeSpeedDisplay = domCache.timeSpeedDisplay;
 
       // Create celestial objects
       this.createCelestialSphere();
@@ -1444,10 +1474,8 @@ class SkyMapApp {
 
     data.imageLoading = true;
 
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.setCrossOrigin('anonymous');
-
-    textureLoader.load(
+    // Use reusable TextureLoader instance
+    this._textureLoader.load(
       imageUrl,
       (texture) => {
         texture.minFilter = THREE.LinearFilter;
@@ -1643,29 +1671,35 @@ class SkyMapApp {
     this.camera.lookAt(0, 0, 0);
 
     // Update camera info display - compute RA/Dec in celestial coordinates
+    // Reuse temporary vectors/matrices to avoid allocations in hot path
     // The view direction in world coordinates
-    const viewDirWorld = new THREE.Vector3(0, 0, 0).sub(this.camera.position).normalize();
+    this._tempVec3.set(0, 0, 0).sub(this.camera.position).normalize();
 
     // Transform view direction from world coords to celestial coords
     // by applying the INVERSE of the celestialSphere's world transformation
-    const viewDirCelestial = viewDirWorld.clone();
+    this._tempVec3B.copy(this._tempVec3);
     if (this.celestialSphere) {
       // Get the inverse of the celestialSphere's world matrix
-      const worldMatrix = new THREE.Matrix4();
       this.celestialSphere.updateMatrixWorld();
-      worldMatrix.copy(this.celestialSphere.matrixWorld);
-      const inverseMatrix = new THREE.Matrix4().copy(worldMatrix).invert();
+      this._tempMatrix4.copy(this.celestialSphere.matrixWorld);
+      this._tempMatrix4B.copy(this._tempMatrix4).invert();
 
       // Apply inverse transformation (rotation only, ignore translation)
-      const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-      viewDirCelestial.applyMatrix3(rotationMatrix);
+      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
+      this._tempVec3B.applyMatrix3(this._tempMatrix3);
     }
 
-    const raDec = this.cartesianToRaDec(viewDirCelestial.x, viewDirCelestial.y, viewDirCelestial.z);
+    const raDec = this.cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
 
-    document.getElementById('ra-display').textContent = `${raDec.ra.toFixed(1)}°`;
-    document.getElementById('dec-display').textContent = `${raDec.dec.toFixed(1)}°`;
-    document.getElementById('fov-display').textContent = this.formatAngle(this.camera.fov);
+    if (this._domCache.raDisplay) {
+      this._domCache.raDisplay.textContent = `${raDec.ra.toFixed(1)}°`;
+    }
+    if (this._domCache.decDisplay) {
+      this._domCache.decDisplay.textContent = `${raDec.dec.toFixed(1)}°`;
+    }
+    if (this._domCache.fovDisplay) {
+      this._domCache.fovDisplay.textContent = this.formatAngle(this.camera.fov);
+    }
   }
 
   formatAngle(degrees) {
@@ -1726,7 +1760,9 @@ class SkyMapApp {
   }
 
   updateVisibleCount(count) {
-    document.getElementById('visible-count').textContent = count;
+    if (this._domCache.visibleCount) {
+      this._domCache.visibleCount.textContent = count;
+    }
   }
 
   // Feature 4: Location Services
@@ -3342,10 +3378,9 @@ class SkyMapApp {
   updateSimulationTime(deltaMs) {
     this.simulationTime = new Date(this.simulationTime.getTime() + deltaMs);
 
-    // Update UI
-    const timeDisplay = document.getElementById('time-display');
-    if (timeDisplay) {
-      timeDisplay.textContent = this.simulationTime.toLocaleString();
+    // Update UI using cached DOM reference
+    if (this._domCache.timeDisplay) {
+      this._domCache.timeDisplay.textContent = this.simulationTime.toLocaleString();
     }
 
     // Rotate celestial sphere to simulate Earth's rotation
@@ -3390,14 +3425,14 @@ class SkyMapApp {
    */
   setTimeSpeed(speed) {
     this.timeSpeed = speed;
-    const speedDisplay = document.getElementById('time-speed-display');
-    if (speedDisplay) {
+    // Use cached DOM reference
+    if (this._domCache.timeSpeedDisplay) {
       if (speed === 0) {
-        speedDisplay.textContent = 'Paused';
+        this._domCache.timeSpeedDisplay.textContent = 'Paused';
       } else if (speed === 1) {
-        speedDisplay.textContent = 'Real-time';
+        this._domCache.timeSpeedDisplay.textContent = 'Real-time';
       } else {
-        speedDisplay.textContent = `${speed}x`;
+        this._domCache.timeSpeedDisplay.textContent = `${speed}x`;
       }
     }
     // Ensure animation is running when speed is set
@@ -6737,8 +6772,10 @@ class SkyMapApp {
     if (fovChanged) {
       this._lastFov = this.camera.fov;
       this._fovDirty = true;
-      // Update FOV display immediately when it changes
-      document.getElementById('fov-display').textContent = this.formatAngle(this.camera.fov);
+      // Update FOV display immediately when it changes (using cached DOM ref)
+      if (this._domCache.fovDisplay) {
+        this._domCache.fovDisplay.textContent = this.formatAngle(this.camera.fov);
+      }
     }
 
     // Update visibility functions only when needed or throttled
@@ -6831,10 +6868,8 @@ class SkyMapApp {
         // Static image exists in database - load it directly
         const pos = this.raDecToCartesian(dso.ra, dso.dec, radius);
 
-        // Create sprite with CORS-enabled texture loading
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.setCrossOrigin('anonymous');
-        textureLoader.load(
+        // Use reusable TextureLoader instance
+        this._textureLoader.load(
           staticImageUrl,
           (texture) => {
             // Improve texture quality
@@ -7413,9 +7448,8 @@ class SkyMapApp {
       }
     }
 
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.setCrossOrigin('anonymous');
-    textureLoader.load(
+    // Use reusable TextureLoader instance
+    this._textureLoader.load(
       result.url,
       (texture) => {
         // Check if texture actually loaded (has dimensions)
@@ -7453,7 +7487,7 @@ class SkyMapApp {
           console.log(`🔄 Trying DSS fallback for ${objectName}`);
           const dssUrl = this.getSkyViewImageUrl(dso.ra, dso.dec, dso.type, dso.size_major);
 
-          textureLoader.load(
+          this._textureLoader.load(
             dssUrl,
             (texture) => {
               const imgWidth = texture.image?.naturalWidth || texture.image?.width || 0;
@@ -7652,23 +7686,21 @@ class SkyMapApp {
     this._bestCandidateSprite = null;
     this._bestCandidateSize = 0;
 
-    // Get camera direction for FOV check
-    const camDir = this._tempVec3B || new THREE.Vector3();
-    this.camera.getWorldDirection(camDir);
+    // Get camera direction for FOV check (reuse temp vector)
+    this.camera.getWorldDirection(this._tempVec3B);
 
     this.imageSprites.forEach(sprite => {
       if (!sprite.userData) return;
 
-      // First check if sprite is in the camera's field of view
-      const spritePos = this._tempVec3 || new THREE.Vector3();
-      sprite.getWorldPosition(spritePos);
-      const toSpriteX = spritePos.x - this.camera.position.x;
-      const toSpriteY = spritePos.y - this.camera.position.y;
-      const toSpriteZ = spritePos.z - this.camera.position.z;
+      // First check if sprite is in the camera's field of view (reuse temp vector)
+      sprite.getWorldPosition(this._tempVec3);
+      const toSpriteX = this._tempVec3.x - this.camera.position.x;
+      const toSpriteY = this._tempVec3.y - this.camera.position.y;
+      const toSpriteZ = this._tempVec3.z - this.camera.position.z;
       const len = Math.sqrt(toSpriteX * toSpriteX + toSpriteY * toSpriteY + toSpriteZ * toSpriteZ);
-      const dot = (toSpriteX / len) * camDir.x +
-             (toSpriteY / len) * camDir.y +
-             (toSpriteZ / len) * camDir.z;
+      const dot = (toSpriteX / len) * this._tempVec3B.x +
+             (toSpriteY / len) * this._tempVec3B.y +
+             (toSpriteZ / len) * this._tempVec3B.z;
 
       // Calculate the cosine threshold for current FOV (with proportional margin)
       // Use FOV-based margin so small FOVs have small margins, capped at 5° for large FOVs
@@ -7943,21 +7975,22 @@ class SkyMapApp {
 
     // Get view direction: camera looks at center (0,0,0)
     // View direction in world space is from camera toward center
-    const viewDirWorld = new THREE.Vector3(0, 0, 0).sub(this.camera.position).normalize();
+    // Reuse temporary vectors/matrices to avoid allocations
+    this._tempVec3.set(0, 0, 0).sub(this.camera.position).normalize();
 
     // Transform view direction from world coords to celestial coords
     // by applying the INVERSE of the celestialSphere's world transformation
-    const viewDirCelestial = viewDirWorld.clone();
+    this._tempVec3B.copy(this._tempVec3);
     if (this.celestialSphere) {
       // Update the matrix first!
       this.celestialSphere.updateMatrixWorld();
-      const worldMatrix = new THREE.Matrix4().copy(this.celestialSphere.matrixWorld);
-      const inverseMatrix = new THREE.Matrix4().copy(worldMatrix).invert();
-      const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-      viewDirCelestial.applyMatrix3(rotationMatrix);
+      this._tempMatrix4.copy(this.celestialSphere.matrixWorld);
+      this._tempMatrix4B.copy(this._tempMatrix4).invert();
+      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
+      this._tempVec3B.applyMatrix3(this._tempMatrix3);
     }
 
-    const raDec = this.cartesianToRaDec(viewDirCelestial.x, viewDirCelestial.y, viewDirCelestial.z);
+    const raDec = this.cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
 
     // Create region key for caching (finer grid for deeper zoom)
     const gridSize = Math.max(1, this.camera.fov);
