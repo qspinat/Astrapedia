@@ -16,6 +16,23 @@ const escapeHtml = (str) => {
 };
 
 /**
+ * Formspree endpoint for bug reports.
+ * @const {string}
+ */
+const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xaqeoelv';
+
+/**
+ * Validate email format.
+ * @param {string} email - Email address to validate
+ * @returns {boolean} True if email is valid or empty
+ */
+const isValidEmail = (email) => {
+  if (!email) return true; // Empty is valid (optional field)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+/**
  * Panel Manager - handles opening/closing of slide panels.
  */
 class PanelManager {
@@ -29,6 +46,7 @@ class PanelManager {
       'info-panel',
       'visible-tonight-panel',
       'events-panel',
+      'bug-report-panel',
     ];
   }
 
@@ -100,6 +118,22 @@ class PanelManager {
       });
     }
 
+    // Telescope mode quick toggle
+    const telescopeQuickToggle = document.getElementById('telescope-quick-toggle');
+    if (telescopeQuickToggle) {
+      telescopeQuickToggle.addEventListener('click', () => {
+        // Toggle the telescope mode setting
+        const telescopeToggle = document.getElementById('telescope-mode-toggle');
+        if (telescopeToggle) {
+          telescopeToggle.checked = !telescopeToggle.checked;
+          // Trigger change event to update the app
+          telescopeToggle.dispatchEvent(new Event('change'));
+        }
+        // Update quick toggle button state
+        telescopeQuickToggle.classList.toggle('active', telescopeToggle?.checked);
+      });
+    }
+
     // Settings toggle
     const settingsToggle = document.getElementById('settings-toggle');
     if (settingsToggle) {
@@ -113,10 +147,19 @@ class PanelManager {
       });
     }
 
+    // Bug report button
+    const bugReportBtn = document.getElementById('bug-report-btn');
+    if (bugReportBtn) {
+      bugReportBtn.addEventListener('click', () => {
+        this.open('bug-report-panel');
+      });
+    }
+
     // Close buttons for panels
     this.setupCloseButton_('settings-close-btn', () => this.closeAll());
     this.setupCloseButton_('visible-tonight-close-btn', () => this.closeAll());
     this.setupCloseButton_('events-close-btn', () => this.closeAll());
+    this.setupCloseButton_('bug-report-close-btn', () => this.closeAll());
 
     // Info panel close button calls app.selectObject(null)
     const infoCloseBtn = document.getElementById('info-close-btn');
@@ -600,6 +643,167 @@ class TourButtonsHandler {
         this.panelManager_.closeAll();
       });
     }
+  }
+}
+
+/**
+ * Bug Report Handler - handles bug report form submission to Formspree.
+ */
+class BugReportHandler {
+  /**
+   * Creates a new BugReportHandler instance.
+   * @param {!PanelManager} panelManager - The panel manager instance
+   */
+  constructor(panelManager) {
+    /** @private @const {!PanelManager} */
+    this.panelManager_ = panelManager;
+    /** @private {boolean} */
+    this.submitting_ = false;
+  }
+
+  /** Sets up event listeners for bug report form. */
+  setupEventListeners() {
+    const submitBtn = document.getElementById('bug-report-submit');
+    if (submitBtn) {
+      submitBtn.addEventListener('click', () => this.handleSubmit_());
+    }
+  }
+
+  /**
+   * Validates the bug report form.
+   * @returns {boolean} True if form is valid
+   * @private
+   */
+  validateForm_() {
+    const description = document.getElementById('bug-description');
+    if (!description || !description.value.trim()) {
+      this.showNotification_('Please provide a description of the bug.');
+      description?.focus();
+      return false;
+    }
+    if (description.value.trim().length < 10) {
+      this.showNotification_('Please provide a more detailed description.');
+      description?.focus();
+      return false;
+    }
+
+    // Validate email if provided
+    const emailInput = document.getElementById('bug-email');
+    const email = emailInput?.value.trim() || '';
+    if (email && !isValidEmail(email)) {
+      this.showNotification_('Please enter a valid email address.');
+      emailInput?.focus();
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Collects diagnostic information.
+   * @returns {!Object} Diagnostic info
+   * @private
+   */
+  collectDiagnosticInfo_() {
+    return {
+      userAgent: navigator.userAgent,
+      screenSize: `${window.innerWidth}x${window.innerHeight}`,
+      devicePixelRatio: window.devicePixelRatio || 1,
+      timestamp: new Date().toISOString(),
+      url: window.location.href,
+      language: navigator.language || 'unknown',
+    };
+  }
+
+  /**
+   * Handles form submission.
+   * @private
+   */
+  async handleSubmit_() {
+    if (this.submitting_) return;
+    if (!this.validateForm_()) return;
+
+    const description = document.getElementById('bug-description')?.value.trim() || '';
+    const category = document.getElementById('bug-category')?.value || 'other';
+    const email = document.getElementById('bug-email')?.value.trim() || '';
+
+    const submitBtn = document.getElementById('bug-report-submit');
+    this.submitting_ = true;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+    }
+
+    try {
+      const formData = {
+        _subject: `Bug Report: ${category}`,
+        message: description,
+        category,
+        ...this.collectDiagnosticInfo_(),
+      };
+      // Only include email if provided (Formspree rejects invalid emails)
+      if (email) {
+        formData.email = email;
+        formData._replyto = email;
+      }
+
+      const response = await fetch(FORMSPREE_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        this.showNotification_('Bug report submitted. Thank you!');
+        this.clearForm_();
+        this.panelManager_.closeAll();
+      } else {
+        this.showNotification_('Failed to submit. Please try again.');
+      }
+    } catch (error) {
+      console.error('Bug report submission failed:', error);
+      this.showNotification_('Network error. Please try again.');
+    } finally {
+      this.submitting_ = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Report';
+      }
+    }
+  }
+
+  /**
+   * Clears the form fields.
+   * @private
+   */
+  clearForm_() {
+    const description = document.getElementById('bug-description');
+    const category = document.getElementById('bug-category');
+    const email = document.getElementById('bug-email');
+    if (description) description.value = '';
+    if (category) category.selectedIndex = 0;
+    if (email) email.value = '';
+  }
+
+  /**
+   * Shows a notification message.
+   * @param {string} message - Message to display
+   * @private
+   */
+  showNotification_(message) {
+    let notification = document.getElementById('notification-panel');
+    if (!notification) {
+      notification = document.createElement('div');
+      notification.id = 'notification-panel';
+      notification.className = 'notification-panel';
+      document.body.appendChild(notification);
+    }
+    notification.textContent = message;
+    notification.classList.add('visible');
+    setTimeout(() => notification.classList.remove('visible'), 3000);
   }
 }
 
@@ -1498,6 +1702,8 @@ class UIController {
     this.gameControlsHandler_ = new GameControlsHandler();
     /** @private @const {!TourButtonsHandler} */
     this.tourButtonsHandler_ = new TourButtonsHandler(this.panelManager_);
+    /** @private @const {!BugReportHandler} */
+    this.bugReportHandler_ = new BugReportHandler(this.panelManager_);
     /** @private @const {!SkyConditionsHandler} */
     this.skyConditionsHandler_ = new SkyConditionsHandler();
     /** @private @const {!TelescopeSettingsHandler} */
@@ -1522,6 +1728,7 @@ class UIController {
       this.timeControlsHandler_.setupEventListeners();
       this.gameControlsHandler_.setupEventListeners();
       this.tourButtonsHandler_.setupEventListeners();
+      this.bugReportHandler_.setupEventListeners();
       this.skyConditionsHandler_.setupEventListeners();
       this.telescopeSettingsHandler_.setupEventListeners();
 
