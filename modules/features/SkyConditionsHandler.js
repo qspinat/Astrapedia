@@ -186,7 +186,14 @@ export class SkyConditionsHandler {
   }
 
   /**
-   * Estimate moon phase without Astronomy Engine.
+   * Estimate moon phase and altitude without Astronomy Engine.
+   * Uses a simplified model based on lunar cycle and time of day.
+   *
+   * NOTE: This is a simplified model that does not account for observer
+   * latitude. The actual maximum altitude depends on declination and
+   * observer position. This approximation assumes mid-latitudes (~40-50°N/S)
+   * and provides reasonable estimates for light pollution calculations.
+   *
    * @param {!Date} date
    * @private
    */

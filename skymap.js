@@ -1359,15 +1359,31 @@ class SkyMapApp {
 
     this._planetPositions['Sun'] = this.calculateSunPosition(simTime);
     this._planetPositions['Moon'] = this.calculateMoonPosition(simTime);
-    // For outer planets, use calculated position or fallback to origin (0,0)
-    // Note: Each planet gets its own object from getPlanetPosition, so no shared reference issues
-    this._planetPositions['Mercury'] = this.getPlanetPosition('Mercury', simTime) || {ra: 0, dec: 0};
-    this._planetPositions['Venus'] = this.getPlanetPosition('Venus', simTime) || {ra: 0, dec: 0};
-    this._planetPositions['Mars'] = this.getPlanetPosition('Mars', simTime) || {ra: 0, dec: 0};
-    this._planetPositions['Jupiter'] = this.getPlanetPosition('Jupiter', simTime) || {ra: 0, dec: 0};
-    this._planetPositions['Saturn'] = this.getPlanetPosition('Saturn', simTime) || {ra: 0, dec: 0};
-    this._planetPositions['Uranus'] = this.getPlanetPosition('Uranus', simTime) || {ra: 0, dec: 0};
-    this._planetPositions['Neptune'] = this.getPlanetPosition('Neptune', simTime) || {ra: 0, dec: 0};
+
+    // Helper to get planet position with fallback and warning
+    const getPositionWithFallback = (name) => {
+      const pos = this.getPlanetPosition(name, simTime);
+      if (!pos) {
+        // Use previous valid position if available, otherwise fallback to origin
+        const prevPos = this._planetPositions[name];
+        if (prevPos && (prevPos.ra !== 0 || prevPos.dec !== 0)) {
+          console.warn(`Planet position unavailable for ${name}, using previous position`);
+          return prevPos;
+        }
+        console.warn(`Planet position unavailable for ${name}, using fallback (0,0)`);
+        return {ra: 0, dec: 0};
+      }
+      return pos;
+    };
+
+    // Calculate outer planet positions with fallback
+    this._planetPositions['Mercury'] = getPositionWithFallback('Mercury');
+    this._planetPositions['Venus'] = getPositionWithFallback('Venus');
+    this._planetPositions['Mars'] = getPositionWithFallback('Mars');
+    this._planetPositions['Jupiter'] = getPositionWithFallback('Jupiter');
+    this._planetPositions['Saturn'] = getPositionWithFallback('Saturn');
+    this._planetPositions['Uranus'] = getPositionWithFallback('Uranus');
+    this._planetPositions['Neptune'] = getPositionWithFallback('Neptune');
 
     const radius = 99;
 

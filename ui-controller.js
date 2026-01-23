@@ -7,20 +7,7 @@ import {
   SkyConditionsHandler,
   MOON_PHASE_THRESHOLDS,
 } from './modules/features/SkyConditionsHandler.js';
-
-/**
- * Debounce helper function to limit how often a function is called.
- * @param {function(...*): void} fn - Function to debounce
- * @param {number} delay - Delay in milliseconds
- * @returns {function(...*): void} Debounced function
- */
-function debounce(fn, delay) {
-  let timeoutId;
-  return function(...args) {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn.apply(this, args), delay);
-  };
-}
+import {debounce} from './modules/core/Utils.js';
 
 /**
  * Time speed cycle for the forward button.
