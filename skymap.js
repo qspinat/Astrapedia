@@ -1009,14 +1009,14 @@ class SkyMapApp {
     );
 
     // Calculate Moon phase (0-1, where 0 = new moon, 0.5 = full moon)
-    // Phase angle is roughly 2*D
-    const phaseAngle = (2 * D) % 360;
-    const phase = (1 - Math.cos(THREE.MathUtils.degToRad(phaseAngle))) / 2;
+    // D is the mean elongation from Sun: 0° at new moon, 180° at full moon
+    // Phase is simply D normalized to 0-1 range
+    const phase = D / 360;
 
     return {
       ra: (ra + 360) % 360,
       dec: dec,
-      phase: phase  // 0 = new moon, 0.5 = first/last quarter, 1 = full moon
+      phase: phase  // 0 = new moon, 0.5 = full moon
     };
   }
 
@@ -3296,15 +3296,20 @@ class SkyMapApp {
       this.celestialSphere.rotation.y -= rotationAngle;
     }
 
-    // Update Sun and Moon positions periodically when time is moving fast
-    // Moon moves ~13°/day, so update every simulated hour for smooth motion at high speeds
+    // Update Sun and Moon positions periodically
+    // Moon moves ~13°/day (~0.5°/hour), so update frequently for smooth motion:
+    // - Every simulated minute for time changes
+    // - Every 5 seconds of real time to keep display in sync
     if (!this.lastPlanetUpdate) {
       this.lastPlanetUpdate = this.simulationTime.getTime();
+      this.lastPlanetUpdateRealTime = Date.now();
     }
-    const timeSinceUpdate = Math.abs(this.simulationTime.getTime() - this.lastPlanetUpdate);
-    if (timeSinceUpdate > 3600000) { // Update every simulated hour
+    const simTimeSinceUpdate = Math.abs(this.simulationTime.getTime() - this.lastPlanetUpdate);
+    const realTimeSinceUpdate = Date.now() - (this.lastPlanetUpdateRealTime || 0);
+    if (simTimeSinceUpdate > 60000 || realTimeSinceUpdate > 5000) {
       this.createPlanets();
       this.lastPlanetUpdate = this.simulationTime.getTime();
+      this.lastPlanetUpdateRealTime = Date.now();
     }
   }
 

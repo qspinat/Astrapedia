@@ -950,35 +950,29 @@ class SkyConditionsHandler {
 
   /**
    * Update moon position from app data.
+   * Uses the actual rendered moon position from app.planets for consistency.
    * @private
    */
   updateMoonData_() {
     if (!window.app) return;
 
-    // Get simulation time
-    const simTime = window.app.simulationTime || new Date();
+    const app = window.app;
+    const simTime = app.simulationTime || new Date();
 
-    // Use Astronomy Engine if available (loaded in app.html)
-    if (typeof Astronomy !== 'undefined') {
-      try {
-        // Calculate moon phase
-        const moonIllum = Astronomy.Illumination('Moon', simTime);
-        this.moonPhase_ = moonIllum.phase_angle / 360; // Convert to 0-1
+    // Get moon data from the app's planets array (same data used for rendering)
+    const moonData = app.planets?.find((p) => p.name === 'Moon');
 
-        // Calculate moon position
-        const observer = {
-          latitude: window.app.observerLatitude || 0,
-          longitude: window.app.observerLongitude || 0,
-          height: 0,
-        };
-        const moonPos = Astronomy.Equator('Moon', simTime, observer, true, true);
-        const moonHoriz = Astronomy.Horizon(simTime, observer, moonPos.ra, moonPos.dec, 'normal');
-        this.moonAltitude_ = moonHoriz.altitude;
-      } catch (e) {
-        // Fallback: estimate from lunar cycle (~29.5 days)
-        this.estimateMoonPhase_(simTime);
-      }
+    if (moonData) {
+      // Use the phase from the rendered moon
+      this.moonPhase_ = moonData.phase || 0;
+
+      // Calculate altitude using the app's method with actual moon RA/Dec
+      const lat = app.observerLocation?.lat || 0;
+      const lon = app.observerLocation?.lon || 0;
+      const lst = app.calculateLST(simTime, lon);
+      this.moonAltitude_ = app.calculateAltitude(moonData.ra, moonData.dec, lat, lst);
     } else {
+      // Fallback if moon data not available yet
       this.estimateMoonPhase_(simTime);
     }
   }
@@ -993,16 +987,31 @@ class SkyConditionsHandler {
     const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
     const lunarCycle = 29.530588853; // days
     const daysSinceNew = (date - knownNewMoon) / (1000 * 60 * 60 * 24);
-    this.moonPhase_ = (daysSinceNew % lunarCycle) / lunarCycle;
+    const phaseInCycle = ((daysSinceNew % lunarCycle) + lunarCycle) % lunarCycle;
+    this.moonPhase_ = phaseInCycle / lunarCycle;
 
-    // Rough altitude estimate (assume worst case - moon could be up)
-    // For better UX, assume moon is up during night hours
-    const hour = date.getHours();
-    if (hour >= 6 && hour <= 18) {
-      this.moonAltitude_ = -10; // Daytime, assume moon not affecting much
+    // Estimate moon altitude based on phase and time of day
+    // The moon's transit time shifts ~50 min later each day
+    // New moon transits at noon, full moon at midnight
+    const hour = date.getHours() + date.getMinutes() / 60;
+
+    // Moon transit hour: new moon (phase=0) transits at 12:00,
+    // full moon (phase=0.5) transits at 0:00 (midnight)
+    const transitHour = (12 + this.moonPhase_ * 24) % 24;
+
+    // Hours from transit (moon is highest at transit)
+    let hoursFromTransit = hour - transitHour;
+    if (hoursFromTransit > 12) hoursFromTransit -= 24;
+    if (hoursFromTransit < -12) hoursFromTransit += 24;
+
+    // Approximate altitude: max ~50° at transit
+    // Use cosine curve: altitude = maxAlt * cos(hoursFromTransit * π/12)
+    // This gives altitude = 0 at ±6 hours from transit (moon above horizon ~12 hours)
+    const maxAltitude = 50;
+    if (Math.abs(hoursFromTransit) > 6) {
+      this.moonAltitude_ = -10; // Moon below horizon
     } else {
-      // Night time - assume moon might be up, scale by illumination
-      this.moonAltitude_ = 30 * this.getMoonIllumination_(this.moonPhase_);
+      this.moonAltitude_ = maxAltitude * Math.cos(hoursFromTransit * Math.PI / 12);
     }
   }
 
