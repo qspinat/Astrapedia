@@ -42,7 +42,6 @@ import {
   TelescopeController,
   initializeTelescopeController,
 } from './modules/features/TelescopeController.js';
-
 // UI
 import {panelManager} from './modules/ui/PanelManager.js';
 import {DOMCache} from './modules/ui/DOMCache.js';

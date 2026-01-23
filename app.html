@@ -21,11 +21,12 @@
             https://skyserver.sdss.org
             https://archive.stsci.edu
             https://alasky.cds.unistra.fr
-            https://raw.githubusercontent.com;
+            https://raw.githubusercontent.com
+            https://formspree.io;
         font-src 'self';
         object-src 'none';
         base-uri 'self';
-        form-action 'self';
+        form-action 'self' https://formspree.io;
         upgrade-insecure-requests;
     ">
     <title>Interactive Sky Map</title>
@@ -60,6 +61,9 @@
                     </button>
                     <button class="icon-btn icon-btn--compass" id="compass-toggle" aria-label="Compass Mode">
                         🧭
+                    </button>
+                    <button class="icon-btn icon-btn--telescope" id="telescope-quick-toggle" aria-label="Telescope Mode" title="Telescope Mode">
+                        🔭
                     </button>
                     <button class="icon-btn icon-btn--settings" id="settings-toggle" aria-label="Settings">
                         ⚙
@@ -284,6 +288,9 @@
                     <button class="action-btn secondary" id="events-btn">
                         <span class="action-btn__icon">📅</span> Upcoming Events
                     </button>
+                    <button class="action-btn secondary" id="bug-report-btn">
+                        <span class="action-btn__icon">🐛</span> Report a Bug
+                    </button>
                 </div>
             </div>
         </div>
@@ -439,6 +446,38 @@
                 <button class="close-btn close-btn--panel" id="events-close-btn">✕</button>
             </div>
             <div class="panel-content"></div>
+        </div>
+
+        <!-- Bug Report Panel -->
+        <div id="bug-report-panel" class="slide-panel" role="dialog" aria-labelledby="bug-report-title">
+            <div class="panel-header">
+                <h2 id="bug-report-title">Report a Bug</h2>
+                <button class="close-btn close-btn--panel" id="bug-report-close-btn" aria-label="Close">✕</button>
+            </div>
+            <div class="panel-section">
+                <div class="input-row input-row--vertical">
+                    <label for="bug-description">Description *</label>
+                    <textarea id="bug-description" rows="4" placeholder="Describe what happened..." class="bug-textarea"></textarea>
+                </div>
+                <div class="input-row">
+                    <label for="bug-category">Category</label>
+                    <select id="bug-category" class="language-select">
+                        <option value="display">Display/Rendering</option>
+                        <option value="interaction">Controls/Interaction</option>
+                        <option value="performance">Performance</option>
+                        <option value="data">Data/Objects</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="input-row input-row--vertical">
+                    <label for="bug-email">Email (optional)</label>
+                    <input type="email" id="bug-email" placeholder="For follow-up questions" class="bug-input">
+                </div>
+                <p class="helper-text">Diagnostic info (browser, screen size) will be included automatically.</p>
+            </div>
+            <div class="panel-section action-buttons">
+                <button class="action-btn" id="bug-report-submit">Submit Report</button>
+            </div>
         </div>
 
         <!-- Tour Panel -->

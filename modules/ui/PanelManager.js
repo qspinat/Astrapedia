@@ -16,6 +16,7 @@ const PANEL_IDS = [
   'events-panel',
   'tour-panel',
   'game-panel',
+  'bug-report-panel',
 ];
 
 /**
@@ -250,6 +251,8 @@ export class PanelManager {
       notification = document.createElement('div');
       notification.id = 'notification-panel';
       notification.className = 'notification-panel';
+      notification.setAttribute('role', 'status');
+      notification.setAttribute('aria-live', 'polite');
       document.body.appendChild(notification);
     }
 
