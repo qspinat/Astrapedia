@@ -1298,6 +1298,69 @@ class SkyMapApp {
   }
 
   /**
+   * Update planet positions without recreating sprites.
+   * Much faster than createPlanets() - only updates positions.
+   */
+  updatePlanetPositions() {
+    if (!this.planetSprites || this.planetSprites.length === 0) {
+      // No sprites yet, need full creation
+      this.createPlanets();
+      return;
+    }
+
+    // Calculate new positions
+    const sunPos = this.calculateSunPosition(this.simulationTime);
+    const moonPos = this.calculateMoonPosition(this.simulationTime);
+    const simTime = this.simulationTime || new Date();
+
+    const positions = {
+      'Sun': sunPos,
+      'Moon': moonPos,
+      'Mercury': this.getPlanetPosition('Mercury', simTime) || { ra: 0, dec: 0 },
+      'Venus': this.getPlanetPosition('Venus', simTime) || { ra: 0, dec: 0 },
+      'Mars': this.getPlanetPosition('Mars', simTime) || { ra: 0, dec: 0 },
+      'Jupiter': this.getPlanetPosition('Jupiter', simTime) || { ra: 0, dec: 0 },
+      'Saturn': this.getPlanetPosition('Saturn', simTime) || { ra: 0, dec: 0 },
+      'Uranus': this.getPlanetPosition('Uranus', simTime) || { ra: 0, dec: 0 },
+      'Neptune': this.getPlanetPosition('Neptune', simTime) || { ra: 0, dec: 0 },
+    };
+
+    const radius = 99;
+
+    // Update each sprite's position
+    this.planetSprites.forEach(sprite => {
+      const name = sprite.userData.name;
+      const pos = positions[name];
+      if (pos) {
+        // Update planet data
+        const planetData = this.planets.find(p => p.name === name);
+        if (planetData) {
+          planetData.ra = pos.ra;
+          planetData.dec = pos.dec;
+          if (pos.phase !== undefined) planetData.phase = pos.phase;
+        }
+
+        // Update sprite position
+        const raRad = THREE.MathUtils.degToRad(pos.ra);
+        const decRad = THREE.MathUtils.degToRad(pos.dec);
+        sprite.position.set(
+          radius * Math.cos(decRad) * Math.cos(raRad),
+          radius * Math.sin(decRad),
+          -radius * Math.cos(decRad) * Math.sin(raRad)
+        );
+
+        // Update userData for selection
+        sprite.userData.ra = pos.ra;
+        sprite.userData.dec = pos.dec;
+        if (pos.phase !== undefined) sprite.userData.phase = pos.phase;
+      }
+    });
+
+    // Update search index
+    this.updateSearchIndexPlanets_();
+  }
+
+  /**
    * Update planet entries in the search index with current positions.
    * Called after createPlanets() to keep search results in sync.
    * @private
@@ -3307,7 +3370,8 @@ class SkyMapApp {
     const simTimeSinceUpdate = Math.abs(this.simulationTime.getTime() - this.lastPlanetUpdate);
     const realTimeSinceUpdate = Date.now() - (this.lastPlanetUpdateRealTime || 0);
     if (simTimeSinceUpdate > 60000 || realTimeSinceUpdate > 5000) {
-      this.createPlanets();
+      // Use updatePlanetPositions() for efficiency (no image reload)
+      this.updatePlanetPositions();
       this.lastPlanetUpdate = this.simulationTime.getTime();
       this.lastPlanetUpdateRealTime = Date.now();
     }

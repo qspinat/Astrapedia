@@ -442,6 +442,7 @@ class TimeControlsHandler {
       timeRewindBtn.addEventListener('click', () => {
         if (window.app && window.app.setTimeSpeed) {
           window.app.setTimeSpeed(-100);
+          window.app.requestRender?.();
         }
       });
     }
@@ -454,6 +455,8 @@ class TimeControlsHandler {
           if (window.app.setTimeSpeed) {
             window.app.setTimeSpeed(window.app.isTimePlaying ? 1 : 0);
           }
+          // Activate rendering when time starts
+          window.app.requestRender?.();
         }
       });
     }
@@ -462,7 +465,20 @@ class TimeControlsHandler {
     if (timeForwardBtn) {
       timeForwardBtn.addEventListener('click', () => {
         if (window.app && window.app.setTimeSpeed) {
-          window.app.setTimeSpeed(100);
+          // Cycle through speeds: 100x → 1000x → 1x (and deactivate)
+          const currentSpeed = window.app.timeSpeed || 0;
+          let newSpeed;
+          if (currentSpeed === 100) {
+            newSpeed = 1000;
+          } else if (currentSpeed === 1000) {
+            newSpeed = 1;
+            window.app.isTimePlaying = true;
+          } else {
+            newSpeed = 100;
+            window.app.isTimePlaying = true;
+          }
+          window.app.setTimeSpeed(newSpeed);
+          window.app.requestRender?.();
         }
       });
     }
@@ -1377,6 +1393,31 @@ class TelescopeSettingsHandler {
   }
 
   /**
+   * Apply current telescope settings to the view if telescope mode is active.
+   * @private
+   */
+  applyTelescopeSettingsIfActive_() {
+    if (!this.isTelescopeModeActive_ || !this.computedProperties_) return;
+
+    const props = this.computedProperties_;
+    const fov = Math.max(props.realFieldOfView, 0.1);
+
+    if (window.app) {
+      window.app.targetFov = fov;
+      window.app.setMagnitudeLimit?.(props.limitingMagnitude);
+
+      // Update magnitude slider UI
+      const magSlider = document.getElementById('magnitude-slider');
+      const magValue = document.getElementById('mag-value');
+      if (magSlider) magSlider.value = props.limitingMagnitude;
+      if (magValue) magValue.textContent = props.limitingMagnitude.toFixed(1);
+
+      // Update reticle
+      this.updateReticleAfov_();
+    }
+  }
+
+  /**
    * Update reticle to highlight the circle matching the current apparent FOV.
    * @private
    */
@@ -1536,6 +1577,7 @@ class TelescopeSettingsHandler {
           this.telescope_.diameter = value;
           this.computeProperties_();
           this.updateComputedDisplay_();
+          this.applyTelescopeSettingsIfActive_();
           this.saveToStorage_();
         }
       });
@@ -1550,6 +1592,7 @@ class TelescopeSettingsHandler {
           this.telescope_.focalLength = value;
           this.computeProperties_();
           this.updateComputedDisplay_();
+          this.applyTelescopeSettingsIfActive_();
           this.saveToStorage_();
         }
       });
@@ -1564,6 +1607,7 @@ class TelescopeSettingsHandler {
           this.eyepiece_.focalLength = value;
           this.computeProperties_();
           this.updateComputedDisplay_();
+          this.applyTelescopeSettingsIfActive_();
           this.saveToStorage_();
         }
       });
@@ -1578,11 +1622,8 @@ class TelescopeSettingsHandler {
           this.eyepiece_.apparentFov = value;
           this.computeProperties_();
           this.updateComputedDisplay_();
+          this.applyTelescopeSettingsIfActive_();
           this.saveToStorage_();
-          // Update reticle highlighting if telescope mode is active
-          if (this.isTelescopeModeActive_) {
-            this.updateReticleAfov_();
-          }
         }
       });
     }
