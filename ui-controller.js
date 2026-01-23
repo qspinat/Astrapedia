@@ -23,6 +23,13 @@ function debounce(fn, delay) {
 }
 
 /**
+ * Time speed cycle for the forward button.
+ * Cycles through: 100x → 1000x → 1x → 100x...
+ * @const {!Array<number>}
+ */
+const TIME_SPEED_CYCLE = [100, 1000, 1];
+
+/**
  * HTML escape function to prevent XSS.
  * @param {?string} str - String to escape
  * @returns {string} Escaped HTML string
@@ -505,16 +512,11 @@ class TimeControlsHandler {
     if (timeForwardBtn) {
       timeForwardBtn.addEventListener('click', () => {
         if (window.app && window.app.setTimeSpeed) {
-          // Cycle through speeds: 100x → 1000x → 1x → 100x...
+          // Cycle through speeds using TIME_SPEED_CYCLE constant
           const currentSpeed = window.app.timeSpeed || 0;
-          let newSpeed;
-          if (currentSpeed === 100) {
-            newSpeed = 1000;
-          } else if (currentSpeed === 1000) {
-            newSpeed = 1;
-          } else {
-            newSpeed = 100;
-          }
+          const currentIndex = TIME_SPEED_CYCLE.indexOf(currentSpeed);
+          const nextIndex = (currentIndex + 1) % TIME_SPEED_CYCLE.length;
+          const newSpeed = TIME_SPEED_CYCLE[nextIndex >= 0 ? nextIndex : 0];
           // Always set isTimePlaying to true when using forward button
           window.app.isTimePlaying = true;
           window.app.setTimeSpeed(newSpeed);
@@ -1114,6 +1116,9 @@ class TelescopeSettingsHandler {
 
   /**
    * Apply current telescope settings to the view if telescope mode is active.
+   * Updates the app's FOV, magnitude limit, and UI controls to match the
+   * computed telescope properties. Called when telescope parameters change
+   * while telescope mode is active.
    * @private
    */
   applyTelescopeSettingsIfActive_() {
@@ -1126,13 +1131,13 @@ class TelescopeSettingsHandler {
       window.app.targetFov = fov;
       window.app.setMagnitudeLimit?.(props.limitingMagnitude);
 
-      // Update magnitude slider UI
+      // Update magnitude slider UI to reflect telescope's limiting magnitude
       const magSlider = document.getElementById('magnitude-slider');
       const magValue = document.getElementById('mag-value');
       if (magSlider) magSlider.value = props.limitingMagnitude;
       if (magValue) magValue.textContent = props.limitingMagnitude.toFixed(1);
 
-      // Update reticle
+      // Update reticle to match current apparent FOV
       this.updateReticleAfov_();
     }
   }

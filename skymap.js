@@ -236,6 +236,19 @@ class SkyMapApp {
     // Reusable TextureLoader (avoid creating new instances per image)
     this._textureLoader = null;
 
+    // Cached planet positions object (avoid allocation in updatePlanetPositions)
+    this._planetPositions = {
+      'Sun': null,
+      'Moon': null,
+      'Mercury': null,
+      'Venus': null,
+      'Mars': null,
+      'Jupiter': null,
+      'Saturn': null,
+      'Uranus': null,
+      'Neptune': null,
+    };
+
     // Cached bound function for animation loop (prevents new function creation each frame)
     this._boundAnimate = this.animate.bind(this);
 
@@ -1341,28 +1354,26 @@ class SkyMapApp {
     }
 
     // Calculate new positions using current simulation time
+    // Reuse cached positions object to avoid allocation
     const simTime = this.simulationTime || new Date();
-    const sunPos = this.calculateSunPosition(simTime);
-    const moonPos = this.calculateMoonPosition(simTime);
+    const defaultPos = {ra: 0, dec: 0};
 
-    const positions = {
-      'Sun': sunPos,
-      'Moon': moonPos,
-      'Mercury': this.getPlanetPosition('Mercury', simTime) || { ra: 0, dec: 0 },
-      'Venus': this.getPlanetPosition('Venus', simTime) || { ra: 0, dec: 0 },
-      'Mars': this.getPlanetPosition('Mars', simTime) || { ra: 0, dec: 0 },
-      'Jupiter': this.getPlanetPosition('Jupiter', simTime) || { ra: 0, dec: 0 },
-      'Saturn': this.getPlanetPosition('Saturn', simTime) || { ra: 0, dec: 0 },
-      'Uranus': this.getPlanetPosition('Uranus', simTime) || { ra: 0, dec: 0 },
-      'Neptune': this.getPlanetPosition('Neptune', simTime) || { ra: 0, dec: 0 },
-    };
+    this._planetPositions['Sun'] = this.calculateSunPosition(simTime);
+    this._planetPositions['Moon'] = this.calculateMoonPosition(simTime);
+    this._planetPositions['Mercury'] = this.getPlanetPosition('Mercury', simTime) || defaultPos;
+    this._planetPositions['Venus'] = this.getPlanetPosition('Venus', simTime) || defaultPos;
+    this._planetPositions['Mars'] = this.getPlanetPosition('Mars', simTime) || defaultPos;
+    this._planetPositions['Jupiter'] = this.getPlanetPosition('Jupiter', simTime) || defaultPos;
+    this._planetPositions['Saturn'] = this.getPlanetPosition('Saturn', simTime) || defaultPos;
+    this._planetPositions['Uranus'] = this.getPlanetPosition('Uranus', simTime) || defaultPos;
+    this._planetPositions['Neptune'] = this.getPlanetPosition('Neptune', simTime) || defaultPos;
 
     const radius = 99;
 
     // Update each sprite's position
     this.planetSprites.forEach(sprite => {
       const name = sprite.userData.name;
-      const pos = positions[name];
+      const pos = this._planetPositions[name];
       if (pos) {
         // Update planet data
         const planetData = this.planets.find(p => p.name === name);
@@ -1691,15 +1702,10 @@ class SkyMapApp {
 
     const raDec = this.cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
 
-    if (this._domCache.raDisplay) {
-      this._domCache.raDisplay.textContent = `${raDec.ra.toFixed(1)}°`;
-    }
-    if (this._domCache.decDisplay) {
-      this._domCache.decDisplay.textContent = `${raDec.dec.toFixed(1)}°`;
-    }
-    if (this._domCache.fovDisplay) {
-      this._domCache.fovDisplay.textContent = this.formatAngle(this.camera.fov);
-    }
+    // Use optional chaining for cleaner null checks
+    if (this._domCache.raDisplay) this._domCache.raDisplay.textContent = `${raDec.ra.toFixed(1)}°`;
+    if (this._domCache.decDisplay) this._domCache.decDisplay.textContent = `${raDec.dec.toFixed(1)}°`;
+    if (this._domCache.fovDisplay) this._domCache.fovDisplay.textContent = this.formatAngle(this.camera.fov);
   }
 
   formatAngle(degrees) {

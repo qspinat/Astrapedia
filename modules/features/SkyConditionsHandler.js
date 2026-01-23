@@ -63,6 +63,9 @@ export class SkyConditionsHandler {
     /** @private {?Object} Cached reference to moon data */
     this.cachedMoonData_ = null;
 
+    /** @private {?Array} Cached reference to planets array for invalidation check */
+    this.cachedPlanetsRef_ = null;
+
     this.loadFromStorage_();
   }
 
@@ -160,9 +163,10 @@ export class SkyConditionsHandler {
     const simTime = app.simulationTime || new Date();
 
     // Use cached moon reference, or find and cache it
-    // Invalidate cache if planets array changed (recreated)
-    if (!this.cachedMoonData_ || !app.planets?.includes(this.cachedMoonData_)) {
+    // Invalidate cache if planets array reference changed (O(1) check vs O(n) includes)
+    if (!this.cachedMoonData_ || this.cachedPlanetsRef_ !== app.planets) {
       this.cachedMoonData_ = app.planets?.find((p) => p.name === 'Moon') || null;
+      this.cachedPlanetsRef_ = app.planets;
     }
     const moonData = this.cachedMoonData_;
 
