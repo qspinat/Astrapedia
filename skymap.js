@@ -1010,8 +1010,9 @@ class SkyMapApp {
 
     // Calculate Moon phase (0-1, where 0 = new moon, 0.5 = full moon)
     // D is the mean elongation from Sun: 0° at new moon, 180° at full moon
-    // Phase is simply D normalized to 0-1 range
-    const phase = D / 360;
+    // Normalize D to ensure positive 0-360 range before converting to phase
+    const normalizedD = ((D % 360) + 360) % 360;
+    const phase = normalizedD / 360;
 
     return {
       ra: (ra + 360) % 360,
@@ -1300,6 +1301,7 @@ class SkyMapApp {
   /**
    * Update planet positions without recreating sprites.
    * Much faster than createPlanets() - only updates positions.
+   * @returns {void}
    */
   updatePlanetPositions() {
     if (!this.planetSprites || this.planetSprites.length === 0) {
@@ -1308,10 +1310,10 @@ class SkyMapApp {
       return;
     }
 
-    // Calculate new positions
-    const sunPos = this.calculateSunPosition(this.simulationTime);
-    const moonPos = this.calculateMoonPosition(this.simulationTime);
+    // Calculate new positions using current simulation time
     const simTime = this.simulationTime || new Date();
+    const sunPos = this.calculateSunPosition(simTime);
+    const moonPos = this.calculateMoonPosition(simTime);
 
     const positions = {
       'Sun': sunPos,

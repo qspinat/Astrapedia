@@ -849,6 +849,11 @@ const MOON_PHASE_THRESHOLDS = {
   WANING_CRESCENT_END: 0.9375, // 15/16 - end of waning crescent
 };
 
+/**
+ * TODO: This class is duplicated from modules/features/SkyConditionsHandler.js
+ * because ui-controller.js is loaded as a non-module script and cannot use imports.
+ * Any changes here must be mirrored in the module version.
+ */
 class SkyConditionsHandler {
   /** Creates a new SkyConditionsHandler instance. */
   constructor() {
@@ -878,6 +883,9 @@ class SkyConditionsHandler {
 
     /** @private {!Array<function(): void>} */
     this.changeCallbacks_ = [];
+
+    /** @private {?Object} Cached reference to moon data */
+    this.cachedMoonData_ = null;
 
     this.loadFromStorage_();
   }
@@ -975,8 +983,12 @@ class SkyConditionsHandler {
     const app = window.app;
     const simTime = app.simulationTime || new Date();
 
-    // Get moon data from the app's planets array (same data used for rendering)
-    const moonData = app.planets?.find((p) => p.name === 'Moon');
+    // Use cached moon reference, or find and cache it
+    // Invalidate cache if planets array changed (recreated)
+    if (!this.cachedMoonData_ || !app.planets?.includes(this.cachedMoonData_)) {
+      this.cachedMoonData_ = app.planets?.find((p) => p.name === 'Moon') || null;
+    }
+    const moonData = this.cachedMoonData_;
 
     if (moonData) {
       // Use the phase from the rendered moon
