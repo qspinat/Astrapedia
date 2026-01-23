@@ -16,6 +16,23 @@ const escapeHtml = (str) => {
 };
 
 /**
+ * Formspree endpoint for bug reports.
+ * @const {string}
+ */
+const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xaqeoelv';
+
+/**
+ * Validate email format.
+ * @param {string} email - Email address to validate
+ * @returns {boolean} True if email is valid or empty
+ */
+const isValidEmail = (email) => {
+  if (!email) return true; // Empty is valid (optional field)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+/**
  * Panel Manager - handles opening/closing of slide panels.
  */
 class PanelManager {
@@ -642,8 +659,6 @@ class BugReportHandler {
     this.panelManager_ = panelManager;
     /** @private {boolean} */
     this.submitting_ = false;
-    /** @private @const {string} */
-    this.endpoint_ = 'https://formspree.io/f/xaqeoelv';
   }
 
   /** Sets up event listeners for bug report form. */
@@ -671,6 +686,16 @@ class BugReportHandler {
       description?.focus();
       return false;
     }
+
+    // Validate email if provided
+    const emailInput = document.getElementById('bug-email');
+    const email = emailInput?.value.trim() || '';
+    if (email && !isValidEmail(email)) {
+      this.showNotification_('Please enter a valid email address.');
+      emailInput?.focus();
+      return false;
+    }
+
     return true;
   }
 
@@ -722,7 +747,7 @@ class BugReportHandler {
         formData._replyto = email;
       }
 
-      const response = await fetch(this.endpoint_, {
+      const response = await fetch(FORMSPREE_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
