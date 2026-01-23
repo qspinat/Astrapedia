@@ -3363,15 +3363,15 @@ class SkyMapApp {
 
     // Update Sun and Moon positions periodically
     // Moon moves ~13°/day (~0.5°/hour), so update frequently for smooth motion:
-    // - Every simulated minute for time changes
-    // - Every 5 seconds of real time to keep display in sync
+    // - Every 10 simulated seconds at high speeds for visible movement
+    // - Every 2 seconds of real time to keep display in sync
     if (!this.lastPlanetUpdate) {
       this.lastPlanetUpdate = this.simulationTime.getTime();
       this.lastPlanetUpdateRealTime = Date.now();
     }
     const simTimeSinceUpdate = Math.abs(this.simulationTime.getTime() - this.lastPlanetUpdate);
     const realTimeSinceUpdate = Date.now() - (this.lastPlanetUpdateRealTime || 0);
-    if (simTimeSinceUpdate > 60000 || realTimeSinceUpdate > 5000) {
+    if (simTimeSinceUpdate > 10000 || realTimeSinceUpdate > 2000) {
       // Use updatePlanetPositions() for efficiency (no image reload)
       this.updatePlanetPositions();
       this.lastPlanetUpdate = this.simulationTime.getTime();
@@ -3399,6 +3399,10 @@ class SkyMapApp {
       } else {
         speedDisplay.textContent = `${speed}x`;
       }
+    }
+    // Ensure animation is running when speed is set
+    if (speed !== 0 && this.isTimePlaying) {
+      this.startAnimating();
     }
   }
 

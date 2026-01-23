@@ -9,10 +9,6 @@
  * - Bortle Scale: https://en.wikipedia.org/wiki/Bortle_scale
  * - Sky & Telescope: https://skyandtelescope.org/astronomy-resources/light-pollution-and-astronomy-the-bortle-dark-sky-scale/
  * - Moon effect: https://skyandtelescope.org/astronomy-resources/astronomy-questions-answers/how-does-the-moons-phase-affect-the-skyglow-of-any-given-location-and-how-many-days-before-or-after-a-new-moon-is-a-dark-site-not-compromised/
- *
- * TODO: This class is duplicated in ui-controller.js because that file is loaded
- * as a non-module script. Consider refactoring ui-controller.js to use ES modules
- * to eliminate the duplication. Any changes here must be mirrored there.
  */
 
 /**
