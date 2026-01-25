@@ -4,13 +4,16 @@ Handles file downloads, JSON reading/writing, and data validation.
 """
 
 import json
-import urllib.request
+import logging
+import sys
 import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
-import sys
 
 from .config import Config
+
+logger = logging.getLogger(__name__)
 
 
 def download_file(
@@ -35,7 +38,7 @@ def download_file(
     """
     try:
         if show_progress:
-            print(f"Downloading {url}...")
+            logger.info("Downloading %s...", url)
 
         request = urllib.request.Request(
             url, headers={"User-Agent": "SkyMap Data Pipeline/1.0"}
@@ -60,22 +63,23 @@ def download_file(
                         sys.stdout.flush()
 
             if show_progress:
-                print()  # New line after progress
+                sys.stdout.write("\n")
+                sys.stdout.flush()
 
         if show_progress:
             size_mb = dest_path.stat().st_size / (1024 * 1024)
-            print(f"  Downloaded: {size_mb:.2f} MB")
+            logger.info("Downloaded: %.2f MB", size_mb)
 
         return True
 
     except urllib.error.HTTPError as e:
-        print(f"HTTP Error downloading {url}: {e.code} {e.reason}")
+        logger.error("HTTP Error downloading %s: %d %s", url, e.code, e.reason)
         return False
     except urllib.error.URLError as e:
-        print(f"URL Error downloading {url}: {e.reason}")
+        logger.error("URL Error downloading %s: %s", url, e.reason)
         return False
     except TimeoutError:
-        print(f"Timeout downloading {url}")
+        logger.error("Timeout downloading %s", url)
         return False
 
 
@@ -104,7 +108,7 @@ def read_json(
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except json.JSONDecodeError as e:
-        print(f"JSON decode error in {path}: {e}")
+        logger.error("JSON decode error in %s: %s", path, e)
         if default is not None:
             return default
         raise
@@ -143,11 +147,11 @@ def write_json(
                 json.dump(data, f, indent=indent, ensure_ascii=ensure_ascii)
 
         size_mb = path.stat().st_size / (1024 * 1024)
-        print(f"  Wrote: {path} ({size_mb:.2f} MB)")
+        logger.info("Wrote: %s (%.2f MB)", path, size_mb)
         return True
 
     except (IOError, OSError) as e:
-        print(f"Error writing {path}: {e}")
+        logger.error("Error writing %s: %s", path, e)
         return False
 
 

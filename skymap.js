@@ -48,70 +48,8 @@ import {
   calculateLST as _calculateLST,
 } from './modules/core/CoordinateUtils.js';
 import {escapeHtml, fetchWikipedia} from './modules/core/SecurityUtils.js';
+import {SHADERS} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
-
-/* ==========================================================================
-   1. SHARED CONSTANTS
-   Shader code used by multiple star field renderers
-   ========================================================================== */
-
-const STAR_VERTEX_SHADER = `
-  attribute float size;
-  attribute float magnitude;
-  uniform float magLimit;
-  uniform float magFadeRange;
-  varying vec3 vColor;
-  varying float vVisibility;
-  void main() {
-    vColor = color;
-
-    // Calculate visibility based on magnitude vs threshold
-    // Stars brighter than limit are fully visible
-    // Stars within fadeRange of limit fade out smoothly
-    // Stars beyond limit + fadeRange are invisible
-    float magDiff = magnitude - magLimit;
-
-    // Scale intensity range based on magnitude limit
-    // Use magLimit + 2 as the range, so faint stars remain visible at high mag settings
-    float intensityRange = max(12.0, magLimit + 2.0);
-
-    if (magDiff <= 0.0) {
-      // Brighter than limit - use magnitude-based intensity
-      // Scale from -2 (brightest) to magLimit (faintest visible)
-      float magIntensity = 1.0 - (magnitude + 2.0) / intensityRange;
-      // Ensure minimum visibility of 0.35 for faint stars (was 0.2)
-      vVisibility = clamp(0.35 + 0.65 * magIntensity, 0.35, 1.0);
-    } else if (magDiff < magFadeRange) {
-      // In fade range - smoothly fade out
-      float fadeProgress = magDiff / magFadeRange;
-      float baseMagIntensity = 1.0 - (magnitude + 2.0) / intensityRange;
-      float baseVis = clamp(0.35 + 0.65 * baseMagIntensity, 0.35, 1.0);
-      vVisibility = baseVis * (1.0 - smoothstep(0.0, 1.0, fadeProgress));
-    } else {
-      // Beyond fade range - invisible
-      vVisibility = 0.0;
-    }
-
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = size * (300.0 / -mvPosition.z) * (vVisibility > 0.01 ? 1.0 : 0.0);
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-
-const STAR_FRAGMENT_SHADER = `
-  uniform float opacity;
-  varying vec3 vColor;
-  varying float vVisibility;
-  void main() {
-    if (vVisibility < 0.01) discard;
-    float dist = length(gl_PointCoord - vec2(0.5));
-    if (dist > 0.5) discard;
-    float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
-    // Apply visibility to both color brightness and alpha
-    vec3 brightColor = vColor * (0.5 + 0.5 * vVisibility);
-    gl_FragColor = vec4(brightColor, alpha * opacity * vVisibility);
-  }
-`;
 
 /* ==========================================================================
    2. SKYMAP APPLICATION CLASS
@@ -597,8 +535,8 @@ class SkyMapApp {
         magLimit: { value: this.currentMagnitude },
         magFadeRange: { value: 1.5 }  // Stars fade over 1.5 magnitudes
       },
-      vertexShader: STAR_VERTEX_SHADER,
-      fragmentShader: STAR_FRAGMENT_SHADER,
+      vertexShader: SHADERS.VERTEX,
+      fragmentShader: SHADERS.FRAGMENT,
       transparent: true,
       vertexColors: true,
       depthWrite: false
@@ -7980,8 +7918,8 @@ class SkyMapApp {
         magLimit: { value: this.currentMagnitude },
         magFadeRange: { value: 1.5 }
       },
-      vertexShader: STAR_VERTEX_SHADER,
-      fragmentShader: STAR_FRAGMENT_SHADER,
+      vertexShader: SHADERS.VERTEX,
+      fragmentShader: SHADERS.FRAGMENT,
       transparent: true,
       vertexColors: true,
       depthWrite: false
@@ -8584,8 +8522,8 @@ class SkyMapApp {
         magLimit: { value: this.currentMagnitude },
         magFadeRange: { value: 1.5 }
       },
-      vertexShader: STAR_VERTEX_SHADER,
-      fragmentShader: STAR_FRAGMENT_SHADER,
+      vertexShader: SHADERS.VERTEX,
+      fragmentShader: SHADERS.FRAGMENT,
       transparent: true,
       vertexColors: true,
       depthWrite: false

@@ -5,18 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {PanelManager, panelManager} from './PanelManager.js';
-
-/**
- * HTML escape function to prevent XSS.
- * @param {?string} str - String to escape
- * @returns {string} Escaped HTML string
- */
-export const escapeHtml = (str) => {
-  if (str === null || str === undefined) return '';
-  const div = document.createElement('div');
-  div.textContent = String(str);
-  return div.innerHTML;
-};
+import {escapeHtml} from '../core/SecurityUtils.js';
 
 /**
  * Maximum length for preset names.
