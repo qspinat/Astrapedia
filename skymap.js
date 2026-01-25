@@ -4369,7 +4369,7 @@ class SkyMapApp {
   }
 
   previousTourStep() {
-    if (this.tourStep <= 0) return;
+    if (!this.currentTour || this.tourStep <= 0) return;
     // Reset constellation highlighting before moving to previous step
     this.unhighlightConstellation();
     this.tourStep--;
