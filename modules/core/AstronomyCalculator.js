@@ -201,8 +201,9 @@ export class AstronomyCalculator {
     ) * 180 / Math.PI;
 
     // Calculate Moon phase (0-1, where 0 = new moon, 0.5 = full moon)
-    const phaseAngle = (2 * D) % 360;
-    const phase = (1 - Math.cos(phaseAngle * Math.PI / 180)) / 2;
+    // D is the mean elongation (0-360° over lunar month)
+    const normalizedD = ((D % 360) + 360) % 360; // Ensure positive 0-360
+    const phase = normalizedD / 360;
 
     return {
       ra: this.normalizeAngle_(ra),

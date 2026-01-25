@@ -3,6 +3,20 @@
  * Extracted from inline JavaScript in app.html for better maintainability.
  */
 
+import {
+  SkyConditionsHandler,
+  MOON_PHASE_THRESHOLDS,
+} from './modules/features/SkyConditionsHandler.js';
+import {debounce} from './modules/core/Utils.js';
+
+/**
+ * Time speed cycle for the forward button.
+ * Cycles through: 1x → 100x → 1000x → 1x...
+ * Progressive speeds for intuitive user experience.
+ * @const {!Array<number>}
+ */
+const TIME_SPEED_CYCLE = [1, 100, 1000];
+
 /**
  * HTML escape function to prevent XSS.
  * @param {?string} str - String to escape
@@ -200,6 +214,12 @@ class SearchController {
     this.currentResults_ = [];
     /** @private {number} */
     this.selectedIndex_ = -1;
+    /** @private {boolean} - Guard against multiple event delegation setup */
+    this.eventDelegationSetup_ = false;
+    /** @private {function(string): void} - Debounced search function */
+    this.debouncedSearch_ = debounce((query) => {
+      this.performSearch_(query);
+    }, 300);
   }
 
   /**
@@ -232,56 +252,73 @@ class SearchController {
     }
   }
 
+  /**
+   * Perform the search and update results display.
+   * @param {string} query - Search query
+   * @private
+   */
+  performSearch_(query) {
+    if (!window.app) return;
+    this.currentResults_ = window.app.performSearch(query);
+
+    if (this.currentResults_.length === 0) {
+      this.searchResults_.innerHTML =
+          '<div class="search-result-item no-results">No results found</div>';
+      this.searchResults_.classList.add('active');
+      return;
+    }
+
+    let html = '';
+    this.currentResults_.forEach((result, index) => {
+      const magInfo = result.mag !== null && result.mag !== undefined
+          ? `<span class="mag">mag ${result.mag.toFixed(1)}</span>`
+          : '';
+      const selectedClass = index === 0 ? 'selected' : '';
+      html += `
+        <div class="search-result-item ${selectedClass}" data-index="${index}">
+          <span class="name">${escapeHtml(result.name)}</span>
+          <span class="type">${escapeHtml(result.type)}</span>
+          ${magInfo}
+        </div>
+      `;
+    });
+
+    this.searchResults_.innerHTML = html;
+    this.searchResults_.classList.add('active');
+  }
+
   /** Sets up event listeners for search functionality. */
   setupEventListeners() {
     if (!this.searchInput_ || !this.searchResults_) return;
+
+    // Use event delegation for click handling (one listener on parent container)
+    // This prevents memory leaks from adding new listeners on every keystroke
+    if (!this.eventDelegationSetup_) {
+      this.searchResults_.addEventListener('click', (e) => {
+        const item = e.target.closest('.search-result-item');
+        if (item && item.dataset.index !== undefined) {
+          const index = parseInt(item.dataset.index, 10);
+          if (!isNaN(index)) this.selectResult_(index);
+        }
+      });
+      this.eventDelegationSetup_ = true;
+    }
 
     this.searchInput_.addEventListener('input', (e) => {
       const query = e.target.value.trim();
       this.selectedIndex_ = 0;
 
       if (query.length < 2) {
+        // Cancel any pending debounced search to prevent stale results
+        this.debouncedSearch_.cancel();
         this.searchResults_.classList.remove('active');
         this.searchResults_.innerHTML = '';
         this.currentResults_ = [];
         return;
       }
 
-      if (!window.app) return;
-      this.currentResults_ = window.app.performSearch(query);
-
-      if (this.currentResults_.length === 0) {
-        this.searchResults_.innerHTML =
-            '<div class="search-result-item no-results">No results found</div>';
-        this.searchResults_.classList.add('active');
-        return;
-      }
-
-      let html = '';
-      this.currentResults_.forEach((result, index) => {
-        const magInfo = result.mag !== null && result.mag !== undefined
-            ? `<span class="mag">mag ${result.mag.toFixed(1)}</span>`
-            : '';
-        const selectedClass = index === 0 ? 'selected' : '';
-        html += `
-          <div class="search-result-item ${selectedClass}" data-index="${index}">
-            <span class="name">${escapeHtml(result.name)}</span>
-            <span class="type">${escapeHtml(result.type)}</span>
-            ${magInfo}
-          </div>
-        `;
-      });
-
-      this.searchResults_.innerHTML = html;
-      this.searchResults_.classList.add('active');
-
-      // Add click handlers to results
-      this.searchResults_.querySelectorAll('.search-result-item').forEach((item) => {
-        item.addEventListener('click', () => {
-          const index = parseInt(item.dataset.index, 10);
-          if (!isNaN(index)) this.selectResult_(index);
-        });
-      });
+      // Use debounced search to avoid excessive searches on every keystroke
+      this.debouncedSearch_(query);
     });
 
     this.searchInput_.addEventListener('keydown', (e) => {
@@ -442,6 +479,7 @@ class TimeControlsHandler {
       timeRewindBtn.addEventListener('click', () => {
         if (window.app && window.app.setTimeSpeed) {
           window.app.setTimeSpeed(-100);
+          window.app.requestRender?.();
         }
       });
     }
@@ -454,6 +492,8 @@ class TimeControlsHandler {
           if (window.app.setTimeSpeed) {
             window.app.setTimeSpeed(window.app.isTimePlaying ? 1 : 0);
           }
+          // Activate rendering when time starts
+          window.app.requestRender?.();
         }
       });
     }
@@ -462,7 +502,16 @@ class TimeControlsHandler {
     if (timeForwardBtn) {
       timeForwardBtn.addEventListener('click', () => {
         if (window.app && window.app.setTimeSpeed) {
-          window.app.setTimeSpeed(100);
+          // Cycle through speeds using TIME_SPEED_CYCLE constant
+          const currentSpeed = window.app.timeSpeed || 0;
+          const currentIndex = TIME_SPEED_CYCLE.indexOf(currentSpeed);
+          // If currentSpeed not in array, indexOf returns -1, so (-1+1)%3=0 → first speed
+          // Otherwise cycles to next speed in array
+          const newSpeed = TIME_SPEED_CYCLE[(currentIndex + 1) % TIME_SPEED_CYCLE.length];
+          // Always set isTimePlaying to true when using forward button
+          window.app.isTimePlaying = true;
+          window.app.setTimeSpeed(newSpeed);
+          window.app.requestRender?.();
         }
       });
     }
@@ -472,6 +521,7 @@ class TimeControlsHandler {
       timeNowBtn.addEventListener('click', () => {
         if (window.app && window.app.jumpToTime) {
           window.app.jumpToTime(new Date());
+          window.app.requestRender?.();
         }
       });
     }
@@ -808,317 +858,6 @@ class BugReportHandler {
 }
 
 /**
- * Sky Conditions Handler - handles light pollution and calculates naked eye limiting magnitude.
- * Based on Bortle scale values and moon phase effects.
- *
- * Sources:
- * - Bortle Scale: https://en.wikipedia.org/wiki/Bortle_scale
- * - Sky & Telescope: https://skyandtelescope.org/astronomy-resources/light-pollution-and-astronomy-the-bortle-dark-sky-scale/
- * - Moon effect: https://skyandtelescope.org/astronomy-resources/astronomy-questions-answers/how-does-the-moons-phase-affect-the-skyglow-of-any-given-location-and-how-many-days-before-or-after-a-new-moon-is-a-dark-site-not-compromised/
- */
-
-/**
- * Moon phase threshold constants.
- * Each phase spans 1/8 of the cycle (0.125), boundaries are at midpoints.
- * @const {!Object<string, number>}
- */
-const MOON_PHASE_THRESHOLDS = {
-  NEW_MOON_END: 0.0625,        // 1/16 - end of new moon
-  WAXING_CRESCENT_END: 0.1875, // 3/16 - end of waxing crescent
-  FIRST_QUARTER_END: 0.3125,   // 5/16 - end of first quarter
-  WAXING_GIBBOUS_END: 0.4375,  // 7/16 - end of waxing gibbous
-  FULL_MOON_END: 0.5625,       // 9/16 - end of full moon
-  WANING_GIBBOUS_END: 0.6875,  // 11/16 - end of waning gibbous
-  LAST_QUARTER_END: 0.8125,    // 13/16 - end of last quarter
-  WANING_CRESCENT_END: 0.9375, // 15/16 - end of waning crescent
-};
-
-class SkyConditionsHandler {
-  /** Creates a new SkyConditionsHandler instance. */
-  constructor() {
-    /**
-     * Base naked eye limiting magnitude by light pollution level.
-     * Values from Bortle scale research.
-     * @private @const {!Object<string, number>}
-     */
-    this.baseMagnitudes_ = {
-      city: 4.0,      // Bortle 8-9: Inner city, only bright stars visible
-      suburban: 5.5,  // Bortle 5-6: Suburban sky
-      rural: 6.5,     // Bortle 4: Rural/suburban transition
-      dark: 7.5,      // Bortle 2-3: Dark sky site, excellent conditions
-    };
-
-    /** @private {string} */
-    this.lightPollution_ = 'rural';
-
-    /** @private {number} Moon phase 0-1 (0=new, 0.5=full) */
-    this.moonPhase_ = 0;
-
-    /** @private {number} Moon altitude in degrees */
-    this.moonAltitude_ = -10;
-
-    /** @private {?number} */
-    this.updateInterval_ = null;
-
-    /** @private {!Array<function(): void>} */
-    this.changeCallbacks_ = [];
-
-    this.loadFromStorage_();
-  }
-
-  /**
-   * Register a callback to be called when sky conditions change.
-   * @param {function(): void} callback
-   */
-  onChange(callback) {
-    this.changeCallbacks_.push(callback);
-  }
-
-  /**
-   * Notify all registered callbacks of a change.
-   * @private
-   */
-  notifyChange_() {
-    this.changeCallbacks_.forEach((cb) => cb());
-  }
-
-  /**
-   * Get moon phase name and emoji.
-   * @param {number} phase - Moon phase 0-1
-   * @returns {{name: string, emoji: string}}
-   * @private
-   */
-  getMoonPhaseName_(phase) {
-    // Phase: 0 = new moon, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter
-    const T = MOON_PHASE_THRESHOLDS;
-    if (phase < T.NEW_MOON_END) return {name: 'New Moon', emoji: '🌑'};
-    if (phase < T.WAXING_CRESCENT_END) return {name: 'Waxing Crescent', emoji: '🌒'};
-    if (phase < T.FIRST_QUARTER_END) return {name: 'First Quarter', emoji: '🌓'};
-    if (phase < T.WAXING_GIBBOUS_END) return {name: 'Waxing Gibbous', emoji: '🌔'};
-    if (phase < T.FULL_MOON_END) return {name: 'Full Moon', emoji: '🌕'};
-    if (phase < T.WANING_GIBBOUS_END) return {name: 'Waning Gibbous', emoji: '🌖'};
-    if (phase < T.LAST_QUARTER_END) return {name: 'Last Quarter', emoji: '🌗'};
-    if (phase < T.WANING_CRESCENT_END) return {name: 'Waning Crescent', emoji: '🌘'};
-    return {name: 'New Moon', emoji: '🌑'};
-  }
-
-  /**
-   * Calculate moon illumination factor (0-1) from phase.
-   * Not linear - quarter moon is only ~8% as bright as full moon.
-   * @param {number} phase - Moon phase 0-1
-   * @returns {number} Illumination factor 0-1
-   * @private
-   */
-  getMoonIllumination_(phase) {
-    // Convert phase to angle from full moon (0 at full, PI at new)
-    const angleFromFull = Math.abs(phase - 0.5) * 2 * Math.PI;
-    // Approximate illumination using cosine (simplified)
-    // Full moon = 1, new moon = 0, quarter = ~0.5
-    const illumination = (1 + Math.cos(angleFromFull)) / 2;
-    return illumination;
-  }
-
-  /**
-   * Calculate magnitude reduction from moon.
-   * Full moon above horizon can reduce NELM by up to 2.5 magnitudes.
-   * @returns {number} Magnitude reduction (positive value)
-   * @private
-   */
-  getMoonMagnitudeReduction_() {
-    // If moon is below horizon, no effect
-    if (this.moonAltitude_ <= 0) return 0;
-
-    const illumination = this.getMoonIllumination_(this.moonPhase_);
-
-    // Maximum reduction at full moon high in sky: ~2.5 magnitudes
-    // Scale by illumination and altitude factor
-    const altitudeFactor = Math.min(1, this.moonAltitude_ / 45); // Full effect above 45°
-    const maxReduction = 2.5;
-
-    return illumination * altitudeFactor * maxReduction;
-  }
-
-  /**
-   * Calculate current naked eye limiting magnitude.
-   * @returns {number} NELM value
-   */
-  calculateNakedEyeLimit() {
-    const baseMag = this.baseMagnitudes_[this.lightPollution_] || 6.5;
-    const moonReduction = this.getMoonMagnitudeReduction_();
-    return Math.max(2.0, baseMag - moonReduction);
-  }
-
-  /**
-   * Update moon position from app data.
-   * @private
-   */
-  updateMoonData_() {
-    if (!window.app) return;
-
-    // Get simulation time
-    const simTime = window.app.simulationTime || new Date();
-
-    // Use Astronomy Engine if available (loaded in app.html)
-    if (typeof Astronomy !== 'undefined') {
-      try {
-        // Calculate moon phase
-        const moonIllum = Astronomy.Illumination('Moon', simTime);
-        this.moonPhase_ = moonIllum.phase_angle / 360; // Convert to 0-1
-
-        // Calculate moon position
-        const observer = {
-          latitude: window.app.observerLatitude || 0,
-          longitude: window.app.observerLongitude || 0,
-          height: 0,
-        };
-        const moonPos = Astronomy.Equator('Moon', simTime, observer, true, true);
-        const moonHoriz = Astronomy.Horizon(simTime, observer, moonPos.ra, moonPos.dec, 'normal');
-        this.moonAltitude_ = moonHoriz.altitude;
-      } catch (e) {
-        // Fallback: estimate from lunar cycle (~29.5 days)
-        this.estimateMoonPhase_(simTime);
-      }
-    } else {
-      this.estimateMoonPhase_(simTime);
-    }
-  }
-
-  /**
-   * Estimate moon phase without Astronomy Engine.
-   * @param {!Date} date
-   * @private
-   */
-  estimateMoonPhase_(date) {
-    // Known new moon: January 6, 2000
-    const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
-    const lunarCycle = 29.530588853; // days
-    const daysSinceNew = (date - knownNewMoon) / (1000 * 60 * 60 * 24);
-    this.moonPhase_ = (daysSinceNew % lunarCycle) / lunarCycle;
-
-    // Rough altitude estimate (assume worst case - moon could be up)
-    // For better UX, assume moon is up during night hours
-    const hour = date.getHours();
-    if (hour >= 6 && hour <= 18) {
-      this.moonAltitude_ = -10; // Daytime, assume moon not affecting much
-    } else {
-      // Night time - assume moon might be up, scale by illumination
-      this.moonAltitude_ = 30 * this.getMoonIllumination_(this.moonPhase_);
-    }
-  }
-
-  /**
-   * Update the display.
-   * @private
-   */
-  updateDisplay_() {
-    this.updateMoonData_();
-
-    const phaseInfo = this.getMoonPhaseName_(this.moonPhase_);
-    const nakedEyeLimit = this.calculateNakedEyeLimit();
-
-    // Update moon phase display
-    const phaseEl = document.getElementById('moon-phase-display');
-    if (phaseEl) {
-      const illumination = Math.round(this.getMoonIllumination_(this.moonPhase_) * 100);
-      phaseEl.textContent = `${phaseInfo.emoji} ${phaseInfo.name} (${illumination}%)`;
-    }
-
-    // Update moon altitude display
-    const altEl = document.getElementById('moon-altitude-display');
-    if (altEl) {
-      if (this.moonAltitude_ <= 0) {
-        altEl.textContent = 'Below horizon ✓';
-        altEl.style.color = 'var(--accent-green, #22c55e)';
-      } else {
-        altEl.textContent = `${this.moonAltitude_.toFixed(0)}° above horizon`;
-        altEl.style.color = 'var(--text-primary)';
-      }
-    }
-
-    // Update naked eye limit display
-    const limitEl = document.getElementById('naked-eye-limit-display');
-    if (limitEl) {
-      limitEl.textContent = `mag ${nakedEyeLimit.toFixed(1)}`;
-    }
-  }
-
-  /**
-   * Save to localStorage.
-   * @private
-   */
-  saveToStorage_() {
-    try {
-      localStorage.setItem('skymap_light_pollution', this.lightPollution_);
-    } catch (e) {
-      // Ignore storage errors
-    }
-  }
-
-  /**
-   * Load from localStorage.
-   * @private
-   */
-  loadFromStorage_() {
-    try {
-      const saved = localStorage.getItem('skymap_light_pollution');
-      if (saved && this.baseMagnitudes_[saved]) {
-        this.lightPollution_ = saved;
-      }
-    } catch (e) {
-      // Ignore storage errors
-    }
-  }
-
-  /**
-   * Get current naked eye limiting magnitude.
-   * @returns {number}
-   */
-  getNakedEyeLimit() {
-    return this.calculateNakedEyeLimit();
-  }
-
-  /**
-   * Get current light pollution setting.
-   * @returns {string}
-   */
-  getLightPollution() {
-    return this.lightPollution_;
-  }
-
-  /** Sets up event listeners. */
-  setupEventListeners() {
-    // Light pollution selector
-    const select = document.getElementById('light-pollution-select');
-    if (select) {
-      select.value = this.lightPollution_;
-      select.addEventListener('change', (e) => {
-        this.lightPollution_ = e.target.value;
-        this.saveToStorage_();
-        this.updateDisplay_();
-        this.notifyChange_();
-      });
-    }
-
-    // Initial display update
-    this.updateDisplay_();
-
-    // Update periodically (every 30 seconds) for moon position changes
-    this.updateInterval_ = setInterval(() => {
-      this.updateDisplay_();
-      this.notifyChange_();
-    }, 30000);
-  }
-
-  /** Stop the update interval. */
-  dispose() {
-    if (this.updateInterval_) {
-      clearInterval(this.updateInterval_);
-      this.updateInterval_ = null;
-    }
-  }
-}
-
-/**
  * Maximum length for preset names.
  * @const {number}
  */
@@ -1368,6 +1107,34 @@ class TelescopeSettingsHandler {
   }
 
   /**
+   * Apply current telescope settings to the view if telescope mode is active.
+   * Updates the app's FOV, magnitude limit, and UI controls to match the
+   * computed telescope properties. Called when telescope parameters change
+   * while telescope mode is active.
+   * @private
+   */
+  applyTelescopeSettingsIfActive_() {
+    if (!this.isTelescopeModeActive_ || !this.computedProperties_) return;
+
+    const props = this.computedProperties_;
+    const fov = Math.max(props.realFieldOfView, 0.1);
+
+    if (window.app) {
+      window.app.targetFov = fov;
+      window.app.setMagnitudeLimit?.(props.limitingMagnitude);
+
+      // Update magnitude slider UI to reflect telescope's limiting magnitude
+      const magSlider = document.getElementById('magnitude-slider');
+      const magValue = document.getElementById('mag-value');
+      if (magSlider) magSlider.value = props.limitingMagnitude;
+      if (magValue) magValue.textContent = props.limitingMagnitude.toFixed(1);
+
+      // Update reticle to match current apparent FOV
+      this.updateReticleAfov_();
+    }
+  }
+
+  /**
    * Update reticle to highlight the circle matching the current apparent FOV.
    * @private
    */
@@ -1527,6 +1294,7 @@ class TelescopeSettingsHandler {
           this.telescope_.diameter = value;
           this.computeProperties_();
           this.updateComputedDisplay_();
+          this.applyTelescopeSettingsIfActive_();
           this.saveToStorage_();
         }
       });
@@ -1541,6 +1309,7 @@ class TelescopeSettingsHandler {
           this.telescope_.focalLength = value;
           this.computeProperties_();
           this.updateComputedDisplay_();
+          this.applyTelescopeSettingsIfActive_();
           this.saveToStorage_();
         }
       });
@@ -1555,6 +1324,7 @@ class TelescopeSettingsHandler {
           this.eyepiece_.focalLength = value;
           this.computeProperties_();
           this.updateComputedDisplay_();
+          this.applyTelescopeSettingsIfActive_();
           this.saveToStorage_();
         }
       });
@@ -1569,11 +1339,8 @@ class TelescopeSettingsHandler {
           this.eyepiece_.apparentFov = value;
           this.computeProperties_();
           this.updateComputedDisplay_();
+          this.applyTelescopeSettingsIfActive_();
           this.saveToStorage_();
-          // Update reticle highlighting if telescope mode is active
-          if (this.isTelescopeModeActive_) {
-            this.updateReticleAfov_();
-          }
         }
       });
     }
@@ -1784,6 +1551,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Export for testing (CommonJS for Node.js/Jest)
+// SkyConditionsHandler and MOON_PHASE_THRESHOLDS are imported from modules/features/SkyConditionsHandler.js
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     UIController,
@@ -1793,10 +1561,8 @@ if (typeof module !== 'undefined' && module.exports) {
     TimeControlsHandler,
     GameControlsHandler,
     TourButtonsHandler,
-    SkyConditionsHandler,
     TelescopeSettingsHandler,
     InfoBadgeUpdater,
     escapeHtml,
-    MOON_PHASE_THRESHOLDS,
   };
 }

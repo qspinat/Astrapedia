@@ -1167,6 +1167,34 @@ body.night-mode .game-select-content {
     margin-right: 8px;
 }
 
+#tour-panel button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+#tour-panel .tour-buttons {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+#tour-panel .tour-buttons button {
+    flex: 1;
+    margin-right: 0;
+}
+
+#tour-panel .tour-end-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--text-secondary);
+    color: var(--text-secondary);
+}
+
+#tour-panel .tour-end-btn:hover {
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+}
+
 /* ==========================================================================
    14. LOADING SCREEN
    ========================================================================== */
