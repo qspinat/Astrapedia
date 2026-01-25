@@ -5,6 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {SPHERE} from '../core/Constants.js';
 
 /**
  * Default colors for constellation lines.
@@ -55,8 +56,11 @@ export class ConstellationRenderer {
     /** @private {!Array<number>} */
     this.originalColors_ = [];
 
+    /** @private {!Array<!THREE.Material>} */
+    this.lineMaterials_ = [];
+
     /** @private {number} */
-    this.radius_ = 98.5;
+    this.radius_ = SPHERE.CONSTELLATION_RADIUS;
   }
 
   /**
@@ -96,6 +100,10 @@ export class ConstellationRenderer {
       this.celestialSphere_.remove(this.linesGroup_);
     }
 
+    // Dispose old line materials
+    this.lineMaterials_.forEach((mat) => mat.dispose());
+    this.lineMaterials_ = [];
+
     this.linesGroup_ = new THREE.Group();
     const stars = this.getStars_();
     const constellations = this.getConstellations_();
@@ -111,6 +119,8 @@ export class ConstellationRenderer {
         linewidth: 1,
         depthWrite: false,
       });
+      // Track material for disposal
+      this.lineMaterials_.push(lineMaterial);
 
       constellation.lines.forEach(([hip1, hip2]) => {
         // Find stars by HIP number
@@ -272,6 +282,9 @@ export class ConstellationRenderer {
       this.celestialSphere_.remove(this.linesGroup_);
       this.linesGroup_ = null;
     }
+    // Dispose tracked source materials
+    this.lineMaterials_.forEach((mat) => mat.dispose());
+    this.lineMaterials_ = [];
   }
 }
 

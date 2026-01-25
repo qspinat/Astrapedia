@@ -4,7 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {SHADERS} from '../core/Constants.js';
+import {SHADERS, SPHERE} from '../core/Constants.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 
 /**
@@ -58,7 +58,7 @@ export class StarFieldRenderer {
     this.magnitudeLimit_ = 8.0;
 
     /** @private {number} */
-    this.radius_ = 100;
+    this.radius_ = SPHERE.RADIUS;
   }
 
   /**

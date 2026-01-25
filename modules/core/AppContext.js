@@ -403,9 +403,10 @@ export function getAppContext() {
   if (appContext) {
     return appContext;
   }
-  // Fallback: create context from window.app if available
+  // Fallback: create and cache context from window.app if available
   if (typeof window !== 'undefined' && window.app) {
-    return new AppContext(window.app);
+    appContext = new AppContext(window.app);
+    return appContext;
   }
   return null;
 }

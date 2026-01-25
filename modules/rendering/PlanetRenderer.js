@@ -5,6 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {SPHERE} from '../core/Constants.js';
 import {
   calculateSunPosition,
   calculateMoonPosition,
@@ -53,7 +54,7 @@ export class PlanetRenderer {
     this.textureLoader_ = null;
 
     /** @private {number} */
-    this.radius_ = 99;
+    this.radius_ = SPHERE.GRID_RADIUS;
   }
 
   /**

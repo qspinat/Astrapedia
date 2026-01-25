@@ -5,39 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
-
-/**
- * DSO type full names.
- * @const {!Object<string, string>}
- */
-const DSO_TYPE_NAMES = {
-  'G': 'Galaxy',
-  'GClstr': 'Galaxy Cluster',
-  'GPair': 'Galaxy Pair',
-  'GTrpl': 'Galaxy Triplet',
-  'GGroup': 'Galaxy Group',
-  'PN': 'Planetary Nebula',
-  'HII': 'HII Region',
-  'EmN': 'Emission Nebula',
-  'RfN': 'Reflection Nebula',
-  'SNR': 'Supernova Remnant',
-  'Nova': 'Nova Remnant',
-  'NonEx': 'Non-Existent',
-  'Neb': 'Nebula',
-  'Cl+N': 'Cluster with Nebulosity',
-  'GCl': 'Globular Cluster',
-  'OCl': 'Open Cluster',
-  'Star': 'Star',
-  'DrkN': 'Dark Nebula',
-  'Other': 'Other',
-  'Dup': 'Duplicate',
-  '*': 'Star',
-  '**': 'Double Star',
-  '*Ass': 'Star Association',
-  'Planet': 'Planet',
-  'Moon': 'Moon',
-  'Constellation': 'Constellation',
-};
+import {getDsoTypeName} from '../core/TypeMappings.js';
 
 /**
  * SelectionManager handles object selection and info display.
@@ -150,7 +118,7 @@ export class SelectionManager {
    * @returns {string} Full type name
    */
   getTypeFullName(type) {
-    return DSO_TYPE_NAMES[type] || type || 'Unknown';
+    return getDsoTypeName(type);
   }
 
   /**
