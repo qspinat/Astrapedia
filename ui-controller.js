@@ -521,6 +521,7 @@ class TimeControlsHandler {
       timeNowBtn.addEventListener('click', () => {
         if (window.app && window.app.jumpToTime) {
           window.app.jumpToTime(new Date());
+          window.app.requestRender?.();
         }
       });
     }

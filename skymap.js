@@ -1322,6 +1322,9 @@ class SkyMapApp {
     // Update search index with new planet positions
     this.updateSearchIndexPlanets_();
 
+    // Mark FOV dirty to trigger updatePlanetSizes() on next frame
+    this._fovDirty = true;
+
     console.log(`✓ Created ${this.planets.length} solar system objects (Sun, Moon, and planets)`);
   }
 
