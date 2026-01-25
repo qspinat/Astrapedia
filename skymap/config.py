@@ -5,7 +5,6 @@ Contains URLs, file paths, and processing parameters.
 
 from pathlib import Path
 from dataclasses import dataclass
-from typing import List, Dict, Optional
 import hashlib
 import warnings
 
@@ -13,6 +12,7 @@ import warnings
 @dataclass
 class MagnitudeLevel:
     """Defines a magnitude level for star output files."""
+
     mag_limit: float
     filename: str
     description: str
@@ -21,8 +21,9 @@ class MagnitudeLevel:
 @dataclass
 class CatalogSource:
     """Defines a catalog source with optional checksum verification."""
+
     url: str
-    expected_sha256: Optional[str] = None
+    expected_sha256: str | None = None
     description: str = ""
 
 
@@ -45,7 +46,7 @@ class Config:
     }
 
     # Magnitude levels for optimized star files
-    MAGNITUDE_LEVELS: List[MagnitudeLevel] = [
+    MAGNITUDE_LEVELS: list[MagnitudeLevel] = [
         MagnitudeLevel(6.5, "stars_bright.json", "Naked eye stars (mag <= 6.5)"),
         MagnitudeLevel(8.0, "stars_medium.json", "Binocular stars (mag <= 8.0)"),
         MagnitudeLevel(12.0, "stars_all.json", "All catalog stars (mag <= 12.0)"),
@@ -73,7 +74,7 @@ class Config:
     # - To regenerate/verify checksums: uv run python -m skymap.config --checksums
     # - A checksum mismatch will emit a warning but not block processing (warn_only=True)
     # - For strict verification, use Config.verify_checksum(data, name, warn_only=False)
-    CATALOG_SOURCES: Dict[str, CatalogSource] = {
+    CATALOG_SOURCES: dict[str, CatalogSource] = {
         "hyg": CatalogSource(
             url=HYG_URL,
             expected_sha256=(
@@ -140,10 +141,7 @@ class Config:
 
     @classmethod
     def verify_checksum(
-        cls,
-        data: bytes,
-        catalog_name: str,
-        warn_only: bool = True
+        cls, data: bytes, catalog_name: str, warn_only: bool = True
     ) -> bool:
         """Verify downloaded data against expected checksum.
 
@@ -178,7 +176,7 @@ class Config:
         return True
 
     @classmethod
-    def get_catalog_url(cls, catalog_name: str) -> Optional[str]:
+    def get_catalog_url(cls, catalog_name: str) -> str | None:
         """Get URL for a catalog by name.
 
         Args:
@@ -220,29 +218,94 @@ DSO_TYPE_NAMES = {
 
 # Constellation abbreviation mappings
 CONSTELLATION_ABBREVS = {
-    "And": "Andromeda", "Ant": "Antlia", "Aps": "Apus", "Aqr": "Aquarius",
-    "Aql": "Aquila", "Ara": "Ara", "Ari": "Aries", "Aur": "Auriga",
-    "Boo": "Bootes", "Cae": "Caelum", "Cam": "Camelopardalis", "Cnc": "Cancer",
-    "CVn": "CanesVenatici", "CMa": "CanisMajor", "CMi": "CanisMinor",
-    "Cap": "Capricornus", "Car": "Carina", "Cas": "Cassiopeia", "Cen": "Centaurus",
-    "Cep": "Cepheus", "Cet": "Cetus", "Cha": "Chamaeleon", "Cir": "Circinus",
-    "Col": "Columba", "Com": "ComaBerenices", "CrA": "CoronaAustralis",
-    "CrB": "CoronaBorealis", "Crv": "Corvus", "Crt": "Crater", "Cru": "Crux",
-    "Cyg": "Cygnus", "Del": "Delphinus", "Dor": "Dorado", "Dra": "Draco",
-    "Equ": "Equuleus", "Eri": "Eridanus", "For": "Fornax", "Gem": "Gemini",
-    "Gru": "Grus", "Her": "Hercules", "Hor": "Horologium", "Hya": "Hydra",
-    "Hyi": "Hydrus", "Ind": "Indus", "Lac": "Lacerta", "Leo": "Leo",
-    "LMi": "LeoMinor", "Lep": "Lepus", "Lib": "Libra", "Lup": "Lupus",
-    "Lyn": "Lynx", "Lyr": "Lyra", "Men": "Mensa", "Mic": "Microscopium",
-    "Mon": "Monoceros", "Mus": "Musca", "Nor": "Norma", "Oct": "Octans",
-    "Oph": "Ophiuchus", "Ori": "Orion", "Pav": "Pavo", "Peg": "Pegasus",
-    "Per": "Perseus", "Phe": "Phoenix", "Pic": "Pictor", "Psc": "Pisces",
-    "PsA": "PiscisAustrinus", "Pup": "Puppis", "Pyx": "Pyxis", "Ret": "Reticulum",
-    "Sge": "Sagitta", "Sgr": "Sagittarius", "Sco": "Scorpius", "Scl": "Sculptor",
-    "Sct": "Scutum", "Ser": "Serpens", "Sex": "Sextans", "Tau": "Taurus",
-    "Tel": "Telescopium", "Tri": "Triangulum", "TrA": "TriangulumAustrale",
-    "Tuc": "Tucana", "UMa": "UrsaMajor", "UMi": "UrsaMinor", "Vel": "Vela",
-    "Vir": "Virgo", "Vol": "Volans", "Vul": "Vulpecula",
+    "And": "Andromeda",
+    "Ant": "Antlia",
+    "Aps": "Apus",
+    "Aqr": "Aquarius",
+    "Aql": "Aquila",
+    "Ara": "Ara",
+    "Ari": "Aries",
+    "Aur": "Auriga",
+    "Boo": "Bootes",
+    "Cae": "Caelum",
+    "Cam": "Camelopardalis",
+    "Cnc": "Cancer",
+    "CVn": "CanesVenatici",
+    "CMa": "CanisMajor",
+    "CMi": "CanisMinor",
+    "Cap": "Capricornus",
+    "Car": "Carina",
+    "Cas": "Cassiopeia",
+    "Cen": "Centaurus",
+    "Cep": "Cepheus",
+    "Cet": "Cetus",
+    "Cha": "Chamaeleon",
+    "Cir": "Circinus",
+    "Col": "Columba",
+    "Com": "ComaBerenices",
+    "CrA": "CoronaAustralis",
+    "CrB": "CoronaBorealis",
+    "Crv": "Corvus",
+    "Crt": "Crater",
+    "Cru": "Crux",
+    "Cyg": "Cygnus",
+    "Del": "Delphinus",
+    "Dor": "Dorado",
+    "Dra": "Draco",
+    "Equ": "Equuleus",
+    "Eri": "Eridanus",
+    "For": "Fornax",
+    "Gem": "Gemini",
+    "Gru": "Grus",
+    "Her": "Hercules",
+    "Hor": "Horologium",
+    "Hya": "Hydra",
+    "Hyi": "Hydrus",
+    "Ind": "Indus",
+    "Lac": "Lacerta",
+    "Leo": "Leo",
+    "LMi": "LeoMinor",
+    "Lep": "Lepus",
+    "Lib": "Libra",
+    "Lup": "Lupus",
+    "Lyn": "Lynx",
+    "Lyr": "Lyra",
+    "Men": "Mensa",
+    "Mic": "Microscopium",
+    "Mon": "Monoceros",
+    "Mus": "Musca",
+    "Nor": "Norma",
+    "Oct": "Octans",
+    "Oph": "Ophiuchus",
+    "Ori": "Orion",
+    "Pav": "Pavo",
+    "Peg": "Pegasus",
+    "Per": "Perseus",
+    "Phe": "Phoenix",
+    "Pic": "Pictor",
+    "Psc": "Pisces",
+    "PsA": "PiscisAustrinus",
+    "Pup": "Puppis",
+    "Pyx": "Pyxis",
+    "Ret": "Reticulum",
+    "Sge": "Sagitta",
+    "Sgr": "Sagittarius",
+    "Sco": "Scorpius",
+    "Scl": "Sculptor",
+    "Sct": "Scutum",
+    "Ser": "Serpens",
+    "Sex": "Sextans",
+    "Tau": "Taurus",
+    "Tel": "Telescopium",
+    "Tri": "Triangulum",
+    "TrA": "TriangulumAustrale",
+    "Tuc": "Tucana",
+    "UMa": "UrsaMajor",
+    "UMi": "UrsaMinor",
+    "Vel": "Vela",
+    "Vir": "Virgo",
+    "Vol": "Volans",
+    "Vul": "Vulpecula",
 }
 
 

@@ -239,6 +239,9 @@ class SkyMapApp {
       'Neptune': null,
     };
 
+    // Map for O(1) planet data lookup by name (built in createPlanets)
+    this._planetDataByName = new Map();
+
     // Cached bound function for animation loop (prevents new function creation each frame)
     this._boundAnimate = this.animate.bind(this);
 
@@ -1193,6 +1196,10 @@ class SkyMapApp {
         imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Neptune_-_Voyager_2_%2829347980845%29_flatten_crop.jpg/480px-Neptune_-_Voyager_2_%2829347980845%29_flatten_crop.jpg' }
     ];
 
+    // Build Map for O(1) planet lookup by name
+    this._planetDataByName.clear();
+    this.planets.forEach(p => this._planetDataByName.set(p.name, p));
+
     const radius = 99;
 
     this.planets.forEach(planet => {
@@ -1379,8 +1386,8 @@ class SkyMapApp {
       const name = sprite.userData.name;
       const pos = this._planetPositions[name];
       if (pos) {
-        // Update planet data
-        const planetData = this.planets.find(p => p.name === name);
+        // Update planet data using O(1) Map lookup instead of Array.find()
+        const planetData = this._planetDataByName.get(name);
         if (planetData) {
           planetData.ra = pos.ra;
           planetData.dec = pos.dec;
@@ -4270,13 +4277,25 @@ class SkyMapApp {
       progress.textContent = `Step ${this.tourStep + 1} of ${this.currentTour.steps.length}`;
       tourPanel.appendChild(progress);
 
+      const btnContainer = document.createElement('div');
+      btnContainer.className = 'tour-buttons';
+
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = '← Previous';
+      prevBtn.disabled = this.tourStep === 0;
+      prevBtn.addEventListener('click', () => this.previousTourStep());
+      btnContainer.appendChild(prevBtn);
+
       const nextBtn = document.createElement('button');
-      nextBtn.textContent = 'Next';
+      nextBtn.textContent = 'Next →';
       nextBtn.addEventListener('click', () => this.nextTourStep());
-      tourPanel.appendChild(nextBtn);
+      btnContainer.appendChild(nextBtn);
+
+      tourPanel.appendChild(btnContainer);
 
       const endBtn = document.createElement('button');
       endBtn.textContent = 'End Tour';
+      endBtn.className = 'tour-end-btn';
       endBtn.addEventListener('click', () => this.endTour());
       tourPanel.appendChild(endBtn);
 
@@ -4346,6 +4365,14 @@ class SkyMapApp {
     // Reset constellation highlighting before moving to next step
     this.unhighlightConstellation();
     this.tourStep++;
+    this.showTourStep();
+  }
+
+  previousTourStep() {
+    if (this.tourStep <= 0) return;
+    // Reset constellation highlighting before moving to previous step
+    this.unhighlightConstellation();
+    this.tourStep--;
     this.showTourStep();
   }
 
