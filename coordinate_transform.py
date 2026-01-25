@@ -7,17 +7,20 @@ for real-time sky map updates.
 Refactored to use shared modules from skymap package.
 """
 
-import sys
 import argparse
+import logging
 from pathlib import Path
 
-import numpy as np
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz, get_body
-from astropy.time import Time
 import astropy.units as u
+import numpy as np
+from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_body
+from astropy.time import Time
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+# Configure logging for the script
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+)
 
 from skymap.config import Config
 from skymap.io import read_json, write_json

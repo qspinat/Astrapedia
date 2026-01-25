@@ -263,6 +263,90 @@ def parse_coordinate_string(coord_str: str) -> float | None:
     return None
 
 
+def parse_ra_string(ra_str: str | None) -> float | None:
+    """
+    Parse RA from hours:minutes:seconds string to degrees.
+
+    Handles pandas NA values and various separators.
+
+    Args:
+        ra_str: RA string in "HH:MM:SS" or "HH MM SS" format
+
+    Returns:
+        RA in degrees (0-360) or None if parsing fails
+    """
+    if ra_str is None or (hasattr(ra_str, "__class__") and pd.isna(ra_str)):
+        return None
+
+    try:
+        ra_str = str(ra_str).strip()
+
+        # Try decimal first (already in hours)
+        try:
+            hours = float(ra_str)
+            return hours * 15.0
+        except ValueError:
+            pass
+
+        # Try HMS formats
+        for sep in [":", " "]:
+            parts = ra_str.split(sep)
+            if len(parts) >= 2:
+                try:
+                    hours = float(parts[0])
+                    minutes = float(parts[1]) if len(parts) > 1 else 0
+                    seconds = float(parts[2]) if len(parts) > 2 else 0
+                    return ra_hms_to_degrees(hours, minutes, seconds)
+                except (ValueError, IndexError):
+                    continue
+
+        return None
+    except (ValueError, TypeError):
+        return None
+
+
+def parse_dec_string(dec_str: str | None) -> float | None:
+    """
+    Parse Dec from degrees:arcmin:arcsec string to decimal degrees.
+
+    Handles pandas NA values, sign prefix, and various separators.
+
+    Args:
+        dec_str: Dec string in "+DD:MM:SS" or "DD MM SS" format
+
+    Returns:
+        Dec in decimal degrees (-90 to +90) or None if parsing fails
+    """
+    if dec_str is None or (hasattr(dec_str, "__class__") and pd.isna(dec_str)):
+        return None
+
+    try:
+        dec_str = str(dec_str).strip().replace("+", "")
+
+        # Try decimal first
+        try:
+            return float(dec_str)
+        except ValueError:
+            pass
+
+        # Try DMS formats
+        for sep in [":", " "]:
+            parts = dec_str.split(sep)
+            if len(parts) >= 1:
+                try:
+                    degrees = float(parts[0])
+                    minutes = float(parts[1]) if len(parts) > 1 else 0
+                    seconds = float(parts[2]) if len(parts) > 2 else 0
+                    sign = -1 if degrees < 0 else 1
+                    return degrees + sign * (minutes / 60 + seconds / 3600)
+                except (ValueError, IndexError):
+                    continue
+
+        return None
+    except (ValueError, TypeError):
+        return None
+
+
 def normalize_ra(ra: float) -> float:
     """Normalize RA to range [0, 360)."""
     ra = ra % 360
