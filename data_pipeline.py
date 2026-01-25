@@ -16,7 +16,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 
 from skymap.config import Config, DSO_TYPE_NAMES
-from skymap.io import download_file, write_json, ensure_directory
+from skymap.io import download_file, write_json
 from skymap.astronomy import (
     filter_by_magnitude,
     inject_supplementary_objects,

@@ -11,12 +11,7 @@ import {
   AstronomyCalculator,
   initializeAstronomyCalculator,
 } from './modules/core/AstronomyCalculator.js';
-import {
-  raDecToCartesian,
-  cartesianToRaDec,
-  angularDistance,
-  calculateLST,
-} from './modules/core/CoordinateUtils.js';
+import {calculateLST} from './modules/core/CoordinateUtils.js';
 
 // Services
 import {dataLoader} from './modules/services/DataLoader.js';
