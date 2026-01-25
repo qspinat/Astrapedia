@@ -4,10 +4,9 @@ Contains coordinate conversions, magnitude filtering, and data transformations.
 """
 
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pandas as pd
-import numpy as np
 
 
 def ra_hms_to_degrees(hours: float, minutes: float = 0, seconds: float = 0) -> float:
@@ -42,7 +41,7 @@ def dec_dms_to_degrees(degrees: float, arcmin: float = 0, arcsec: float = 0) -> 
     return sign * (abs(degrees) + arcmin / 60 + arcsec / 3600)
 
 
-def degrees_to_ra_hms(ra_degrees: float) -> Tuple[int, int, float]:
+def degrees_to_ra_hms(ra_degrees: float) -> tuple[int, int, float]:
     """
     Convert RA from degrees to hours/minutes/seconds.
 
@@ -50,7 +49,7 @@ def degrees_to_ra_hms(ra_degrees: float) -> Tuple[int, int, float]:
         ra_degrees: RA in degrees (0-360)
 
     Returns:
-        Tuple of (hours, minutes, seconds)
+        tuple of (hours, minutes, seconds)
     """
     total_hours = ra_degrees / 15.0
     hours = int(total_hours)
@@ -60,7 +59,7 @@ def degrees_to_ra_hms(ra_degrees: float) -> Tuple[int, int, float]:
     return hours, minutes, seconds
 
 
-def degrees_to_dec_dms(dec_degrees: float) -> Tuple[int, int, float]:
+def degrees_to_dec_dms(dec_degrees: float) -> tuple[int, int, float]:
     """
     Convert Dec from decimal degrees to degrees/arcminutes/arcseconds.
 
@@ -68,7 +67,7 @@ def degrees_to_dec_dms(dec_degrees: float) -> Tuple[int, int, float]:
         dec_degrees: Dec in decimal degrees
 
     Returns:
-        Tuple of (degrees, arcminutes, arcseconds)
+        tuple of (degrees, arcminutes, arcseconds)
     """
     sign = -1 if dec_degrees < 0 else 1
     dec_abs = abs(dec_degrees)
@@ -80,16 +79,16 @@ def degrees_to_dec_dms(dec_degrees: float) -> Tuple[int, int, float]:
 
 
 def filter_by_magnitude(
-    objects: List[Dict[str, Any]],
+    objects: list[dict[str, Any]],
     mag_limit: float,
     mag_key: str = "mag",
     include_null: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Filter celestial objects by magnitude limit.
 
     Args:
-        objects: List of object dictionaries
+        objects: list of object dictionaries
         mag_limit: Maximum magnitude to include
         mag_key: Key for magnitude value in dictionaries
         include_null: Whether to include objects with null/missing magnitude
@@ -137,7 +136,7 @@ def dataframe_to_star_dicts(
     name_col: str = "proper",
     ci_col: str = "ci",
     spect_col: str = "spect",
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Convert a star DataFrame to list of dictionaries (vectorized).
 
@@ -152,7 +151,7 @@ def dataframe_to_star_dicts(
         spect_col: Column name for spectral type
 
     Returns:
-        List of star dictionaries
+        list of star dictionaries
     """
     # Create a copy to avoid modifying original
     df = df.copy()
@@ -188,8 +187,10 @@ def dataframe_to_star_dicts(
 
 
 def angular_distance(
-    ra1: float, dec1: float,
-    ra2: float, dec2: float,
+    ra1: float,
+    dec1: float,
+    ra2: float,
+    dec2: float,
 ) -> float:
     """
     Calculate angular distance between two points on the celestial sphere.
@@ -212,15 +213,15 @@ def angular_distance(
     d_dec = dec2_rad - dec1_rad
 
     a = (
-        math.sin(d_dec / 2) ** 2 +
-        math.cos(dec1_rad) * math.cos(dec2_rad) * math.sin(d_ra / 2) ** 2
+        math.sin(d_dec / 2) ** 2
+        + math.cos(dec1_rad) * math.cos(dec2_rad) * math.sin(d_ra / 2) ** 2
     )
 
     c = 2 * math.asin(math.sqrt(a))
     return math.degrees(c)
 
 
-def parse_coordinate_string(coord_str: str) -> Optional[float]:
+def parse_coordinate_string(coord_str: str) -> float | None:
     """
     Parse a coordinate string in various formats.
 
@@ -276,26 +277,25 @@ def normalize_dec(dec: float) -> float:
 
 
 def calculate_star_count_by_magnitude(
-    stars: List[Dict[str, Any]],
+    stars: list[dict[str, Any]],
     mag_key: str = "mag",
-) -> Dict[float, int]:
+) -> dict[float, int]:
     """
     Calculate cumulative star counts at different magnitude limits.
 
     Args:
-        stars: List of star dictionaries
+        stars: list of star dictionaries
         mag_key: Key for magnitude value
 
     Returns:
-        Dictionary mapping magnitude limit to cumulative count
+        dictionary mapping magnitude limit to cumulative count
     """
     magnitudes = [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]
     counts = {}
 
     for mag_limit in magnitudes:
         count = sum(
-            1 for s in stars
-            if s.get(mag_key) is not None and s[mag_key] <= mag_limit
+            1 for s in stars if s.get(mag_key) is not None and s[mag_key] <= mag_limit
         )
         counts[mag_limit] = count
 
@@ -303,10 +303,10 @@ def calculate_star_count_by_magnitude(
 
 
 def inject_supplementary_objects(
-    objects: List[Dict[str, Any]],
-    supplementary: List[Dict[str, Any]],
+    objects: list[dict[str, Any]],
+    supplementary: list[dict[str, Any]],
     key: str = "messier",
-) -> Tuple[List[Dict[str, Any]], int]:
+) -> tuple[list[dict[str, Any]], int]:
     """
     Inject supplementary objects into a list if not already present.
 
@@ -315,10 +315,10 @@ def inject_supplementary_objects(
     Args:
         objects: Existing list of objects
         supplementary: Objects to add if not present
-        key: Dictionary key to check for duplicates
+        key: dictionary key to check for duplicates
 
     Returns:
-        Tuple of (combined list, count of objects added)
+        tuple of (combined list, count of objects added)
     """
     existing_keys = {obj[key] for obj in objects if obj.get(key) is not None}
     added = []

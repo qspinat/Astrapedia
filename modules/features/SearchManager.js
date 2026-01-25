@@ -49,6 +49,24 @@ export class SearchManager {
      * @private {boolean}
      */
     this.built_ = false;
+
+    /**
+     * Map for O(1) star lookup by HIP number.
+     * @private {!Map<number, !Object>}
+     */
+    this.starByHip_ = new Map();
+
+    /**
+     * Map for O(1) star lookup by ID.
+     * @private {!Map<string|number, !Object>}
+     */
+    this.starById_ = new Map();
+
+    /**
+     * Set for O(1) duplicate name checking during index building.
+     * @private {!Set<string>}
+     */
+    this.indexedNames_ = new Set();
   }
 
   /**
@@ -59,11 +77,23 @@ export class SearchManager {
     const {stars, deepSkyObjects, constellations, namedObjects, planets} = data;
 
     this.index_ = [];
+    this.starByHip_.clear();
+    this.starById_.clear();
+    this.indexedNames_.clear();
+
+    // Build lookup maps for O(1) star access (instead of O(n) Array.find)
+    if (stars) {
+      stars.forEach((star) => {
+        if (star.hip) this.starByHip_.set(star.hip, star);
+        if (star.id) this.starById_.set(star.id, star);
+      });
+    }
 
     // Add named stars
     if (stars && namedObjects) {
       Object.entries(namedObjects).forEach(([name, starId]) => {
-        const star = stars.find((s) => s.hip === starId || s.id === starId);
+        // Use Map lookup for O(1) access instead of Array.find
+        const star = this.starByHip_.get(starId) || this.starById_.get(starId);
         if (star) {
           this.index_.push({
             name,
@@ -74,12 +104,14 @@ export class SearchManager {
             isAlias: false,
             data: star,
           });
+          this.indexedNames_.add(name);
         }
       });
 
       // Add stars with proper names directly
       stars.forEach((star) => {
-        if (star.proper && !this.index_.find((e) => e.name === star.proper)) {
+        // Use Set for O(1) duplicate checking instead of Array.find
+        if (star.proper && !this.indexedNames_.has(star.proper)) {
           this.index_.push({
             name: star.proper,
             type: 'Star',
@@ -89,6 +121,7 @@ export class SearchManager {
             isAlias: false,
             data: star,
           });
+          this.indexedNames_.add(star.proper);
         }
       });
     }
@@ -364,6 +397,9 @@ export class SearchManager {
   clear() {
     this.index_ = [];
     this.built_ = false;
+    this.starByHip_.clear();
+    this.starById_.clear();
+    this.indexedNames_.clear();
   }
 
   /**

@@ -48,6 +48,7 @@ import {
   calculateLST as _calculateLST,
 } from './modules/core/CoordinateUtils.js';
 import {escapeHtml, fetchWikipedia} from './modules/core/SecurityUtils.js';
+import {domCache} from './modules/ui/DOMCache.js';
 
 /* ==========================================================================
    1. SHARED CONSTANTS
@@ -222,6 +223,25 @@ class SkyMapApp {
     this.dynamicImageCache = new Map();    // Cache: objectName -> { url: string | null, loading: boolean }
 
     // === PERFORMANCE OPTIMIZATIONS ===
+    // Reusable TextureLoader (avoid creating new instances per image)
+    this._textureLoader = null;
+
+    // Cached planet positions object (avoid allocation in updatePlanetPositions)
+    this._planetPositions = {
+      'Sun': null,
+      'Moon': null,
+      'Mercury': null,
+      'Venus': null,
+      'Mars': null,
+      'Jupiter': null,
+      'Saturn': null,
+      'Uranus': null,
+      'Neptune': null,
+    };
+
+    // Map for O(1) planet data lookup by name (built in createPlanets)
+    this._planetDataByName = new Map();
+
     // Cached bound function for animation loop (prevents new function creation each frame)
     this._boundAnimate = this.animate.bind(this);
 
@@ -300,7 +320,12 @@ class SkyMapApp {
     this._tempVec3 = new THREE.Vector3();
     this._tempVec3B = new THREE.Vector3();
     this._tempMatrix4 = new THREE.Matrix4();
+    this._tempMatrix4B = new THREE.Matrix4();
     this._tempMatrix3 = new THREE.Matrix3();
+
+    // Initialize reusable TextureLoader
+    this._textureLoader = new THREE.TextureLoader();
+    this._textureLoader.setCrossOrigin('anonymous');
   }
 
   /* ======================================================================
@@ -320,12 +345,17 @@ class SkyMapApp {
 
       // Setup Three.js
       this.setupScene();
+
+      // Initialize reusable objects for performance (must be before setupCamera
+      // since updateCameraPosition uses temp vectors)
+      this.initTempObjects();
+
       this.setupCamera();
       this.setupRenderer();
       this.setupLights();
 
-      // Initialize reusable objects for performance
-      this.initTempObjects();
+      // Initialize DOM cache for frequently-accessed elements
+      domCache.initialize();
 
       // Create celestial objects
       this.createCelestialSphere();
@@ -1009,14 +1039,15 @@ class SkyMapApp {
     );
 
     // Calculate Moon phase (0-1, where 0 = new moon, 0.5 = full moon)
-    // Phase angle is roughly 2*D
-    const phaseAngle = (2 * D) % 360;
-    const phase = (1 - Math.cos(THREE.MathUtils.degToRad(phaseAngle))) / 2;
+    // D is the mean elongation from Sun: 0° at new moon, 180° at full moon
+    // Normalize D to ensure positive 0-360 range before converting to phase
+    const normalizedD = ((D % 360) + 360) % 360;
+    const phase = normalizedD / 360;
 
     return {
       ra: (ra + 360) % 360,
       dec: dec,
-      phase: phase  // 0 = new moon, 0.5 = first/last quarter, 1 = full moon
+      phase: phase  // 0 = new moon, 0.5 = full moon
     };
   }
 
@@ -1165,6 +1196,10 @@ class SkyMapApp {
         imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Neptune_-_Voyager_2_%2829347980845%29_flatten_crop.jpg/480px-Neptune_-_Voyager_2_%2829347980845%29_flatten_crop.jpg' }
     ];
 
+    // Build Map for O(1) planet lookup by name
+    this._planetDataByName.clear();
+    this.planets.forEach(p => this._planetDataByName.set(p.name, p));
+
     const radius = 99;
 
     this.planets.forEach(planet => {
@@ -1294,7 +1329,89 @@ class SkyMapApp {
     // Update search index with new planet positions
     this.updateSearchIndexPlanets_();
 
+    // Mark FOV dirty to trigger updatePlanetSizes() on next frame
+    this._fovDirty = true;
+
     console.log(`✓ Created ${this.planets.length} solar system objects (Sun, Moon, and planets)`);
+  }
+
+  /**
+   * Update planet positions without recreating sprites.
+   * Much faster than createPlanets() - only updates positions.
+   * @returns {void}
+   */
+  updatePlanetPositions() {
+    if (!this.planetSprites || this.planetSprites.length === 0) {
+      // No sprites yet, need full creation
+      this.createPlanets();
+      return;
+    }
+
+    // Calculate new positions using current simulation time
+    // Reuse cached positions object to avoid allocation
+    const simTime = this.simulationTime || new Date();
+
+    this._planetPositions['Sun'] = this.calculateSunPosition(simTime);
+    this._planetPositions['Moon'] = this.calculateMoonPosition(simTime);
+
+    // Helper to get planet position with fallback and warning
+    const getPositionWithFallback = (name) => {
+      const pos = this.getPlanetPosition(name, simTime);
+      if (!pos) {
+        // Use previous valid position if available, otherwise fallback to origin
+        const prevPos = this._planetPositions[name];
+        if (prevPos && (prevPos.ra !== 0 || prevPos.dec !== 0)) {
+          console.warn(`Planet position unavailable for ${name}, using previous position`);
+          return prevPos;
+        }
+        console.warn(`Planet position unavailable for ${name}, using fallback (0,0)`);
+        return {ra: 0, dec: 0};
+      }
+      return pos;
+    };
+
+    // Calculate outer planet positions with fallback
+    this._planetPositions['Mercury'] = getPositionWithFallback('Mercury');
+    this._planetPositions['Venus'] = getPositionWithFallback('Venus');
+    this._planetPositions['Mars'] = getPositionWithFallback('Mars');
+    this._planetPositions['Jupiter'] = getPositionWithFallback('Jupiter');
+    this._planetPositions['Saturn'] = getPositionWithFallback('Saturn');
+    this._planetPositions['Uranus'] = getPositionWithFallback('Uranus');
+    this._planetPositions['Neptune'] = getPositionWithFallback('Neptune');
+
+    const radius = 99;
+
+    // Update each sprite's position
+    this.planetSprites.forEach(sprite => {
+      const name = sprite.userData.name;
+      const pos = this._planetPositions[name];
+      if (pos) {
+        // Update planet data using O(1) Map lookup instead of Array.find()
+        const planetData = this._planetDataByName.get(name);
+        if (planetData) {
+          planetData.ra = pos.ra;
+          planetData.dec = pos.dec;
+          if (pos.phase !== undefined) planetData.phase = pos.phase;
+        }
+
+        // Update sprite position
+        const raRad = THREE.MathUtils.degToRad(pos.ra);
+        const decRad = THREE.MathUtils.degToRad(pos.dec);
+        sprite.position.set(
+          radius * Math.cos(decRad) * Math.cos(raRad),
+          radius * Math.sin(decRad),
+          -radius * Math.cos(decRad) * Math.sin(raRad)
+        );
+
+        // Update userData for selection
+        sprite.userData.ra = pos.ra;
+        sprite.userData.dec = pos.dec;
+        if (pos.phase !== undefined) sprite.userData.phase = pos.phase;
+      }
+    });
+
+    // Update search index
+    this.updateSearchIndexPlanets_();
   }
 
   /**
@@ -1379,10 +1496,8 @@ class SkyMapApp {
 
     data.imageLoading = true;
 
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.setCrossOrigin('anonymous');
-
-    textureLoader.load(
+    // Use reusable TextureLoader instance
+    this._textureLoader.load(
       imageUrl,
       (texture) => {
         texture.minFilter = THREE.LinearFilter;
@@ -1578,29 +1693,30 @@ class SkyMapApp {
     this.camera.lookAt(0, 0, 0);
 
     // Update camera info display - compute RA/Dec in celestial coordinates
+    // Reuse temporary vectors/matrices to avoid allocations in hot path
     // The view direction in world coordinates
-    const viewDirWorld = new THREE.Vector3(0, 0, 0).sub(this.camera.position).normalize();
+    this._tempVec3.set(0, 0, 0).sub(this.camera.position).normalize();
 
     // Transform view direction from world coords to celestial coords
     // by applying the INVERSE of the celestialSphere's world transformation
-    const viewDirCelestial = viewDirWorld.clone();
+    this._tempVec3B.copy(this._tempVec3);
     if (this.celestialSphere) {
       // Get the inverse of the celestialSphere's world matrix
-      const worldMatrix = new THREE.Matrix4();
       this.celestialSphere.updateMatrixWorld();
-      worldMatrix.copy(this.celestialSphere.matrixWorld);
-      const inverseMatrix = new THREE.Matrix4().copy(worldMatrix).invert();
+      this._tempMatrix4.copy(this.celestialSphere.matrixWorld);
+      this._tempMatrix4B.copy(this._tempMatrix4).invert();
 
       // Apply inverse transformation (rotation only, ignore translation)
-      const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-      viewDirCelestial.applyMatrix3(rotationMatrix);
+      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
+      this._tempVec3B.applyMatrix3(this._tempMatrix3);
     }
 
-    const raDec = this.cartesianToRaDec(viewDirCelestial.x, viewDirCelestial.y, viewDirCelestial.z);
+    const raDec = this.cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
 
-    document.getElementById('ra-display').textContent = `${raDec.ra.toFixed(1)}°`;
-    document.getElementById('dec-display').textContent = `${raDec.dec.toFixed(1)}°`;
-    document.getElementById('fov-display').textContent = this.formatAngle(this.camera.fov);
+    // Use optional chaining for cleaner null checks
+    if (domCache.raDisplay) domCache.raDisplay.textContent = `${raDec.ra.toFixed(1)}°`;
+    if (domCache.decDisplay) domCache.decDisplay.textContent = `${raDec.dec.toFixed(1)}°`;
+    if (domCache.fovDisplay) domCache.fovDisplay.textContent = this.formatAngle(this.camera.fov);
   }
 
   formatAngle(degrees) {
@@ -1661,7 +1777,9 @@ class SkyMapApp {
   }
 
   updateVisibleCount(count) {
-    document.getElementById('visible-count').textContent = count;
+    if (domCache.visibleCount) {
+      domCache.visibleCount.textContent = count;
+    }
   }
 
   // Feature 4: Location Services
@@ -3277,10 +3395,9 @@ class SkyMapApp {
   updateSimulationTime(deltaMs) {
     this.simulationTime = new Date(this.simulationTime.getTime() + deltaMs);
 
-    // Update UI
-    const timeDisplay = document.getElementById('time-display');
-    if (timeDisplay) {
-      timeDisplay.textContent = this.simulationTime.toLocaleString();
+    // Update UI using cached DOM reference
+    if (domCache.timeDisplay) {
+      domCache.timeDisplay.textContent = this.simulationTime.toLocaleString();
     }
 
     // Rotate celestial sphere to simulate Earth's rotation
@@ -3296,15 +3413,21 @@ class SkyMapApp {
       this.celestialSphere.rotation.y -= rotationAngle;
     }
 
-    // Update Sun and Moon positions periodically when time is moving fast
-    // Moon moves ~13°/day, so update every simulated hour for smooth motion at high speeds
+    // Update Sun and Moon positions periodically
+    // Moon moves ~13°/day (~0.5°/hour), so update frequently for smooth motion:
+    // - Every 10 simulated seconds at high speeds for visible movement
+    // - Every 2 seconds of real time to keep display in sync
     if (!this.lastPlanetUpdate) {
       this.lastPlanetUpdate = this.simulationTime.getTime();
+      this.lastPlanetUpdateRealTime = Date.now();
     }
-    const timeSinceUpdate = Math.abs(this.simulationTime.getTime() - this.lastPlanetUpdate);
-    if (timeSinceUpdate > 3600000) { // Update every simulated hour
-      this.createPlanets();
+    const simTimeSinceUpdate = Math.abs(this.simulationTime.getTime() - this.lastPlanetUpdate);
+    const realTimeSinceUpdate = Date.now() - (this.lastPlanetUpdateRealTime || 0);
+    if (simTimeSinceUpdate > 10000 || realTimeSinceUpdate > 2000) {
+      // Use updatePlanetPositions() for efficiency (no image reload)
+      this.updatePlanetPositions();
       this.lastPlanetUpdate = this.simulationTime.getTime();
+      this.lastPlanetUpdateRealTime = Date.now();
     }
   }
 
@@ -3319,15 +3442,19 @@ class SkyMapApp {
    */
   setTimeSpeed(speed) {
     this.timeSpeed = speed;
-    const speedDisplay = document.getElementById('time-speed-display');
-    if (speedDisplay) {
+    // Use cached DOM reference
+    if (domCache.timeSpeedDisplay) {
       if (speed === 0) {
-        speedDisplay.textContent = 'Paused';
+        domCache.timeSpeedDisplay.textContent = 'Paused';
       } else if (speed === 1) {
-        speedDisplay.textContent = 'Real-time';
+        domCache.timeSpeedDisplay.textContent = 'Real-time';
       } else {
-        speedDisplay.textContent = `${speed}x`;
+        domCache.timeSpeedDisplay.textContent = `${speed}x`;
       }
+    }
+    // Ensure animation is running when speed is set
+    if (speed !== 0 && this.isTimePlaying) {
+      this.startAnimating();
     }
   }
 
@@ -4150,13 +4277,25 @@ class SkyMapApp {
       progress.textContent = `Step ${this.tourStep + 1} of ${this.currentTour.steps.length}`;
       tourPanel.appendChild(progress);
 
+      const btnContainer = document.createElement('div');
+      btnContainer.className = 'tour-buttons';
+
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = '← Previous';
+      prevBtn.disabled = this.tourStep === 0;
+      prevBtn.addEventListener('click', () => this.previousTourStep());
+      btnContainer.appendChild(prevBtn);
+
       const nextBtn = document.createElement('button');
-      nextBtn.textContent = 'Next';
+      nextBtn.textContent = 'Next →';
       nextBtn.addEventListener('click', () => this.nextTourStep());
-      tourPanel.appendChild(nextBtn);
+      btnContainer.appendChild(nextBtn);
+
+      tourPanel.appendChild(btnContainer);
 
       const endBtn = document.createElement('button');
       endBtn.textContent = 'End Tour';
+      endBtn.className = 'tour-end-btn';
       endBtn.addEventListener('click', () => this.endTour());
       tourPanel.appendChild(endBtn);
 
@@ -4226,6 +4365,14 @@ class SkyMapApp {
     // Reset constellation highlighting before moving to next step
     this.unhighlightConstellation();
     this.tourStep++;
+    this.showTourStep();
+  }
+
+  previousTourStep() {
+    if (!this.currentTour || this.tourStep <= 0) return;
+    // Reset constellation highlighting before moving to previous step
+    this.unhighlightConstellation();
+    this.tourStep--;
     this.showTourStep();
   }
 
@@ -6662,8 +6809,10 @@ class SkyMapApp {
     if (fovChanged) {
       this._lastFov = this.camera.fov;
       this._fovDirty = true;
-      // Update FOV display immediately when it changes
-      document.getElementById('fov-display').textContent = this.formatAngle(this.camera.fov);
+      // Update FOV display immediately when it changes (using cached DOM ref)
+      if (domCache.fovDisplay) {
+        domCache.fovDisplay.textContent = this.formatAngle(this.camera.fov);
+      }
     }
 
     // Update visibility functions only when needed or throttled
@@ -6756,10 +6905,8 @@ class SkyMapApp {
         // Static image exists in database - load it directly
         const pos = this.raDecToCartesian(dso.ra, dso.dec, radius);
 
-        // Create sprite with CORS-enabled texture loading
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.setCrossOrigin('anonymous');
-        textureLoader.load(
+        // Use reusable TextureLoader instance
+        this._textureLoader.load(
           staticImageUrl,
           (texture) => {
             // Improve texture quality
@@ -7338,9 +7485,8 @@ class SkyMapApp {
       }
     }
 
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.setCrossOrigin('anonymous');
-    textureLoader.load(
+    // Use reusable TextureLoader instance
+    this._textureLoader.load(
       result.url,
       (texture) => {
         // Check if texture actually loaded (has dimensions)
@@ -7378,7 +7524,7 @@ class SkyMapApp {
           console.log(`🔄 Trying DSS fallback for ${objectName}`);
           const dssUrl = this.getSkyViewImageUrl(dso.ra, dso.dec, dso.type, dso.size_major);
 
-          textureLoader.load(
+          this._textureLoader.load(
             dssUrl,
             (texture) => {
               const imgWidth = texture.image?.naturalWidth || texture.image?.width || 0;
@@ -7577,23 +7723,21 @@ class SkyMapApp {
     this._bestCandidateSprite = null;
     this._bestCandidateSize = 0;
 
-    // Get camera direction for FOV check
-    const camDir = this._tempVec3B || new THREE.Vector3();
-    this.camera.getWorldDirection(camDir);
+    // Get camera direction for FOV check (reuse temp vector)
+    this.camera.getWorldDirection(this._tempVec3B);
 
     this.imageSprites.forEach(sprite => {
       if (!sprite.userData) return;
 
-      // First check if sprite is in the camera's field of view
-      const spritePos = this._tempVec3 || new THREE.Vector3();
-      sprite.getWorldPosition(spritePos);
-      const toSpriteX = spritePos.x - this.camera.position.x;
-      const toSpriteY = spritePos.y - this.camera.position.y;
-      const toSpriteZ = spritePos.z - this.camera.position.z;
+      // First check if sprite is in the camera's field of view (reuse temp vector)
+      sprite.getWorldPosition(this._tempVec3);
+      const toSpriteX = this._tempVec3.x - this.camera.position.x;
+      const toSpriteY = this._tempVec3.y - this.camera.position.y;
+      const toSpriteZ = this._tempVec3.z - this.camera.position.z;
       const len = Math.sqrt(toSpriteX * toSpriteX + toSpriteY * toSpriteY + toSpriteZ * toSpriteZ);
-      const dot = (toSpriteX / len) * camDir.x +
-             (toSpriteY / len) * camDir.y +
-             (toSpriteZ / len) * camDir.z;
+      const dot = (toSpriteX / len) * this._tempVec3B.x +
+             (toSpriteY / len) * this._tempVec3B.y +
+             (toSpriteZ / len) * this._tempVec3B.z;
 
       // Calculate the cosine threshold for current FOV (with proportional margin)
       // Use FOV-based margin so small FOVs have small margins, capped at 5° for large FOVs
@@ -7868,21 +8012,22 @@ class SkyMapApp {
 
     // Get view direction: camera looks at center (0,0,0)
     // View direction in world space is from camera toward center
-    const viewDirWorld = new THREE.Vector3(0, 0, 0).sub(this.camera.position).normalize();
+    // Reuse temporary vectors/matrices to avoid allocations
+    this._tempVec3.set(0, 0, 0).sub(this.camera.position).normalize();
 
     // Transform view direction from world coords to celestial coords
     // by applying the INVERSE of the celestialSphere's world transformation
-    const viewDirCelestial = viewDirWorld.clone();
+    this._tempVec3B.copy(this._tempVec3);
     if (this.celestialSphere) {
       // Update the matrix first!
       this.celestialSphere.updateMatrixWorld();
-      const worldMatrix = new THREE.Matrix4().copy(this.celestialSphere.matrixWorld);
-      const inverseMatrix = new THREE.Matrix4().copy(worldMatrix).invert();
-      const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-      viewDirCelestial.applyMatrix3(rotationMatrix);
+      this._tempMatrix4.copy(this.celestialSphere.matrixWorld);
+      this._tempMatrix4B.copy(this._tempMatrix4).invert();
+      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
+      this._tempVec3B.applyMatrix3(this._tempMatrix3);
     }
 
-    const raDec = this.cartesianToRaDec(viewDirCelestial.x, viewDirCelestial.y, viewDirCelestial.z);
+    const raDec = this.cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
 
     // Create region key for caching (finer grid for deeper zoom)
     const gridSize = Math.max(1, this.camera.fov);

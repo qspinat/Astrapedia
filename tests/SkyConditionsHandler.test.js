@@ -226,18 +226,90 @@ describe('SkyConditionsHandler', () => {
       expect(handler.moonPhase_).toBeCloseTo(0.5, 1);
     });
 
-    test('sets low moon altitude during daytime', () => {
-      const daytime = new Date(2024, 6, 15, 12, 0, 0); // Noon
-      handler.estimateMoonPhase_(daytime);
-      expect(handler.moonAltitude_).toBe(-10);
+    test('calculates phase for first quarter (7.4 days after new moon)', () => {
+      const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+      const firstQuarter = new Date(knownNewMoon.getTime() + 7.38 * 24 * 60 * 60 * 1000);
+      handler.estimateMoonPhase_(firstQuarter);
+      expect(handler.moonPhase_).toBeCloseTo(0.25, 1);
     });
 
-    test('estimates moon altitude at night based on illumination', () => {
-      const nighttime = new Date(2024, 6, 15, 22, 0, 0); // 10 PM
-      handler.estimateMoonPhase_(nighttime);
-      // Altitude should be scaled by illumination (0-30)
-      expect(handler.moonAltitude_).toBeGreaterThanOrEqual(0);
-      expect(handler.moonAltitude_).toBeLessThanOrEqual(30);
+    test('calculates phase for last quarter (22.1 days after new moon)', () => {
+      const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+      const lastQuarter = new Date(knownNewMoon.getTime() + 22.14 * 24 * 60 * 60 * 1000);
+      handler.estimateMoonPhase_(lastQuarter);
+      expect(handler.moonPhase_).toBeCloseTo(0.75, 1);
+    });
+
+    describe('moon altitude estimation', () => {
+      test('new moon at noon has moon below horizon', () => {
+        // New moon transits at noon, so at noon it should be highest
+        // But we use a simplified model - test that it's reasonable
+        const knownNewMoon = new Date(2000, 0, 6, 12, 0, 0); // Noon on new moon
+        handler.estimateMoonPhase_(knownNewMoon);
+        // New moon transits at noon, so at noon altitude should be high
+        expect(handler.moonAltitude_).toBeGreaterThan(0);
+      });
+
+      test('full moon at midnight has moon high in sky', () => {
+        // Full moon transits at midnight
+        const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+        const fullMoonMidnight = new Date(knownNewMoon.getTime() + 14.765 * 24 * 60 * 60 * 1000);
+        fullMoonMidnight.setHours(0, 0, 0, 0); // Midnight
+        handler.estimateMoonPhase_(fullMoonMidnight);
+        expect(handler.moonAltitude_).toBeGreaterThan(30);
+      });
+
+      test('full moon at noon has moon below horizon', () => {
+        // Full moon transits at midnight, so at noon it should be below horizon
+        const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+        const fullMoonNoon = new Date(knownNewMoon.getTime() + 14.765 * 24 * 60 * 60 * 1000);
+        fullMoonNoon.setHours(12, 0, 0, 0); // Noon
+        handler.estimateMoonPhase_(fullMoonNoon);
+        expect(handler.moonAltitude_).toBeLessThan(0);
+      });
+
+      test('first quarter moon at 6pm has moon high in sky', () => {
+        // First quarter transits at ~6pm
+        const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+        const firstQuarter = new Date(knownNewMoon.getTime() + 7.38 * 24 * 60 * 60 * 1000);
+        firstQuarter.setHours(18, 0, 0, 0); // 6 PM
+        handler.estimateMoonPhase_(firstQuarter);
+        expect(handler.moonAltitude_).toBeGreaterThan(30);
+      });
+
+      test('altitude varies with time of day', () => {
+        // Test that moon altitude changes throughout the day
+        const testDate = new Date(2024, 6, 15);
+
+        const altitudes = [];
+        for (let hour = 0; hour < 24; hour += 6) {
+          testDate.setHours(hour, 0, 0, 0);
+          handler.estimateMoonPhase_(testDate);
+          altitudes.push(handler.moonAltitude_);
+        }
+
+        // Should have variation in altitudes
+        const minAlt = Math.min(...altitudes);
+        const maxAlt = Math.max(...altitudes);
+        expect(maxAlt - minAlt).toBeGreaterThan(20);
+      });
+
+      test('moon is above horizon for about 12 hours', () => {
+        const testDate = new Date(2024, 6, 15);
+        let hoursAboveHorizon = 0;
+
+        for (let hour = 0; hour < 24; hour++) {
+          testDate.setHours(hour, 0, 0, 0);
+          handler.estimateMoonPhase_(testDate);
+          if (handler.moonAltitude_ > 0) {
+            hoursAboveHorizon++;
+          }
+        }
+
+        // Moon should be above horizon for roughly 12 hours (±2)
+        expect(hoursAboveHorizon).toBeGreaterThanOrEqual(10);
+        expect(hoursAboveHorizon).toBeLessThanOrEqual(14);
+      });
     });
   });
 

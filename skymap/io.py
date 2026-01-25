@@ -7,7 +7,7 @@ import json
 import urllib.request
 import urllib.error
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 import sys
 
 from .config import Config
@@ -38,8 +38,7 @@ def download_file(
             print(f"Downloading {url}...")
 
         request = urllib.request.Request(
-            url,
-            headers={"User-Agent": "SkyMap Data Pipeline/1.0"}
+            url, headers={"User-Agent": "SkyMap Data Pipeline/1.0"}
         )
 
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -81,8 +80,8 @@ def download_file(
 
 
 def read_json(
-    file_path: Union[str, Path],
-    default: Optional[Any] = None,
+    file_path: str | Path,
+    default: Any | None = None,
 ) -> Any:
     """
     Read and parse a JSON file with error handling.
@@ -113,7 +112,7 @@ def read_json(
 
 def write_json(
     data: Any,
-    file_path: Union[str, Path],
+    file_path: str | Path,
     indent: int = 2,
     ensure_ascii: bool = False,
     compact: bool = False,
@@ -154,8 +153,8 @@ def write_json(
 
 def validate_json_structure(
     data: Any,
-    required_keys: Optional[list] = None,
-    expected_type: Optional[type] = None,
+    required_keys: list | None = None,
+    expected_type: type | None = None,
 ) -> bool:
     """
     Validate JSON data structure.
@@ -179,7 +178,7 @@ def validate_json_structure(
     return True
 
 
-def ensure_directory(dir_path: Union[str, Path]) -> Path:
+def ensure_directory(dir_path: str | Path) -> Path:
     """
     Ensure a directory exists, creating it if necessary.
 
