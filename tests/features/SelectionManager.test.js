@@ -6,7 +6,7 @@ import {jest} from '@jest/globals';
 import {
   SelectionManager,
   initializeSelectionManager,
-} from '../modules/features/SelectionManager.js';
+} from '../../modules/features/SelectionManager.js';
 
 describe('SelectionManager', () => {
   let manager;

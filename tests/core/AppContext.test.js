@@ -7,7 +7,7 @@ import {
   AppContext,
   initializeAppContext,
   getAppContext,
-} from '../modules/core/AppContext.js';
+} from '../../modules/core/AppContext.js';
 
 describe('AppContext', () => {
   let mockApp;
@@ -221,16 +221,32 @@ describe('AppContext', () => {
       expect(result).toBeInstanceOf(AppContext);
     });
 
-    it('creates context from window.app as fallback', () => {
-      // Reset the module-level appContext by reinitializing
-      // This tests the fallback behavior
-      global.window = {app: mockApp};
+    it('returns same instance on subsequent calls (caching)', () => {
+      initializeAppContext(mockApp);
+      const result1 = getAppContext();
+      const result2 = getAppContext();
+      expect(result1).toBe(result2);
+    });
 
-      // We can't easily test this without resetting module state
-      // Just verify the function exists
-      expect(typeof getAppContext).toBe('function');
+    it('initialized context provides access to app data', () => {
+      initializeAppContext(mockApp);
+      const ctx = getAppContext();
 
-      delete global.window;
+      // Verify the cached context works correctly
+      expect(ctx.getStars()).toEqual([{name: 'Sirius'}]);
+      expect(ctx.getDSOs()).toEqual([{name: 'M31'}]);
+      expect(ctx.getMagnitudeLimit()).toBe(8.0);
+    });
+
+    it('initialized context can call app methods', () => {
+      initializeAppContext(mockApp);
+      const ctx = getAppContext();
+
+      ctx.navigateToRaDec(100, 45);
+      expect(mockApp.animateCameraTo).toHaveBeenCalledWith(100, 45);
+
+      ctx.setMagnitudeLimit(10);
+      expect(mockApp.setMagnitudeLimit).toHaveBeenCalledWith(10);
     });
   });
 });

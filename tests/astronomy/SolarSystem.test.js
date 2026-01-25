@@ -7,7 +7,7 @@ import {
   calculateMoonPosition,
   calculatePlanetPositionFallback,
   PLANET_DEFAULTS,
-} from '../modules/astronomy/SolarSystem.js';
+} from '../../modules/astronomy/SolarSystem.js';
 
 describe('SolarSystem', () => {
   describe('calculateSunPosition', () => {

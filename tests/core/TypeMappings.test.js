@@ -2,7 +2,7 @@
  * @fileoverview Tests for TypeMappings module.
  */
 
-import {DSO_TYPE_NAMES, getDsoTypeName} from '../modules/core/TypeMappings.js';
+import {DSO_TYPE_NAMES, getDsoTypeName} from '../../modules/core/TypeMappings.js';
 
 describe('TypeMappings', () => {
   describe('DSO_TYPE_NAMES', () => {
