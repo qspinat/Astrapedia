@@ -1617,7 +1617,7 @@ class SkyMapApp {
       // Debounce to avoid excessive queries while sliding
       clearTimeout(this._magQueryTimeout);
       this._magQueryTimeout = setTimeout(() => {
-        this.checkDynamicLoading();
+        this.checkDynamicStarLoading();
       }, 500);
     }
   }
