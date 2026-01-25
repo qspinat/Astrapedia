@@ -5,22 +5,16 @@
 
 // Core modules
 import {globalEventBus, Events} from './modules/core/EventBus.js';
-import {SPHERE, CAMERA, STARS, TIME} from './modules/core/Constants.js';
+import {STARS} from './modules/core/Constants.js';
 import {SceneManager} from './modules/core/SceneManager.js';
 import {
   AstronomyCalculator,
   initializeAstronomyCalculator,
 } from './modules/core/AstronomyCalculator.js';
-import {
-  raDecToCartesian,
-  cartesianToRaDec,
-  angularDistance,
-  calculateLST,
-} from './modules/core/CoordinateUtils.js';
+import {calculateLST} from './modules/core/CoordinateUtils.js';
 
 // Services
 import {dataLoader} from './modules/services/DataLoader.js';
-import {imageFetcher} from './modules/services/ImageFetcher.js';
 import {dynamicDataLoader} from './modules/services/DynamicDataLoader.js';
 import {locationManager} from './modules/services/LocationManager.js';
 
@@ -50,8 +44,6 @@ import {
   initializeUIController,
 } from './modules/ui/UIController.js';
 
-// Data
-import {getCuratedImage} from './modules/data/CuratedImages.js';
 
 /**
  * Application state and initialized modules.

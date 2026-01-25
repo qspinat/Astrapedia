@@ -281,6 +281,13 @@ export const Events = {
   APP_INITIALIZED: 'app:initialized',
   PLANETS_UPDATED: 'planets:updated',
 
+  // Rendering events
+  STAR_FIELD_CREATED: 'render:starfield:created',
+  CONSTELLATION_LINES_CREATED: 'render:constellation:created',
+  CONSTELLATION_HIGHLIGHTED: 'render:constellation:highlighted',
+  CONSTELLATION_UNHIGHLIGHTED: 'render:constellation:unhighlighted',
+  PLANETS_CREATED: 'render:planets:created',
+
   // Telescope events
   TELESCOPE_COMPUTED: 'telescope:computed',
   TELESCOPE_MODE_ACTIVATED: 'telescope:mode:activated',

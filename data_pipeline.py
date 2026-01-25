@@ -7,20 +7,24 @@ Refactored to use shared modules from skymap package.
 """
 
 import json
-import sys
+import logging
 from pathlib import Path
 
 import pandas as pd
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+# Configure logging for the pipeline
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+)
 
 from skymap.config import Config, DSO_TYPE_NAMES
-from skymap.io import download_file, write_json, ensure_directory
+from skymap.io import download_file, write_json
 from skymap.astronomy import (
     filter_by_magnitude,
     inject_supplementary_objects,
-    ra_hms_to_degrees,
+    parse_ra_string,
+    parse_dec_string,
 )
 
 
@@ -165,36 +169,6 @@ def process_constellation_lines() -> dict | None:
     return constellations
 
 
-def parse_ra_to_degrees(ra_str) -> float | None:
-    """Convert RA from hours:minutes:seconds to degrees."""
-    try:
-        if pd.isna(ra_str):
-            return None
-        parts = str(ra_str).split(":")
-        hours = float(parts[0])
-        minutes = float(parts[1]) if len(parts) > 1 else 0
-        seconds = float(parts[2]) if len(parts) > 2 else 0
-        return ra_hms_to_degrees(hours, minutes, seconds)
-    except (ValueError, IndexError):
-        return None
-
-
-def parse_dec_to_degrees(dec_str) -> float | None:
-    """Convert Dec from degrees:minutes:seconds to degrees."""
-    try:
-        if pd.isna(dec_str):
-            return None
-        dec_str = str(dec_str).replace("+", "")
-        parts = dec_str.split(":")
-        degrees = float(parts[0])
-        minutes = float(parts[1]) if len(parts) > 1 else 0
-        seconds = float(parts[2]) if len(parts) > 2 else 0
-        sign = -1 if degrees < 0 else 1
-        return degrees + sign * (minutes / 60 + seconds / 3600)
-    except (ValueError, IndexError):
-        return None
-
-
 def process_deep_sky_objects() -> dict | None:
     """Download and process OpenNGC deep sky objects."""
     print("\n=== Processing Deep Sky Objects ===")
@@ -213,8 +187,8 @@ def process_deep_sky_objects() -> dict | None:
     df = df[pd.notna(df["RA"]) & pd.notna(df["Dec"])].copy()
 
     # Convert coordinates
-    df["ra_deg"] = df["RA"].apply(parse_ra_to_degrees)
-    df["dec_deg"] = df["Dec"].apply(parse_dec_to_degrees)
+    df["ra_deg"] = df["RA"].apply(parse_ra_string)
+    df["dec_deg"] = df["Dec"].apply(parse_dec_string)
 
     # Filter out failed conversions
     df = df[pd.notna(df["ra_deg"]) & pd.notna(df["dec_deg"])].copy()
