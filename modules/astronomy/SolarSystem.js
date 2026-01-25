@@ -4,18 +4,13 @@
  */
 
 import {dateToJulianDate} from '../core/CoordinateUtils.js';
+import {ASTRONOMY} from '../core/Constants.js';
 
-/**
- * Julian Date of J2000.0 epoch.
- * @const {number}
- */
-const J2000 = 2451545.0;
+/** @const {number} */
+const J2000 = ASTRONOMY.J2000;
 
-/**
- * Days per Julian century.
- * @const {number}
- */
-const DAYS_PER_CENTURY = 36525;
+/** @const {number} */
+const DAYS_PER_CENTURY = ASTRONOMY.DAYS_PER_CENTURY;
 
 /**
  * Normalize angle to range [0, 360).
