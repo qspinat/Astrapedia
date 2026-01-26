@@ -3,8 +3,6 @@
  * Handles bug report form submission to Formspree with validation.
  */
 
-import {escapeHtml} from '../core/SecurityUtils.js';
-
 /**
  * Formspree endpoint for bug reports.
  * @const {string}

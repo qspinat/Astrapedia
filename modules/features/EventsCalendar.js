@@ -3,7 +3,6 @@
  * Handles fetching, parsing, and displaying astronomical events.
  */
 
-import {globalEventBus, Events} from '../core/EventBus.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 
 /**

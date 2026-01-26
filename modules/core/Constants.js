@@ -163,9 +163,9 @@ export const TIME = {
   /** Paused speed. */
   PAUSED_SPEED: 0,
   /** Maximum time speed multiplier. */
-  MAX_SPEED: 86400 * 7,
-  /** Available speed presets. */
-  SPEED_PRESETS: [0, 1, 10, 60, 600, 3600, 86400],
+  MAX_SPEED: 3600,
+  /** Available speed presets: real-time, 1min/s, 10min/s, 1hr/s. */
+  SPEED_PRESETS: [1, 60, 600, 3600],
 };
 
 /**

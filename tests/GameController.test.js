@@ -119,6 +119,32 @@ describe('GameController', () => {
     });
   });
 
+  describe('setLanguage', () => {
+    test('sets language for constellation names', () => {
+      const newController = new GameController();
+      newController.setData({constellations: {'UrsaMajor': {ra: 165, dec: 55}}});
+      newController.setLanguage('fr');
+      newController.setCategory('all-constellations');
+      newController.start();
+      const question = newController.getCurrentQuestion();
+      expect(question).not.toBeNull();
+      // French name for Ursa Major
+      expect(question.displayName).toBe('Grande Ourse');
+      newController.stop();
+    });
+
+    test('uses English by default', () => {
+      const newController = new GameController();
+      newController.setData({constellations: {'UrsaMajor': {ra: 165, dec: 55}}});
+      newController.setCategory('all-constellations');
+      newController.start();
+      const question = newController.getCurrentQuestion();
+      expect(question).not.toBeNull();
+      expect(question.displayName).toBe('Ursa Major');
+      newController.stop();
+    });
+  });
+
   describe('setNavigateCallback', () => {
     test('stores callback', () => {
       const callback = jest.fn();
@@ -427,6 +453,45 @@ describe('GameController', () => {
       controller.setCategory('known-constellations');
       controller.start();
       expect(controller.isActive()).toBe(true);
+    });
+
+    test('builds 12 questions when all known constellations are available', () => {
+      // Create controller with all 12 known constellations
+      const fullController = new GameController();
+      fullController.setData({
+        constellations: {
+          'Orion': {ra: 85, dec: 0},
+          'UrsaMajor': {ra: 165, dec: 55},
+          'UrsaMinor': {ra: 230, dec: 75},
+          'Cassiopeia': {ra: 15, dec: 60},
+          'Scorpius': {ra: 255, dec: -30},
+          'Cygnus': {ra: 310, dec: 40},
+          'Leo': {ra: 160, dec: 15},
+          'Gemini': {ra: 110, dec: 25},
+          'Taurus': {ra: 65, dec: 20},
+          'Aquila': {ra: 295, dec: 5},
+          'Lyra': {ra: 285, dec: 35},
+          'CanisMajor': {ra: 100, dec: -20},
+        },
+      });
+      fullController.setCategory('known-constellations');
+      fullController.start();
+
+      // Count total questions by tracking what gets asked
+      let questionCount = 0;
+      const askedNames = new Set();
+      while (fullController.isActive()) {
+        const q = fullController.getCurrentQuestion();
+        if (q && !askedNames.has(q.name)) {
+          askedNames.add(q.name);
+          questionCount++;
+        }
+        fullController.nextQuestion();
+        jest.advanceTimersByTime(1000);
+      }
+
+      expect(questionCount).toBe(12);
+      fullController.stop();
     });
   });
 

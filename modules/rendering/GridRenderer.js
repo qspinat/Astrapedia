@@ -3,7 +3,6 @@
  * Handles celestial coordinate grid visualization.
  */
 
-import {globalEventBus, Events} from '../core/EventBus.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 
 /**

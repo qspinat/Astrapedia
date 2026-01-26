@@ -262,11 +262,23 @@ export class TourUI {
 export let tourUI = null;
 
 /**
+ * Reset the singleton instance (for testing only).
+ */
+export function resetTourUI() {
+  tourUI = null;
+}
+
+/**
  * Initialize the tour UI singleton.
+ * Returns existing instance if already initialized (prevents duplicate event handlers).
  * @param {!Object} dependencies - Required dependencies
  * @returns {!TourUI} Initialized instance
  */
 export function initializeTourUI(dependencies) {
+  if (tourUI) {
+    console.warn('TourUI already initialized, returning existing instance');
+    return tourUI;
+  }
   tourUI = new TourUI(dependencies);
   tourUI.initialize();
   return tourUI;

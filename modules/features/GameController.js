@@ -4,13 +4,14 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {GAME} from '../core/Constants.js';
 import {domCache} from '../ui/DOMCache.js';
 import {angularDistance} from '../core/CoordinateUtils.js';
+import {getAbbrevFromInternalKey, getConstellationName} from '../data/ConstellationNames.js';
 
 /**
  * @typedef {{
  *   name: string,
+ *   displayName: string,
  *   type: string,
  *   data: {ra: number, dec: number, type: string}
  * }}
@@ -140,6 +141,10 @@ export class GameController {
 
     /** @private {?function(): void} */
     this.onHideHighlightCallback_ = null;
+
+    // Language for constellation names
+    /** @private {string} */
+    this.language_ = 'en';
   }
 
   /**
@@ -151,6 +156,7 @@ export class GameController {
     this.deepSkyObjects_ = data.deepSkyObjects || [];
     this.namedObjects_ = data.namedObjects || {};
     this.stars_ = data.stars || [];
+    console.log(`[Game] setData called with ${Object.keys(this.constellations_).length} constellations`);
   }
 
   /**
@@ -179,6 +185,26 @@ export class GameController {
   setTourHighlightCallbacks(show, hide) {
     this.onShowHighlightCallback_ = show;
     this.onHideHighlightCallback_ = hide;
+  }
+
+  /**
+   * Set language for constellation name display.
+   * @param {string} lang - Language code (e.g., 'en', 'fr', 'de')
+   */
+  setLanguage(lang) {
+    this.language_ = lang;
+  }
+
+  /**
+   * Get display name for a constellation (translated to current language).
+   * @param {string} internalKey - Internal constellation key (e.g., 'UrsaMajor')
+   * @returns {string} Translated display name (e.g., 'Grande Ourse' for French)
+   * @private
+   */
+  getConstellationDisplayName_(internalKey) {
+    // Convert internal key to IAU abbreviation, then get translated name
+    const abbrev = getAbbrevFromInternalKey(internalKey);
+    return getConstellationName(abbrev, this.language_);
   }
 
   /**
@@ -235,6 +261,15 @@ export class GameController {
   start() {
     this.questionPool_ = this.buildQuestionPool_();
 
+    console.log(`[Game] Built question pool with ${this.questionPool_.length} questions for category: ${this.category_}`);
+    if (this.category_ === 'known-constellations') {
+      console.log('[Game] Known constellations available:', 
+        Object.keys(this.constellations_).filter(k => 
+          ['Orion', 'UrsaMajor', 'UrsaMinor', 'Cassiopeia', 'Scorpius',
+           'Cygnus', 'Leo', 'Gemini', 'Taurus', 'Aquila', 'Lyra', 'CanisMajor'].includes(k)
+        ).join(', '));
+    }
+
     if (this.questionPool_.length === 0) {
       globalEventBus.emit(Events.GAME_STARTED, {error: 'No objects found'});
       return;
@@ -278,6 +313,9 @@ export class GameController {
     if (this.isGameEnding_ || !this.active_) return;
     this.isGameEnding_ = true;
 
+    console.log(`[Game] Stopping: asked ${this.askedQuestions_.length} of ${this.questionPool_.length} questions`);
+    console.log('[Game] Asked questions:', this.askedQuestions_.map(q => q.name).join(', '));
+
     this.active_ = false;
 
     // Stop timer
@@ -312,6 +350,8 @@ export class GameController {
     const remaining = this.questionPool_.filter((q) =>
       !this.askedQuestions_.some((asked) => asked.name === q.name)
     );
+
+    console.log(`[Game] nextQuestion: ${remaining.length} remaining, ${this.askedQuestions_.length} asked`);
 
     if (remaining.length === 0) {
       // Guard against double alerts
@@ -393,12 +433,13 @@ export class GameController {
 
     const questionData = this.currentQuestion_.data;
     const questionName = this.currentQuestion_.name;
+    const displayName = this.currentQuestion_.displayName || questionName;
 
     // Update display
     const questionEl = domCache.gameQuestion;
     if (questionEl) {
       questionEl.style.color = '#F59E0B';
-      questionEl.textContent = `${questionName} (Answer shown)`;
+      questionEl.textContent = `${displayName} (Answer shown)`;
     }
 
     // Navigate to object
@@ -598,12 +639,15 @@ export class GameController {
    * @private
    */
   addConstellationQuestions_(pool, names) {
+    console.log('[Game] addConstellationQuestions_ called with', names.length, 'names:', names.join(', '));
+    console.log('[Game] Available constellations in data:', Object.keys(this.constellations_).join(', '));
     names.forEach((name) => {
       const constData = this.constellations_[name];
       if (constData) {
         const center = this.getConstellationCenter_(constData);
         pool.push({
           name,
+          displayName: this.getConstellationDisplayName_(name),
           type: 'Constellation',
           data: {
             ra: center.ra,
@@ -611,8 +655,12 @@ export class GameController {
             type: 'Constellation',
           },
         });
+        console.log(`[Game] Added question for: ${name}`);
+      } else {
+        console.log(`[Game] Missing constellation: ${name}`);
       }
     });
+    console.log('[Game] Pool size after adding constellations:', pool.length);
   }
 
   /**
@@ -626,6 +674,7 @@ export class GameController {
       const center = this.getConstellationCenter_(constData);
       pool.push({
         name,
+        displayName: this.getConstellationDisplayName_(name),
         type: 'Constellation',
         data: {
           ra: center.ra,
@@ -651,6 +700,7 @@ export class GameController {
           (hemisphere === 'south' && center.dec < 0)) {
         pool.push({
           name,
+          displayName: this.getConstellationDisplayName_(name),
           type: 'Constellation',
           data: {
             ra: center.ra,
@@ -675,8 +725,10 @@ export class GameController {
         (d.messier && `M${d.messier}` === name)
       );
       if (dso) {
+        const displayName = dso.name || `M${dso.messier}`;
         pool.push({
-          name: dso.name || `M${dso.messier}`,
+          name: displayName,
+          displayName,
           type: 'DSO',
           data: {
             ra: dso.ra,
@@ -702,8 +754,10 @@ export class GameController {
       .slice(0, 15);
 
     filtered.forEach((dso) => {
+      const displayName = dso.name || `M${dso.messier}` || `NGC${dso.ngc}`;
       pool.push({
-        name: dso.name || `M${dso.messier}` || `NGC${dso.ngc}`,
+        name: displayName,
+        displayName,
         type: 'DSO',
         data: {
           ra: dso.ra,
@@ -727,6 +781,7 @@ export class GameController {
       if (star) {
         pool.push({
           name,
+          displayName: name,
           type: 'Star',
           data: {
             ra: star.ra,
@@ -747,8 +802,10 @@ export class GameController {
     this.deepSkyObjects_
       .filter((d) => d.messier)
       .forEach((dso) => {
+        const displayName = `M${dso.messier}`;
         pool.push({
-          name: `M${dso.messier}`,
+          name: displayName,
+          displayName,
           type: 'DSO',
           data: {
             ra: dso.ra,
@@ -813,7 +870,9 @@ export class GameController {
   updateQuestionDisplay_() {
     const questionEl = domCache.gameQuestion;
     if (questionEl && this.currentQuestion_) {
-      questionEl.textContent = this.currentQuestion_.name;
+      // Use displayName for user-facing text (translated for constellations)
+      questionEl.textContent = this.currentQuestion_.displayName ||
+          this.currentQuestion_.name;
       questionEl.style.color = '#60A5FA';
     }
   }

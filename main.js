@@ -49,9 +49,7 @@
 // Core modules
 import {globalEventBus, Events} from './modules/core/EventBus.js';
 import {SPHERE, CAMERA, STARS, TIME, TELESCOPE} from './modules/core/Constants.js';
-import {raDecToCartesian, cartesianToRaDec, angularDistance} from './modules/core/CoordinateUtils.js';
 import {handleError, ErrorSeverity} from './modules/core/ErrorHandler.js';
-import {escapeHtml} from './modules/core/SecurityUtils.js';
 
 // Service modules
 import {dataLoader} from './modules/services/DataLoader.js';
@@ -71,7 +69,7 @@ import {ImageRenderer} from './modules/rendering/ImageRenderer.js';
 import {SearchManager} from './modules/features/SearchManager.js';
 import {TimeController} from './modules/features/TimeController.js';
 import {TourController} from './modules/features/TourController.js';
-import {GameController, gameController} from './modules/features/GameController.js';
+import {GameController} from './modules/features/GameController.js';
 import {TelescopeController} from './modules/features/TelescopeController.js';
 import {SkyConditionsHandler} from './modules/features/SkyConditionsHandler.js';
 import {SelectionManager} from './modules/features/SelectionManager.js';

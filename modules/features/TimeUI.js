@@ -4,12 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-
-/**
- * Time speed cycle for forward button.
- * @const {!Array<number>}
- */
-const TIME_SPEED_CYCLE = [1, 100, 1000];
+import {TIME} from '../core/Constants.js';
 
 /**
  * TimeUI handles time control buttons and display.
@@ -67,8 +62,9 @@ export class TimeUI {
     const forwardBtn = document.getElementById('time-forward-btn');
     if (forwardBtn) {
       forwardBtn.addEventListener('click', () => {
-        const currentIndex = TIME_SPEED_CYCLE.indexOf(this.currentSpeed_);
-        const newSpeed = TIME_SPEED_CYCLE[(currentIndex + 1) % TIME_SPEED_CYCLE.length];
+        const presets = TIME.SPEED_PRESETS;
+        const currentIndex = presets.indexOf(this.currentSpeed_);
+        const newSpeed = presets[(currentIndex + 1) % presets.length];
         this.deps_.setTimeSpeed?.(newSpeed);
       });
     }
@@ -243,11 +239,23 @@ export class TimeUI {
 export let timeUI = null;
 
 /**
+ * Reset the singleton instance (for testing only).
+ */
+export function resetTimeUI() {
+  timeUI = null;
+}
+
+/**
  * Initialize the time UI singleton.
+ * Returns existing instance if already initialized (prevents duplicate event handlers).
  * @param {!Object} dependencies - Required dependencies
  * @returns {!TimeUI} Initialized instance
  */
 export function initializeTimeUI(dependencies) {
+  if (timeUI) {
+    console.warn('TimeUI already initialized, returning existing instance');
+    return timeUI;
+  }
   timeUI = new TimeUI(dependencies);
   timeUI.initialize();
   return timeUI;

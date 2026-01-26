@@ -3,9 +3,9 @@
  * Handles creation, visibility updates, and dynamic loading of astronomical images.
  */
 
-import {globalEventBus, Events} from '../core/EventBus.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {CURATED_IMAGES, getCuratedImage, getCuratedImageKeys} from '../data/CuratedImages.js';
+import {PLANET_IMAGES, getPlanetImageInfo} from '../data/PlanetImages.js';
 import {clamp} from '../core/Utils.js';
 
 /**
@@ -24,74 +24,6 @@ const IMAGE_TIERS = {
  * @const {!Array<string>}
  */
 const DYNAMIC_TARGET_TYPES = ['Neb', 'PN', 'EmN', 'HII', 'Cl+N', 'RfN', 'SNR', 'GCl', 'OCl', 'G'];
-
-/**
- * Special object images (planets and solar system).
- * @const {!Object<string, {url: string, source: string, tier: string}>}
- */
-const SPECIAL_OBJECTS = {
-  'Sun': {
-    url: 'https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0193.jpg',
-    source: 'NASA/SDO',
-    tier: 'iconic',
-  },
-  'Moon': {
-    url: 'https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004874/phases/097.jpg',
-    source: 'NASA/GSFC',
-    tier: 'high',
-  },
-  'Mercury': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/' +
-         'Mercury_in_true_color.jpg/400px-Mercury_in_true_color.jpg',
-    source: 'NASA/MESSENGER',
-    tier: 'iconic',
-  },
-  'Venus': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/' +
-         'PIA23791-Venus-NewlyProcessedView-20200608.jpg/400px-PIA23791-Venus-' +
-         'NewlyProcessedView-20200608.jpg',
-    source: 'NASA/Mariner',
-    tier: 'iconic',
-  },
-  'Mars': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/' +
-         'Mars_-_August_30_2021_-_Flickr_-_Kevin_M._Gill.png/400px-Mars_-_August_30_2021' +
-         '_-_Flickr_-_Kevin_M._Gill.png',
-    source: 'NASA/Hubble',
-    tier: 'iconic',
-  },
-  'Jupiter': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/' +
-         'Jupiter_New_Horizons.jpg/400px-Jupiter_New_Horizons.jpg',
-    source: 'NASA/New Horizons',
-    tier: 'iconic',
-  },
-  'Saturn': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/' +
-         'Saturn_during_Equinox.jpg/400px-Saturn_during_Equinox.jpg',
-    source: 'NASA/Cassini',
-    tier: 'iconic',
-  },
-  'Uranus': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/' +
-         'Uranus_as_seen_by_NASA%27s_Voyager_2_%28reprocessed%29_-_JPEG_converted.jpg/' +
-         '400px-Uranus_as_seen_by_NASA%27s_Voyager_2_%28reprocessed%29_-_JPEG_converted.jpg',
-    source: 'NASA/Voyager',
-    tier: 'iconic',
-  },
-  'Neptune': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/' +
-         'Neptune_Voyager2_color_calibrated.png/400px-Neptune_Voyager2_color_calibrated.png',
-    source: 'NASA/Voyager',
-    tier: 'iconic',
-  },
-  'Pluto': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/' +
-         'Pluto_in_True_Color_-_High-Res.jpg/400px-Pluto_in_True_Color_-_High-Res.jpg',
-    source: 'NASA/New Horizons',
-    tier: 'iconic',
-  },
-};
 
 /**
  * Famous stars that should have dynamic image lookup.
@@ -641,10 +573,10 @@ export class ImageRenderer {
 
     this.dynamicImageCache_.set(cacheKey, {url: null, loading: true, source: null});
 
-    // Check special objects (planets)
-    if (normalizedName && SPECIAL_OBJECTS[normalizedName]) {
-      const special = SPECIAL_OBJECTS[normalizedName];
-      const result = {url: special.url, loading: false, source: special.source, tier: special.tier};
+    // Check special objects (planets) - use centralized PLANET_IMAGES
+    const planetInfo = normalizedName ? getPlanetImageInfo(normalizedName) : null;
+    if (planetInfo) {
+      const result = {url: planetInfo.url, loading: false, source: planetInfo.source, tier: planetInfo.tier};
       this.dynamicImageCache_.set(cacheKey, result);
       console.log(`Using dedicated image for ${normalizedName}`);
       return result;

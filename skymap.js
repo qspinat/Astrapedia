@@ -52,7 +52,6 @@ import {ExtendedObjectRenderer} from './modules/rendering/ExtendedObjectRenderer
 import {TourController} from './modules/features/TourController.js';
 import {SearchManager} from './modules/features/SearchManager.js';
 import {GameController} from './modules/features/GameController.js';
-import {initializeGameUI} from './modules/features/GameUI.js';
 import {TimeController} from './modules/features/TimeController.js';
 import {SelectionManager} from './modules/features/SelectionManager.js';
 import {VisibilityCalculator} from './modules/features/VisibilityCalculator.js';
@@ -70,12 +69,11 @@ import {
   formatAngle,
 } from './modules/core/CoordinateUtils.js';
 import {getDsoTypeName} from './modules/core/TypeMappings.js';
-import {SHADERS, CAMERA, SPHERE, DYNAMIC_DATA} from './modules/core/Constants.js';
+import {CAMERA} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
 import {dataLoader} from './modules/services/DataLoader.js';
 import {astronomyCalculator} from './modules/core/AstronomyCalculator.js';
 import {clamp} from './modules/core/Utils.js';
-import {magnitudeToSize} from './modules/core/MagnitudeUtils.js';
 
 /* ==========================================================================
    2. SKYMAP APPLICATION CLASS
@@ -143,7 +141,8 @@ export class SkyMapApp {
     this.planetSprites = [];
     this.constellationLinesGroup = null;
     this.showConstellationLines = true;
-    this.constellationLanguage = 'en';  // Default to English
+    // Default language from browser locale (e.g., 'fr-FR' -> 'fr')
+    this.constellationLanguage = (navigator.language || 'en').split('-')[0];
     this.forceNightMode = true;  // Force night mode by default
     this.telescopeModeActive = false;  // Telescope simulation mode blocks zoom
 
@@ -376,8 +375,12 @@ export class SkyMapApp {
       constellations: this.constellations,
       namedObjects: this.namedObjects,
       stars: this.stars,
-      dsos: this.deepSkyObjects,
+      deepSkyObjects: this.deepSkyObjects,
     });
+
+    // Set language to match the constellation language setting
+    this.gameController_.setLanguage(this.constellationLanguage);
+
     this.gameController_.setNavigateCallback((ra, dec) => this.animateCameraTo(ra, dec));
     this.gameController_.setHighlightCallbacks(
       (name) => this.highlightConstellation(name),
@@ -686,6 +689,27 @@ export class SkyMapApp {
       this.requestGeolocation();
     });
 
+    // Listen for location changes to update sky rotation
+    globalEventBus.on(Events.LOCATION_CHANGED, (data) => {
+      if (data?.location) {
+        this.observerLocation = data.location;
+        astronomyCalculator.setObserverLocation(
+          this.observerLocation.lat,
+          this.observerLocation.lon,
+          this.observerLocation.height
+        );
+        // Update all sky elements for new location
+        this.updateLatitudeTilt();
+        this.updateCelestialRotation();
+        this.createPlanets();
+        // Update horizon renderer if needed
+        this.horizonRenderer_?.updateForLocation?.(this.observerLocation.lat);
+        // Request a re-render
+        this.requestRender();
+        console.log(`Location updated: ${this.observerLocation.lat.toFixed(2)}°, ${this.observerLocation.lon.toFixed(2)}°`);
+      }
+    });
+
     // Events calendar command
     globalEventBus.on(Events.CMD_SHOW_EVENTS, () => {
       this.showEventsCalendar();
@@ -777,6 +801,10 @@ export class SkyMapApp {
       // Update time display to show current time (instead of "Loading...")
       this.updateSimulationTime(0);
 
+      // Setup command event listeners for decoupled UI communication
+      // Must be before requestLocation() so LOCATION_CHANGED events are handled
+      this.setupCommandListeners_();
+
       // Auto-detect location (Feature 4)
       this.requestLocation();
 
@@ -785,9 +813,6 @@ export class SkyMapApp {
 
       // Initialize InputController for mouse/touch handling
       this.initInputController_();
-
-      // Setup command event listeners for decoupled UI communication
-      this.setupCommandListeners_();
 
       // Initialize PowerManager module for power-saving features
       this.initPowerManager_();
@@ -1186,9 +1211,13 @@ export class SkyMapApp {
   /**
    * Handle location change from LocationManager.
    * Updates sky display for new observer location.
+   * @deprecated Use EventBus LOCATION_CHANGED listener instead
    * @private
    */
   onLocationChanged_() {
+    // Note: This is now handled by the LOCATION_CHANGED EventBus listener
+    // in setupCommandListeners_(), but kept for backwards compatibility
+    // with the callback-based approach in requestGeolocation()
     this.observerLocation = locationManager.getLocation();
     astronomyCalculator.setObserverLocation(
       this.observerLocation.lat,
@@ -1198,6 +1227,7 @@ export class SkyMapApp {
     this.updateLatitudeTilt();
     this.updateCelestialRotation();
     this.createPlanets();
+    this.requestRender();
   }
 
   /* ======================================================================
@@ -1258,6 +1288,9 @@ export class SkyMapApp {
   setConstellationLanguage(lang) {
     this.constellationLanguage = lang;
     console.log(`Constellation language set to: ${lang}`);
+
+    // Update game controller language so game questions use the selected language
+    this.gameController_?.setLanguage(lang);
 
     // Refresh tour panel if a constellation tour is active
     const currentTour = this.tourController_.getCurrentTour();
@@ -1706,19 +1739,8 @@ export class SkyMapApp {
       });
     }
 
-    const stopGameBtn = domCache.get('stop-game-btn');
-    if (stopGameBtn) {
-      stopGameBtn.addEventListener('click', () => {
-        this.stopGame();
-      });
-    }
-
-    const passBtn = domCache.get('pass-btn');
-    if (passBtn) {
-      passBtn.addEventListener('click', () => {
-        this.passQuestion();
-      });
-    }
+    // Note: stopGameBtn and passBtn listeners are handled by GameUI module
+    // to avoid duplicate event handlers
 
     const resetViewBtn = domCache.get('reset-view-btn');
     if (resetViewBtn) {
@@ -1751,12 +1773,8 @@ export class SkyMapApp {
     // Window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
 
-    // Initialize GameUI (handles panel drag and game buttons)
-    this.gameUI_ = initializeGameUI({
-      startGame: () => this.gameController_.start(),
-      passQuestion: () => this.passQuestion(),
-      stopGame: () => this.stopGame(),
-    });
+    // Note: GameUI is initialized by UIController in main.js
+    // Do not create duplicate GameUI here to avoid multiple event handlers
   }
 
   /**
@@ -2005,15 +2023,17 @@ export class SkyMapApp {
 
       if (lineIntersects.length > 0) {
         const clickedLine = lineIntersects[0].object;
-        const constAbbrev = clickedLine.userData.constellation;
-        if (constAbbrev) {
-          const constName = this.getConstellationName(constAbbrev);
-          console.log('Clicked constellation line:', constName);
+        // userData.constellation contains the internal key (e.g., "UrsaMajor")
+        const constInternalKey = clickedLine.userData.constellation;
+        if (constInternalKey) {
+          const constDisplayName = this.getConstellationName(constInternalKey);
+          console.log('Clicked constellation line:', constDisplayName);
           if (this.isGameActive()) {
             // During game mode, check if this constellation is the answer
-            this.checkGameAnswerByName(constName);
+            // Pass internal key for matching, not display name
+            this.checkGameAnswerByName(constInternalKey);
           } else {
-            this.showConstellationInfo(constAbbrev);
+            this.showConstellationInfo(constInternalKey);
           }
           return;
         }
@@ -2285,8 +2305,11 @@ export class SkyMapApp {
 
     // Feature 7: Update time simulation if playing (delegate to TimeController)
     if (this.timeController_.isPlaying()) {
-      const deltaMs = this.timeController_.getSpeed() * 16.67; // ~60 FPS
+      const deltaMs = now - (this._lastFrameTime || now);
+      this._lastFrameTime = now;
       this.updateSimulationTime(deltaMs);
+    } else {
+      this._lastFrameTime = now;
     }
 
     // Feature 9: Update atmosphere (throttled - every 10 frames)
@@ -2331,8 +2354,8 @@ export class SkyMapApp {
     // Clear FOV dirty flag
     this._fovDirty = false;
 
-    // Dynamic star loading - throttled to every 200ms
-    if (now - this._lastDynamicCheck > 200) {
+    // Dynamic star loading - throttled to every 500ms to reduce API calls
+    if (now - this._lastDynamicCheck > 1000) {
       this.dynamicObjectManager_?.checkLoading();
       this.dynamicObjectManager_?.checkCleanup();
       this._lastDynamicCheck = now;

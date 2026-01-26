@@ -351,30 +351,20 @@ describe('TimeController', () => {
       expect(controller.getSpeedDisplayString()).toBe('Real-time');
     });
 
-    test('formats seconds multiplier', () => {
-      controller.setSpeed(10);
-      expect(controller.getSpeedDisplayString()).toBe('10x');
-    });
-
-    test('formats minutes', () => {
+    test('formats preset speeds', () => {
       controller.setSpeed(60);
-      expect(controller.getSpeedDisplayString()).toBe('1 min/sec');
-      controller.setSpeed(120);
-      expect(controller.getSpeedDisplayString()).toBe('2 mins/sec');
-    });
-
-    test('formats hours', () => {
+      expect(controller.getSpeedDisplayString()).toBe('1 min/s');
+      controller.setSpeed(600);
+      expect(controller.getSpeedDisplayString()).toBe('10 min/s');
       controller.setSpeed(3600);
-      expect(controller.getSpeedDisplayString()).toBe('1 hr/sec');
-      controller.setSpeed(7200);
-      expect(controller.getSpeedDisplayString()).toBe('2 hrs/sec');
+      expect(controller.getSpeedDisplayString()).toBe('1 hr/s');
     });
 
-    test('formats days', () => {
-      controller.setSpeed(86400);
-      expect(controller.getSpeedDisplayString()).toBe('1 day/sec');
-      controller.setSpeed(172800);
-      expect(controller.getSpeedDisplayString()).toBe('2 days/sec');
+    test('formats non-preset speeds with x notation', () => {
+      controller.setSpeed(10);
+      expect(controller.getSpeedDisplayString()).toBe('x10');
+      controller.setSpeed(120);
+      expect(controller.getSpeedDisplayString()).toBe('x120');
     });
   });
 

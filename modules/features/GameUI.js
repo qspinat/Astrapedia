@@ -247,11 +247,23 @@ export class GameUI {
 export let gameUI = null;
 
 /**
+ * Reset the singleton instance (for testing only).
+ */
+export function resetGameUI() {
+  gameUI = null;
+}
+
+/**
  * Initialize the game UI singleton.
+ * Returns existing instance if already initialized (prevents duplicate event handlers).
  * @param {!Object} dependencies - Required dependencies
  * @returns {!GameUI} Initialized instance
  */
 export function initializeGameUI(dependencies) {
+  if (gameUI) {
+    console.warn('GameUI already initialized, returning existing instance');
+    return gameUI;
+  }
   gameUI = new GameUI(dependencies);
   gameUI.initialize();
   return gameUI;

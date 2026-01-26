@@ -740,11 +740,23 @@ export class UIController {
 export let uiController = null;
 
 /**
+ * Reset the singleton instance (for testing only).
+ */
+export function resetUIController() {
+  uiController = null;
+}
+
+/**
  * Initialize the UI controller singleton.
+ * Returns existing instance if already initialized (prevents duplicate event handlers).
  * @param {!Object} dependencies - Required dependencies
  * @returns {!UIController} Initialized controller
  */
 export function initializeUIController(dependencies) {
+  if (uiController) {
+    console.warn('UIController already initialized, returning existing instance');
+    return uiController;
+  }
   uiController = new UIController(dependencies);
   uiController.initialize();
   return uiController;

@@ -166,4 +166,93 @@ describe('SelectionManager', () => {
       instance.dispose();
     });
   });
+
+  describe('DSS fallback on image error', () => {
+    let managerWithDss;
+    let mockDepsWithDss;
+
+    beforeEach(() => {
+      mockDepsWithDss = {
+        ...mockDeps,
+        getSkyViewImageUrl: jest.fn().mockReturnValue('https://dss.example.com/image.jpg'),
+        fetchBestImage: jest.fn().mockResolvedValue({
+          url: 'https://nasa.gov/image.jpg',
+          source: 'NASA',
+          tier: 'high',
+        }),
+      };
+      managerWithDss = new SelectionManager(mockDepsWithDss);
+    });
+
+    afterEach(() => {
+      managerWithDss.dispose();
+    });
+
+    it('calls getSkyViewImageUrl when image fails and source is not DSS', () => {
+      const container = document.getElementById('main-image');
+      const obj = {name: 'M31', ra: 10.68, dec: 41.27, type: 'G'};
+
+      // Call the private method via public interface
+      managerWithDss.displayImage_(container, obj, 'https://fail.url', 'NASA', 'tier-high', 'NASA');
+
+      // Simulate image error
+      const img = container.querySelector('img');
+      expect(img).toBeTruthy();
+
+      // Trigger onerror
+      img.onerror();
+
+      // Should have called getSkyViewImageUrl for DSS fallback
+      expect(mockDepsWithDss.getSkyViewImageUrl).toHaveBeenCalledWith(10.68, 41.27, 'G');
+    });
+
+    it('does not try DSS fallback when source is already DSS', () => {
+      const container = document.getElementById('main-image');
+      const obj = {name: 'M31', ra: 10.68, dec: 41.27, type: 'G'};
+
+      managerWithDss.displayImage_(container, obj, 'https://dss.url', 'DSS', 'tier-vintage', 'DSS');
+
+      const img = container.querySelector('img');
+      img.onerror();
+
+      // Should NOT call getSkyViewImageUrl since source is already DSS
+      expect(mockDepsWithDss.getSkyViewImageUrl).not.toHaveBeenCalled();
+
+      // Should show unavailable message
+      const unavailable = container.querySelector('.image-unavailable');
+      expect(unavailable).toBeTruthy();
+    });
+
+    it('does not try DSS fallback when object has no coordinates', () => {
+      const container = document.getElementById('main-image');
+      const obj = {name: 'Unknown', type: 'Star'}; // No ra/dec
+
+      managerWithDss.displayImage_(container, obj, 'https://fail.url', 'NASA', 'tier-high', 'NASA');
+
+      const img = container.querySelector('img');
+      img.onerror();
+
+      // Should NOT call getSkyViewImageUrl since no coordinates
+      expect(mockDepsWithDss.getSkyViewImageUrl).not.toHaveBeenCalled();
+    });
+
+    it('shows DSS fallback with correct source text', () => {
+      const container = document.getElementById('main-image');
+      const obj = {name: 'M31', ra: 10.68, dec: 41.27, type: 'G'};
+
+      managerWithDss.displayImage_(container, obj, 'https://fail.url', 'NASA', 'tier-high', 'NASA');
+
+      // Trigger onerror - this should recursively call displayImage_ with DSS
+      const img = container.querySelector('img');
+      img.onerror();
+
+      // After DSS fallback, should have new img with DSS URL
+      const dssImg = container.querySelector('img');
+      expect(dssImg.src).toBe('https://dss.example.com/image.jpg');
+
+      // Should show DSS source text
+      const sourceDiv = container.querySelector('.image-source');
+      expect(sourceDiv.textContent).toBe('📜 Digitized Sky Survey (fallback)');
+    });
+  });
 });

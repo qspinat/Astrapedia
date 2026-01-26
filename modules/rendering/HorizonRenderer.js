@@ -3,8 +3,6 @@
  * Handles horizon line and N/S/E/W directional markers.
  */
 
-import {globalEventBus, Events} from '../core/EventBus.js';
-
 /**
  * Horizon configuration constants.
  * @const {!Object}

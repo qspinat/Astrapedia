@@ -154,7 +154,11 @@ export class DynamicDataLoader {
       if (recentRequests >= this.maxRequestsPerMinute_) {
         reason = 'global';
         waitMs = 60000; // Wait up to a minute
-        console.warn('Rate limit: Too many requests per minute');
+        // Only log occasionally to avoid spam
+        if (!this._lastRateLimitLog || now - this._lastRateLimitLog > 10000) {
+          console.warn('Rate limit: Too many requests per minute (throttling)');
+          this._lastRateLimitLog = now;
+        }
       }
     }
 
@@ -455,15 +459,19 @@ export class DynamicDataLoader {
     const params = this.validateParams_(ra, dec, radius, mag);
     if (!params) return [];
 
+    // SIMBAD TAP uses specific column names - use V magnitude from allfluxes
+    // See: http://simbad.u-strasbg.fr/simbad/tap/tapsearch.html
     const query = `
       SELECT TOP ${limit}
-        ra, dec, flux as mag, main_id as name, otype as type
+        ra, dec, V as mag, main_id as name, otype as type
       FROM basic
+      JOIN allfluxes ON oid = oidref
       WHERE 1=CONTAINS(
         POINT('ICRS', ra, dec),
         CIRCLE('ICRS', ${params.ra.toFixed(6)}, ${params.dec.toFixed(6)}, ${params.radius.toFixed(6)})
       )
-      AND flux < ${params.mag.toFixed(2)}
+      AND V < ${params.mag.toFixed(2)}
+      AND V IS NOT NULL
     `;
 
     try {

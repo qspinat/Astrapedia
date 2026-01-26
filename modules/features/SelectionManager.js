@@ -512,6 +512,16 @@ export class SelectionManager {
     img.alt = obj.name || 'Celestial object';
     img.className = `object-image ${tierClass}`;
     img.onerror = () => {
+      // Try DSS fallback if not already DSS and we have coordinates
+      if (source !== 'DSS' && obj.ra !== undefined && obj.dec !== undefined) {
+        console.log(`🔄 Image failed for ${obj.name}, trying DSS fallback`);
+        const dssUrl = this.deps_.getSkyViewImageUrl?.(obj.ra, obj.dec, obj.type);
+        if (dssUrl) {
+          this.displayImage_(container, obj, dssUrl, 'DSS', 'tier-vintage',
+            '📜 Digitized Sky Survey (fallback)');
+          return;
+        }
+      }
       this.displayUnavailable_(container);
     };
     container.appendChild(img);
