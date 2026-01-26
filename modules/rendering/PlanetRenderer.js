@@ -6,6 +6,7 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {SPHERE} from '../core/Constants.js';
+import {magnitudeToSize} from '../core/MagnitudeUtils.js';
 import {
   calculateSunPosition,
   calculateMoonPosition,
@@ -321,14 +322,9 @@ export class PlanetRenderer {
           if (pos.phase !== undefined) planetData.phase = pos.phase;
         }
 
-        // Update sprite position
-        const raRad = THREE.MathUtils.degToRad(pos.ra);
-        const decRad = THREE.MathUtils.degToRad(pos.dec);
-        sprite.position.set(
-          this.radius_ * Math.cos(decRad) * Math.cos(raRad),
-          this.radius_ * Math.sin(decRad),
-          -this.radius_ * Math.cos(decRad) * Math.sin(raRad)
-        );
+        // Update sprite position using shared coordinate utility
+        const newPos = raDecToCartesian(pos.ra, pos.dec, this.radius_);
+        sprite.position.copy(newPos);
 
         // Update userData
         sprite.userData.ra = pos.ra;
@@ -356,13 +352,9 @@ export class PlanetRenderer {
       const angularSizeDeg = (data.angularSize || 0.1) / 60;
       const realSizePixels = angularSizeDeg * pixelsPerDeg;
 
-      // Calculate magnitude-based size
+      // Calculate magnitude-based size (planets use larger maxSize=6)
       const mag = data.mag || 0;
-      const baseMag = 8;
-      const baseSize = 0.8;
-      const maxSize = 6;
-      const magnitudeDiff = baseMag - mag;
-      const magBasedSize = Math.min(maxSize, Math.max(baseSize, baseSize * Math.pow(1.15, magnitudeDiff)));
+      const magBasedSize = magnitudeToSize(mag, 6);
       const magBasedPixels = magBasedSize * 1.5;
 
       // Use larger of real or magnitude-based size

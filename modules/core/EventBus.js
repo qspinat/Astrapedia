@@ -292,6 +292,29 @@ export const Events = {
   TELESCOPE_COMPUTED: 'telescope:computed',
   TELESCOPE_MODE_ACTIVATED: 'telescope:mode:activated',
   TELESCOPE_MODE_DEACTIVATED: 'telescope:mode:deactivated',
+
+  // Command events (requests from UI to app)
+  CMD_SELECT_OBJECT: 'cmd:select:object',
+  CMD_SEARCH: 'cmd:search',
+  CMD_SET_TIME_SPEED: 'cmd:time:speed',
+  CMD_JUMP_TO_TIME: 'cmd:time:jump',
+  CMD_TOGGLE_PLAYBACK: 'cmd:time:toggle',
+  CMD_SET_MAGNITUDE: 'cmd:magnitude:set',
+  CMD_SET_LANGUAGE: 'cmd:language:set',
+  CMD_RESET_CAMERA: 'cmd:camera:reset',
+  CMD_TOGGLE_COMPASS: 'cmd:compass:toggle',
+  CMD_START_GAME: 'cmd:game:start',
+  CMD_STOP_GAME: 'cmd:game:stop',
+  CMD_PASS_QUESTION: 'cmd:game:pass',
+  CMD_START_TOUR: 'cmd:tour:start',
+  CMD_NEXT_TOUR_STEP: 'cmd:tour:next',
+  CMD_PREV_TOUR_STEP: 'cmd:tour:prev',
+  CMD_STOP_TOUR: 'cmd:tour:stop',
+  CMD_SHOW_LOCATION_DIALOG: 'cmd:location:dialog',
+  CMD_REQUEST_GEOLOCATION: 'cmd:location:request',
+  CMD_SHOW_EVENTS: 'cmd:events:show',
+  CMD_SET_CONSTELLATION_LINES: 'cmd:constellation:lines',
+  CMD_REQUEST_RENDER: 'cmd:render:request',
 };
 
 /**

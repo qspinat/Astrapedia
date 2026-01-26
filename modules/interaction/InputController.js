@@ -1,0 +1,396 @@
+/**
+ * @fileoverview Input handling for mouse and touch interactions.
+ * Manages dragging, zooming, and click detection.
+ */
+
+import {clamp} from '../core/Utils.js';
+
+/**
+ * InputController handles mouse and touch input for camera control.
+ */
+export class InputController {
+  /**
+   * Creates a new InputController instance.
+   * @param {!Object} dependencies - Required dependencies
+   * @param {!HTMLCanvasElement} dependencies.canvas - Canvas element for events
+   * @param {function(): number} dependencies.getFov - Get current FOV in degrees
+   * @param {function(): {theta: number, phi: number}} dependencies.getRotation - Get camera rotation
+   * @param {function(number, number): void} dependencies.setRotation - Set camera rotation
+   * @param {function(number): void} dependencies.setTargetFov - Set target FOV for smooth zoom
+   * @param {function(number, number): void} dependencies.setTargetRotation - Set target rotation
+   * @param {function(): void} dependencies.updateCamera - Update camera position
+   * @param {function(): void} dependencies.requestRender - Request a render
+   * @param {function(): number} dependencies.getCanvasHeight - Get canvas height
+   * @param {function(): number} dependencies.getAspect - Get camera aspect ratio
+   * @param {function(): boolean=} dependencies.isZoomLocked - Check if zoom is locked
+   * @param {function(): void=} dependencies.onDragStart - Called when drag starts
+   * @param {function(): void=} dependencies.onDragEnd - Called when drag ends
+   * @param {function({x: number, y: number}): void=} dependencies.onClick - Called on click
+   */
+  constructor(dependencies) {
+    /** @private @const */
+    this.canvas_ = dependencies.canvas;
+
+    /** @private @const */
+    this.getFov_ = dependencies.getFov;
+
+    /** @private @const */
+    this.getRotation_ = dependencies.getRotation;
+
+    /** @private @const */
+    this.setRotation_ = dependencies.setRotation;
+
+    /** @private @const */
+    this.setTargetFov_ = dependencies.setTargetFov;
+
+    /** @private @const */
+    this.setTargetRotation_ = dependencies.setTargetRotation;
+
+    /** @private @const */
+    this.updateCamera_ = dependencies.updateCamera;
+
+    /** @private @const */
+    this.requestRender_ = dependencies.requestRender;
+
+    /** @private @const */
+    this.getCanvasHeight_ = dependencies.getCanvasHeight;
+
+    /** @private @const */
+    this.getAspect_ = dependencies.getAspect;
+
+    /** @private @const */
+    this.isZoomLocked_ = dependencies.isZoomLocked || (() => false);
+
+    /** @private @const */
+    this.onDragStart_ = dependencies.onDragStart;
+
+    /** @private @const */
+    this.onDragEnd_ = dependencies.onDragEnd;
+
+    /** @private @const */
+    this.onClick_ = dependencies.onClick;
+
+    /** @private {boolean} */
+    this.isDragging_ = false;
+
+    /** @private {boolean} */
+    this.dragMoved_ = false;
+
+    /** @private {{x: number, y: number}} */
+    this.mouseDownPosition_ = {x: 0, y: 0};
+
+    /** @private {{x: number, y: number}} */
+    this.previousMousePosition_ = {x: 0, y: 0};
+
+    /** @private {number} */
+    this.lastTouchDistance_ = 0;
+
+    /** @private {boolean} */
+    this.isPinching_ = false;
+
+    // Bind handlers
+    this.onMouseDown_ = this.onMouseDown_.bind(this);
+    this.onMouseMove_ = this.onMouseMove_.bind(this);
+    this.onMouseUp_ = this.onMouseUp_.bind(this);
+    this.onMouseWheel_ = this.onMouseWheel_.bind(this);
+    this.onMouseClick_ = this.onMouseClick_.bind(this);
+    this.onTouchStart_ = this.onTouchStart_.bind(this);
+    this.onTouchMove_ = this.onTouchMove_.bind(this);
+    this.onTouchEnd_ = this.onTouchEnd_.bind(this);
+  }
+
+  /**
+   * Initialize event listeners.
+   */
+  initialize() {
+    this.canvas_.addEventListener('mousedown', this.onMouseDown_);
+    this.canvas_.addEventListener('mousemove', this.onMouseMove_);
+    this.canvas_.addEventListener('mouseup', this.onMouseUp_);
+    this.canvas_.addEventListener('wheel', this.onMouseWheel_);
+    this.canvas_.addEventListener('click', this.onMouseClick_);
+
+    this.canvas_.addEventListener('touchstart', this.onTouchStart_);
+    this.canvas_.addEventListener('touchmove', this.onTouchMove_);
+    this.canvas_.addEventListener('touchend', this.onTouchEnd_);
+  }
+
+  /**
+   * Check if currently dragging.
+   * @returns {boolean} True if dragging
+   */
+  isDragging() {
+    return this.isDragging_;
+  }
+
+  /**
+   * Handle mouse down event.
+   * @param {!MouseEvent} event
+   * @private
+   */
+  onMouseDown_(event) {
+    this.isDragging_ = true;
+    this.dragMoved_ = false;
+    this.mouseDownPosition_ = {x: event.clientX, y: event.clientY};
+    this.previousMousePosition_ = {x: event.clientX, y: event.clientY};
+    this.onDragStart_?.();
+    this.requestRender_();
+  }
+
+  /**
+   * Handle mouse move event.
+   * @param {!MouseEvent} event
+   * @private
+   */
+  onMouseMove_(event) {
+    if (!this.isDragging_) return;
+
+    const deltaX = event.clientX - this.previousMousePosition_.x;
+    const deltaY = event.clientY - this.previousMousePosition_.y;
+
+    // Mark as dragged if moved more than 5 pixels
+    const totalDeltaX = event.clientX - this.mouseDownPosition_.x;
+    const totalDeltaY = event.clientY - this.mouseDownPosition_.y;
+    if (Math.abs(totalDeltaX) > 5 || Math.abs(totalDeltaY) > 5) {
+      this.dragMoved_ = true;
+    }
+
+    this.applyDragRotation_(deltaX, deltaY);
+
+    this.previousMousePosition_ = {x: event.clientX, y: event.clientY};
+    this.updateCamera_();
+    this.requestRender_();
+  }
+
+  /**
+   * Handle mouse up event.
+   * @param {!MouseEvent} event
+   * @private
+   */
+  onMouseUp_(event) {
+    this.isDragging_ = false;
+    this.onDragEnd_?.();
+  }
+
+  /**
+   * Handle mouse wheel event.
+   * @param {!WheelEvent} event
+   * @private
+   */
+  onMouseWheel_(event) {
+    event.preventDefault();
+
+    if (this.isZoomLocked_()) return;
+
+    const currentFov = this.getFov_();
+    const rotation = this.getRotation_();
+
+    // Get mouse position in normalized device coordinates (-1 to +1)
+    const rect = this.canvas_.getBoundingClientRect();
+    const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Multiplicative zoom for consistent feel at all zoom levels
+    const delta = event.deltaY > 0 ? 1 : -1;
+    const zoomFactor = 1.15;
+    let newFov;
+
+    if (delta > 0) {
+      newFov = Math.min(120, currentFov * zoomFactor);
+    } else {
+      newFov = Math.max(0.0001, currentFov / zoomFactor);
+    }
+
+    this.setTargetFov_(newFov);
+
+    // Zoom toward cursor
+    const fovRatio = currentFov / newFov;
+    if (Math.abs(fovRatio - 1) > 0.001) {
+      const oldFovRad = currentFov * Math.PI / 180;
+      const newFovRad = newFov * Math.PI / 180;
+      const aspect = this.getAspect_();
+
+      const oldAngleX = mouseX * Math.tan(oldFovRad / 2) * aspect;
+      const oldAngleY = mouseY * Math.tan(oldFovRad / 2);
+      const newAngleX = mouseX * Math.tan(newFovRad / 2) * aspect;
+      const newAngleY = mouseY * Math.tan(newFovRad / 2);
+
+      const rotateTheta = oldAngleX - newAngleX;
+      const rotatePhi = oldAngleY - newAngleY;
+
+      this.setTargetRotation_(
+        rotation.theta + rotateTheta,
+        clamp(rotation.phi + rotatePhi, 0.1, Math.PI - 0.1)
+      );
+    }
+
+    this.requestRender_();
+  }
+
+  /**
+   * Handle mouse click event.
+   * @param {!MouseEvent} event
+   * @private
+   */
+  onMouseClick_(event) {
+    if (this.dragMoved_) {
+      this.dragMoved_ = false;
+      return;
+    }
+    this.dragMoved_ = false;
+
+    // Calculate normalized device coordinates
+    const x = (event.clientX / window.innerWidth) * 2 - 1;
+    const y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    this.onClick_?.({x, y});
+  }
+
+  /**
+   * Handle touch start event.
+   * @param {!TouchEvent} event
+   * @private
+   */
+  onTouchStart_(event) {
+    if (event.touches.length === 1) {
+      this.isDragging_ = true;
+      this.dragMoved_ = false;
+      this.isPinching_ = false;
+      const touch = event.touches[0];
+      this.mouseDownPosition_ = {x: touch.clientX, y: touch.clientY};
+      this.previousMousePosition_ = {x: touch.clientX, y: touch.clientY};
+      this.onDragStart_?.();
+    } else if (event.touches.length === 2) {
+      this.isPinching_ = true;
+      this.isDragging_ = false;
+      const dx = event.touches[0].clientX - event.touches[1].clientX;
+      const dy = event.touches[0].clientY - event.touches[1].clientY;
+      this.lastTouchDistance_ = Math.sqrt(dx * dx + dy * dy);
+    }
+    this.requestRender_();
+  }
+
+  /**
+   * Handle touch move event.
+   * @param {!TouchEvent} event
+   * @private
+   */
+  onTouchMove_(event) {
+    event.preventDefault();
+
+    if (event.touches.length === 1 && this.isDragging_) {
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - this.previousMousePosition_.x;
+      const deltaY = touch.clientY - this.previousMousePosition_.y;
+
+      const totalDeltaX = touch.clientX - this.mouseDownPosition_.x;
+      const totalDeltaY = touch.clientY - this.mouseDownPosition_.y;
+      if (Math.abs(totalDeltaX) > 5 || Math.abs(totalDeltaY) > 5) {
+        this.dragMoved_ = true;
+      }
+
+      this.applyDragRotation_(deltaX, deltaY);
+
+      this.previousMousePosition_ = {x: touch.clientX, y: touch.clientY};
+      this.updateCamera_();
+    } else if (event.touches.length === 2 && this.isPinching_) {
+      if (this.isZoomLocked_()) return;
+
+      const dx = event.touches[0].clientX - event.touches[1].clientX;
+      const dy = event.touches[0].clientY - event.touches[1].clientY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (this.lastTouchDistance_ > 0) {
+        const scale = this.lastTouchDistance_ / distance;
+        const currentFov = this.getFov_();
+        const newFov = clamp(currentFov * scale, 0.0001, 120);
+        this.setTargetFov_(newFov);
+      }
+
+      this.lastTouchDistance_ = distance;
+    }
+
+    this.requestRender_();
+  }
+
+  /**
+   * Handle touch end event.
+   * @param {!TouchEvent} event
+   * @private
+   */
+  onTouchEnd_(event) {
+    if (event.touches.length === 0) {
+      // Check for tap (no drag)
+      if (this.isDragging_ && !this.dragMoved_) {
+        // Simulate click at last position
+        const x = (this.mouseDownPosition_.x / window.innerWidth) * 2 - 1;
+        const y = -(this.mouseDownPosition_.y / window.innerHeight) * 2 + 1;
+        this.onClick_?.({x, y});
+      }
+
+      this.isDragging_ = false;
+      this.isPinching_ = false;
+      this.lastTouchDistance_ = 0;
+      this.onDragEnd_?.();
+    } else if (event.touches.length === 1) {
+      // Switch from pinch back to drag
+      this.isPinching_ = false;
+      this.isDragging_ = true;
+      const touch = event.touches[0];
+      this.previousMousePosition_ = {x: touch.clientX, y: touch.clientY};
+    }
+  }
+
+  /**
+   * Apply drag rotation to camera.
+   * @param {number} deltaX - X movement in pixels
+   * @param {number} deltaY - Y movement in pixels
+   * @private
+   */
+  applyDragRotation_(deltaX, deltaY) {
+    const fov = this.getFov_();
+    const canvasHeight = this.getCanvasHeight_();
+    const fovRad = fov * Math.PI / 180;
+
+    // Calculate radians per pixel at current FOV
+    const radiansPerPixel = fovRad / canvasHeight;
+
+    const rotation = this.getRotation_();
+    const newTheta = rotation.theta - deltaX * radiansPerPixel;
+    const newPhi = clamp(rotation.phi + deltaY * radiansPerPixel, 0.1, Math.PI - 0.1);
+
+    this.setRotation_(newTheta, newPhi);
+    this.setTargetRotation_(newTheta, newPhi);
+  }
+
+  /**
+   * Dispose of event listeners.
+   */
+  dispose() {
+    this.canvas_.removeEventListener('mousedown', this.onMouseDown_);
+    this.canvas_.removeEventListener('mousemove', this.onMouseMove_);
+    this.canvas_.removeEventListener('mouseup', this.onMouseUp_);
+    this.canvas_.removeEventListener('wheel', this.onMouseWheel_);
+    this.canvas_.removeEventListener('click', this.onMouseClick_);
+
+    this.canvas_.removeEventListener('touchstart', this.onTouchStart_);
+    this.canvas_.removeEventListener('touchmove', this.onTouchMove_);
+    this.canvas_.removeEventListener('touchend', this.onTouchEnd_);
+  }
+}
+
+/**
+ * Singleton input controller instance.
+ * @type {?InputController}
+ */
+export let inputController = null;
+
+/**
+ * Initialize the input controller singleton.
+ * @param {!Object} dependencies - Required dependencies
+ * @returns {!InputController} Initialized controller
+ */
+export function initializeInputController(dependencies) {
+  inputController = new InputController(dependencies);
+  inputController.initialize();
+  return inputController;
+}

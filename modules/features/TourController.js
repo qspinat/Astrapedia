@@ -5,6 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {SPHERE} from '../core/Constants.js';
+import {raDecToCartesian} from '../core/CoordinateUtils.js';
 
 /**
  * @typedef {{
@@ -473,14 +474,8 @@ export class TourController {
     this.tourHighlight_ = new THREE.Sprite(material);
 
     const radius = SPHERE.RADIUS - 2;
-    const raRad = ra * Math.PI / 180;
-    const decRad = dec * Math.PI / 180;
-    const pos = {
-      x: radius * Math.cos(decRad) * Math.cos(raRad),
-      y: radius * Math.sin(decRad),
-      z: -radius * Math.cos(decRad) * Math.sin(raRad),
-    };
-    this.tourHighlight_.position.set(pos.x, pos.y, pos.z);
+    const pos = raDecToCartesian(ra, dec, radius);
+    this.tourHighlight_.position.copy(pos);
 
     const angularSizeRad = THREE.MathUtils.degToRad(angularSizeArcmin / 60);
     const realWorldSize = radius * angularSizeRad * 2;

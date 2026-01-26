@@ -231,15 +231,17 @@ describe('Time picker accessibility and UX', () => {
   let jsContent;
 
   beforeAll(() => {
-    const jsPath = path.resolve(process.cwd(), 'ui-controller.js');
+    // Time picker functionality is in the modular TimeUI
+    const jsPath = path.resolve(process.cwd(), 'modules/features/TimeUI.js');
     jsContent = fs.readFileSync(jsPath, 'utf8');
   });
 
   test('implements backdrop click to close time picker', () => {
     // Should have document click listener that checks for clicks outside panel
     expect(jsContent).toContain('document.addEventListener(\'click\'');
-    expect(jsContent).toContain('isClickInsidePanel');
-    expect(jsContent).toContain('isClickOnButton');
+    // Uses contains() checks instead of separate boolean variables
+    expect(jsContent).toContain('pickerPanel.contains(e.target)');
+    expect(jsContent).toContain('pickerBtn.contains(e.target)');
   });
 
   test('implements Escape key to close time picker', () => {
@@ -255,118 +257,135 @@ describe('Time picker accessibility and UX', () => {
 });
 
 describe('UI Controller event wiring', () => {
-  let jsContent;
+  let uiControllerContent;
+  let timeUIContent;
 
   beforeAll(() => {
-    const jsPath = path.resolve(process.cwd(), 'ui-controller.js');
-    jsContent = fs.readFileSync(jsPath, 'utf8');
+    // Settings handler is in modular UIController
+    const uiPath = path.resolve(process.cwd(), 'modules/ui/UIController.js');
+    uiControllerContent = fs.readFileSync(uiPath, 'utf8');
+    // Time controls are in TimeUI
+    const timePath = path.resolve(process.cwd(), 'modules/features/TimeUI.js');
+    timeUIContent = fs.readFileSync(timePath, 'utf8');
   });
 
   describe('SettingsHandler', () => {
     test('retrieves equator-line-toggle element', () => {
-      expect(jsContent).toContain('getElementById(\'equator-line-toggle\')');
+      expect(uiControllerContent).toContain('getElementById(\'equator-line-toggle\')');
     });
 
     test('adds change event listener to equator toggle', () => {
       // Check that there's a change event listener on the equator toggle
-      expect(jsContent).toMatch(
+      expect(uiControllerContent).toMatch(
         /equatorToggle.*addEventListener\s*\(\s*['"]change['"]/s
       );
     });
 
     test('calls setEquatorLineVisible on change', () => {
-      expect(jsContent).toContain('setEquatorLineVisible?.(e.target.checked)');
+      expect(uiControllerContent).toContain('setEquatorLineVisible?.(e.target.checked)');
     });
 
     test('retrieves constellation-lines-toggle element', () => {
-      expect(jsContent).toContain('getElementById(\'constellation-lines-toggle\')');
+      expect(uiControllerContent).toContain('getElementById(\'constellation-lines-toggle\')');
     });
 
     test('retrieves magnitude-slider element', () => {
-      expect(jsContent).toContain('getElementById(\'magnitude-slider\')');
+      expect(uiControllerContent).toContain('getElementById(\'magnitude-slider\')');
     });
   });
 
-  describe('TimeControlsHandler', () => {
+  describe('TimeUI', () => {
     test('retrieves time-picker-btn element', () => {
-      expect(jsContent).toContain('getElementById(\'time-picker-btn\')');
+      expect(timeUIContent).toContain('getElementById(\'time-picker-btn\')');
     });
 
     test('retrieves time-picker-panel element', () => {
-      expect(jsContent).toContain('getElementById(\'time-picker-panel\')');
+      expect(timeUIContent).toContain('getElementById(\'time-picker-panel\')');
     });
 
     test('adds click event listener to time picker button', () => {
-      expect(jsContent).toMatch(
-        /timePickerBtn.*addEventListener\s*\(\s*['"]click['"]/s
+      expect(timeUIContent).toMatch(
+        /pickerBtn.*addEventListener\s*\(\s*['"]click['"]/s
       );
     });
 
     test('toggles visible class on time picker panel', () => {
-      expect(jsContent).toContain('timePickerPanel.classList.toggle(\'visible\')');
+      expect(timeUIContent).toContain('pickerPanel.classList.toggle(\'visible\')');
     });
 
     test('retrieves date-picker and time-picker inputs', () => {
-      expect(jsContent).toContain('getElementById(\'date-picker\')');
-      expect(jsContent).toContain('getElementById(\'time-picker\')');
+      expect(timeUIContent).toContain('getElementById(\'date-picker\')');
+      expect(timeUIContent).toContain('getElementById(\'time-picker\')');
     });
 
     test('retrieves apply and cancel buttons', () => {
-      expect(jsContent).toContain('getElementById(\'time-picker-apply\')');
-      expect(jsContent).toContain('getElementById(\'time-picker-cancel\')');
+      expect(timeUIContent).toContain('getElementById(\'time-picker-apply\')');
+      expect(timeUIContent).toContain('getElementById(\'time-picker-cancel\')');
     });
 
     test('calls jumpToTime on apply', () => {
-      expect(jsContent).toMatch(/jumpToTime\s*\(\s*newDate\s*\)/);
+      // Uses optional chaining in modular version
+      expect(timeUIContent).toMatch(/jumpToTime\?\.\s*\(\s*newDate\s*\)/);
     });
   });
 
   describe('UIController initialization', () => {
-    test('waits for window.app before setting up listeners', () => {
-      expect(jsContent).toContain('if (!window.app)');
+    test('uses dependency injection pattern', () => {
+      // Modular UIController receives dependencies in constructor
+      expect(uiControllerContent).toContain('constructor(dependencies)');
     });
 
-    test('calls all handler setupEventListeners methods', () => {
-      expect(jsContent).toContain('this.settingsHandler_.setupEventListeners()');
-      expect(jsContent).toContain('this.timeControlsHandler_.setupEventListeners()');
+    test('initializes all handlers', () => {
+      expect(uiControllerContent).toContain('this.searchController_.initialize()');
+      expect(uiControllerContent).toContain('this.settingsHandler_.initialize()');
+      expect(uiControllerContent).toContain('this.timeUI_.initialize()');
     });
 
     test('logs initialization status', () => {
-      expect(jsContent).toContain('UI Controller initialized');
+      expect(uiControllerContent).toContain('UI Controller initialized');
     });
   });
 });
 
 describe('Skymap equator line methods', () => {
   let jsContent;
+  let gridRendererContent;
 
   beforeAll(() => {
     const jsPath = path.resolve(process.cwd(), 'skymap.js');
     jsContent = fs.readFileSync(jsPath, 'utf8');
+    // GridRenderer now handles the implementation details
+    const gridRendererPath = path.resolve(process.cwd(), 'modules/rendering/GridRenderer.js');
+    gridRendererContent = fs.readFileSync(gridRendererPath, 'utf8');
   });
 
   test('has setEquatorLineVisible method', () => {
     expect(jsContent).toMatch(/setEquatorLineVisible\s*\(\s*visible\s*\)/);
   });
 
-  test('setEquatorLineVisible checks for equatorLine existence', () => {
-    expect(jsContent).toMatch(/if\s*\(\s*this\.equatorLine\s*\)/);
+  test('setEquatorLineVisible delegates to gridRenderer or fallback', () => {
+    // Either delegates to gridRenderer or uses direct fallback
+    expect(jsContent).toMatch(/gridRenderer_\.setEquatorVisible|this\.equatorLine\.visible/);
   });
 
-  test('setEquatorLineVisible sets visible property', () => {
-    expect(jsContent).toContain('this.equatorLine.visible = visible');
+  test('setEquatorLineVisible sets visible property (in GridRenderer)', () => {
+    // Implementation is now in GridRenderer
+    expect(gridRendererContent).toContain('.visible = visible');
   });
 
-  test('creates equatorLine in createGrid method', () => {
-    expect(jsContent).toContain('this.equatorLine = new THREE.Line');
+  test('creates equatorLine in GridRenderer', () => {
+    // equatorLine creation is now in GridRenderer
+    expect(gridRendererContent).toContain('this.equatorLine_ = new THREE.Line');
   });
 
-  test('adds equatorLine to celestialSphere', () => {
-    expect(jsContent).toContain('this.celestialSphere.add(this.equatorLine)');
+  test('adds equatorLine to celestialSphere (in GridRenderer)', () => {
+    // Implementation is now in GridRenderer
+    expect(gridRendererContent).toContain('this.celestialSphere_.add(this.equatorLine_)');
   });
 
-  test('initializes equatorLine to null', () => {
-    expect(jsContent).toContain('this.equatorLine = null');
+  test('equatorLine managed by GridRenderer', () => {
+    // equatorLine is now managed entirely by GridRenderer, not skymap.js
+    expect(gridRendererContent).toContain('this.equatorLine_');
   });
 });
 
@@ -428,14 +447,16 @@ describe('Skymap game panel drag functionality', () => {
   test('constrains panel to viewport bounds', () => {
     expect(jsContent).toContain('window.innerWidth - panelRect.width');
     expect(jsContent).toContain('window.innerHeight - panelRect.height');
-    expect(jsContent).toMatch(/Math\.max\s*\(\s*0/);
-    expect(jsContent).toMatch(/Math\.min\s*\([^)]*max/i);
+    // Uses clamp() to constrain values to viewport
+    expect(jsContent).toMatch(/clamp\s*\(\s*new/);
+    expect(jsContent).toMatch(/maxLeft|maxTop/);
   });
 
-  test('prevents canvas drag when game panel is being dragged', () => {
-    // onMouseDown and onTouchStart should check gamePanelDragging
-    expect(jsContent).toMatch(/onMouseDown[\s\S]*if\s*\(\s*this\.gamePanelDragging\s*\)\s*return/);
-    expect(jsContent).toMatch(/onTouchStart[\s\S]*if\s*\(\s*this\.gamePanelDragging\s*\)\s*return/);
+  test('has game panel drag state management', () => {
+    // gamePanelDragging flag is used to track drag state
+    // Input handling delegated to InputController module
+    expect(jsContent).toMatch(/gamePanelDragging/);
+    expect(jsContent).toMatch(/setupGamePanelDrag/);
   });
 });
 

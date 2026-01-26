@@ -1,11 +1,21 @@
 /**
  * @fileoverview UI Controller for Sky Map Application.
  * Uses dependency injection and EventBus for decoupled communication.
+ *
+ * Feature-specific UI handlers have been extracted to their respective modules:
+ * - GameUI → modules/features/GameUI.js
+ * - TourUI → modules/features/TourUI.js
+ * - TimeUI → modules/features/TimeUI.js
+ * - TelescopeUI → modules/features/TelescopeUI.js
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {PanelManager, panelManager} from './PanelManager.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
+import {GameUI} from '../features/GameUI.js';
+import {TourUI} from '../features/TourUI.js';
+import {TimeUI} from '../features/TimeUI.js';
+import {TelescopeUI} from '../features/TelescopeUI.js';
 
 /**
  * Maximum length for preset names.
@@ -111,14 +121,15 @@ export class SearchController {
     if (this.currentResults_.length > 0 &&
         index >= 0 &&
         index < this.currentResults_.length) {
-      this.selectObject_?.(this.currentResults_[index]);
+      const selectedResult = this.currentResults_[index];
+      this.selectObject_?.(selectedResult);
       this.searchResults_.classList.remove('active');
       this.searchInput_.value = '';
       this.currentResults_ = [];
       this.selectedIndex_ = -1;
 
       globalEventBus.emit(Events.SEARCH_RESULT_SELECTED, {
-        result: this.currentResults_[index],
+        result: selectedResult,
       });
     }
   }
@@ -417,546 +428,13 @@ export class SettingsHandler {
   }
 }
 
-/**
- * Time Controls Handler - handles time playback buttons.
- */
-export class TimeControlsHandler {
-  /**
-   * Creates a new TimeControlsHandler instance.
-   * @param {!Object} dependencies - Required dependencies
-   * @param {function(number): void=} dependencies.setTimeSpeed - Set time speed
-   * @param {function(): void=} dependencies.togglePlayback - Toggle playback
-   * @param {function(!Date): void=} dependencies.jumpToTime - Jump to time
-   */
-  constructor(dependencies) {
-    /** @private @const */
-    this.deps_ = dependencies;
+// TimeControlsHandler has been moved to modules/features/TimeUI.js
 
-    /** @private {boolean} */
-    this.isPlaying_ = false;
-  }
+// GameControlsHandler has been moved to modules/features/GameUI.js
 
-  /**
-   * Initialize the time controls handler.
-   */
-  initialize() {
-    this.setupEventListeners_();
-    this.setupEventBusListeners_();
-  }
+// TourButtonsHandler has been moved to modules/features/TourUI.js
 
-  /**
-   * Sets up event listeners for time controls.
-   * @private
-   */
-  setupEventListeners_() {
-    const timeRewindBtn = document.getElementById('time-rewind-btn');
-    if (timeRewindBtn) {
-      timeRewindBtn.addEventListener('click', () => {
-        this.deps_.setTimeSpeed?.(-100);
-      });
-    }
-
-    const timePlayBtn = document.getElementById('time-play-btn');
-    if (timePlayBtn) {
-      timePlayBtn.addEventListener('click', () => {
-        this.deps_.togglePlayback?.();
-      });
-    }
-
-    const timeForwardBtn = document.getElementById('time-forward-btn');
-    if (timeForwardBtn) {
-      timeForwardBtn.addEventListener('click', () => {
-        this.deps_.setTimeSpeed?.(100);
-      });
-    }
-
-    const timeNowBtn = document.getElementById('time-now-btn');
-    if (timeNowBtn) {
-      timeNowBtn.addEventListener('click', () => {
-        this.deps_.jumpToTime?.(new Date());
-      });
-    }
-  }
-
-  /**
-   * Sets up EventBus listeners.
-   * @private
-   */
-  setupEventBusListeners_() {
-    globalEventBus.on(Events.TIME_SPEED_CHANGED, (data) => {
-      this.isPlaying_ = data.isPlaying;
-      this.updatePlayButton_();
-    });
-
-    globalEventBus.on(Events.TIME_CHANGED, (data) => {
-      this.updateTimeDisplay_(data.time);
-    });
-
-    globalEventBus.on(Events.TIME_TICK, (data) => {
-      this.updateTimeDisplay_(data.time);
-    });
-  }
-
-  /**
-   * Update the play button appearance.
-   * @private
-   */
-  updatePlayButton_() {
-    const playBtn = document.getElementById('time-play-btn');
-    if (playBtn) {
-      playBtn.classList.toggle('playing', this.isPlaying_);
-    }
-  }
-
-  /**
-   * Update the time display.
-   * @param {!Date} time - Current time
-   * @private
-   */
-  updateTimeDisplay_(time) {
-    const timeDisplay = document.getElementById('time-display');
-    if (timeDisplay) {
-      timeDisplay.textContent = time.toLocaleString();
-    }
-  }
-}
-
-/**
- * Game Controls Handler - handles game mode buttons.
- */
-export class GameControlsHandler {
-  /**
-   * Creates a new GameControlsHandler instance.
-   * @param {!Object} dependencies - Required dependencies
-   * @param {function(): void=} dependencies.startGame - Start game
-   * @param {function(): void=} dependencies.passQuestion - Pass current question
-   * @param {function(): void=} dependencies.stopGame - Stop game
-   */
-  constructor(dependencies) {
-    /** @private @const */
-    this.deps_ = dependencies;
-  }
-
-  /**
-   * Initialize the game controls handler.
-   */
-  initialize() {
-    this.setupEventListeners_();
-    this.setupEventBusListeners_();
-  }
-
-  /**
-   * Sets up event listeners for game controls.
-   * @private
-   */
-  setupEventListeners_() {
-    const startGameBtn = document.getElementById('start-game-btn');
-    if (startGameBtn) {
-      startGameBtn.addEventListener('click', () => {
-        this.deps_.startGame?.();
-      });
-    }
-
-    const passBtn = document.getElementById('pass-btn');
-    if (passBtn) {
-      passBtn.addEventListener('click', () => {
-        this.deps_.passQuestion?.();
-      });
-    }
-
-    const stopGameBtn = document.getElementById('stop-game-btn');
-    if (stopGameBtn) {
-      stopGameBtn.addEventListener('click', () => {
-        this.deps_.stopGame?.();
-      });
-    }
-  }
-
-  /**
-   * Sets up EventBus listeners.
-   * @private
-   */
-  setupEventBusListeners_() {
-    globalEventBus.on(Events.GAME_STARTED, () => {
-      this.updateGameUI_(true);
-    });
-
-    globalEventBus.on(Events.GAME_ENDED, () => {
-      this.updateGameUI_(false);
-    });
-
-    globalEventBus.on(Events.GAME_QUESTION, (data) => {
-      this.updateQuestionDisplay_(data);
-    });
-
-    globalEventBus.on(Events.GAME_SCORE, (data) => {
-      this.updateScoreDisplay_(data);
-    });
-  }
-
-  /**
-   * Update game UI state.
-   * @param {boolean} isPlaying - Whether game is playing
-   * @private
-   */
-  updateGameUI_(isPlaying) {
-    const gamePanel = document.getElementById('game-panel');
-    if (gamePanel) {
-      gamePanel.classList.toggle('active', isPlaying);
-    }
-  }
-
-  /**
-   * Update question display.
-   * @param {!Object} data - Question data
-   * @private
-   */
-  updateQuestionDisplay_(data) {
-    const questionEl = document.getElementById('game-question');
-    if (questionEl) {
-      questionEl.textContent = `Find: ${data.targetName}`;
-    }
-  }
-
-  /**
-   * Update score display.
-   * @param {!Object} data - Score data
-   * @private
-   */
-  updateScoreDisplay_(data) {
-    const scoreEl = document.getElementById('game-score');
-    if (scoreEl) {
-      scoreEl.textContent = `Score: ${data.score}/${data.total}`;
-    }
-  }
-}
-
-/**
- * Tour Buttons Handler - handles tour selection buttons.
- */
-export class TourButtonsHandler {
-  /**
-   * Creates a new TourButtonsHandler instance.
-   * @param {!Object} dependencies - Required dependencies
-   * @param {function(string): void=} dependencies.startTour - Start tour function
-   * @param {!PanelManager=} dependencies.panelManager - Panel manager
-   */
-  constructor(dependencies) {
-    /** @private @const */
-    this.startTour_ = dependencies.startTour;
-
-    /** @private @const */
-    this.panelManager_ = dependencies.panelManager || panelManager;
-  }
-
-  /**
-   * Initialize the tour buttons handler.
-   */
-  initialize() {
-    this.setupEventListeners_();
-  }
-
-  /**
-   * Sets up event listeners for tour buttons.
-   * @private
-   */
-  setupEventListeners_() {
-    this.setupTourButton_('tour-tonight-btn', 'tonight-best');
-    this.setupTourButton_('tour-messier-btn', 'messier-marathon');
-    this.setupTourButton_('tour-nebulae-btn', 'best-nebulae');
-    this.setupTourButton_('tour-galaxies-btn', 'best-galaxies');
-    this.setupTourButton_('tour-clusters-btn', 'best-clusters');
-    this.setupTourButton_('tour-constellations-btn', 'constellations');
-    this.setupTourButton_('tour-planets-btn', 'planets');
-    this.setupTourButton_('tour-winter-btn', 'winter-sky');
-  }
-
-  /**
-   * Sets up a tour button with event handler.
-   * @param {string} buttonId - The button element ID
-   * @param {string} tourName - The tour name to start
-   * @private
-   */
-  setupTourButton_(buttonId, tourName) {
-    const btn = document.getElementById(buttonId);
-    if (btn) {
-      btn.addEventListener('click', () => {
-        this.startTour_?.(tourName);
-        this.panelManager_.closeAll();
-      });
-    }
-  }
-}
-
-/**
- * Telescope Settings Handler - handles telescope simulation controls.
- *
- * @deprecated This modular version is not currently used. The app loads
- * ui-controller.js (legacy) which has its own TelescopeSettingsHandler
- * implementation that directly accesses window.app. This class is kept
- * for future migration to the modular main.js architecture.
- */
-export class TelescopeSettingsHandler {
-  /**
-   * Creates a new TelescopeSettingsHandler instance.
-   * @param {!Object} dependencies - Required dependencies
-   * @param {function(): !Object=} dependencies.getTelescope - Get telescope config
-   * @param {function(!Object): void=} dependencies.setTelescope - Set telescope config
-   * @param {function(): !Object=} dependencies.getEyepiece - Get eyepiece config
-   * @param {function(!Object): void=} dependencies.setEyepiece - Set eyepiece config
-   * @param {function(): void=} dependencies.toggleTelescopeMode - Toggle mode
-   * @param {function(): boolean=} dependencies.isTelescopeModeActive - Check if active
-   * @param {function(string): void=} dependencies.savePreset - Save preset
-   * @param {function(string): boolean=} dependencies.loadPreset - Load preset
-   * @param {function(string): boolean=} dependencies.deletePreset - Delete preset
-   * @param {function(): !Array<string>=} dependencies.getPresetNames - Get preset names
-   * @param {function(): ?Object=} dependencies.getComputedProperties - Get computed props
-   */
-  constructor(dependencies) {
-    /** @private @const */
-    this.deps_ = dependencies;
-  }
-
-  /**
-   * Initialize the telescope settings handler.
-   */
-  initialize() {
-    this.setupEventListeners_();
-    this.setupEventBusListeners_();
-    this.populatePresets_();
-    this.loadCurrentValues_();
-    this.updateComputedDisplay_();
-  }
-
-  /**
-   * Load current telescope values into inputs.
-   * @private
-   */
-  loadCurrentValues_() {
-    const telescope = this.deps_.getTelescope?.();
-    const eyepiece = this.deps_.getEyepiece?.();
-
-    if (telescope) {
-      const diameterInput = document.getElementById('telescope-diameter');
-      const focalLengthInput = document.getElementById('telescope-focal-length');
-      if (diameterInput) diameterInput.value = telescope.diameter;
-      if (focalLengthInput) focalLengthInput.value = telescope.focalLength;
-    }
-
-    if (eyepiece) {
-      const eyepieceFLInput = document.getElementById('eyepiece-focal-length');
-      const eyepieceAFOVInput = document.getElementById('eyepiece-afov');
-      if (eyepieceFLInput) eyepieceFLInput.value = eyepiece.focalLength;
-      if (eyepieceAFOVInput) eyepieceAFOVInput.value = eyepiece.apparentFov;
-    }
-  }
-
-  /**
-   * Populate preset dropdown.
-   * @private
-   */
-  populatePresets_() {
-    const select = document.getElementById('telescope-preset-select');
-    if (!select) return;
-
-    const presetNames = this.deps_.getPresetNames?.() || [];
-
-    // Clear existing options except the first one
-    while (select.options.length > 1) {
-      select.remove(1);
-    }
-
-    // Add presets
-    presetNames.forEach((name) => {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      select.appendChild(option);
-    });
-  }
-
-  /**
-   * Update computed display values.
-   * @private
-   */
-  updateComputedDisplay_() {
-    const props = this.deps_.getComputedProperties?.();
-    if (!props) return;
-
-    const magEl = document.getElementById('computed-magnification');
-    const maxMagEl = document.getElementById('computed-max-mag');
-    const exitPupilEl = document.getElementById('computed-exit-pupil');
-    const realFovEl = document.getElementById('computed-real-fov');
-    const limitingMagEl = document.getElementById('computed-limiting-mag');
-    const warningEl = document.getElementById('telescope-warning');
-
-    if (magEl) magEl.textContent = `${props.magnification.toFixed(0)}x`;
-    if (maxMagEl) maxMagEl.textContent = `${props.maxUsefulMagnification.toFixed(0)}x`;
-    if (exitPupilEl) exitPupilEl.textContent = `${props.exitPupil.toFixed(1)}mm`;
-    if (realFovEl) realFovEl.textContent = `${props.realFieldOfView.toFixed(2)}°`;
-    if (limitingMagEl) limitingMagEl.textContent = props.limitingMagnitude.toFixed(1);
-
-    // Show/hide warning
-    if (warningEl) {
-      warningEl.classList.toggle('visible', props.isOverMagnified);
-    }
-
-    // Update reticle info
-    const reticleFovEl = document.getElementById('reticle-fov');
-    const reticleMagEl = document.getElementById('reticle-mag');
-    if (reticleFovEl) reticleFovEl.textContent = `${props.realFieldOfView.toFixed(2)}°`;
-    if (reticleMagEl) reticleMagEl.textContent = `${props.magnification.toFixed(0)}x`;
-  }
-
-  /**
-   * Sets up event listeners.
-   * @private
-   */
-  setupEventListeners_() {
-    // Telescope mode toggle
-    const modeToggle = document.getElementById('telescope-mode-toggle');
-    if (modeToggle) {
-      modeToggle.addEventListener('change', () => {
-        this.deps_.toggleTelescopeMode?.();
-      });
-    }
-
-    // Telescope diameter
-    const diameterInput = document.getElementById('telescope-diameter');
-    if (diameterInput) {
-      diameterInput.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        if (!isNaN(value) && value > 0) {
-          this.deps_.setTelescope?.({diameter: value});
-        }
-      });
-    }
-
-    // Telescope focal length
-    const focalLengthInput = document.getElementById('telescope-focal-length');
-    if (focalLengthInput) {
-      focalLengthInput.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        if (!isNaN(value) && value > 0) {
-          this.deps_.setTelescope?.({focalLength: value});
-        }
-      });
-    }
-
-    // Eyepiece focal length
-    const eyepieceFLInput = document.getElementById('eyepiece-focal-length');
-    if (eyepieceFLInput) {
-      eyepieceFLInput.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        if (!isNaN(value) && value > 0) {
-          this.deps_.setEyepiece?.({focalLength: value});
-        }
-      });
-    }
-
-    // Eyepiece apparent FOV
-    const eyepieceAFOVInput = document.getElementById('eyepiece-afov');
-    if (eyepieceAFOVInput) {
-      eyepieceAFOVInput.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        if (!isNaN(value) && value > 0) {
-          this.deps_.setEyepiece?.({apparentFov: value});
-        }
-      });
-    }
-
-    // Preset selector
-    const presetSelect = document.getElementById('telescope-preset-select');
-    if (presetSelect) {
-      presetSelect.addEventListener('change', (e) => {
-        const name = e.target.value;
-        if (name) {
-          this.deps_.loadPreset?.(name);
-          this.loadCurrentValues_();
-        }
-      });
-    }
-
-    // Save preset button
-    const saveBtn = document.getElementById('telescope-save-preset-btn');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', () => {
-        const name = prompt('Enter preset name:');
-        if (!name) return;
-
-        // Validate and sanitize the name
-        const validation = validatePresetName(name);
-        if (!validation.valid) {
-          alert(validation.error);
-          return;
-        }
-
-        const sanitizedName = validation.sanitized;
-
-        // Check if preset already exists
-        const existingPresets = this.deps_.getPresetNames?.() || [];
-        if (existingPresets.includes(sanitizedName)) {
-          if (!confirm(`Preset "${sanitizedName}" already exists. Overwrite?`)) {
-            return;
-          }
-        }
-
-        this.deps_.savePreset?.(sanitizedName);
-        this.populatePresets_();
-        // Select the newly saved preset
-        const select = document.getElementById('telescope-preset-select');
-        if (select) select.value = sanitizedName;
-      });
-    }
-
-    // Delete preset button
-    const deleteBtn = document.getElementById('telescope-delete-preset-btn');
-    if (deleteBtn) {
-      deleteBtn.addEventListener('click', () => {
-        const select = document.getElementById('telescope-preset-select');
-        const name = select?.value;
-        if (name && confirm(`Delete preset "${name}"?`)) {
-          this.deps_.deletePreset?.(name);
-          this.populatePresets_();
-        }
-      });
-    }
-  }
-
-  /**
-   * Sets up EventBus listeners.
-   * @private
-   */
-  setupEventBusListeners_() {
-    globalEventBus.on(Events.TELESCOPE_COMPUTED, () => {
-      this.updateComputedDisplay_();
-    });
-
-    globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, () => {
-      const toggle = document.getElementById('telescope-mode-toggle');
-      if (toggle) toggle.checked = true;
-
-      // Show reticle
-      const reticle = document.getElementById('telescope-reticle');
-      if (reticle) reticle.classList.add('visible');
-
-      // Add vignette effect
-      document.body.classList.add('telescope-mode');
-    });
-
-    globalEventBus.on(Events.TELESCOPE_MODE_DEACTIVATED, () => {
-      const toggle = document.getElementById('telescope-mode-toggle');
-      if (toggle) toggle.checked = false;
-
-      // Hide reticle
-      const reticle = document.getElementById('telescope-reticle');
-      if (reticle) reticle.classList.remove('visible');
-
-      // Remove vignette effect
-      document.body.classList.remove('telescope-mode');
-    });
-  }
-}
+// TelescopeSettingsHandler has been moved to modules/features/TelescopeUI.js
 
 /**
  * Info Badge Updater - periodically updates the info badge display.
@@ -1077,20 +555,20 @@ export class UIController {
     /** @private {?SettingsHandler} */
     this.settingsHandler_ = null;
 
-    /** @private {?TimeControlsHandler} */
-    this.timeControlsHandler_ = null;
+    /** @private {?TimeUI} */
+    this.timeUI_ = null;
 
-    /** @private {?GameControlsHandler} */
-    this.gameControlsHandler_ = null;
+    /** @private {?GameUI} */
+    this.gameUI_ = null;
 
-    /** @private {?TourButtonsHandler} */
-    this.tourButtonsHandler_ = null;
+    /** @private {?TourUI} */
+    this.tourUI_ = null;
 
     /** @private {?InfoBadgeUpdater} */
     this.infoBadgeUpdater_ = null;
 
-    /** @private {?TelescopeSettingsHandler} */
-    this.telescopeSettingsHandler_ = null;
+    /** @private {?TelescopeUI} */
+    this.telescopeUI_ = null;
   }
 
   /**
@@ -1120,40 +598,44 @@ export class UIController {
     });
     this.settingsHandler_.initialize();
 
-    this.timeControlsHandler_ = new TimeControlsHandler({
+    this.timeUI_ = new TimeUI({
       setTimeSpeed: this.deps_.setTimeSpeed,
       togglePlayback: this.deps_.togglePlayback,
       jumpToTime: this.deps_.jumpToTime,
+      getSimulationTime: this.deps_.getSimulationTime,
     });
-    this.timeControlsHandler_.initialize();
+    this.timeUI_.initialize();
 
-    this.gameControlsHandler_ = new GameControlsHandler({
+    this.gameUI_ = new GameUI({
       startGame: this.deps_.startGame,
       passQuestion: this.deps_.passQuestion,
       stopGame: this.deps_.stopGame,
     });
-    this.gameControlsHandler_.initialize();
+    this.gameUI_.initialize();
 
-    this.tourButtonsHandler_ = new TourButtonsHandler({
+    this.tourUI_ = new TourUI({
       startTour: this.deps_.startTour,
+      nextStep: this.deps_.nextTourStep,
+      prevStep: this.deps_.prevTourStep,
+      stopTour: this.deps_.stopTour,
       panelManager: this.panelManager_,
     });
-    this.tourButtonsHandler_.initialize();
+    this.tourUI_.initialize();
 
-    this.telescopeSettingsHandler_ = new TelescopeSettingsHandler({
+    this.telescopeUI_ = new TelescopeUI({
       getTelescope: this.deps_.getTelescope,
       setTelescope: this.deps_.setTelescope,
       getEyepiece: this.deps_.getEyepiece,
       setEyepiece: this.deps_.setEyepiece,
-      toggleTelescopeMode: this.deps_.toggleTelescopeMode,
-      isTelescopeModeActive: this.deps_.isTelescopeModeActive,
+      toggleMode: this.deps_.toggleTelescopeMode,
+      isActive: this.deps_.isTelescopeModeActive,
       savePreset: this.deps_.saveTelescopePreset,
       loadPreset: this.deps_.loadTelescopePreset,
       deletePreset: this.deps_.deleteTelescopePreset,
       getPresetNames: this.deps_.getTelescopePresetNames,
       getComputedProperties: this.deps_.getTelescopeComputedProperties,
     });
-    this.telescopeSettingsHandler_.initialize();
+    this.telescopeUI_.initialize();
 
     this.infoBadgeUpdater_ = new InfoBadgeUpdater({
       getFOV: this.deps_.getFOV,

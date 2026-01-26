@@ -11,6 +11,9 @@
  * - Moon effect: https://skyandtelescope.org/astronomy-resources/astronomy-questions-answers/how-does-the-moons-phase-affect-the-skyglow-of-any-given-location-and-how-many-days-before-or-after-a-new-moon-is-a-dark-site-not-compromised/
  */
 
+import {globalEventBus, Events} from '../core/EventBus.js';
+import {astronomyCalculator} from '../core/AstronomyCalculator.js';
+
 /**
  * Moon phase threshold constants.
  * Each phase spans 1/8 of the cycle (0.125), boundaries are at midpoints.
@@ -66,6 +69,15 @@ export class SkyConditionsHandler {
     /** @private {?Array} Cached reference to planets array for invalidation check */
     this.cachedPlanetsRef_ = null;
 
+    /** @private {!Date} Current simulation time from EventBus */
+    this.simulationTime_ = new Date();
+
+    /** @private {{lat: number, lon: number}} Observer location from EventBus */
+    this.observerLocation_ = {lat: 45, lon: 0};
+
+    /** @private {!Array<{unsubscribe: function(): void}>} EventBus subscriptions */
+    this.subscriptions_ = [];
+
     this.loadFromStorage_();
   }
 
@@ -83,6 +95,33 @@ export class SkyConditionsHandler {
    */
   notifyChange_() {
     this.changeCallbacks_.forEach((cb) => cb());
+  }
+
+  /**
+   * Set up EventBus subscriptions for time, location, and planet updates.
+   * @private
+   */
+  setupEventSubscriptions_() {
+    this.subscriptions_.push(
+      globalEventBus.on(Events.TIME_CHANGED, (data) => {
+        this.simulationTime_ = data.time;
+      }),
+      globalEventBus.on(Events.LOCATION_CHANGED, (data) => {
+        this.observerLocation_ = {
+          lat: data.location.lat,
+          lon: data.location.lon,
+        };
+      }),
+      globalEventBus.on(Events.PLANETS_UPDATED, (data) => {
+        if (data.moon) {
+          this.cachedMoonData_ = data.moon;
+          this.moonPhase_ = data.moon.phase || 0;
+          this.moonAltitude_ = astronomyCalculator.calculateAltitude(
+            data.moon.ra, data.moon.dec, this.simulationTime_
+          );
+        }
+      })
+    );
   }
 
   /**
@@ -152,36 +191,16 @@ export class SkyConditionsHandler {
   }
 
   /**
-   * Update moon position from app data.
-   * Uses the actual rendered moon position from app.planets for consistency.
+   * Update moon position from cached data.
+   * Moon data is updated via PLANETS_UPDATED event from EventBus.
+   * Uses estimate as fallback if no data available yet.
    * @private
    */
   updateMoonData_() {
-    if (typeof window === 'undefined' || !window.app) return;
-
-    const app = window.app;
-    const simTime = app.simulationTime || new Date();
-
-    // Use cached moon reference, or find and cache it
-    // Invalidate cache if planets array reference changed (O(1) check vs O(n) includes)
-    if (!this.cachedMoonData_ || this.cachedPlanetsRef_ !== app.planets) {
-      this.cachedMoonData_ = app.planets?.find((p) => p.name === 'Moon') || null;
-      this.cachedPlanetsRef_ = app.planets;
-    }
-    const moonData = this.cachedMoonData_;
-
-    if (moonData) {
-      // Use the phase from the rendered moon
-      this.moonPhase_ = moonData.phase || 0;
-
-      // Calculate altitude using the app's method with actual moon RA/Dec
-      const lat = app.observerLocation?.lat || 0;
-      const lon = app.observerLocation?.lon || 0;
-      const lst = app.calculateLST(simTime, lon);
-      this.moonAltitude_ = app.calculateAltitude(moonData.ra, moonData.dec, lat, lst);
-    } else {
-      // Fallback if moon data not available yet
-      this.estimateMoonPhase_(simTime);
+    // Moon data is now updated via PLANETS_UPDATED event
+    // Use estimate as fallback if no data available yet
+    if (this.cachedMoonData_ === null) {
+      this.estimateMoonPhase_(this.simulationTime_);
     }
   }
 
@@ -315,6 +334,9 @@ export class SkyConditionsHandler {
 
   /** Sets up event listeners. */
   setupEventListeners() {
+    // Set up EventBus subscriptions
+    this.setupEventSubscriptions_();
+
     // Light pollution selector
     const select = document.getElementById('light-pollution-select');
     if (select) {
@@ -337,11 +359,14 @@ export class SkyConditionsHandler {
     }, 30000);
   }
 
-  /** Stop the update interval. */
+  /** Stop the update interval and clean up subscriptions. */
   dispose() {
     if (this.updateInterval_) {
       clearInterval(this.updateInterval_);
       this.updateInterval_ = null;
     }
+    // Clean up EventBus subscriptions
+    this.subscriptions_.forEach((sub) => sub.unsubscribe());
+    this.subscriptions_ = [];
   }
 }
