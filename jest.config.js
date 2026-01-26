@@ -5,6 +5,9 @@ export default {
   moduleFileExtensions: ['js'],
   transform: {},
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+  moduleNameMapper: {
+    '^three$': '<rootDir>/__mocks__/three.js',
+  },
   collectCoverageFrom: [
     'modules/**/*.js',
     '!modules/data/CuratedImages.js',

@@ -60,6 +60,7 @@ import {locationManager} from './modules/services/LocationManager.js';
 import {CompassController} from './modules/interaction/CompassController.js';
 import {DynamicObjectManager} from './modules/rendering/DynamicObjectManager.js';
 import {initializeInputController} from './modules/interaction/InputController.js';
+import {initializeClickHandler} from './modules/interaction/ClickHandler.js';
 import {PowerManager} from './modules/core/PowerManager.js';
 import {globalEventBus, Events} from './modules/core/EventBus.js';
 import {
@@ -68,7 +69,6 @@ import {
   calculateLST,
   formatAngle,
 } from './modules/core/CoordinateUtils.js';
-import {getDsoTypeName} from './modules/core/TypeMappings.js';
 import {CAMERA} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
 import {dataLoader} from './modules/services/DataLoader.js';
@@ -116,6 +116,7 @@ export class SkyMapApp {
     this.extendedObjectRenderer_ = null;
     this.powerManager_ = null;
     this.inputController_ = null;
+    this.clickHandler_ = null;
 
     // Data
     this.stars = [];
@@ -148,8 +149,7 @@ export class SkyMapApp {
 
     // Time simulation (state managed by TimeController)
 
-    // Search (selection state managed by SelectionManager)
-    this.searchIndex = [];
+    // Search (state managed by SearchManager)
 
     // Tours and education (tour state managed by TourController)
     this.tourHighlightModule_ = null;  // TourHighlight module instance
@@ -574,7 +574,33 @@ export class SkyMapApp {
       onDragEnd: () => {
         // Could add inertia handling here if needed
       },
-      onClick: (coords) => this.handleClick_(coords.x, coords.y),
+      onClick: (coords) => this.clickHandler_?.handleClick(coords.x, coords.y),
+    });
+  }
+
+  /**
+   * Initialize the ClickHandler module for celestial object selection.
+   * Must be called after renderer, camera, and celestial objects are ready.
+   * @private
+   */
+  initClickHandler_() {
+    this.clickHandler_ = initializeClickHandler({
+      camera: this.camera,
+      renderer: this.renderer,
+      getCelestialSphere: () => this.celestialSphere,
+      getStarField: () => this.starField,
+      getPlanetSprites: () => this.planetSprites || [],
+      getExtendedObjectSprites: () => this.extendedObjectSprites || [],
+      getConstellationLinesGroup: () => this.constellationLinesGroup,
+      getDynamicObjectManager: () => this.dynamicObjectManager_,
+      isConstellationLinesVisible: () => this.showConstellationLines,
+      isGameActive: () => this.isGameActive(),
+      checkGameAnswer: (obj) => this.checkGameAnswer(obj),
+      checkGameAnswerByName: (name) => this.checkGameAnswerByName(name),
+      selectObject: (obj) => this.selectObject(obj),
+      showConstellationInfo: (name) => this.showConstellationInfo(name),
+      unhighlightConstellation: () => this.unhighlightConstellation(),
+      getConstellationName: (key) => this.getConstellationName(key),
     });
   }
 
@@ -648,36 +674,39 @@ export class SkyMapApp {
       this.requestRender();
     });
 
-    // Game commands
+    // Game commands - delegate directly to GameController
     globalEventBus.on(Events.CMD_START_GAME, () => {
-      this.startGame();
+      if (!this.gameController_) return;
+      const category = this.gameController_.getCategory() || 'known-constellations';
+      this.gameController_.setCategory(category);
+      this.gameController_.start();
     });
 
     globalEventBus.on(Events.CMD_STOP_GAME, () => {
-      this.stopGame();
+      this.gameController_?.stop();
     });
 
     globalEventBus.on(Events.CMD_PASS_QUESTION, () => {
-      this.passQuestion();
+      this.gameController_?.passQuestion();
     });
 
-    // Tour commands
+    // Tour commands - delegate directly to TourController
     globalEventBus.on(Events.CMD_START_TOUR, (data) => {
       if (data?.tourName) {
-        this.startTour(data.tourName);
+        this.tourController_.start(data.tourName);
       }
     });
 
     globalEventBus.on(Events.CMD_NEXT_TOUR_STEP, () => {
-      this.nextTourStep();
+      this.tourController_.next();
     });
 
     globalEventBus.on(Events.CMD_PREV_TOUR_STEP, () => {
-      this.previousTourStep();
+      this.tourController_.previous();
     });
 
     globalEventBus.on(Events.CMD_STOP_TOUR, () => {
-      this.endTour();
+      this.tourController_.stop();
     });
 
     // Location commands
@@ -700,7 +729,7 @@ export class SkyMapApp {
         );
         // Update all sky elements for new location
         this.updateLatitudeTilt();
-        this.updateCelestialRotation();
+        this.timeController_.refreshCelestialRotation();
         this.createPlanets();
         // Update horizon renderer if needed
         this.horizonRenderer_?.updateForLocation?.(this.observerLocation.lat);
@@ -796,7 +825,7 @@ export class SkyMapApp {
       this.buildSearchIndex();
 
       // Set initial celestial rotation based on current time and location
-      this.updateCelestialRotation();
+      this.timeController_.refreshCelestialRotation();
 
       // Update time display to show current time (instead of "Loading...")
       this.updateSimulationTime(0);
@@ -813,6 +842,9 @@ export class SkyMapApp {
 
       // Initialize InputController for mouse/touch handling
       this.initInputController_();
+
+      // Initialize ClickHandler for celestial object selection
+      this.initClickHandler_();
 
       // Initialize PowerManager module for power-saving features
       this.initPowerManager_();
@@ -998,14 +1030,14 @@ export class SkyMapApp {
    * Create planet sprites for Sun, Moon, and planets.
    * Delegates to PlanetRenderer module.
    * Note: this.planets and this.planetSprites are kept as references
-   * for click handling in handleClick_() and for other modules.
+   * for click handling in ClickHandler module and for other modules.
    */
   createPlanets() {
     this.planetRenderer_.create();
     this.planets = this.planetRenderer_.getPlanets();
     this.planetSprites = this.planetRenderer_.getSprites();
     // Update search index with new planet positions
-    this.updateSearchIndexPlanets_();
+    this.searchManager_?.updatePlanets(this.planets);
     // Mark FOV dirty to trigger updatePlanetSizes() on next frame
     this._fovDirty = true;
     // Emit event for subscribers (e.g., SkyConditionsHandler)
@@ -1030,37 +1062,12 @@ export class SkyMapApp {
     this.planetRenderer_?.updatePositions();
 
     // Update search index
-    this.updateSearchIndexPlanets_();
+    this.searchManager_?.updatePlanets(this.planets);
 
     // Emit event for subscribers (e.g., SkyConditionsHandler)
     globalEventBus.emit(Events.PLANETS_UPDATED, {
       planets: this.planets,
       moon: this.planetRenderer_.getPlanetByName('Moon'),
-    });
-  }
-
-  /**
-   * Update planet entries in the search index with current positions.
-   * Called after createPlanets() to keep search results in sync.
-   * @private
-   */
-  updateSearchIndexPlanets_() {
-    if (!this.searchIndex || !this.planets) return;
-
-    // Remove old planet entries from search index
-    this.searchIndex = this.searchIndex.filter(entry => entry.type !== 'Planet');
-
-    // Add updated planet entries
-    this.planets.forEach(planet => {
-      this.searchIndex.push({
-        name: planet.name,
-        type: 'Planet',
-        ra: planet.ra,
-        dec: planet.dec,
-        mag: planet.mag,
-        angularSize: planet.angularSize,
-        data: planet,
-      });
     });
   }
 
@@ -1103,6 +1110,9 @@ export class SkyMapApp {
         this.dynamicObjectManager_?.checkLoading();
       }, 500);
     }
+
+    // Request render to show the change
+    this.requestRender();
   }
 
   updateCameraPosition() {
@@ -1187,47 +1197,21 @@ export class SkyMapApp {
 
   /**
    * Check and request location permission on startup.
-   * Delegates to LocationManager module.
+   * Delegates to LocationManager module. Location changes are handled via
+   * LOCATION_CHANGED EventBus listener in setupCommandListeners_().
    */
   async requestLocation() {
-    locationManager.requestLocationOnStartup(() => {
-      this.onLocationChanged_();
-    });
+    locationManager.requestLocationOnStartup();
   }
 
   /**
    * Request geolocation from the device.
    * Called by ui-controller.js when user clicks location button.
-   * Delegates to LocationManager module.
+   * Delegates to LocationManager module. Location changes are handled via
+   * LOCATION_CHANGED EventBus listener in setupCommandListeners_().
    */
   requestGeolocation() {
-    // Set up callback before requesting
-    locationManager.onLocationGrantedCallback_ = () => {
-      this.onLocationChanged_();
-    };
     locationManager.requestGeolocationInteractive();
-  }
-
-  /**
-   * Handle location change from LocationManager.
-   * Updates sky display for new observer location.
-   * @deprecated Use EventBus LOCATION_CHANGED listener instead
-   * @private
-   */
-  onLocationChanged_() {
-    // Note: This is now handled by the LOCATION_CHANGED EventBus listener
-    // in setupCommandListeners_(), but kept for backwards compatibility
-    // with the callback-based approach in requestGeolocation()
-    this.observerLocation = locationManager.getLocation();
-    astronomyCalculator.setObserverLocation(
-      this.observerLocation.lat,
-      this.observerLocation.lon,
-      this.observerLocation.height
-    );
-    this.updateLatitudeTilt();
-    this.updateCelestialRotation();
-    this.createPlanets();
-    this.requestRender();
   }
 
   /* ======================================================================
@@ -1453,24 +1437,6 @@ export class SkyMapApp {
     this.requestRender();
   }
 
-  // Calculate Local Sidereal Time and set celestial sphere rotation
-  updateCelestialRotation() {
-    if (!this.celestialSphere) return;
-
-    const simTime = this.timeController_.getTime();
-    const lst = calculateLST(simTime, this.observerLocation?.lon || 0);
-
-    // LST is the Right Ascension currently on the meridian (due south)
-    // In our coordinate system:
-    // - RA=0° is along +X axis
-    // - RA=90° is along -Z axis (which is "forward" in Three.js)
-    // - The meridian (due south) is the -Z direction
-    // To place RA=LST on the meridian, we need:
-    // rotation.y = 90° - LST (in degrees), then convert to radians
-    const lstRad = THREE.MathUtils.degToRad(lst);
-    this.celestialSphere.rotation.y = Math.PI / 2 - lstRad;
-  }
-
   // Feature 9: Atmosphere Rendering (simplified)
   updateAtmosphere() {
     // If force night mode is enabled, always show night sky
@@ -1530,14 +1496,6 @@ export class SkyMapApp {
      ====================================================================== */
 
   /**
-   * Start a guided tour of celestial objects
-   * @param {string} tourName - Name of the tour to start
-   */
-  startTour(tourName) {
-    this.tourController_.start(tourName);
-  }
-
-  /**
    * Get available tours.
    * @returns {!Object<string, !Object>} Available tours
    */
@@ -1595,19 +1553,6 @@ export class SkyMapApp {
     });
   }
 
-  nextTourStep() {
-    this.tourController_.next();
-  }
-
-  previousTourStep() {
-    this.tourController_.previous();
-  }
-
-  endTour() {
-    // Fully delegated to TourController (TourUI handles panel hiding via TOUR_ENDED event)
-    this.tourController_.stop();
-  }
-
   /**
    * Show a pulsing highlight ring around the current tour object.
    * Delegates to TourHighlight module.
@@ -1653,35 +1598,11 @@ export class SkyMapApp {
 
   /**
    * Set up UI event listeners (input handled by InputController).
+   * Note: Most UI handlers are in UIController module. This method only sets up
+   * handlers that need direct access to skymap internals.
    */
   setupEventListeners() {
-    // UI controls - use optional chaining for elements that may not exist
-    const magSlider = domCache.magnitudeSlider;
-    if (magSlider) {
-      magSlider.addEventListener('input', (e) => {
-        this.currentMagnitude = parseFloat(e.target.value);
-        const magVal = domCache.magValue;
-        if (magVal) magVal.textContent = this.currentMagnitude.toFixed(1);
-        this.setMagnitudeLimit(this.currentMagnitude);
-        this.requestRender();
-      });
-    }
-
-    // Max dynamic objects setting (stars + DSOs)
-    const maxDynamicSlider = domCache.get('max-dynamic-stars');
-    if (maxDynamicSlider) {
-      maxDynamicSlider.addEventListener('input', (e) => {
-        const maxStars = parseInt(e.target.value);
-        // DSOs limit is ~1/6 of stars limit
-        const maxDSOs = Math.max(1000, Math.floor(maxStars / 6));
-        this.dynamicObjectManager_?.setLimits(maxStars, maxDSOs);
-        const valueEl = domCache.get('max-dynamic-stars-value');
-        if (valueEl) {
-          valueEl.textContent = (maxStars / 1000).toFixed(0) + 'K';
-        }
-      });
-    }
-
+    // Difficulty select (game-related, not in UIController)
     const difficultySelect = domCache.get('difficulty-select');
     if (difficultySelect) {
       difficultySelect.addEventListener('change', (e) => {
@@ -1690,17 +1611,10 @@ export class SkyMapApp {
       });
     }
 
-    const setLocationBtn = domCache.get('set-location-btn');
-    if (setLocationBtn) {
-      setLocationBtn.addEventListener('click', () => {
-        this.setObserverLocation();
-      });
-    }
-
+    // Start game button (shows game selection modal)
     const startGameBtn = domCache.get('start-game-btn');
     if (startGameBtn) {
       startGameBtn.addEventListener('click', () => {
-        // Show game selection modal
         const modal = domCache.gameSelectModal;
         if (modal) {
           modal.classList.add('visible');
@@ -1718,7 +1632,7 @@ export class SkyMapApp {
           if (category && this.gameController_) {
             this.gameController_.setCategory(category);
             gameModal.classList.remove('visible');
-            this.startGame();
+            this.gameController_.start();
           }
         });
       });
@@ -1739,312 +1653,12 @@ export class SkyMapApp {
       });
     }
 
-    // Note: stopGameBtn and passBtn listeners are handled by GameUI module
-    // to avoid duplicate event handlers
-
-    const resetViewBtn = domCache.get('reset-view-btn');
-    if (resetViewBtn) {
-      resetViewBtn.addEventListener('click', () => {
-        this.resetView();
-      });
-    }
-
-    // Constellation lines toggle
-    const constellationToggle = domCache.get('constellation-lines-toggle');
-    if (constellationToggle) {
-      // Sync checkbox with actual state
-      constellationToggle.checked = this.showConstellationLines;
-
-      // Make sure lines are visible if they should be
-      if (this.constellationLinesGroup) {
-        this.constellationLinesGroup.visible = this.showConstellationLines;
-      }
-
-      constellationToggle.addEventListener('change', (e) => {
-        this.showConstellationLines = e.target.checked;
-        if (this.constellationLinesGroup) {
-          this.constellationLinesGroup.visible = this.showConstellationLines;
-        }
-        console.log('Constellation lines:', this.showConstellationLines ? 'visible' : 'hidden');
-        this.requestRender();
-      });
-    }
-
     // Window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
 
     // Note: GameUI is initialized by UIController in main.js
-    // Do not create duplicate GameUI here to avoid multiple event handlers
-  }
-
-  /**
-   * Handle click/tap at normalized device coordinates.
-   * Called by InputController when a click (not drag) is detected.
-   * @param {number} x - X coordinate in NDC (-1 to 1)
-   * @param {number} y - Y coordinate in NDC (-1 to 1)
-   * @private
-   */
-  handleClick_(x, y) {
-    // Raycasting to detect clicked star
-    const mouse = new THREE.Vector2(x, y);
-
-    const raycaster = new THREE.Raycaster();
-    // Larger threshold for easier clicking, scaled by FOV
-    raycaster.params.Points.threshold = 5 * (this.camera.fov / 60);
-    raycaster.setFromCamera(mouse, this.camera);
-
-    // First check for planet/sun clicks using angular distance
-    // This is more reliable than raycaster for sprites in a rotated group
-    if (this.planetSprites && this.planetSprites.length > 0) {
-      // Get the RA/Dec of the click point
-      const clickDir = new THREE.Vector3();
-      raycaster.ray.direction.normalize();
-      clickDir.copy(raycaster.ray.direction);
-
-      // Transform click direction to celestial coordinates
-      const clickDirCelestial = clickDir.clone();
-      if (this.celestialSphere) {
-        const inverseMatrix = new THREE.Matrix4().copy(this.celestialSphere.matrixWorld).invert();
-        const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-        clickDirCelestial.applyMatrix3(rotationMatrix);
-      }
-
-      const clickRaDec = cartesianToRaDec(clickDirCelestial.x, clickDirCelestial.y, clickDirCelestial.z);
-
-      // Check each planet for proximity
-      // Use individual thresholds based on planet's visual size
-      let closestPlanet = null;
-      let closestDistance = Infinity;
-
-      for (const sprite of this.planetSprites) {
-        const planetData = sprite.userData;
-        if (!planetData || !planetData.ra) continue;
-
-        // Calculate angular distance
-        const dRa = (planetData.ra - clickRaDec.ra) * Math.cos(THREE.MathUtils.degToRad(planetData.dec));
-        const dDec = planetData.dec - clickRaDec.dec;
-        const angularDist = Math.sqrt(dRa * dRa + dDec * dDec);
-
-        // Calculate click threshold based on displayed size
-        const angularSizeDeg = (planetData.angularSize || 0.1) / 60; // arcmin to degrees
-        const fov = this.camera.fov;
-        const canvasHeight = this.renderer.domElement.height;
-        const pixelsPerDeg = canvasHeight / fov;
-
-        // Calculate displayed size in pixels (must match updatePlanetSizes)
-        const realSizePixels = angularSizeDeg * pixelsPerDeg;
-        // Use magnitude-based size like stars
-        const mag = planetData.mag || 0;
-        const baseMag = 8;
-        const baseSize = 0.8;
-        const maxSize = 6;
-        const magnitudeDiff = baseMag - mag;
-        const magBasedSize = clamp(baseSize * Math.pow(1.15, magnitudeDiff), baseSize, maxSize);
-        const magBasedPixels = magBasedSize * 1.5;
-        const displaySizePixels = Math.max(realSizePixels, magBasedPixels);
-
-        // Click threshold based on actual displayed size with generous margin
-        const visibleSizeDeg = displaySizePixels / pixelsPerDeg;
-        const clickThreshold = visibleSizeDeg * 2.0;  // 100% margin for easier clicking
-
-        if (angularDist < clickThreshold && angularDist < closestDistance) {
-          closestDistance = angularDist;
-          closestPlanet = planetData;
-        }
-      }
-
-      if (closestPlanet) {
-        const clickedObject = {
-          name: closestPlanet.name,
-          type: closestPlanet.type || 'Planet',
-          subtype: closestPlanet.name === 'Sun' ? 'Star (G2V)' : (closestPlanet.name === 'Moon' ? 'Natural Satellite' : 'Planet'),
-          ra: closestPlanet.ra,
-          dec: closestPlanet.dec,
-          mag: closestPlanet.mag,
-          angularSize: closestPlanet.angularSize,
-          phase: closestPlanet.phase
-        };
-        console.log('Clicked planet:', clickedObject.name, 'at distance', closestDistance.toFixed(2), 'deg');
-        this.unhighlightConstellation();
-        if (this.isGameActive()) {
-          this.checkGameAnswer({ ra: closestPlanet.ra, dec: closestPlanet.dec });
-        } else {
-          this.selectObject(clickedObject);
-        }
-        return;
-      }
-    }
-
-    // Then check for star/DSO clicks - check both main and dynamic star fields
-    let clickedObject = null;
-
-    // Check main star field
-    const intersects = raycaster.intersectObject(this.starField);
-    if (intersects.length > 0) {
-      const index = intersects[0].index;
-      const stars = this.starField.userData.stars;
-      const dsos = this.starField.userData.dsos;
-
-      if (index < stars.length) {
-        const star = stars[index];
-        clickedObject = {
-          name: star.proper || star.bf || `HIP ${star.hip}` || 'Unknown Star',
-          type: 'Star',
-          subtype: star.spect ? `Spectral type ${star.spect}` : null,
-          ra: star.ra,
-          dec: star.dec,
-          mag: star.mag,
-          distance: star.dist ? `${star.dist.toFixed(1)} ly` : null,
-          angularSize: null
-        };
-      } else {
-        const dsoIndex = index - stars.length;
-        if (dsoIndex < dsos.length) {
-          const dso = dsos[dsoIndex];
-          clickedObject = {
-            name: dso.messier ? `M${Math.floor(dso.messier)}` : (dso.ngc ? `NGC ${dso.ngc}` : dso.name || 'Unknown Object'),
-            type: getDsoTypeName(dso.type),
-            subtype: dso.type,
-            ra: dso.ra,
-            dec: dso.dec,
-            mag: dso.mag,
-            size_major: dso.size_major,
-            size_minor: dso.size_minor
-          };
-        }
-      }
-    }
-
-    // Check dynamic star field if no main star was clicked
-    const dynamicStarField = this.dynamicObjectManager_?.getDynamicStarField();
-    if (!clickedObject && dynamicStarField) {
-      const dynamicIntersects = raycaster.intersectObject(dynamicStarField);
-      if (dynamicIntersects.length > 0) {
-        const visibleIndex = dynamicIntersects[0].index;
-        // Map visible index back to original dynamicStars array
-        const visibleIndices = this.dynamicObjectManager_.getVisibleIndices();
-        const dynamicStars = this.dynamicObjectManager_.getDynamicStars();
-        const originalIndex = visibleIndices
-          ? visibleIndices[visibleIndex]
-          : visibleIndex;
-
-        if (originalIndex !== undefined && originalIndex < dynamicStars.length) {
-          const star = dynamicStars[originalIndex];
-          clickedObject = {
-            name: `Star at RA ${star.ra.toFixed(4)}°`,
-            type: 'Star',
-            subtype: 'Catalog star (VizieR)',
-            ra: star.ra,
-            dec: star.dec,
-            mag: star.mag,
-            angularSize: null
-          };
-        }
-      }
-    }
-
-    // Check extended object sprites (DSO halos) if no other object was clicked
-    if (!clickedObject && this.extendedObjectSprites && this.extendedObjectSprites.length > 0) {
-      const clickDirCelestial = raycaster.ray.direction.clone();
-      if (this.celestialSphere) {
-        const inverseMatrix = new THREE.Matrix4().copy(this.celestialSphere.matrixWorld).invert();
-        const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-        clickDirCelestial.applyMatrix3(rotationMatrix);
-      }
-      const clickRaDec = cartesianToRaDec(clickDirCelestial.x, clickDirCelestial.y, clickDirCelestial.z);
-
-      let closestDSO = null;
-      let closestDistance = Infinity;
-
-      for (const sprite of this.extendedObjectSprites) {
-        const dsoData = sprite.userData?.dso;
-        if (!dsoData || !dsoData.ra) continue;
-
-        const dRa = (dsoData.ra - clickRaDec.ra) * Math.cos(THREE.MathUtils.degToRad(dsoData.dec));
-        const dDec = dsoData.dec - clickRaDec.dec;
-        const angularDist = Math.sqrt(dRa * dRa + dDec * dDec);
-
-        // Calculate click threshold based on displayed size
-        const angularSizeDeg = (sprite.userData.angularSizeArcmin || 1) / 60;
-        const fov = this.camera.fov;
-        const canvasHeight = this.renderer.domElement.height;
-        const pixelsPerDeg = canvasHeight / fov;
-        const realSizePixels = angularSizeDeg * pixelsPerDeg;
-        const minSizePixels = 6;
-
-        let clickThreshold;
-        if (realSizePixels >= minSizePixels) {
-          clickThreshold = angularSizeDeg * 1.2;
-        } else {
-          const visibleSizeDeg = (minSizePixels / pixelsPerDeg);
-          clickThreshold = visibleSizeDeg * 1.5;
-        }
-
-        if (angularDist < clickThreshold && angularDist < closestDistance) {
-          closestDistance = angularDist;
-          closestDSO = dsoData;
-        }
-      }
-
-      if (closestDSO) {
-        clickedObject = {
-          name: closestDSO.name || `DSO at RA ${closestDSO.ra.toFixed(2)}°`,
-          type: getDsoTypeName(closestDSO.type),
-          subtype: closestDSO.type,
-          ra: closestDSO.ra,
-          dec: closestDSO.dec,
-          mag: closestDSO.mag,
-          size_major: closestDSO.size_major,
-          size_minor: closestDSO.size_minor
-        };
-      }
-    }
-
-    if (clickedObject) {
-      console.log('Clicked object:', clickedObject.name);
-      this.unhighlightConstellation();
-      if (this.isGameActive()) {
-        this.checkGameAnswer({ ra: clickedObject.ra, dec: clickedObject.dec });
-      } else {
-        this.selectObject(clickedObject);
-      }
-      return;
-    }
-
-    // Check for constellation line clicks (only if no other object was clicked)
-    if (this.constellationLinesGroup && this.showConstellationLines) {
-      // Set line threshold based on FOV for better click detection
-      raycaster.params.Line = { threshold: 0.5 * (this.camera.fov / 60) };
-
-      const lineIntersects = raycaster.intersectObjects(
-          this.constellationLinesGroup.children,
-          false,
-      );
-
-      if (lineIntersects.length > 0) {
-        const clickedLine = lineIntersects[0].object;
-        // userData.constellation contains the internal key (e.g., "UrsaMajor")
-        const constInternalKey = clickedLine.userData.constellation;
-        if (constInternalKey) {
-          const constDisplayName = this.getConstellationName(constInternalKey);
-          console.log('Clicked constellation line:', constDisplayName);
-          if (this.isGameActive()) {
-            // During game mode, check if this constellation is the answer
-            // Pass internal key for matching, not display name
-            this.checkGameAnswerByName(constInternalKey);
-          } else {
-            this.showConstellationInfo(constInternalKey);
-          }
-          return;
-        }
-      } else if (!this.isGameActive()) {
-        // Clicked on empty space - unhighlight any selected constellation
-        this.unhighlightConstellation();
-      }
-    } else if (!this.isGameActive()) {
-      // Constellation lines not shown - still unhighlight on empty click
-      this.unhighlightConstellation();
-    }
+    // Note: Magnitude slider, dynamic stars slider, location button, reset view,
+    // and constellation toggle are handled by UIController module
   }
 
   onWindowResize() {
@@ -2095,7 +1709,7 @@ export class SkyMapApp {
 
       // Update sky tilt and rotation based on new location
       this.updateLatitudeTilt();
-      this.updateCelestialRotation();
+      this.timeController_.refreshCelestialRotation();
       // Recalculate planet positions with new observer location
       this.createPlanets();
 
@@ -2151,40 +1765,11 @@ export class SkyMapApp {
      ====================================================================== */
 
   /**
-   * Start the object identification game.
-   * Delegates to GameController module.
-   */
-  startGame() {
-    if (!this.gameController_) return;
-    const category = this.gameController_.getCategory() || 'known-constellations';
-    this.gameController_.setCategory(category);
-    this.gameController_.start();
-  }
-
-  /**
-   * Stop the object identification game.
-   * Delegates to GameController module.
-   */
-  stopGame() {
-    if (!this.gameController_) return;
-    this.gameController_.stop();
-  }
-
-  /**
    * Check if game is currently active.
    * @returns {boolean} True if game is active
    */
   isGameActive() {
     return this.gameController_?.isActive() || false;
-  }
-
-  /**
-   * Move to the next game question.
-   * Delegates to GameController module.
-   */
-  nextQuestion() {
-    if (!this.gameController_) return;
-    this.gameController_.nextQuestion();
   }
 
   /**
@@ -2208,15 +1793,6 @@ export class SkyMapApp {
   }
 
   /**
-   * Pass the current question (show answer).
-   * Delegates to GameController module.
-   */
-  passQuestion() {
-    if (!this.gameController_) return;
-    this.gameController_.passQuestion();
-  }
-
-  /**
    * Highlight a specific constellation by name.
    * Delegates to ConstellationRenderer module.
    * @param {string} constellationName - Name of the constellation to highlight
@@ -2237,6 +1813,7 @@ export class SkyMapApp {
     this.cameraRotation = { theta: 0, phi: Math.PI / 2 };
     this.cameraDistance = 5;
     this.updateCameraPosition();
+    this.requestRender();
   }
 
   /* ======================================================================
@@ -2397,7 +1974,7 @@ export class SkyMapApp {
    * Create extended objects with real angular sizes.
    * Delegated to ExtendedObjectRenderer module.
    * Note: this.extendedObjectSprites is kept as reference for click handling
-   * in handleClick_() and for dynamic DSO management.
+   * in ClickHandler module and for dynamic DSO management.
    */
   createExtendedObjects() {
     const count = this.extendedObjectRenderer_.create();

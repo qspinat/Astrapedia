@@ -454,50 +454,43 @@ describe('GameUI game panel drag functionality', () => {
   });
 });
 
-describe('Skymap search index planet updates', () => {
+describe('Skymap search index planet updates (delegated to SearchManager)', () => {
   let jsContent;
+  let searchManagerContent;
 
   beforeAll(() => {
     const jsPath = path.resolve(process.cwd(), 'skymap.js');
     jsContent = fs.readFileSync(jsPath, 'utf8');
+    const smPath = path.resolve(process.cwd(), 'modules/features/SearchManager.js');
+    searchManagerContent = fs.readFileSync(smPath, 'utf8');
   });
 
-  test('has updateSearchIndexPlanets_ method', () => {
-    expect(jsContent).toMatch(/updateSearchIndexPlanets_\s*\(\s*\)/);
-  });
-
-  test('updateSearchIndexPlanets_ is called from createPlanets', () => {
-    // Find createPlanets method and verify it calls updateSearchIndexPlanets_
+  test('calls searchManager_.updatePlanets from createPlanets', () => {
+    // Verify skymap.js delegates to SearchManager for planet updates
     expect(jsContent).toMatch(
-      /createPlanets\s*\(\s*\)[\s\S]*?this\.updateSearchIndexPlanets_\s*\(\s*\)/
-    );
-  });
-
-  test('removes old planet entries before adding new ones', () => {
-    expect(jsContent).toMatch(
-      /this\.searchIndex\s*=\s*this\.searchIndex\.filter\s*\([^)]*type\s*!==\s*['"]Planet['"]/
+      /createPlanets\s*\(\s*\)[\s\S]*?this\.searchManager_\?\s*\.updatePlanets\s*\(\s*this\.planets\s*\)/
     );
   });
 
-  test('adds planets to search index with required fields', () => {
-    // Check that planet entries include name, type, ra, dec
-    expect(jsContent).toMatch(
-      /updateSearchIndexPlanets_[\s\S]*?this\.searchIndex\.push\s*\(\s*\{[\s\S]*?name:\s*planet\.name/
-    );
-    expect(jsContent).toMatch(
-      /updateSearchIndexPlanets_[\s\S]*?type:\s*['"]Planet['"]/
-    );
-    expect(jsContent).toMatch(
-      /updateSearchIndexPlanets_[\s\S]*?ra:\s*planet\.ra/
-    );
-    expect(jsContent).toMatch(
-      /updateSearchIndexPlanets_[\s\S]*?dec:\s*planet\.dec/
+  test('SearchManager.updatePlanets removes old planet entries before adding new ones', () => {
+    expect(searchManagerContent).toMatch(
+      /this\.index_\s*=\s*this\.index_\.filter\s*\(\s*\([^)]*\)\s*=>\s*[^)]*\.type\s*!==\s*['"]Planet['"]/
     );
   });
 
-  test('guards against null searchIndex or planets', () => {
-    expect(jsContent).toMatch(
-      /updateSearchIndexPlanets_[\s\S]*?if\s*\(\s*!this\.searchIndex\s*\|\|\s*!this\.planets\s*\)/
+  test('SearchManager.updatePlanets adds planets with required fields', () => {
+    // Check that planet entries include name, type, ra, dec in SearchManager
+    expect(searchManagerContent).toMatch(
+      /updatePlanets[\s\S]*?this\.index_\.push\s*\(\s*\{[\s\S]*?name:\s*planet\.name/
+    );
+    expect(searchManagerContent).toMatch(
+      /updatePlanets[\s\S]*?type:\s*['"]Planet['"]/
+    );
+    expect(searchManagerContent).toMatch(
+      /updatePlanets[\s\S]*?ra:\s*planet\.ra/
+    );
+    expect(searchManagerContent).toMatch(
+      /updatePlanets[\s\S]*?dec:\s*planet\.dec/
     );
   });
 });

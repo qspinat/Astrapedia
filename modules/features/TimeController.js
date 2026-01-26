@@ -338,6 +338,14 @@ export class TimeController {
   }
 
   /**
+   * Refresh celestial sphere rotation based on current time and observer location.
+   * Call this when observer location changes to update the sky position.
+   */
+  refreshCelestialRotation() {
+    this.updateCelestialRotation_();
+  }
+
+  /**
    * Check if planets need updating.
    * @private
    */

@@ -215,21 +215,23 @@ function initializeUI_(appInstance) {
 
     // Settings
     setConstellationLines: (visible) => {
-      if (appInstance.constellationLines) {
-        appInstance.constellationLines.forEach((line) => {
-          line.visible = visible;
-        });
+      appInstance.showConstellationLines = visible;
+      if (appInstance.constellationLinesGroup) {
+        appInstance.constellationLinesGroup.visible = visible;
       }
+      appInstance.requestRender?.();
     },
     setEquatorLineVisible: (visible) => appInstance.setEquatorLineVisible?.(visible),
     setLanguage: (lang) => appInstance.setConstellationLanguage?.(lang),
     setMagnitudeLimit: (mag) => appInstance.setMagnitudeLimit?.(mag),
-    showLocationDialog: () => appInstance.showLocationDialog?.(),
+    showLocationDialog: () => appInstance.setObserverLocation?.(),
     requestGeolocation: () => appInstance.requestGeolocation?.(),
     resetCamera: () => appInstance.resetView?.(),
     showEventsCalendar: () => appInstance.showEventsCalendar?.(),
     setMaxDynamicStars: (val) => {
-      appInstance.maxDynamicStars = val;
+      // DSOs limit is ~1/6 of stars limit
+      const maxDSOs = Math.max(1000, Math.floor(val / 6));
+      appInstance.dynamicObjectManager_?.setLimits(val, maxDSOs);
     },
 
     // Time
