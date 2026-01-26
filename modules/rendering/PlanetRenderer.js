@@ -373,7 +373,7 @@ export class PlanetRenderer {
       }
 
       // Load real image when at real size and large enough
-      if (useRealSize && realSizePixels > 20 && !data.imageLoaded && data.imageUrl) {
+      if (useRealSize && realSizePixels > 20 && !data.imageLoaded && !data.imageFailed && data.imageUrl) {
         this.loadPlanetImage_(sprite, data.imageUrl);
       }
     }
@@ -387,7 +387,7 @@ export class PlanetRenderer {
    */
   loadPlanetImage_(sprite, imageUrl) {
     const data = sprite.userData;
-    if (data.imageLoading || data.imageLoaded) return;
+    if (data.imageLoading || data.imageLoaded || data.imageFailed) return;
 
     data.imageLoading = true;
 
@@ -418,6 +418,7 @@ export class PlanetRenderer {
       (error) => {
         console.warn(`Failed to load image for ${data.name}:`, error);
         data.imageLoading = false;
+        data.imageFailed = true;  // Prevent retry storms
       }
     );
   }

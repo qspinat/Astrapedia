@@ -1,9 +1,11 @@
 /**
  * @fileoverview Game mode UI controls.
- * Handles game start, pass, and stop button interactions.
+ * Handles game start, pass, stop button interactions, and panel drag.
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {domCache} from '../ui/DOMCache.js';
+import {clamp} from '../core/Utils.js';
 
 /**
  * GameUI handles the game control buttons and display.
@@ -22,6 +24,12 @@ export class GameUI {
 
     /** @private {boolean} */
     this.isPlaying_ = false;
+
+    /** @private {boolean} */
+    this.panelDragSetup_ = false;
+
+    /** @private {boolean} */
+    this.isDragging_ = false;
   }
 
   /**
@@ -30,6 +38,7 @@ export class GameUI {
   initialize() {
     this.setupEventListeners_();
     this.setupEventBusListeners_();
+    this.setupPanelDrag_();
   }
 
   /**
@@ -57,6 +66,109 @@ export class GameUI {
         this.deps_.stopGame?.();
       });
     }
+  }
+
+  /**
+   * Setup drag functionality for the game panel.
+   * Only draggable by the header (h2 element).
+   * Uses dynamic listener attachment to avoid memory leaks.
+   * @private
+   */
+  setupPanelDrag_() {
+    // Guard against multiple setup calls
+    if (this.panelDragSetup_) return;
+
+    const gamePanel = domCache.gamePanel;
+    if (!gamePanel) return;
+
+    const header = gamePanel.querySelector('h2');
+    if (!header) return;
+
+    this.panelDragSetup_ = true;
+
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    // Define handlers as arrow functions to preserve 'this' context
+    const onDragMove = (e) => {
+      let clientX, clientY;
+      if (e.type === 'touchmove') {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      const deltaX = clientX - startX;
+      const deltaY = clientY - startY;
+
+      let newLeft = startLeft + deltaX;
+      let newTop = startTop + deltaY;
+
+      // Constrain to viewport bounds
+      const panelRect = gamePanel.getBoundingClientRect();
+      const maxLeft = window.innerWidth - panelRect.width;
+      const maxTop = window.innerHeight - panelRect.height;
+
+      newLeft = clamp(newLeft, 0, maxLeft);
+      newTop = clamp(newTop, 0, maxTop);
+
+      gamePanel.style.left = `${newLeft}px`;
+      gamePanel.style.top = `${newTop}px`;
+
+      e.preventDefault();
+    };
+
+    const onDragEnd = () => {
+      this.isDragging_ = false;
+
+      // Remove document-level listeners to prevent memory leaks
+      document.removeEventListener('mousemove', onDragMove);
+      document.removeEventListener('mouseup', onDragEnd);
+      document.removeEventListener('touchmove', onDragMove);
+      document.removeEventListener('touchend', onDragEnd);
+    };
+
+    const onDragStart = (e) => {
+      this.isDragging_ = true;
+
+      // Get current position (use computed style if not set)
+      const rect = gamePanel.getBoundingClientRect();
+      startLeft = rect.left;
+      startTop = rect.top;
+
+      // Get pointer position
+      if (e.type === 'touchstart') {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      } else {
+        startX = e.clientX;
+        startY = e.clientY;
+      }
+
+      // Add document-level listeners only when dragging starts
+      document.addEventListener('mousemove', onDragMove);
+      document.addEventListener('mouseup', onDragEnd);
+      document.addEventListener('touchmove', onDragMove, {passive: false});
+      document.addEventListener('touchend', onDragEnd);
+
+      e.preventDefault();
+    };
+
+    // Only attach start listeners to header
+    header.addEventListener('mousedown', onDragStart);
+    header.addEventListener('touchstart', onDragStart, {passive: false});
+  }
+
+  /**
+   * Check if panel is currently being dragged.
+   * @returns {boolean} True if dragging
+   */
+  isDragging() {
+    return this.isDragging_;
   }
 
   /**
@@ -103,7 +215,7 @@ export class GameUI {
   updateQuestion_(data) {
     const questionEl = document.getElementById('game-question');
     if (questionEl) {
-      questionEl.textContent = `Find: ${data.targetName}`;
+      questionEl.textContent = `Find: ${data.question?.name || 'Unknown'}`;
     }
   }
 

@@ -17,6 +17,8 @@ export const SPHERE = {
   CONSTELLATION_RADIUS: 98.5,
   /** Radius for cardinal direction labels. */
   CARDINAL_RADIUS: 95,
+  /** Radius for dynamic DSO sprites (slightly inside stars). */
+  DSO_SPRITE_RADIUS: 99.5,
 };
 
 /**

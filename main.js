@@ -160,6 +160,12 @@ function setupEventBusWiring_() {
 let uiController = null;
 
 /**
+ * Telescope Controller instance.
+ * @type {?TelescopeController}
+ */
+let telescopeController = null;
+
+/**
  * Initialize the UI controller with dependencies from the app.
  * @param {!SkyMapApp} appInstance - The application instance
  * @private
@@ -169,6 +175,21 @@ function initializeUI_(appInstance) {
   panelManager.initialize();
   window.openPanel = (panelId) => panelManager.open(panelId);
   window.closeAllPanels = () => panelManager.closeAll();
+
+  // Initialize telescope controller
+  telescopeController = new TelescopeController({
+    setFOV: (fov) => {
+      appInstance.targetFov = fov;
+      appInstance.requestRender?.();
+    },
+    lockZoom: () => {
+      appInstance.telescopeModeActive = true;
+    },
+    unlockZoom: () => {
+      appInstance.telescopeModeActive = false;
+    },
+  });
+  telescopeController.initialize();
 
   // Initialize bug report handler
   initializeBugReportHandler({
@@ -237,19 +258,18 @@ function initializeUI_(appInstance) {
     // Compass
     toggleCompassMode: () => appInstance.toggleCompassMode?.(),
 
-    // Telescope - these will be handled by TelescopeUI internally for now
-    // since TelescopeUI manages its own state
-    getTelescope: () => null,
-    setTelescope: () => {},
-    getEyepiece: () => null,
-    setEyepiece: () => {},
-    toggleTelescopeMode: () => {},
-    isTelescopeModeActive: () => false,
-    saveTelescopePreset: () => {},
-    loadTelescopePreset: () => false,
-    deleteTelescopePreset: () => false,
-    getTelescopePresetNames: () => [],
-    getTelescopeComputedProperties: () => null,
+    // Telescope - wired to TelescopeController instance
+    getTelescope: () => telescopeController?.getTelescope() || null,
+    setTelescope: (settings) => telescopeController?.setTelescope(settings),
+    getEyepiece: () => telescopeController?.getEyepiece() || null,
+    setEyepiece: (settings) => telescopeController?.setEyepiece(settings),
+    toggleTelescopeMode: () => telescopeController?.toggleTelescopeMode(),
+    isTelescopeModeActive: () => telescopeController?.isActive() || false,
+    saveTelescopePreset: (name) => telescopeController?.savePreset(name),
+    loadTelescopePreset: (name) => telescopeController?.loadPreset(name) || false,
+    deleteTelescopePreset: (name) => telescopeController?.deletePreset(name) || false,
+    getTelescopePresetNames: () => telescopeController?.getPresetNames() || [],
+    getTelescopeComputedProperties: () => telescopeController?.getComputedProperties() || null,
 
     // Info
     getFOV: () => appInstance.targetFov || 60,

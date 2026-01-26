@@ -6,6 +6,7 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {GAME} from '../core/Constants.js';
 import {domCache} from '../ui/DOMCache.js';
+import {angularDistance} from '../core/CoordinateUtils.js';
 
 /**
  * @typedef {{
@@ -35,11 +36,12 @@ export const GAME_CATEGORIES = {
 
 /**
  * Well-known constellations for the "Known Constellations" category.
+ * Note: Names must match keys in constellations.json (camelCase, no spaces)
  * @const {!Array<string>}
  */
 const KNOWN_CONSTELLATIONS = [
-  'Orion', 'Ursa Major', 'Ursa Minor', 'Cassiopeia', 'Scorpius',
-  'Cygnus', 'Leo', 'Gemini', 'Taurus', 'Aquila', 'Lyra', 'Canis Major',
+  'Orion', 'UrsaMajor', 'UrsaMinor', 'Cassiopeia', 'Scorpius',
+  'Cygnus', 'Leo', 'Gemini', 'Taurus', 'Aquila', 'Lyra', 'CanisMajor',
 ];
 
 /**
@@ -347,7 +349,7 @@ export class GameController {
     if (this.isShowingPassedAnswer_) return false;
 
     const target = this.currentQuestion_.data;
-    const distance = this.angularDistance_(ra, dec, target.ra, target.dec);
+    const distance = angularDistance(ra, dec, target.ra, target.dec);
 
     // Larger tolerance for constellations
     const tolerance = target.type === 'Constellation' ? 15 : 5;
@@ -538,6 +540,58 @@ export class GameController {
   }
 
   /**
+   * Calculate the center coordinates of a constellation from its star positions.
+   * @param {!Object} constData - Constellation data with lines array
+   * @returns {{ra: number, dec: number}} Center coordinates
+   * @private
+   */
+  getConstellationCenter_(constData) {
+    // If constellation data already has ra/dec, use those
+    if (constData?.ra !== undefined && constData?.dec !== undefined) {
+      return {ra: constData.ra, dec: constData.dec};
+    }
+
+    if (!constData?.lines || constData.lines.length === 0) {
+      return {ra: 0, dec: 0};
+    }
+
+    // Collect unique star IDs from the lines
+    const starIds = new Set();
+    constData.lines.forEach((line) => {
+      if (Array.isArray(line)) {
+        line.forEach((id) => starIds.add(id));
+      }
+    });
+
+    if (starIds.size === 0) {
+      return {ra: 0, dec: 0};
+    }
+
+    // Find stars and calculate average position
+    let sumRa = 0;
+    let sumDec = 0;
+    let count = 0;
+
+    starIds.forEach((id) => {
+      const star = this.stars_.find((s) => s.hip === id || s.id === id);
+      if (star && star.ra !== undefined && star.dec !== undefined) {
+        sumRa += star.ra;
+        sumDec += star.dec;
+        count++;
+      }
+    });
+
+    if (count === 0) {
+      return {ra: 0, dec: 0};
+    }
+
+    return {
+      ra: sumRa / count,
+      dec: sumDec / count,
+    };
+  }
+
+  /**
    * Add constellation questions by name list.
    * @param {!Array<!GameQuestion>} pool - Question pool to add to
    * @param {!Array<string>} names - Constellation names
@@ -547,12 +601,13 @@ export class GameController {
     names.forEach((name) => {
       const constData = this.constellations_[name];
       if (constData) {
+        const center = this.getConstellationCenter_(constData);
         pool.push({
           name,
           type: 'Constellation',
           data: {
-            ra: constData.ra || 0,
-            dec: constData.dec || 0,
+            ra: center.ra,
+            dec: center.dec,
             type: 'Constellation',
           },
         });
@@ -568,12 +623,13 @@ export class GameController {
   addAllConstellationQuestions_(pool) {
     Object.keys(this.constellations_).forEach((name) => {
       const constData = this.constellations_[name];
+      const center = this.getConstellationCenter_(constData);
       pool.push({
         name,
         type: 'Constellation',
         data: {
-          ra: constData.ra || 0,
-          dec: constData.dec || 0,
+          ra: center.ra,
+          dec: center.dec,
           type: 'Constellation',
         },
       });
@@ -589,16 +645,16 @@ export class GameController {
   addConstellationsByHemisphere_(pool, hemisphere) {
     Object.keys(this.constellations_).forEach((name) => {
       const constData = this.constellations_[name];
-      const dec = constData.dec || 0;
+      const center = this.getConstellationCenter_(constData);
 
-      if ((hemisphere === 'north' && dec >= 0) ||
-          (hemisphere === 'south' && dec < 0)) {
+      if ((hemisphere === 'north' && center.dec >= 0) ||
+          (hemisphere === 'south' && center.dec < 0)) {
         pool.push({
           name,
           type: 'Constellation',
           data: {
-            ra: constData.ra || 0,
-            dec,
+            ra: center.ra,
+            dec: center.dec,
             type: 'Constellation',
           },
         });
@@ -702,31 +758,6 @@ export class GameController {
           },
         });
       });
-  }
-
-  /**
-   * Calculate angular distance between two points.
-   * @param {number} ra1 - First RA
-   * @param {number} dec1 - First Dec
-   * @param {number} ra2 - Second RA
-   * @param {number} dec2 - Second Dec
-   * @returns {number} Angular distance in degrees
-   * @private
-   */
-  angularDistance_(ra1, dec1, ra2, dec2) {
-    const ra1Rad = ra1 * Math.PI / 180;
-    const dec1Rad = dec1 * Math.PI / 180;
-    const ra2Rad = ra2 * Math.PI / 180;
-    const dec2Rad = dec2 * Math.PI / 180;
-
-    const dRa = ra2Rad - ra1Rad;
-    const dDec = dec2Rad - dec1Rad;
-
-    const a = Math.sin(dDec / 2) ** 2 +
-              Math.cos(dec1Rad) * Math.cos(dec2Rad) *
-              Math.sin(dRa / 2) ** 2;
-
-    return 2 * Math.asin(Math.sqrt(a)) * 180 / Math.PI;
   }
 
   /**

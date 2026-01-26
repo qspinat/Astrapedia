@@ -113,7 +113,18 @@ export class TourUI {
     });
 
     globalEventBus.on(Events.TOUR_STEP_CHANGED, (data) => {
-      this.updateStepDisplay_(data);
+      // Build the full tour panel with navigation buttons
+      this.buildTourPanel({
+        tourName: data.tour?.name || this.currentTour_,
+        stepName: data.step?.name || '',
+        description: data.step?.description || '',
+        stepIndex: data.stepIndex,
+        totalSteps: data.totalSteps,
+        isFirstStep: data.stepIndex === 0,
+        onPrev: () => this.deps_.prevStep?.(),
+        onNext: () => this.deps_.nextStep?.(),
+        onEnd: () => this.deps_.stopTour?.(),
+      });
     });
   }
 
@@ -136,6 +147,7 @@ export class TourUI {
     const tourPanel = document.getElementById('tour-panel');
     if (tourPanel) {
       tourPanel.classList.remove('active');
+      tourPanel.style.display = 'none';
     }
   }
 
@@ -154,6 +166,76 @@ export class TourUI {
     if (nameEl && data.step) {
       nameEl.textContent = data.step.name;
     }
+  }
+
+  /**
+   * Build the tour panel with step info and navigation buttons.
+   * @param {!Object} tourData - Tour data
+   * @param {string} tourData.tourName - Name of the tour
+   * @param {string} tourData.stepName - Display name for current step
+   * @param {string} tourData.description - Step description
+   * @param {number} tourData.stepIndex - Current step index (0-based)
+   * @param {number} tourData.totalSteps - Total steps in tour
+   * @param {boolean} tourData.isFirstStep - True if first step
+   * @param {function(): void} tourData.onPrev - Previous step callback
+   * @param {function(): void} tourData.onNext - Next step callback
+   * @param {function(): void} tourData.onEnd - End tour callback
+   */
+  buildTourPanel(tourData) {
+    const tourPanel = document.getElementById('tour-panel');
+    if (!tourPanel) return;
+
+    // Clear existing content
+    tourPanel.textContent = '';
+
+    // Tour title
+    const h2 = document.createElement('h2');
+    h2.textContent = tourData.tourName;
+    tourPanel.appendChild(h2);
+
+    // Step name
+    const h3 = document.createElement('h3');
+    h3.textContent = tourData.stepName;
+    tourPanel.appendChild(h3);
+
+    // Description
+    const desc = document.createElement('p');
+    desc.textContent = tourData.description;
+    tourPanel.appendChild(desc);
+
+    // Progress
+    const progress = document.createElement('p');
+    progress.textContent = `Step ${tourData.stepIndex + 1} of ${tourData.totalSteps}`;
+    tourPanel.appendChild(progress);
+
+    // Navigation buttons container
+    const btnContainer = document.createElement('div');
+    btnContainer.className = 'tour-buttons';
+
+    // Previous button
+    const prevBtn = document.createElement('button');
+    prevBtn.textContent = '← Previous';
+    prevBtn.disabled = tourData.isFirstStep;
+    prevBtn.addEventListener('click', () => tourData.onPrev?.());
+    btnContainer.appendChild(prevBtn);
+
+    // Next button
+    const nextBtn = document.createElement('button');
+    nextBtn.textContent = 'Next →';
+    nextBtn.addEventListener('click', () => tourData.onNext?.());
+    btnContainer.appendChild(nextBtn);
+
+    tourPanel.appendChild(btnContainer);
+
+    // End tour button
+    const endBtn = document.createElement('button');
+    endBtn.textContent = 'End Tour';
+    endBtn.className = 'tour-end-btn';
+    endBtn.addEventListener('click', () => tourData.onEnd?.());
+    tourPanel.appendChild(endBtn);
+
+    // Show the panel
+    tourPanel.style.display = 'block';
   }
 
   /**

@@ -31,17 +31,13 @@ const DYNAMIC_TARGET_TYPES = ['Neb', 'PN', 'EmN', 'HII', 'Cl+N', 'RfN', 'SNR', '
  */
 const SPECIAL_OBJECTS = {
   'Sun': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/' +
-         'The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_' +
-         '-_20100819.jpg/400px-The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_' +
-         'Dynamics_Observatory_-_20100819.jpg',
+    url: 'https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0193.jpg',
     source: 'NASA/SDO',
     tier: 'iconic',
   },
   'Moon': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/' +
-         'FullMoon2010.jpg/400px-FullMoon2010.jpg',
-    source: 'NASA/Wikimedia',
+    url: 'https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004874/phases/097.jpg',
+    source: 'NASA/GSFC',
     tier: 'high',
   },
   'Mercury': {

@@ -5,6 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {DEFAULT_LOCATION} from '../core/Constants.js';
+import {dateToJulianDate} from '../core/CoordinateUtils.js';
 
 /**
  * @typedef {{
@@ -244,7 +245,7 @@ export class LocationManager {
    * @returns {number} LST in degrees (0-360)
    */
   calculateLST(date) {
-    const jd = this.dateToJulianDate_(date);
+    const jd = dateToJulianDate(date);
     const T = (jd - 2451545.0) / 36525;
 
     // Greenwich Mean Sidereal Time
@@ -258,32 +259,6 @@ export class LocationManager {
     const lstRaw = gmst + this.location_.lon;
     const lstMod = lstRaw % 360;
     return lstMod < 0 ? lstMod + 360 : lstMod;
-  }
-
-  /**
-   * Convert JavaScript Date to Julian Date.
-   * @param {!Date} date - Date to convert
-   * @returns {number} Julian Date
-   * @private
-   */
-  dateToJulianDate_(date) {
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth() + 1;
-    const day = date.getUTCDate();
-    const hour = date.getUTCHours();
-    const minute = date.getUTCMinutes();
-    const second = date.getUTCSeconds();
-
-    const y = month <= 2 ? year - 1 : year;
-    const m = month <= 2 ? month + 12 : month;
-
-    const A = Math.floor(y / 100);
-    const B = 2 - A + Math.floor(A / 4);
-
-    return Math.floor(365.25 * (y + 4716)) +
-           Math.floor(30.6001 * (m + 1)) +
-           day + B - 1524.5 +
-           (hour + minute / 60 + second / 3600) / 24;
   }
 
   /**

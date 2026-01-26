@@ -4,6 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {angularDistance} from '../core/CoordinateUtils.js';
 
 /**
  * @typedef {{
@@ -334,7 +335,7 @@ export class SearchManager {
    */
   findNear(ra, dec, radius) {
     return this.index_.filter((entry) => {
-      const distance = this.angularDistance_(ra, dec, entry.ra, entry.dec);
+      const distance = angularDistance(ra, dec, entry.ra, entry.dec);
       return distance <= radius;
     });
   }
@@ -364,31 +365,6 @@ export class SearchManager {
         const numB = parseInt(b.name.substring(1), 10);
         return numA - numB;
       });
-  }
-
-  /**
-   * Calculate angular distance between two positions.
-   * @param {number} ra1 - First RA
-   * @param {number} dec1 - First Dec
-   * @param {number} ra2 - Second RA
-   * @param {number} dec2 - Second Dec
-   * @returns {number} Angular distance in degrees
-   * @private
-   */
-  angularDistance_(ra1, dec1, ra2, dec2) {
-    const ra1Rad = ra1 * Math.PI / 180;
-    const dec1Rad = dec1 * Math.PI / 180;
-    const ra2Rad = ra2 * Math.PI / 180;
-    const dec2Rad = dec2 * Math.PI / 180;
-
-    const dRa = ra2Rad - ra1Rad;
-    const dDec = dec2Rad - dec1Rad;
-
-    const a = Math.sin(dDec / 2) ** 2 +
-              Math.cos(dec1Rad) * Math.cos(dec2Rad) *
-              Math.sin(dRa / 2) ** 2;
-
-    return 2 * Math.asin(Math.sqrt(a)) * 180 / Math.PI;
   }
 
   /**

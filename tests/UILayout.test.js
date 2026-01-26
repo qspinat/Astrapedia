@@ -364,8 +364,8 @@ describe('Skymap equator line methods', () => {
   });
 
   test('setEquatorLineVisible delegates to gridRenderer or fallback', () => {
-    // Either delegates to gridRenderer or uses direct fallback
-    expect(jsContent).toMatch(/gridRenderer_\.setEquatorVisible|this\.equatorLine\.visible/);
+    // Either delegates to gridRenderer (with optional chaining) or uses direct fallback
+    expect(jsContent).toMatch(/gridRenderer_\??\.setEquatorVisible|this\.equatorLine\.visible/);
   });
 
   test('setEquatorLineVisible sets visible property (in GridRenderer)', () => {
@@ -389,40 +389,36 @@ describe('Skymap equator line methods', () => {
   });
 });
 
-describe('Skymap game panel drag functionality', () => {
+describe('GameUI game panel drag functionality', () => {
   let jsContent;
 
   beforeAll(() => {
-    const jsPath = path.resolve(process.cwd(), 'skymap.js');
+    const jsPath = path.resolve(process.cwd(), 'modules/features/GameUI.js');
     jsContent = fs.readFileSync(jsPath, 'utf8');
   });
 
-  test('has setupGamePanelDrag method', () => {
-    expect(jsContent).toMatch(/setupGamePanelDrag\s*\(\s*\)/);
+  test('has setupPanelDrag_ method', () => {
+    expect(jsContent).toMatch(/setupPanelDrag_\s*\(\s*\)/);
   });
 
   test('has guard against multiple setup calls', () => {
-    expect(jsContent).toContain('if (this.gamePanelDragSetup_) return');
+    expect(jsContent).toContain('if (this.panelDragSetup_) return');
   });
 
-  test('initializes gamePanelDragSetup_ flag to false', () => {
-    expect(jsContent).toContain('this.gamePanelDragSetup_ = false');
+  test('initializes panelDragSetup_ flag to false', () => {
+    expect(jsContent).toContain('this.panelDragSetup_ = false');
   });
 
-  test('sets gamePanelDragSetup_ flag after setup', () => {
-    expect(jsContent).toContain('this.gamePanelDragSetup_ = true');
+  test('sets panelDragSetup_ flag after setup', () => {
+    expect(jsContent).toContain('this.panelDragSetup_ = true');
   });
 
-  test('gets game panel element', () => {
-    expect(jsContent).toMatch(
-      /setupGamePanelDrag[\s\S]*getElementById\s*\(\s*['"]game-panel['"]\s*\)/
-    );
+  test('gets game panel element from domCache', () => {
+    expect(jsContent).toContain('domCache.gamePanel');
   });
 
   test('gets header element for drag handle', () => {
-    expect(jsContent).toMatch(
-      /setupGamePanelDrag[\s\S]*querySelector\s*\(\s*['"]h2['"]\s*\)/
-    );
+    expect(jsContent).toMatch(/querySelector\s*\(\s*['"]h2['"]\s*\)/);
   });
 
   test('adds mousedown listener to header', () => {
@@ -452,11 +448,9 @@ describe('Skymap game panel drag functionality', () => {
     expect(jsContent).toMatch(/maxLeft|maxTop/);
   });
 
-  test('has game panel drag state management', () => {
-    // gamePanelDragging flag is used to track drag state
-    // Input handling delegated to InputController module
-    expect(jsContent).toMatch(/gamePanelDragging/);
-    expect(jsContent).toMatch(/setupGamePanelDrag/);
+  test('has drag state management', () => {
+    // isDragging_ flag is used to track drag state
+    expect(jsContent).toMatch(/isDragging_/);
   });
 });
 
