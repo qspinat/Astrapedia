@@ -48,14 +48,12 @@
 
 // Core modules
 import {globalEventBus, Events} from './modules/core/EventBus.js';
-import {SPHERE, CAMERA, STARS, TIME, TELESCOPE} from './modules/core/Constants.js';
 import {handleError, ErrorSeverity} from './modules/core/ErrorHandler.js';
 
 // Service modules
 import {dataLoader} from './modules/services/DataLoader.js';
 import {imageFetcher} from './modules/services/ImageFetcher.js';
 import {locationManager} from './modules/services/LocationManager.js';
-import {DynamicDataLoader} from './modules/services/DynamicDataLoader.js';
 
 // Rendering modules
 import {StarFieldRenderer} from './modules/rendering/StarFieldRenderer.js';

@@ -5,7 +5,7 @@
   "main": "skymap.js",
   "scripts": {
     "clean": "rm -rf www",
-    "build:web": "mkdir -p www && cp app.html www/index.html && cp skymap.js styles.css ui-controller.js sw.js manifest.json favicon.svg icon-192.png icon-512.png www/ && cp -r modules www/ && cp -r data www/",
+    "build:web": "mkdir -p www && cp app.html www/index.html && cp skymap.js main.js styles.css sw.js manifest.json favicon.svg icon-192.png icon-512.png www/ && cp -r modules www/ && cp -r data www/",
     "build:android": "npm run build:web && npx cap sync android && cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew assembleDebug",
     "build:android:release": "npm run build:web && npx cap sync android && cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew assembleRelease",
     "dev": "python3 -m http.server 8000",

@@ -1,6 +1,15 @@
 /**
  * @fileoverview Jest mock for THREE.js library.
- * Re-exports the global THREE object set up in tests/setup.js
+ *
+ * This mock handles ES module imports: `import * as THREE from 'three'`
+ * It re-exports from global.THREE which is set up in tests/setup.js.
+ *
+ * The dual-mock approach is needed because:
+ * - The app loads THREE.js from CDN (not via npm)
+ * - Some modules use global.THREE (CoordinateUtils)
+ * - Some modules use ES import (ClickHandler)
+ *
+ * Jest routes `import from 'three'` here via moduleNameMapper in jest.config.js.
  */
 
 // Export classes from global THREE (set up in tests/setup.js)

@@ -13,7 +13,20 @@ global.console = {
   error: jest.fn(),
 };
 
-// Mock THREE.js global (used by CoordinateUtils and other modules)
+/**
+ * THREE.js Mock
+ *
+ * The application loads THREE.js from a CDN at runtime (not installed via npm).
+ * This creates two import patterns we need to mock:
+ *
+ * 1. Global access: `global.THREE.MathUtils.degToRad()` (CoordinateUtils.js)
+ * 2. ES module import: `import * as THREE from 'three'` (ClickHandler.js)
+ *
+ * This global mock handles pattern #1. The __mocks__/three.js file re-exports
+ * this global object to handle pattern #2 via jest's moduleNameMapper.
+ *
+ * See jest.config.js: moduleNameMapper: { '^three$': '<rootDir>/__mocks__/three.js' }
+ */
 global.THREE = {
   MathUtils: {
     degToRad: (deg) => deg * Math.PI / 180,

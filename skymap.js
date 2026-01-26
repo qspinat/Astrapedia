@@ -1206,7 +1206,7 @@ export class SkyMapApp {
 
   /**
    * Request geolocation from the device.
-   * Called by ui-controller.js when user clicks location button.
+   * Called by UIController when user clicks location button.
    * Delegates to LocationManager module. Location changes are handled via
    * LOCATION_CHANGED EventBus listener in setupCommandListeners_().
    */
