@@ -330,10 +330,11 @@ export class ImageRenderer {
       const realSizePixels = angularSizeDeg * pixelsPerDeg;
 
       const screenSize = Math.min(window.innerWidth, window.innerHeight);
-      const showThreshold = this.isMobile_ ? 0.9 : 0.65;
-      const fullOpacityThreshold = this.isMobile_ ? 1.1 : 0.85;
-      const fadeOutStartThreshold = this.isMobile_ ? 2.0 : 1.2;
-      const fadeOutEndThreshold = this.isMobile_ ? 3.0 : 1.8;
+      // Mobile: appear later (more zoomed in), disappear later (stay visible longer)
+      const showThreshold = this.isMobile_ ? 1.5 : 0.65;
+      const fullOpacityThreshold = this.isMobile_ ? 2.0 : 0.85;
+      const fadeOutStartThreshold = this.isMobile_ ? 4.0 : 1.2;
+      const fadeOutEndThreshold = this.isMobile_ ? 6.0 : 1.8;
 
       const minPixelsToShow = screenSize * showThreshold;
       const showImage = realSizePixels >= minPixelsToShow;

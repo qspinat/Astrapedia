@@ -97,6 +97,9 @@ export class InputController {
     /** @private {{x: number, y: number}} */
     this.velocity_ = {x: 0, y: 0};
 
+    /** @private {!Array<{x: number, y: number, t: number}>} */
+    this.recentMoves_ = [];
+
     /** @private {?number} */
     this.inertiaAnimationId_ = null;
 
@@ -269,6 +272,7 @@ export class InputController {
       this.inertiaAnimationId_ = null;
     }
     this.velocity_ = {x: 0, y: 0};
+    this.recentMoves_ = [];
 
     if (event.touches.length === 1) {
       this.isDragging_ = true;
@@ -279,6 +283,8 @@ export class InputController {
       this.mouseDownPosition_ = {x: touch.clientX, y: touch.clientY};
       this.previousMousePosition_ = {x: touch.clientX, y: touch.clientY};
       this.lastMoveTime_ = performance.now();
+      // Add initial position to recent moves
+      this.recentMoves_.push({x: touch.clientX, y: touch.clientY, t: this.lastMoveTime_});
       this.onDragStart_?.();
     } else if (event.touches.length === 2) {
       this.isPinching_ = true;
@@ -309,14 +315,13 @@ export class InputController {
         this.dragMoved_ = true;
       }
 
-      // Track velocity for inertia
+      // Track recent moves for inertia velocity calculation
       const now = performance.now();
-      const dt = now - this.lastMoveTime_;
-      if (dt > 0 && dt < 100) { // Only track if reasonable time delta
-        this.velocity_ = {
-          x: deltaX / dt * 16, // Normalize to ~60fps
-          y: deltaY / dt * 16,
-        };
+      this.recentMoves_.push({x: touch.clientX, y: touch.clientY, t: now});
+      // Keep only moves from last 100ms
+      while (this.recentMoves_.length > 0 &&
+             now - this.recentMoves_[0].t > 100) {
+        this.recentMoves_.shift();
       }
       this.lastMoveTime_ = now;
 
@@ -390,8 +395,23 @@ export class InputController {
       cancelAnimationFrame(this.inertiaAnimationId_);
     }
 
-    const friction = 0.95;
-    const minVelocity = 0.1;
+    // Calculate velocity from recent moves
+    if (this.recentMoves_.length >= 2) {
+      const first = this.recentMoves_[0];
+      const last = this.recentMoves_[this.recentMoves_.length - 1];
+      const dt = last.t - first.t;
+      if (dt > 0) {
+        // Velocity in pixels per frame (assuming 60fps = 16.67ms per frame)
+        this.velocity_ = {
+          x: (last.x - first.x) / dt * 16,
+          y: (last.y - first.y) / dt * 16,
+        };
+      }
+    }
+    this.recentMoves_ = [];
+
+    const friction = 0.92;
+    const minVelocity = 0.05;
 
     const animate = () => {
       // Apply friction
