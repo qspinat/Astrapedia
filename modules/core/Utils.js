@@ -92,3 +92,36 @@ export function clamp(value, min, max) {
 export function lerp(a, b, t) {
   return a + (b - a) * t;
 }
+
+/**
+ * Add both click and touch listeners to a button for mobile compatibility.
+ * On mobile, click events can be unreliable or delayed. This ensures buttons
+ * work properly on both desktop (click) and mobile (touchend).
+ *
+ * @param {!HTMLElement} button - Button element
+ * @param {function(): void} handler - Click handler
+ */
+export function addMobileButtonListener(button, handler) {
+  // Use click for desktop
+  button.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handler();
+  });
+
+  // Use touchend for mobile (more reliable than click on touch devices)
+  let touchStarted = false;
+  button.addEventListener('touchstart', (e) => {
+    touchStarted = true;
+    e.stopPropagation();
+  }, {passive: true});
+
+  button.addEventListener('touchend', (e) => {
+    if (touchStarted) {
+      e.preventDefault();
+      e.stopPropagation();
+      touchStarted = false;
+      handler();
+    }
+  });
+}

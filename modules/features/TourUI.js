@@ -5,6 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {panelManager} from '../ui/PanelManager.js';
+import {addMobileButtonListener} from '../core/Utils.js';
 
 /**
  * TourUI handles the tour selection buttons and navigation.
@@ -59,21 +60,21 @@ export class TourUI {
     // Navigation buttons
     const nextBtn = document.getElementById('tour-next-btn');
     if (nextBtn) {
-      nextBtn.addEventListener('click', () => {
+      addMobileButtonListener(nextBtn, () => {
         this.deps_.nextStep?.();
       });
     }
 
     const prevBtn = document.getElementById('tour-prev-btn');
     if (prevBtn) {
-      prevBtn.addEventListener('click', () => {
+      addMobileButtonListener(prevBtn, () => {
         this.deps_.prevStep?.();
       });
     }
 
     const stopBtn = document.getElementById('tour-stop-btn');
     if (stopBtn) {
-      stopBtn.addEventListener('click', () => {
+      addMobileButtonListener(stopBtn, () => {
         this.deps_.stopTour?.();
       });
     }
@@ -88,7 +89,7 @@ export class TourUI {
   setupTourButton_(buttonId, tourName) {
     const btn = document.getElementById(buttonId);
     if (btn) {
-      btn.addEventListener('click', () => {
+      addMobileButtonListener(btn, () => {
         this.deps_.startTour?.(tourName);
         this.panelManager_?.closeAll?.();
       });
@@ -216,13 +217,13 @@ export class TourUI {
     const prevBtn = document.createElement('button');
     prevBtn.textContent = '← Previous';
     prevBtn.disabled = tourData.isFirstStep;
-    prevBtn.addEventListener('click', () => tourData.onPrev?.());
+    addMobileButtonListener(prevBtn, () => tourData.onPrev?.());
     btnContainer.appendChild(prevBtn);
 
     // Next button
     const nextBtn = document.createElement('button');
     nextBtn.textContent = 'Next →';
-    nextBtn.addEventListener('click', () => tourData.onNext?.());
+    addMobileButtonListener(nextBtn, () => tourData.onNext?.());
     btnContainer.appendChild(nextBtn);
 
     tourPanel.appendChild(btnContainer);
@@ -231,7 +232,7 @@ export class TourUI {
     const endBtn = document.createElement('button');
     endBtn.textContent = 'End Tour';
     endBtn.className = 'tour-end-btn';
-    endBtn.addEventListener('click', () => tourData.onEnd?.());
+    addMobileButtonListener(endBtn, () => tourData.onEnd?.());
     tourPanel.appendChild(endBtn);
 
     // Show the panel

@@ -1074,6 +1074,32 @@ body.night-mode .game-select-content {
     cursor: not-allowed;
 }
 
+.magnitude-control.disabled {
+    opacity: 0.6;
+}
+
+.magnitude-control.disabled::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-bottom: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.magnitude-control.disabled:hover::after {
+    opacity: 1;
+}
+
 /* ==========================================================================
    12. BOTTOM BAR
    ========================================================================== */

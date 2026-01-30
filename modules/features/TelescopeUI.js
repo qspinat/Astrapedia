@@ -4,6 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {addMobileButtonListener} from '../core/Utils.js';
 
 /**
  * Maximum length for preset names.
@@ -101,7 +102,7 @@ export class TelescopeUI {
     // Quick toggle button
     const quickToggle = document.getElementById('telescope-quick-toggle');
     if (quickToggle) {
-      quickToggle.addEventListener('click', () => {
+      addMobileButtonListener(quickToggle, () => {
         this.deps_.toggleMode?.();
         quickToggle.classList.toggle('active');
       });
@@ -166,7 +167,7 @@ export class TelescopeUI {
     // Save preset button
     const saveBtn = document.getElementById('telescope-save-preset-btn');
     if (saveBtn) {
-      saveBtn.addEventListener('click', () => {
+      addMobileButtonListener(saveBtn, () => {
         this.handleSavePreset_();
       });
     }
@@ -174,7 +175,7 @@ export class TelescopeUI {
     // Delete preset button
     const deleteBtn = document.getElementById('telescope-delete-preset-btn');
     if (deleteBtn) {
-      deleteBtn.addEventListener('click', () => {
+      addMobileButtonListener(deleteBtn, () => {
         this.handleDeletePreset_();
       });
     }

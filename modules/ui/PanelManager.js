@@ -4,6 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {addMobileButtonListener} from '../core/Utils.js';
 
 /**
  * All panel IDs managed by PanelManager.
@@ -66,7 +67,7 @@ export class PanelManager {
    */
   setupBackdropListener_() {
     if (this.backdrop_) {
-      this.backdrop_.addEventListener('click', () => this.closeAll());
+      addMobileButtonListener(this.backdrop_, () => this.closeAll());
     }
   }
 
@@ -230,7 +231,7 @@ export class PanelManager {
   setupCloseButton(buttonId, extraCallback) {
     const btn = document.getElementById(buttonId);
     if (btn) {
-      btn.addEventListener('click', () => {
+      addMobileButtonListener(btn, () => {
         this.closeAll();
         if (extraCallback) {
           extraCallback();
@@ -302,15 +303,15 @@ export class PanelManager {
       cancelBtn.onclick = null;
     };
 
-    confirmBtn.onclick = () => {
+    addMobileButtonListener(confirmBtn, () => {
       cleanup();
       onConfirm();
-    };
+    });
 
-    cancelBtn.onclick = () => {
+    addMobileButtonListener(cancelBtn, () => {
       cleanup();
       if (onCancel) onCancel();
-    };
+    });
   }
 
   /**

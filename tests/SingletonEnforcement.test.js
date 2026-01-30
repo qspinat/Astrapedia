@@ -47,6 +47,9 @@ jest.unstable_mockModule('../modules/core/EventBus.js', () => ({
 // Mock Utils
 jest.unstable_mockModule('../modules/core/Utils.js', () => ({
   clamp: (v, min, max) => Math.min(Math.max(v, min), max),
+  addMobileButtonListener: jest.fn((button, handler) => {
+    button.addEventListener('click', handler);
+  }),
 }));
 
 // Mock PanelManager

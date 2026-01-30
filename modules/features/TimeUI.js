@@ -5,6 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TIME} from '../core/Constants.js';
+import {addMobileButtonListener} from '../core/Utils.js';
 
 /**
  * TimeUI handles time control buttons and display.
@@ -45,7 +46,7 @@ export class TimeUI {
     // Rewind button
     const rewindBtn = document.getElementById('time-rewind-btn');
     if (rewindBtn) {
-      rewindBtn.addEventListener('click', () => {
+      addMobileButtonListener(rewindBtn, () => {
         this.deps_.setTimeSpeed?.(-100);
       });
     }
@@ -53,7 +54,7 @@ export class TimeUI {
     // Play/pause button
     const playBtn = document.getElementById('time-play-btn');
     if (playBtn) {
-      playBtn.addEventListener('click', () => {
+      addMobileButtonListener(playBtn, () => {
         this.deps_.togglePlayback?.();
       });
     }
@@ -61,7 +62,7 @@ export class TimeUI {
     // Forward button (cycles through speeds)
     const forwardBtn = document.getElementById('time-forward-btn');
     if (forwardBtn) {
-      forwardBtn.addEventListener('click', () => {
+      addMobileButtonListener(forwardBtn, () => {
         const presets = TIME.SPEED_PRESETS;
         const currentIndex = presets.indexOf(this.currentSpeed_);
         const newSpeed = presets[(currentIndex + 1) % presets.length];
@@ -72,7 +73,7 @@ export class TimeUI {
     // Now button
     const nowBtn = document.getElementById('time-now-btn');
     if (nowBtn) {
-      nowBtn.addEventListener('click', () => {
+      addMobileButtonListener(nowBtn, () => {
         this.deps_.jumpToTime?.(new Date());
       });
     }
@@ -96,7 +97,7 @@ export class TimeUI {
     if (!pickerBtn || !pickerPanel) return;
 
     // Toggle picker panel
-    pickerBtn.addEventListener('click', () => {
+    addMobileButtonListener(pickerBtn, () => {
       const isVisible = pickerPanel.classList.contains('visible');
       if (!isVisible) {
         this.prefillTimePicker_();
@@ -106,7 +107,7 @@ export class TimeUI {
 
     // Apply button
     if (applyBtn && datePicker && timePicker) {
-      applyBtn.addEventListener('click', () => {
+      addMobileButtonListener(applyBtn, () => {
         const dateValue = datePicker.value;
         const timeValue = timePicker.value;
         if (dateValue && timeValue) {
@@ -127,7 +128,7 @@ export class TimeUI {
 
     // Cancel button
     if (cancelBtn) {
-      cancelBtn.addEventListener('click', () => {
+      addMobileButtonListener(cancelBtn, () => {
         pickerPanel.classList.remove('visible');
       });
     }

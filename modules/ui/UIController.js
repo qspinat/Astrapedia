@@ -12,6 +12,7 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {PanelManager, panelManager} from './PanelManager.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
+import {addMobileButtonListener} from '../core/Utils.js';
 import {GameUI} from '../features/GameUI.js';
 import {TourUI} from '../features/TourUI.js';
 import {TimeUI} from '../features/TimeUI.js';
@@ -265,6 +266,12 @@ export class SettingsHandler {
   constructor(dependencies) {
     /** @private @const */
     this.deps_ = dependencies;
+
+    /** @private {number} */
+    this.savedMagnitude_ = 8.0;
+
+    /** @private {boolean} */
+    this.telescopeModeActive_ = false;
   }
 
   /**
@@ -272,6 +279,42 @@ export class SettingsHandler {
    */
   initialize() {
     this.setupEventListeners_();
+    this.setupTelescopeModeListeners_();
+  }
+
+  /**
+   * Set up telescope mode listeners to disable/enable magnitude slider.
+   * @private
+   */
+  setupTelescopeModeListeners_() {
+    globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, () => {
+      this.telescopeModeActive_ = true;
+      const magSlider = document.getElementById('magnitude-slider');
+      const magControl = document.getElementById('magnitude-control');
+      if (magSlider) {
+        this.savedMagnitude_ = parseFloat(magSlider.value);
+        magSlider.disabled = true;
+      }
+      if (magControl) {
+        magControl.classList.add('disabled');
+        magControl.title = 'Controlled by telescope mode';
+      }
+    });
+
+    globalEventBus.on(Events.TELESCOPE_MODE_DEACTIVATED, () => {
+      this.telescopeModeActive_ = false;
+      const magSlider = document.getElementById('magnitude-slider');
+      const magControl = document.getElementById('magnitude-control');
+      if (magSlider) {
+        magSlider.disabled = false;
+        magSlider.value = this.savedMagnitude_;
+        this.deps_.setMagnitudeLimit?.(this.savedMagnitude_);
+      }
+      if (magControl) {
+        magControl.classList.remove('disabled');
+        magControl.title = '';
+      }
+    });
   }
 
   /**
@@ -338,7 +381,7 @@ export class SettingsHandler {
     // Set location button
     const setLocationBtn = document.getElementById('set-location-btn');
     if (setLocationBtn) {
-      setLocationBtn.addEventListener('click', () => {
+      addMobileButtonListener(setLocationBtn, () => {
         this.deps_.showLocationDialog?.();
       });
     }
@@ -346,7 +389,7 @@ export class SettingsHandler {
     // Auto location button
     const autoLocationBtn = document.getElementById('auto-location-btn');
     if (autoLocationBtn) {
-      autoLocationBtn.addEventListener('click', () => {
+      addMobileButtonListener(autoLocationBtn, () => {
         this.deps_.requestGeolocation?.();
       });
     }
@@ -354,7 +397,7 @@ export class SettingsHandler {
     // Reset view button
     const resetViewBtn = document.getElementById('reset-view-btn');
     if (resetViewBtn) {
-      resetViewBtn.addEventListener('click', () => {
+      addMobileButtonListener(resetViewBtn, () => {
         this.deps_.resetCamera?.();
       });
     }
@@ -362,7 +405,7 @@ export class SettingsHandler {
     // Upcoming events button
     const eventsBtn = document.getElementById('events-btn');
     if (eventsBtn) {
-      eventsBtn.addEventListener('click', () => {
+      addMobileButtonListener(eventsBtn, () => {
         this.deps_.showEventsCalendar?.();
       });
     }
@@ -387,7 +430,7 @@ export class SettingsHandler {
     // Constellation quick toggle
     const quickToggle = document.getElementById('constellations-quick-toggle');
     if (quickToggle) {
-      quickToggle.addEventListener('click', () => {
+      addMobileButtonListener(quickToggle, () => {
         const settingsToggle = document.getElementById('constellation-lines-toggle');
         if (settingsToggle) {
           settingsToggle.checked = !settingsToggle.checked;
@@ -657,7 +700,7 @@ export class UIController {
     // Settings toggle
     const settingsToggle = document.getElementById('settings-toggle');
     if (settingsToggle) {
-      settingsToggle.addEventListener('click', () => {
+      addMobileButtonListener(settingsToggle, () => {
         this.panelManager_.toggle('settings-panel');
       });
     }
@@ -665,7 +708,7 @@ export class UIController {
     // Compass toggle
     const compassToggle = document.getElementById('compass-toggle');
     if (compassToggle) {
-      compassToggle.addEventListener('click', () => {
+      addMobileButtonListener(compassToggle, () => {
         this.deps_.toggleCompassMode?.();
       });
     }
@@ -678,7 +721,7 @@ export class UIController {
     // Info panel close button
     const infoCloseBtn = document.getElementById('info-close-btn');
     if (infoCloseBtn) {
-      infoCloseBtn.addEventListener('click', () => {
+      addMobileButtonListener(infoCloseBtn, () => {
         this.deps_.selectObject?.(null);
       });
     }
