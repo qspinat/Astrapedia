@@ -89,6 +89,13 @@ import {
 // Main application class (to be slimmed down)
 import {SkyMapApp} from './skymap.js';
 
+// Debug: All imports successful
+console.log('[DEBUG] main.js: All modules imported successfully');
+{
+  const lt = document.querySelector('.loading-text');
+  if (lt) lt.textContent = 'Modules loaded, starting app...';
+}
+
 /**
  * Application instance.
  * @type {?SkyMapApp}
@@ -294,8 +301,16 @@ function registerServiceWorker_() {
  */
 async function initializeApp() {
   console.log('main.js: Initializing application...');
+  const loadingText = document.querySelector('.loading-text');
 
   try {
+    // Check if THREE.js loaded
+    if (typeof THREE === 'undefined') {
+      throw new Error('THREE.js library failed to load');
+    }
+
+    if (loadingText) loadingText.textContent = 'Initializing...';
+
     // Setup inter-module communication first
     setupEventBusWiring_();
 
@@ -324,8 +339,25 @@ async function initializeApp() {
     });
 
   } catch (error) {
+    console.error('main.js: Initialization failed:', error);
     handleError(error, 'Application initialization failed', ErrorSeverity.CRITICAL);
-    throw error;
+
+    // Show error on loading screen
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+      loadingEl.innerHTML = `
+        <div style="color: #ff6b6b; text-align: center; padding: 20px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+          <div style="font-size: 18px; margin-bottom: 8px;">Failed to start</div>
+          <div style="font-size: 14px; color: #999; max-width: 300px;">
+            ${error.message || 'Unknown error'}
+          </div>
+          <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #3B82F6; color: white; border: none; border-radius: 8px; cursor: pointer;">
+            Retry
+          </button>
+        </div>
+      `;
+    }
   }
 }
 

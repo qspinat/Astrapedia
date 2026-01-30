@@ -753,14 +753,22 @@ export class SkyMapApp {
    * Initialize the application: load data, setup scene, start animation
    */
   async init() {
+    const loadingText = document.querySelector('.loading-text');
+    const updateStatus = (msg) => {
+      console.log(msg);
+      if (loadingText) loadingText.textContent = msg;
+    };
+
     try {
       // Load data
+      updateStatus('Loading star data...');
       await this.loadData();
 
       // Planet positions are calculated using Keplerian orbital mechanics
       // (JPL Horizons API doesn't support CORS for browser requests)
 
       // Setup Three.js
+      updateStatus('Setting up 3D scene...');
       this.setupScene();
 
       // Initialize reusable objects for performance (must be before setupCamera
@@ -775,9 +783,11 @@ export class SkyMapApp {
       domCache.initialize();
 
       // Create celestial objects
+      updateStatus('Creating celestial sphere...');
       this.createCelestialSphere();
 
       // Initialize StarFieldRenderer module after celestialSphere is ready
+      updateStatus('Rendering stars...');
       this.initStarFieldRenderer_();
       this.createStarField();  // Delegated to StarFieldRenderer
 
@@ -786,6 +796,7 @@ export class SkyMapApp {
       this.createGrid();  // Delegated to GridRenderer
 
       // Initialize ConstellationRenderer module after celestialSphere is ready
+      updateStatus('Drawing constellations...');
       this.initConstellationRenderer_();
       this.createConstellationLines();  // Delegated to ConstellationRenderer
 
@@ -813,6 +824,7 @@ export class SkyMapApp {
       this.initTourHighlight_();
 
       // Initialize feature modules
+      updateStatus('Initializing features...');
       this.initSearchManager_();
       this.initTourController_();
       this.initGameController_();
@@ -857,7 +869,21 @@ export class SkyMapApp {
 
     } catch (error) {
       console.error('Initialization error:', error);
-      alert('Failed to load sky map data. Please check the console for details.');
+      const loadingEl = document.getElementById('loading');
+      if (loadingEl) {
+        loadingEl.innerHTML = `
+          <div style="color: #ff6b6b; text-align: center; padding: 20px;">
+            <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+            <div style="font-size: 18px; margin-bottom: 8px;">Failed to load</div>
+            <div style="font-size: 14px; color: #999; max-width: 300px;">
+              ${error.message || 'Unknown error'}
+            </div>
+            <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #3B82F6; color: white; border: none; border-radius: 8px; cursor: pointer;">
+              Retry
+            </button>
+          </div>
+        `;
+      }
     }
   }
 

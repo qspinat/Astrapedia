@@ -3,7 +3,7 @@
  * Handles click detection for planets, stars, DSOs, and constellations.
  */
 
-import * as THREE from 'three';
+// THREE is loaded globally from CDN in app.html
 import {cartesianToRaDec} from '../core/CoordinateUtils.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
 import {clamp} from '../core/Utils.js';

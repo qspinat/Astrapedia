@@ -88,6 +88,18 @@ export class InputController {
     /** @private {boolean} */
     this.isPinching_ = false;
 
+    /** @private {boolean} */
+    this.wasPinching_ = false;
+
+    /** @private {number} */
+    this.lastMoveTime_ = 0;
+
+    /** @private {{x: number, y: number}} */
+    this.velocity_ = {x: 0, y: 0};
+
+    /** @private {?number} */
+    this.inertiaAnimationId_ = null;
+
     // Bind handlers
     this.onMouseDown_ = this.onMouseDown_.bind(this);
     this.onMouseMove_ = this.onMouseMove_.bind(this);
@@ -251,13 +263,22 @@ export class InputController {
    * @private
    */
   onTouchStart_(event) {
+    // Stop any ongoing inertia animation
+    if (this.inertiaAnimationId_) {
+      cancelAnimationFrame(this.inertiaAnimationId_);
+      this.inertiaAnimationId_ = null;
+    }
+    this.velocity_ = {x: 0, y: 0};
+
     if (event.touches.length === 1) {
       this.isDragging_ = true;
       this.dragMoved_ = false;
       this.isPinching_ = false;
+      this.wasPinching_ = false;
       const touch = event.touches[0];
       this.mouseDownPosition_ = {x: touch.clientX, y: touch.clientY};
       this.previousMousePosition_ = {x: touch.clientX, y: touch.clientY};
+      this.lastMoveTime_ = performance.now();
       this.onDragStart_?.();
     } else if (event.touches.length === 2) {
       this.isPinching_ = true;
@@ -287,6 +308,17 @@ export class InputController {
       if (Math.abs(totalDeltaX) > 5 || Math.abs(totalDeltaY) > 5) {
         this.dragMoved_ = true;
       }
+
+      // Track velocity for inertia
+      const now = performance.now();
+      const dt = now - this.lastMoveTime_;
+      if (dt > 0 && dt < 100) { // Only track if reasonable time delta
+        this.velocity_ = {
+          x: deltaX / dt * 16, // Normalize to ~60fps
+          y: deltaY / dt * 16,
+        };
+      }
+      this.lastMoveTime_ = now;
 
       this.applyDragRotation_(deltaX, deltaY);
 
@@ -319,24 +351,74 @@ export class InputController {
    */
   onTouchEnd_(event) {
     if (event.touches.length === 0) {
-      // Check for tap (no drag)
-      if (this.isDragging_ && !this.dragMoved_) {
+      // Check for tap (no drag, no pinch)
+      if (this.isDragging_ && !this.dragMoved_ && !this.wasPinching_) {
         // Simulate click at last position
         const x = (this.mouseDownPosition_.x / window.innerWidth) * 2 - 1;
         const y = -(this.mouseDownPosition_.y / window.innerHeight) * 2 + 1;
         this.onClick_?.({x, y});
+      } else if (this.isDragging_ && this.dragMoved_) {
+        // Start inertia if we were dragging with movement
+        this.startInertia_();
       }
 
       this.isDragging_ = false;
       this.isPinching_ = false;
+      this.wasPinching_ = false;
       this.lastTouchDistance_ = 0;
       this.onDragEnd_?.();
     } else if (event.touches.length === 1) {
       // Switch from pinch back to drag
       this.isPinching_ = false;
+      this.wasPinching_ = true; // Remember we were pinching to prevent click
       this.isDragging_ = true;
+      this.dragMoved_ = true; // Prevent click after pinch
       const touch = event.touches[0];
       this.previousMousePosition_ = {x: touch.clientX, y: touch.clientY};
+      this.mouseDownPosition_ = {x: touch.clientX, y: touch.clientY};
+      this.velocity_ = {x: 0, y: 0}; // Reset velocity after pinch
+    }
+  }
+
+  /**
+   * Start inertia animation after touch release.
+   * @private
+   */
+  startInertia_() {
+    // Cancel any existing inertia animation
+    if (this.inertiaAnimationId_) {
+      cancelAnimationFrame(this.inertiaAnimationId_);
+    }
+
+    const friction = 0.95;
+    const minVelocity = 0.1;
+
+    const animate = () => {
+      // Apply friction
+      this.velocity_.x *= friction;
+      this.velocity_.y *= friction;
+
+      // Stop if velocity is too low
+      if (Math.abs(this.velocity_.x) < minVelocity &&
+          Math.abs(this.velocity_.y) < minVelocity) {
+        this.velocity_ = {x: 0, y: 0};
+        this.inertiaAnimationId_ = null;
+        return;
+      }
+
+      // Apply rotation
+      this.applyDragRotation_(this.velocity_.x, this.velocity_.y);
+      this.updateCamera_();
+      this.requestRender_();
+
+      // Continue animation
+      this.inertiaAnimationId_ = requestAnimationFrame(animate);
+    };
+
+    // Only start if we have meaningful velocity
+    if (Math.abs(this.velocity_.x) > minVelocity ||
+        Math.abs(this.velocity_.y) > minVelocity) {
+      this.inertiaAnimationId_ = requestAnimationFrame(animate);
     }
   }
 
@@ -366,6 +448,12 @@ export class InputController {
    * Dispose of event listeners.
    */
   dispose() {
+    // Stop inertia animation
+    if (this.inertiaAnimationId_) {
+      cancelAnimationFrame(this.inertiaAnimationId_);
+      this.inertiaAnimationId_ = null;
+    }
+
     this.canvas_.removeEventListener('mousedown', this.onMouseDown_);
     this.canvas_.removeEventListener('mousemove', this.onMouseMove_);
     this.canvas_.removeEventListener('mouseup', this.onMouseUp_);
