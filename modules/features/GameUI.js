@@ -48,24 +48,55 @@ export class GameUI {
   setupEventListeners_() {
     const startGameBtn = document.getElementById('start-game-btn');
     if (startGameBtn) {
-      startGameBtn.addEventListener('click', () => {
+      this.addButtonListener_(startGameBtn, () => {
         this.deps_.startGame?.();
       });
     }
 
     const passBtn = document.getElementById('pass-btn');
     if (passBtn) {
-      passBtn.addEventListener('click', () => {
+      this.addButtonListener_(passBtn, () => {
         this.deps_.passQuestion?.();
       });
     }
 
     const stopGameBtn = document.getElementById('stop-game-btn');
     if (stopGameBtn) {
-      stopGameBtn.addEventListener('click', () => {
+      this.addButtonListener_(stopGameBtn, () => {
         this.deps_.stopGame?.();
       });
     }
+  }
+
+  /**
+   * Add both click and touch listeners to a button for mobile compatibility.
+   * @param {!HTMLElement} button - Button element
+   * @param {function(): void} handler - Click handler
+   * @private
+   */
+  addButtonListener_(button, handler) {
+    // Use click for desktop
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handler();
+    });
+
+    // Use touchend for mobile (more reliable than click on touch devices)
+    let touchStarted = false;
+    button.addEventListener('touchstart', (e) => {
+      touchStarted = true;
+      e.stopPropagation();
+    }, {passive: true});
+
+    button.addEventListener('touchend', (e) => {
+      if (touchStarted) {
+        e.preventDefault();
+        e.stopPropagation();
+        touchStarted = false;
+        handler();
+      }
+    });
   }
 
   /**
