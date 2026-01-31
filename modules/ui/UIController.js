@@ -255,6 +255,7 @@ export class SettingsHandler {
    * @param {!Object} dependencies - Required dependencies
    * @param {function(): void=} dependencies.toggleNightMode - Toggle night mode
    * @param {function(boolean): void=} dependencies.setConstellationLines - Set lines
+   * @param {function(boolean): void=} dependencies.setEquatorLineVisible - Set equator
    * @param {function(string): void=} dependencies.setLanguage - Set language
    * @param {function(number): void=} dependencies.setMagnitudeLimit - Set magnitude
    * @param {function(): void=} dependencies.showLocationDialog - Show location dialog
@@ -631,6 +632,7 @@ export class UIController {
     this.settingsHandler_ = new SettingsHandler({
       toggleNightMode: this.deps_.toggleNightMode,
       setConstellationLines: this.deps_.setConstellationLines,
+      setEquatorLineVisible: this.deps_.setEquatorLineVisible,
       setLanguage: this.deps_.setLanguage,
       setMagnitudeLimit: this.deps_.setMagnitudeLimit,
       showLocationDialog: this.deps_.showLocationDialog,

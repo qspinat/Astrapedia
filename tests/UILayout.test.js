@@ -494,3 +494,156 @@ describe('Skymap search index planet updates (delegated to SearchManager)', () =
     );
   });
 });
+
+describe('UIController dependency forwarding', () => {
+  let uiControllerContent;
+
+  beforeAll(() => {
+    const uiControllerPath = path.resolve(
+      process.cwd(),
+      'modules/ui/UIController.js'
+    );
+    uiControllerContent = fs.readFileSync(uiControllerPath, 'utf8');
+  });
+
+  /**
+   * Extract dependencies used by a handler class from its methods.
+   * Looks for patterns like: this.deps_.someDependency
+   * @param {string} content - File content
+   * @param {string} className - Class name to search within
+   * @param {string} nextClassName - Next class name to find class boundary
+   * @returns {string[]} Array of dependency names used
+   */
+  function extractUsedDependencies(content, className, nextClassName) {
+    // Find class boundaries using indexOf for reliability
+    const classStart = content.indexOf(`export class ${className}`);
+    if (classStart === -1) return [];
+
+    // Find where the next class starts (or end of file)
+    let classEnd = content.length;
+    if (nextClassName) {
+      const nextStart = content.indexOf(`export class ${nextClassName}`);
+      if (nextStart !== -1) {
+        classEnd = nextStart;
+      }
+    }
+
+    const classBody = content.substring(classStart, classEnd);
+
+    // Find all this.deps_.xxx usages
+    const depPattern = /this\.deps_\.(\w+)/g;
+    const deps = new Set();
+    let match;
+    while ((match = depPattern.exec(classBody)) !== null) {
+      deps.add(match[1]);
+    }
+    return Array.from(deps);
+  }
+
+  /**
+   * Extract dependencies passed to a handler in the constructor call.
+   * @param {string} content - File content
+   * @param {string} handlerName - Handler variable name (e.g., 'settingsHandler_')
+   * @returns {string[]} Array of dependency names passed
+   */
+  function extractPassedDependencies(content, handlerName) {
+    // Find the constructor call: this.handlerName_ = new ClassName({...})
+    const constructorPattern = new RegExp(
+      `this\\.${handlerName}\\s*=\\s*new\\s+\\w+\\s*\\(\\s*\\{([^}]+)\\}\\s*\\)`,
+      's'
+    );
+    const match = content.match(constructorPattern);
+    if (!match) return [];
+
+    // Extract property names from the object literal
+    const objectContent = match[1];
+    const propPattern = /(\w+)\s*:/g;
+    const props = [];
+    let propMatch;
+    while ((propMatch = propPattern.exec(objectContent)) !== null) {
+      props.push(propMatch[1]);
+    }
+    return props;
+  }
+
+  // Class order in UIController.js for boundary detection
+  const CLASS_ORDER = [
+    'SearchController',
+    'SettingsHandler',
+    'InfoBadgeUpdater',
+    'UIController',
+  ];
+
+  function getNextClass(className) {
+    const idx = CLASS_ORDER.indexOf(className);
+    return idx >= 0 && idx < CLASS_ORDER.length - 1 ? CLASS_ORDER[idx + 1] : null;
+  }
+
+  test('SettingsHandler receives all dependencies it uses', () => {
+    const usedDeps = extractUsedDependencies(
+      uiControllerContent,
+      'SettingsHandler',
+      getNextClass('SettingsHandler')
+    );
+    const passedDeps = extractPassedDependencies(uiControllerContent, 'settingsHandler_');
+
+    // Every dependency used by SettingsHandler should be passed to it
+    const missingDeps = usedDeps.filter(dep => !passedDeps.includes(dep));
+
+    expect(missingDeps).toEqual([]);
+  });
+
+  test('SearchController receives all dependencies it uses', () => {
+    const usedDeps = extractUsedDependencies(
+      uiControllerContent,
+      'SearchController',
+      getNextClass('SearchController')
+    );
+    const passedDeps = extractPassedDependencies(uiControllerContent, 'searchController_');
+
+    const missingDeps = usedDeps.filter(dep => !passedDeps.includes(dep));
+
+    expect(missingDeps).toEqual([]);
+  });
+
+  test('InfoBadgeUpdater receives all dependencies it uses', () => {
+    const usedDeps = extractUsedDependencies(
+      uiControllerContent,
+      'InfoBadgeUpdater',
+      getNextClass('InfoBadgeUpdater')
+    );
+    const passedDeps = extractPassedDependencies(uiControllerContent, 'infoBadgeUpdater_');
+
+    const missingDeps = usedDeps.filter(dep => !passedDeps.includes(dep));
+
+    expect(missingDeps).toEqual([]);
+  });
+
+  test('all handlers in UIController.initialize() receive their required dependencies', () => {
+    // This is a comprehensive test that verifies dependency injection integrity
+    // for all handler classes defined in UIController.js
+    const handlerMappings = [
+      {className: 'SearchController', varName: 'searchController_'},
+      {className: 'SettingsHandler', varName: 'settingsHandler_'},
+      {className: 'InfoBadgeUpdater', varName: 'infoBadgeUpdater_'},
+    ];
+
+    const allMissing = [];
+
+    for (const {className, varName} of handlerMappings) {
+      const usedDeps = extractUsedDependencies(
+        uiControllerContent,
+        className,
+        getNextClass(className)
+      );
+      const passedDeps = extractPassedDependencies(uiControllerContent, varName);
+      const missingDeps = usedDeps.filter(dep => !passedDeps.includes(dep));
+
+      if (missingDeps.length > 0) {
+        allMissing.push(`${className} missing: ${missingDeps.join(', ')}`);
+      }
+    }
+
+    expect(allMissing).toEqual([]);
+  });
+});
