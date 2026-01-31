@@ -477,3 +477,72 @@ describe('initializeTimeController', () => {
     expect(result).toBeInstanceOf(TimeController);
   });
 });
+
+describe('TimeController EventBus integration', () => {
+  let controller;
+
+  beforeEach(() => {
+    controller = new TimeController({
+      updatePlanets: jest.fn(),
+      rotateCelestialSphere: jest.fn(),
+      setCelestialRotation: jest.fn(),
+      calculateLST: jest.fn().mockReturnValue(0),
+      getLongitude: jest.fn().mockReturnValue(0),
+    });
+    globalEventBus.clear();
+  });
+
+  test('CMD_TOGGLE_PLAYBACK can be used to control TimeController', () => {
+    // This test verifies the pattern used in skymap.js
+    // where CMD_TOGGLE_PLAYBACK event triggers controller.togglePlayback()
+
+    globalEventBus.on(Events.CMD_TOGGLE_PLAYBACK, () => {
+      controller.togglePlayback();
+    });
+
+    expect(controller.isPlaying()).toBe(false);
+
+    // Emit toggle event (as main.js does)
+    globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+    expect(controller.isPlaying()).toBe(true);
+    expect(controller.getSpeed()).toBe(1);
+
+    // Toggle again
+    globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+    expect(controller.isPlaying()).toBe(false);
+    expect(controller.getSpeed()).toBe(0);
+  });
+
+  test('togglePlayback uses internal state not external properties', () => {
+    // This test ensures togglePlayback works correctly with its own state
+    // and doesn't rely on external properties like app.isTimePlaying
+
+    // Start at speed 100
+    controller.setSpeed(100);
+    expect(controller.isPlaying()).toBe(true);
+
+    // Toggle off
+    controller.togglePlayback();
+    expect(controller.isPlaying()).toBe(false);
+    expect(controller.getSpeed()).toBe(0);
+
+    // Toggle on - should use default speed since previous was zeroed
+    controller.togglePlayback();
+    expect(controller.isPlaying()).toBe(true);
+    expect(controller.getSpeed()).toBe(1);
+  });
+
+  test('togglePlayback emits TIME_SPEED_CHANGED event', () => {
+    const callback = jest.fn();
+    globalEventBus.on(Events.TIME_SPEED_CHANGED, callback);
+
+    controller.togglePlayback();
+
+    expect(callback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        speed: 1,
+        isPlaying: true,
+      })
+    );
+  });
+});

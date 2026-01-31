@@ -242,9 +242,7 @@ function initializeUI_(appInstance) {
     // Time
     setTimeSpeed: (speed) => appInstance.setTimeSpeed?.(speed),
     togglePlayback: () => {
-      appInstance.isTimePlaying = !appInstance.isTimePlaying;
-      appInstance.setTimeSpeed?.(appInstance.isTimePlaying ? 1 : 0);
-      appInstance.requestRender?.();
+      globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
     },
     jumpToTime: (date) => appInstance.jumpToTime?.(date),
     getSimulationTime: () => appInstance.simulationTime || new Date(),

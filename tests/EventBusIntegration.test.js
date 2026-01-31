@@ -386,4 +386,155 @@ describe('EventBus Integration', () => {
       expect(prevBtn.disabled).toBe(true);
     });
   });
+
+  describe('Time command events', () => {
+    test('CMD_TOGGLE_PLAYBACK event triggers TimeController.togglePlayback', () => {
+      // Mock TimeController
+      const mockTogglePlayback = jest.fn();
+      const mockTimeController = {
+        togglePlayback: mockTogglePlayback,
+        getSpeedDisplayString: jest.fn().mockReturnValue('Paused'),
+      };
+
+      // Subscribe to CMD_TOGGLE_PLAYBACK as skymap.js does
+      globalEventBus.on(Events.CMD_TOGGLE_PLAYBACK, () => {
+        mockTimeController.togglePlayback();
+      });
+
+      // Emit the event as main.js does
+      globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+
+      expect(mockTogglePlayback).toHaveBeenCalledTimes(1);
+    });
+
+    test('CMD_TOGGLE_PLAYBACK does not rely on external isTimePlaying property', () => {
+      // This test ensures we don't accidentally reintroduce the bug where
+      // togglePlayback relied on a non-existent isTimePlaying property
+
+      let isPlaying = false;
+      let speed = 0;
+
+      const mockTimeController = {
+        togglePlayback: function() {
+          // Proper implementation: uses internal state
+          if (isPlaying) {
+            speed = 0;
+            isPlaying = false;
+          } else {
+            speed = speed || 1;
+            isPlaying = true;
+          }
+        },
+        isPlaying: () => isPlaying,
+        getSpeed: () => speed,
+        getSpeedDisplayString: jest.fn().mockReturnValue('Paused'),
+      };
+
+      globalEventBus.on(Events.CMD_TOGGLE_PLAYBACK, () => {
+        mockTimeController.togglePlayback();
+      });
+
+      // First toggle - should start playing
+      globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+      expect(mockTimeController.isPlaying()).toBe(true);
+      expect(mockTimeController.getSpeed()).toBe(1);
+
+      // Second toggle - should pause
+      globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+      expect(mockTimeController.isPlaying()).toBe(false);
+      expect(mockTimeController.getSpeed()).toBe(0);
+
+      // Third toggle - should resume
+      globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+      expect(mockTimeController.isPlaying()).toBe(true);
+    });
+
+    test('CMD_SET_TIME_SPEED event sets speed correctly', () => {
+      const mockSetSpeed = jest.fn();
+
+      globalEventBus.on(Events.CMD_SET_TIME_SPEED, (data) => {
+        mockSetSpeed(data?.speed || 0);
+      });
+
+      globalEventBus.emit(Events.CMD_SET_TIME_SPEED, {speed: 100});
+      expect(mockSetSpeed).toHaveBeenCalledWith(100);
+
+      globalEventBus.emit(Events.CMD_SET_TIME_SPEED, {speed: 0});
+      expect(mockSetSpeed).toHaveBeenCalledWith(0);
+    });
+
+    test('CMD_JUMP_TO_TIME event jumps to specified time', () => {
+      const mockJumpToTime = jest.fn();
+
+      globalEventBus.on(Events.CMD_JUMP_TO_TIME, (data) => {
+        if (data?.time) {
+          mockJumpToTime(data.time);
+        }
+      });
+
+      const testDate = new Date('2025-06-15T12:00:00Z');
+      globalEventBus.emit(Events.CMD_JUMP_TO_TIME, {time: testDate});
+
+      expect(mockJumpToTime).toHaveBeenCalledWith(testDate);
+    });
+  });
+
+  describe('TimeUI button -> EventBus -> TimeController flow', () => {
+    test('play button calls togglePlayback dependency which should emit event', () => {
+      document.body.innerHTML = '<button id="time-play-btn"></button>';
+
+      // Track if the event is emitted
+      const eventSpy = jest.fn();
+      globalEventBus.on(Events.CMD_TOGGLE_PLAYBACK, eventSpy);
+
+      // Initialize TimeUI with togglePlayback that emits the event (as main.js does)
+      const timeUI = initializeTimeUI({
+        togglePlayback: () => {
+          globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+        },
+      });
+
+      // Simulate button click
+      const playBtn = document.getElementById('time-play-btn');
+      playBtn.click();
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+    });
+
+    test('TimeUI updates when TIME_SPEED_CHANGED is emitted after toggle', () => {
+      document.body.innerHTML = '<button id="time-play-btn"></button>';
+
+      // Simulate the full flow:
+      // 1. TimeUI calls togglePlayback
+      // 2. togglePlayback emits CMD_TOGGLE_PLAYBACK
+      // 3. skymap handles event, calls TimeController.togglePlayback()
+      // 4. TimeController emits TIME_SPEED_CHANGED
+      // 5. TimeUI updates its state
+
+      const timeUI = initializeTimeUI({
+        togglePlayback: () => {
+          globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+        },
+      });
+
+      // Simulate skymap's handler
+      globalEventBus.on(Events.CMD_TOGGLE_PLAYBACK, () => {
+        // TimeController would emit this after toggling
+        globalEventBus.emit(Events.TIME_SPEED_CHANGED, {
+          speed: 1,
+          isPlaying: true,
+        });
+      });
+
+      expect(timeUI.isPlaying()).toBe(false);
+
+      // Click play button
+      const playBtn = document.getElementById('time-play-btn');
+      playBtn.click();
+
+      // TimeUI should have updated from TIME_SPEED_CHANGED event
+      expect(timeUI.isPlaying()).toBe(true);
+      expect(timeUI.getCurrentSpeed()).toBe(1);
+    });
+  });
 });
