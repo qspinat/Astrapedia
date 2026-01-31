@@ -633,10 +633,14 @@ export class SkyMapApp {
     });
 
     globalEventBus.on(Events.CMD_TOGGLE_PLAYBACK, () => {
-      this.timeController_.togglePlayback();
+      this.timeController_?.togglePlayback();
       // Update UI
       if (domCache.timeSpeedDisplay) {
         domCache.timeSpeedDisplay.textContent = this.timeController_.getSpeedDisplayString();
+      }
+      // Ensure animation is running when playing
+      if (this.timeController_?.isPlaying()) {
+        this.startAnimating();
       }
     });
 

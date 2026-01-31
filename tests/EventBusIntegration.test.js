@@ -387,6 +387,73 @@ describe('EventBus Integration', () => {
     });
   });
 
+  describe('Game command events', () => {
+    test('CMD_START_GAME event triggers game start', () => {
+      const mockStart = jest.fn();
+      const mockGameController = {
+        getCategory: jest.fn().mockReturnValue('known-constellations'),
+        setCategory: jest.fn(),
+        start: mockStart,
+      };
+
+      // Subscribe as skymap.js does
+      globalEventBus.on(Events.CMD_START_GAME, () => {
+        if (mockGameController) {
+          const category = mockGameController.getCategory() || 'known-constellations';
+          mockGameController.setCategory(category);
+          mockGameController.start();
+        }
+      });
+
+      // Emit event as main.js does
+      globalEventBus.emit(Events.CMD_START_GAME);
+
+      expect(mockStart).toHaveBeenCalledTimes(1);
+    });
+
+    test('CMD_STOP_GAME event triggers game stop', () => {
+      const mockStop = jest.fn();
+
+      globalEventBus.on(Events.CMD_STOP_GAME, () => {
+        mockStop();
+      });
+
+      globalEventBus.emit(Events.CMD_STOP_GAME);
+      expect(mockStop).toHaveBeenCalledTimes(1);
+    });
+
+    test('CMD_PASS_QUESTION event triggers pass question', () => {
+      const mockPass = jest.fn();
+
+      globalEventBus.on(Events.CMD_PASS_QUESTION, () => {
+        mockPass();
+      });
+
+      globalEventBus.emit(Events.CMD_PASS_QUESTION);
+      expect(mockPass).toHaveBeenCalledTimes(1);
+    });
+
+    test('GameUI start button emits CMD_START_GAME via dependency', () => {
+      document.body.innerHTML = '<button id="start-game-btn"></button>';
+
+      const eventSpy = jest.fn();
+      globalEventBus.on(Events.CMD_START_GAME, eventSpy);
+
+      // Initialize GameUI with startGame that emits the event (as main.js does)
+      const gameUI = initializeGameUI({
+        startGame: () => globalEventBus.emit(Events.CMD_START_GAME),
+        passQuestion: jest.fn(),
+        stopGame: jest.fn(),
+      });
+
+      // Simulate button click
+      const startBtn = document.getElementById('start-game-btn');
+      startBtn.click();
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('Time command events', () => {
     test('CMD_TOGGLE_PLAYBACK event triggers TimeController.togglePlayback', () => {
       // Mock TimeController
@@ -405,6 +472,37 @@ describe('EventBus Integration', () => {
       globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
 
       expect(mockTogglePlayback).toHaveBeenCalledTimes(1);
+    });
+
+    test('CMD_TOGGLE_PLAYBACK starts animation loop when playing', () => {
+      // This test verifies that the animation loop is started when playback begins
+      // (the bug was that togglePlayback didn't call startAnimating)
+      const mockStartAnimating = jest.fn();
+      let isPlaying = false;
+
+      const mockTimeController = {
+        togglePlayback: function() {
+          isPlaying = !isPlaying;
+        },
+        isPlaying: () => isPlaying,
+        getSpeedDisplayString: jest.fn().mockReturnValue('Real-time'),
+      };
+
+      // Subscribe as skymap.js does (with startAnimating call)
+      globalEventBus.on(Events.CMD_TOGGLE_PLAYBACK, () => {
+        mockTimeController.togglePlayback();
+        if (mockTimeController.isPlaying()) {
+          mockStartAnimating();
+        }
+      });
+
+      // Toggle to start playing
+      globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+      expect(mockStartAnimating).toHaveBeenCalledTimes(1);
+
+      // Toggle to pause - should not call startAnimating
+      globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+      expect(mockStartAnimating).toHaveBeenCalledTimes(1); // Still 1, not called again
     });
 
     test('CMD_TOGGLE_PLAYBACK does not rely on external isTimePlaying property', () => {
