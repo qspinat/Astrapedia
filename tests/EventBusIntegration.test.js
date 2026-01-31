@@ -433,15 +433,18 @@ describe('EventBus Integration', () => {
       expect(mockPass).toHaveBeenCalledTimes(1);
     });
 
-    test('GameUI start button emits CMD_START_GAME via dependency', () => {
-      document.body.innerHTML = '<button id="start-game-btn"></button>';
+    test('GameUI start button emits CMD_SHOW_GAME_SELECT via dependency', () => {
+      document.body.innerHTML = `
+        <button id="start-game-btn"></button>
+        <div id="game-select-modal"></div>
+      `;
 
       const eventSpy = jest.fn();
-      globalEventBus.on(Events.CMD_START_GAME, eventSpy);
+      globalEventBus.on(Events.CMD_SHOW_GAME_SELECT, eventSpy);
 
       // Initialize GameUI with startGame that emits the event (as main.js does)
       const gameUI = initializeGameUI({
-        startGame: () => globalEventBus.emit(Events.CMD_START_GAME),
+        startGame: () => globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT),
         passQuestion: jest.fn(),
         stopGame: jest.fn(),
       });
@@ -451,6 +454,36 @@ describe('EventBus Integration', () => {
       startBtn.click();
 
       expect(eventSpy).toHaveBeenCalledTimes(1);
+    });
+
+    test('CMD_SHOW_GAME_SELECT shows game selection modal', () => {
+      document.body.innerHTML = '<div id="game-select-modal"></div>';
+
+      const modal = document.getElementById('game-select-modal');
+      expect(modal.classList.contains('visible')).toBe(false);
+
+      // Subscribe as skymap.js does
+      globalEventBus.on(Events.CMD_SHOW_GAME_SELECT, () => {
+        modal.classList.add('visible');
+      });
+
+      globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT);
+
+      expect(modal.classList.contains('visible')).toBe(true);
+    });
+
+    test('CMD_START_GAME is used when category is selected (after modal)', () => {
+      // CMD_START_GAME is emitted by skymap.js when user selects a category
+      const mockStart = jest.fn();
+
+      globalEventBus.on(Events.CMD_START_GAME, () => {
+        mockStart();
+      });
+
+      // Simulate what happens when user selects a category in the modal
+      globalEventBus.emit(Events.CMD_START_GAME);
+
+      expect(mockStart).toHaveBeenCalledTimes(1);
     });
   });
 

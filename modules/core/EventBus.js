@@ -303,6 +303,7 @@ export const Events = {
   CMD_SET_LANGUAGE: 'cmd:language:set',
   CMD_RESET_CAMERA: 'cmd:camera:reset',
   CMD_TOGGLE_COMPASS: 'cmd:compass:toggle',
+  CMD_SHOW_GAME_SELECT: 'cmd:game:select',
   CMD_START_GAME: 'cmd:game:start',
   CMD_STOP_GAME: 'cmd:game:stop',
   CMD_PASS_QUESTION: 'cmd:game:pass',

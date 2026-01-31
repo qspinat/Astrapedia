@@ -678,7 +678,14 @@ export class SkyMapApp {
       this.requestRender();
     });
 
-    // Game commands - delegate directly to GameController
+    // Game commands
+    globalEventBus.on(Events.CMD_SHOW_GAME_SELECT, () => {
+      const modal = domCache.gameSelectModal;
+      if (modal) {
+        modal.classList.add('visible');
+      }
+    });
+
     globalEventBus.on(Events.CMD_START_GAME, () => {
       if (!this.gameController_) return;
       const category = this.gameController_.getCategory() || 'known-constellations';

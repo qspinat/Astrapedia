@@ -248,7 +248,7 @@ function initializeUI_(appInstance) {
     getSimulationTime: () => appInstance.simulationTime || new Date(),
 
     // Game
-    startGame: () => globalEventBus.emit(Events.CMD_START_GAME),
+    startGame: () => globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT),
     passQuestion: () => globalEventBus.emit(Events.CMD_PASS_QUESTION),
     stopGame: () => globalEventBus.emit(Events.CMD_STOP_GAME),
 
