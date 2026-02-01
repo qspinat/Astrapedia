@@ -31,6 +31,8 @@ export class TourHighlight {
    * @param {number=} angularSizeArcmin - Object's angular size in arcminutes
    */
   show(ra, dec, angularSizeArcmin = 10) {
+    console.log('[TourHighlight] show() called at ra:', ra, 'dec:', dec, 'size:', angularSizeArcmin);
+
     // Remove existing highlight if any
     this.hide();
 

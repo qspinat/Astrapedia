@@ -1598,6 +1598,7 @@ export class SkyMapApp {
    * @param {number=} angularSizeArcmin - Object's angular size in arcminutes
    */
   showTourHighlight(ra, dec, angularSizeArcmin = 10) {
+    console.log('[SkyMap] showTourHighlight called, module exists:', !!this.tourHighlightModule_);
     this.tourHighlightModule_?.show(ra, dec, angularSizeArcmin);
   }
 

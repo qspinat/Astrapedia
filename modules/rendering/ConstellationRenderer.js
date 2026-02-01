@@ -59,6 +59,9 @@ export class ConstellationRenderer {
     /** @private {!Array<!THREE.Material>} */
     this.lineMaterials_ = [];
 
+    /** @private {boolean} - Whether we forced visibility for highlighting */
+    this.forcedVisible_ = false;
+
     /** @private {number} */
     this.radius_ = SPHERE.CONSTELLATION_RADIUS;
   }
@@ -158,12 +161,17 @@ export class ConstellationRenderer {
    */
   highlight(constellationName) {
     if (!this.linesGroup_) {
-      console.warn('ConstellationRenderer: linesGroup does not exist');
       return;
     }
 
     // Remove any existing glow lines
     this.clearGlowLines_();
+
+    // Force lines visible if currently hidden (for game mode)
+    if (!this.linesGroup_.visible) {
+      this.linesGroup_.visible = true;
+      this.forcedVisible_ = true;
+    }
 
     // Only store original opacities if not already highlighting
     const alreadyHighlighting = this.originalOpacities_.length > 0;
@@ -211,8 +219,17 @@ export class ConstellationRenderer {
     // Remove glow lines first
     this.clearGlowLines_();
 
+    // Restore original visibility if we forced it
+    if (this.forcedVisible_ && this.linesGroup_) {
+      this.linesGroup_.visible = false;
+      this.forcedVisible_ = false;
+    }
+
     // Restore original opacities and colors
-    if (!this.linesGroup_ || this.originalOpacities_.length === 0) return;
+    if (!this.linesGroup_ || this.originalOpacities_.length === 0) {
+      this.requestRender_();
+      return;
+    }
 
     let i = 0;
     this.linesGroup_.children.forEach((line) => {

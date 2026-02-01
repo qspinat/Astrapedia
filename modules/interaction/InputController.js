@@ -76,6 +76,9 @@ export class InputController {
     /** @private {boolean} */
     this.dragMoved_ = false;
 
+    /** @private {boolean} - Prevents synthetic click after touch tap */
+    this.touchClickHandled_ = false;
+
     /** @private {{x: number, y: number}} */
     this.mouseDownPosition_ = {x: 0, y: 0};
 
@@ -247,6 +250,12 @@ export class InputController {
    * @private
    */
   onMouseClick_(event) {
+    // Skip synthetic click if touch already handled it
+    if (this.touchClickHandled_) {
+      this.touchClickHandled_ = false;
+      return;
+    }
+
     if (this.dragMoved_) {
       this.dragMoved_ = false;
       return;
@@ -358,6 +367,8 @@ export class InputController {
     if (event.touches.length === 0) {
       // Check for tap (no drag, no pinch)
       if (this.isDragging_ && !this.dragMoved_ && !this.wasPinching_) {
+        // Mark that touch handled the click to prevent synthetic click
+        this.touchClickHandled_ = true;
         // Simulate click at last position
         const x = (this.mouseDownPosition_.x / window.innerWidth) * 2 - 1;
         const y = -(this.mouseDownPosition_.y / window.innerHeight) * 2 + 1;

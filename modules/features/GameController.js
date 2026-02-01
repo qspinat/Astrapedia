@@ -428,9 +428,12 @@ export class GameController {
    * Pass the current question (show answer).
    */
   passQuestion() {
-    if (!this.currentQuestion_) return;
+    // Guard against rapid multiple passes or passing while already showing answer
+    if (!this.currentQuestion_ || this.isShowingPassedAnswer_ || this.isProcessingAnswer_) {
+      return;
+    }
 
-    // Set flag to prevent scoring during answer reveal
+    // Set flag to prevent scoring and multiple passes during answer reveal
     this.isShowingPassedAnswer_ = true;
 
     this.passedQuestions_.push(this.currentQuestion_);
@@ -453,8 +456,11 @@ export class GameController {
 
     // Show highlight ring
     const angularSize = questionData.size_major || questionData.angularSize || 30;
+    console.log('[Game] Showing highlight at', questionData.ra, questionData.dec, 'size:', angularSize);
     if (this.onShowHighlightCallback_) {
       this.onShowHighlightCallback_(questionData.ra, questionData.dec, angularSize);
+    } else {
+      console.warn('[Game] onShowHighlightCallback_ is not set!');
     }
 
     // Highlight constellation if applicable
@@ -532,7 +538,7 @@ export class GameController {
 
       this.isProcessingAnswer_ = false;
       this.nextQuestion();
-    }, 500);
+    }, 1000);
   }
 
   /**

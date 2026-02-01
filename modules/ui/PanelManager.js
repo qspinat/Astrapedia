@@ -74,10 +74,14 @@ export class PanelManager {
 
   /**
    * Setup touch handlers on panels to prevent events from reaching backdrop.
+   * Excludes game-panel which has its own drag handling.
    * @private
    */
   setupPanelTouchHandlers_() {
     PANEL_IDS.forEach((id) => {
+      // Skip game-panel - it has its own drag handling that needs document events
+      if (id === 'game-panel') return;
+
       const panel = document.getElementById(id);
       if (panel) {
         // Stop touch events from propagating to backdrop
