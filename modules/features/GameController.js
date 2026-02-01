@@ -99,6 +99,9 @@ export class GameController {
     /** @private {boolean} - Prevents double game over alerts */
     this.isGameEnding_ = false;
 
+    /** @private {boolean} - Prevents multiple scoring during answer feedback */
+    this.isProcessingAnswer_ = false;
+
     /** @private {number} */
     this.score_ = 0;
 
@@ -283,6 +286,7 @@ export class GameController {
     this.passedQuestions_ = [];
     this.isShowingPassedAnswer_ = false;
     this.isGameEnding_ = false;
+    this.isProcessingAnswer_ = false;
 
     // Update UI
     this.updateUI_();
@@ -385,8 +389,8 @@ export class GameController {
    */
   checkAnswer(ra, dec) {
     if (!this.currentQuestion_) return false;
-    // Prevent scoring during pass answer reveal
-    if (this.isShowingPassedAnswer_) return false;
+    // Prevent scoring during pass answer reveal or while processing previous answer
+    if (this.isShowingPassedAnswer_ || this.isProcessingAnswer_) return false;
 
     const target = this.currentQuestion_.data;
     const distance = angularDistance(ra, dec, target.ra, target.dec);
@@ -409,8 +413,8 @@ export class GameController {
    */
   checkAnswerByName(name) {
     if (!this.currentQuestion_) return false;
-    // Prevent scoring during pass answer reveal
-    if (this.isShowingPassedAnswer_) return false;
+    // Prevent scoring during pass answer reveal or while processing previous answer
+    if (this.isShowingPassedAnswer_ || this.isProcessingAnswer_) return false;
 
     if (name.toLowerCase() === this.currentQuestion_.name.toLowerCase()) {
       this.markCorrect_();
@@ -488,6 +492,9 @@ export class GameController {
    * @private
    */
   markCorrect_() {
+    // Prevent double scoring for same question
+    this.isProcessingAnswer_ = true;
+
     this.score_ += 100;
     this.correct_ += 1;
 
@@ -523,6 +530,7 @@ export class GameController {
         this.onUnhighlightCallback_();
       }
 
+      this.isProcessingAnswer_ = false;
       this.nextQuestion();
     }, 500);
   }

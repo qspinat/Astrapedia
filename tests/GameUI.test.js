@@ -99,11 +99,22 @@ describe('GameUI', () => {
       gameUI.initialize();
 
       globalEventBus.emit(Events.GAME_QUESTION, {
-        question: {name: 'Vega'},
+        question: {name: 'Vega', displayName: 'Vega'},
       });
 
       const questionEl = document.getElementById('game-question');
-      expect(questionEl.textContent).toBe('Find: Vega');
+      expect(questionEl.textContent).toBe('Vega');
+    });
+
+    test('handles GAME_QUESTION event with displayName for translated names', () => {
+      gameUI.initialize();
+
+      globalEventBus.emit(Events.GAME_QUESTION, {
+        question: {name: 'UrsaMajor', displayName: 'Ursa Major'},
+      });
+
+      const questionEl = document.getElementById('game-question');
+      expect(questionEl.textContent).toBe('Ursa Major');
     });
 
     test('handles GAME_SCORE event', () => {

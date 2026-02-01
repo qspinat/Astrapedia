@@ -59,6 +59,7 @@ export class PanelManager {
    */
   initialize() {
     this.setupBackdropListener_();
+    this.setupPanelTouchHandlers_();
   }
 
   /**
@@ -69,6 +70,28 @@ export class PanelManager {
     if (this.backdrop_) {
       addMobileButtonListener(this.backdrop_, () => this.closeAll());
     }
+  }
+
+  /**
+   * Setup touch handlers on panels to prevent events from reaching backdrop.
+   * @private
+   */
+  setupPanelTouchHandlers_() {
+    PANEL_IDS.forEach((id) => {
+      const panel = document.getElementById(id);
+      if (panel) {
+        // Stop touch events from propagating to backdrop
+        panel.addEventListener('touchstart', (e) => {
+          e.stopPropagation();
+        }, {passive: true});
+        panel.addEventListener('touchmove', (e) => {
+          e.stopPropagation();
+        }, {passive: true});
+        panel.addEventListener('touchend', (e) => {
+          e.stopPropagation();
+        }, {passive: true});
+      }
+    });
   }
 
   /**

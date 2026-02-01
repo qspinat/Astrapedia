@@ -5,7 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {domCache} from '../ui/DOMCache.js';
-import {clamp} from '../core/Utils.js';
+import {clamp, addMobileButtonListener} from '../core/Utils.js';
 
 /**
  * GameUI handles the game control buttons and display.
@@ -48,55 +48,24 @@ export class GameUI {
   setupEventListeners_() {
     const startGameBtn = document.getElementById('start-game-btn');
     if (startGameBtn) {
-      this.addButtonListener_(startGameBtn, () => {
+      addMobileButtonListener(startGameBtn, () => {
         this.deps_.startGame?.();
       });
     }
 
     const passBtn = document.getElementById('pass-btn');
     if (passBtn) {
-      this.addButtonListener_(passBtn, () => {
+      addMobileButtonListener(passBtn, () => {
         this.deps_.passQuestion?.();
       });
     }
 
     const stopGameBtn = document.getElementById('stop-game-btn');
     if (stopGameBtn) {
-      this.addButtonListener_(stopGameBtn, () => {
+      addMobileButtonListener(stopGameBtn, () => {
         this.deps_.stopGame?.();
       });
     }
-  }
-
-  /**
-   * Add both click and touch listeners to a button for mobile compatibility.
-   * @param {!HTMLElement} button - Button element
-   * @param {function(): void} handler - Click handler
-   * @private
-   */
-  addButtonListener_(button, handler) {
-    // Use click for desktop
-    button.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      handler();
-    });
-
-    // Use touchend for mobile (more reliable than click on touch devices)
-    let touchStarted = false;
-    button.addEventListener('touchstart', (e) => {
-      touchStarted = true;
-      e.stopPropagation();
-    }, {passive: true});
-
-    button.addEventListener('touchend', (e) => {
-      if (touchStarted) {
-        e.preventDefault();
-        e.stopPropagation();
-        touchStarted = false;
-        handler();
-      }
-    });
   }
 
   /**
@@ -246,7 +215,9 @@ export class GameUI {
   updateQuestion_(data) {
     const questionEl = document.getElementById('game-question');
     if (questionEl) {
-      questionEl.textContent = `Find: ${data.question?.name || 'Unknown'}`;
+      // Use displayName for translated names, fall back to name
+      questionEl.textContent = data.question?.displayName ||
+          data.question?.name || 'Unknown';
     }
   }
 

@@ -97,31 +97,68 @@ export function lerp(a, b, t) {
  * Add both click and touch listeners to a button for mobile compatibility.
  * On mobile, click events can be unreliable or delayed. This ensures buttons
  * work properly on both desktop (click) and mobile (touchend).
+ * Distinguishes taps from scrolls by tracking movement.
+ * Prevents double-firing when both touchend and synthetic click trigger.
  *
  * @param {!HTMLElement} button - Button element
  * @param {function(): void} handler - Click handler
  */
 export function addMobileButtonListener(button, handler) {
+  // Track if handler was recently called to prevent double execution
+  let handlerCalled = false;
+
+  const callHandler = () => {
+    if (handlerCalled) return;
+    handlerCalled = true;
+    // Reset after a short delay to allow future clicks
+    setTimeout(() => {
+      handlerCalled = false;
+    }, 300);
+    handler();
+  };
+
   // Use click for desktop
   button.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    handler();
+    callHandler();
   });
 
   // Use touchend for mobile (more reliable than click on touch devices)
+  // Track movement to distinguish tap from scroll
   let touchStarted = false;
+  let touchMoved = false;
+  let startX = 0;
+  let startY = 0;
+  const TAP_THRESHOLD = 10; // pixels
+
   button.addEventListener('touchstart', (e) => {
     touchStarted = true;
+    touchMoved = false;
+    if (e.touches.length > 0) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }
     e.stopPropagation();
   }, {passive: true});
 
+  button.addEventListener('touchmove', (e) => {
+    if (touchStarted && e.touches.length > 0) {
+      const dx = Math.abs(e.touches[0].clientX - startX);
+      const dy = Math.abs(e.touches[0].clientY - startY);
+      if (dx > TAP_THRESHOLD || dy > TAP_THRESHOLD) {
+        touchMoved = true;
+      }
+    }
+  }, {passive: true});
+
   button.addEventListener('touchend', (e) => {
-    if (touchStarted) {
+    if (touchStarted && !touchMoved) {
       e.preventDefault();
       e.stopPropagation();
-      touchStarted = false;
-      handler();
+      callHandler();
     }
+    touchStarted = false;
+    touchMoved = false;
   });
 }
