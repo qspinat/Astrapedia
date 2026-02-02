@@ -2023,7 +2023,6 @@ export class SkyMapApp {
   createExtendedObjects() {
     const count = this.extendedObjectRenderer_.create();
     this.extendedObjectSprites = this.extendedObjectRenderer_.getSprites();
-    console.log(`✓ Created ${count} extended objects with real angular sizes`);
   }
 
   /**
@@ -2036,13 +2035,6 @@ export class SkyMapApp {
     this.extendedObjectRenderer_.updateSizes(fov, canvasHeight);
   }
 
-  /**
-   * Calculate the screen angle to celestial North from an object's position
-   * This is needed to properly orient images on the celestial sphere
-   * @param {number} ra - Right Ascension in degrees
-   * @param {number} dec - Declination in degrees
-   * @returns {number} Angle in radians from screen "up" to celestial North (clockwise positive)
-   */
   /**
    * Update visibility of object images based on zoom level.
    * Delegates to ImageRenderer module.

@@ -377,3 +377,340 @@ describe('ClickHandler object creation', () => {
     }
   });
 });
+
+describe('ClickHandler detection paths', () => {
+  let handler;
+  let mockDeps;
+
+  const mockCamera = {fov: 60};
+  const mockRenderer = {
+    domElement: {height: 600, width: 800},
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockDeps = {
+      camera: mockCamera,
+      renderer: mockRenderer,
+      getCelestialSphere: jest.fn().mockReturnValue(null),
+      getStarField: jest.fn().mockReturnValue(null),
+      getPlanetSprites: jest.fn().mockReturnValue([]),
+      getExtendedObjectSprites: jest.fn().mockReturnValue([]),
+      getConstellationLinesGroup: jest.fn().mockReturnValue(null),
+      getDynamicObjectManager: jest.fn().mockReturnValue(null),
+      isConstellationLinesVisible: jest.fn().mockReturnValue(false),
+      isGameActive: jest.fn().mockReturnValue(false),
+      checkGameAnswer: jest.fn(),
+      checkGameAnswerByName: jest.fn(),
+      selectObject: jest.fn(),
+      showConstellationInfo: jest.fn(),
+      unhighlightConstellation: jest.fn(),
+      getConstellationName: jest.fn((key) => key),
+    };
+
+    handler = new ClickHandler(mockDeps);
+  });
+
+  describe('planet click detection', () => {
+    test('calls getPlanetSprites during click detection', () => {
+      handler.handleClick(0, 0);
+      expect(mockDeps.getPlanetSprites).toHaveBeenCalled();
+    });
+
+    test('skips planet sprites without ra property', () => {
+      const invalidSprite = {
+        userData: {name: 'Invalid', dec: 0, mag: 0}, // missing ra
+      };
+      mockDeps.getPlanetSprites.mockReturnValue([invalidSprite]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).not.toHaveBeenCalled();
+    });
+
+    test('skips planet sprites without userData', () => {
+      const emptySprite = {};
+      mockDeps.getPlanetSprites.mockReturnValue([emptySprite]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).not.toHaveBeenCalled();
+    });
+
+    test('queries celestial sphere for planet coordinate transform', () => {
+      const planetSprite = {
+        userData: {name: 'Mars', ra: 0, dec: 0, mag: -2, angularSize: 10},
+      };
+      mockDeps.getPlanetSprites.mockReturnValue([planetSprite]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.getCelestialSphere).toHaveBeenCalled();
+    });
+  });
+
+  describe('star click detection with raycaster', () => {
+    test('detects star click when raycaster returns intersection', () => {
+      const mockStarField = {
+        userData: {
+          stars: [
+            {proper: 'Vega', ra: 279, dec: 38, mag: 0.03, spect: 'A0V', dist: 25},
+          ],
+          dsos: [],
+        },
+      };
+      mockDeps.getStarField.mockReturnValue(mockStarField);
+
+      // Override raycaster to return intersection
+      const originalRaycaster = handler.raycaster_;
+      handler.raycaster_.intersectObject = jest.fn().mockReturnValue([
+        {index: 0, distance: 50},
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Vega',
+          type: 'Star',
+          subtype: 'Spectral type A0V',
+        })
+      );
+    });
+
+    test('detects DSO click from starField when index is beyond stars', () => {
+      const mockStarField = {
+        userData: {
+          stars: [{proper: 'Star1', ra: 0, dec: 0, mag: 5}],
+          dsos: [{
+            messier: 31,
+            ngc: 224,
+            name: 'Andromeda',
+            ra: 10,
+            dec: 41,
+            mag: 3.4,
+            type: 'G',
+          }],
+        },
+      };
+      mockDeps.getStarField.mockReturnValue(mockStarField);
+      handler.raycaster_.intersectObject = jest.fn().mockReturnValue([
+        {index: 1, distance: 50}, // Index 1 = first DSO
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'M31',
+          type: expect.any(String),
+        })
+      );
+    });
+
+    test('creates star name from Bayer-Flamsteed if no proper name', () => {
+      const mockStarField = {
+        userData: {
+          stars: [{bf: 'Alpha Lyr', ra: 279, dec: 38, mag: 0.03}],
+          dsos: [],
+        },
+      };
+      mockDeps.getStarField.mockReturnValue(mockStarField);
+      handler.raycaster_.intersectObject = jest.fn().mockReturnValue([
+        {index: 0, distance: 50},
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+        expect.objectContaining({name: 'Alpha Lyr'})
+      );
+    });
+
+    test('creates star name from HIP number if no proper or bf name', () => {
+      const mockStarField = {
+        userData: {
+          stars: [{hip: 91262, ra: 279, dec: 38, mag: 0.03}],
+          dsos: [],
+        },
+      };
+      mockDeps.getStarField.mockReturnValue(mockStarField);
+      handler.raycaster_.intersectObject = jest.fn().mockReturnValue([
+        {index: 0, distance: 50},
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+        expect.objectContaining({name: 'HIP 91262'})
+      );
+    });
+  });
+
+  describe('dynamic star click detection', () => {
+    test('detects click on dynamic star', () => {
+      const mockDynamicManager = {
+        getDynamicStarField: jest.fn().mockReturnValue({}),
+        getVisibleIndices: jest.fn().mockReturnValue([0, 1, 2]),
+        getDynamicStars: jest.fn().mockReturnValue([
+          {ra: 45.123, dec: 30.456, mag: 12},
+          {ra: 46.789, dec: 31.012, mag: 13},
+        ]),
+      };
+      mockDeps.getDynamicObjectManager.mockReturnValue(mockDynamicManager);
+
+      // Mock raycaster to return intersection at index 0
+      handler.raycaster_.intersectObject = jest.fn().mockReturnValue([
+        {index: 0, distance: 50},
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'Star',
+          subtype: 'Catalog star (VizieR)',
+        })
+      );
+    });
+
+    test('returns false when visible index out of range', () => {
+      const mockDynamicManager = {
+        getDynamicStarField: jest.fn().mockReturnValue({}),
+        getVisibleIndices: jest.fn().mockReturnValue([100]), // Out of range
+        getDynamicStars: jest.fn().mockReturnValue([{ra: 0, dec: 0, mag: 10}]),
+      };
+      mockDeps.getDynamicObjectManager.mockReturnValue(mockDynamicManager);
+      handler.raycaster_.intersectObject = jest.fn().mockReturnValue([
+        {index: 0, distance: 50},
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('DSO click detection via extended objects', () => {
+    test('calls getExtendedObjectSprites during click detection', () => {
+      handler.handleClick(0, 0);
+      expect(mockDeps.getExtendedObjectSprites).toHaveBeenCalled();
+    });
+
+    test('skips DSO sprites without valid ra property', () => {
+      const invalidSprite = {
+        userData: {
+          dso: {name: 'Test', dec: 0, mag: 5, type: 'G'}, // missing ra
+          angularSizeArcmin: 10,
+        },
+      };
+      mockDeps.getExtendedObjectSprites.mockReturnValue([invalidSprite]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).not.toHaveBeenCalled();
+    });
+
+    test('queries celestial sphere for coordinate transform', () => {
+      const dsoSprite = {
+        userData: {
+          dso: {name: 'Test', ra: 0, dec: 0, mag: 5, type: 'G'},
+          angularSizeArcmin: 10,
+        },
+      };
+      mockDeps.getExtendedObjectSprites.mockReturnValue([dsoSprite]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.getCelestialSphere).toHaveBeenCalled();
+    });
+  });
+
+  describe('constellation click detection', () => {
+    test('detects constellation line click', () => {
+      mockDeps.isConstellationLinesVisible.mockReturnValue(true);
+
+      const mockLine = {
+        userData: {constellation: 'ORI'},
+      };
+      const mockGroup = {children: [mockLine]};
+      mockDeps.getConstellationLinesGroup.mockReturnValue(mockGroup);
+
+      // Mock raycaster to return line intersection
+      handler.raycaster_.intersectObjects = jest.fn().mockReturnValue([
+        {object: mockLine, distance: 50},
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.showConstellationInfo).toHaveBeenCalledWith('ORI');
+    });
+
+    test('calls checkGameAnswerByName in game mode', () => {
+      mockDeps.isConstellationLinesVisible.mockReturnValue(true);
+      mockDeps.isGameActive.mockReturnValue(true);
+
+      const mockLine = {userData: {constellation: 'ORI'}};
+      mockDeps.getConstellationLinesGroup.mockReturnValue({children: [mockLine]});
+      handler.raycaster_.intersectObjects = jest.fn().mockReturnValue([
+        {object: mockLine, distance: 50},
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.checkGameAnswerByName).toHaveBeenCalledWith('ORI');
+      expect(mockDeps.showConstellationInfo).not.toHaveBeenCalled();
+    });
+
+    test('ignores click when constellation key is missing', () => {
+      mockDeps.isConstellationLinesVisible.mockReturnValue(true);
+
+      const mockLine = {userData: {}};
+      mockDeps.getConstellationLinesGroup.mockReturnValue({children: [mockLine]});
+      handler.raycaster_.intersectObjects = jest.fn().mockReturnValue([
+        {object: mockLine, distance: 50},
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.showConstellationInfo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleObjectClick_', () => {
+    test('unhighlights constellation before selecting via star click', () => {
+      // Test via star click which uses raycaster intersection
+      const mockStarField = {
+        userData: {
+          stars: [{proper: 'TestStar', ra: 0, dec: 0, mag: 5}],
+          dsos: [],
+        },
+      };
+      mockDeps.getStarField.mockReturnValue(mockStarField);
+      handler.raycaster_.intersectObject = jest.fn().mockReturnValue([
+        {index: 0, distance: 50},
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.unhighlightConstellation).toHaveBeenCalled();
+      expect(mockDeps.selectObject).toHaveBeenCalled();
+    });
+  });
+
+  describe('getClickRaDec_', () => {
+    test('queries celestial sphere during planet detection', () => {
+      // Setup a planet sprite to trigger getClickRaDec_
+      const planetSprite = {
+        userData: {name: 'Mars', ra: 0, dec: 0, mag: -2, angularSize: 10},
+      };
+      mockDeps.getPlanetSprites.mockReturnValue([planetSprite]);
+
+      handler.handleClick(0, 0);
+
+      // getCelestialSphere is called during planet click detection
+      expect(mockDeps.getCelestialSphere).toHaveBeenCalled();
+    });
+  });
+});
