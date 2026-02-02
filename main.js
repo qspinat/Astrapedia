@@ -229,10 +229,10 @@ function initializeUI_(appInstance) {
     stopGame: () => globalEventBus.emit(Events.CMD_STOP_GAME),
 
     // Tour
-    startTour: (name) => appInstance.startTour?.(name),
-    nextTourStep: () => appInstance.nextTourStep?.(),
-    prevTourStep: () => appInstance.previousTourStep?.(),
-    stopTour: () => appInstance.stopTour?.(),
+    startTour: (name) => globalEventBus.emit(Events.CMD_START_TOUR, {tourName: name}),
+    nextTourStep: () => globalEventBus.emit(Events.CMD_NEXT_TOUR_STEP),
+    prevTourStep: () => globalEventBus.emit(Events.CMD_PREV_TOUR_STEP),
+    stopTour: () => globalEventBus.emit(Events.CMD_STOP_TOUR),
 
     // Compass
     toggleCompassMode: () => appInstance.toggleCompassMode?.(),

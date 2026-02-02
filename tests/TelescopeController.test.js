@@ -335,6 +335,17 @@ describe('TelescopeController', () => {
       controller.activateTelescopeMode();
       expect(mockDependencies.setFOV).not.toHaveBeenCalled();
     });
+
+    test('calls lockZoom to prevent user zoom changes', () => {
+      const lockZoom = jest.fn();
+      const controllerWithLock = new TelescopeController({
+        ...mockDependencies,
+        lockZoom,
+      });
+      controllerWithLock.initialize();
+      controllerWithLock.activateTelescopeMode();
+      expect(lockZoom).toHaveBeenCalled();
+    });
   });
 
   describe('deactivateTelescopeMode', () => {
@@ -371,6 +382,20 @@ describe('TelescopeController', () => {
       jest.clearAllMocks();
       controller.deactivateTelescopeMode();
       expect(mockDependencies.setFOV).not.toHaveBeenCalled();
+    });
+
+    test('calls unlockZoom to allow user zoom changes', () => {
+      const lockZoom = jest.fn();
+      const unlockZoom = jest.fn();
+      const controllerWithLock = new TelescopeController({
+        ...mockDependencies,
+        lockZoom,
+        unlockZoom,
+      });
+      controllerWithLock.initialize();
+      controllerWithLock.activateTelescopeMode();
+      controllerWithLock.deactivateTelescopeMode();
+      expect(unlockZoom).toHaveBeenCalled();
     });
   });
 
