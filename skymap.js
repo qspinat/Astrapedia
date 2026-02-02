@@ -606,6 +606,8 @@ export class SkyMapApp {
       selectObject: (obj) => this.selectObject(obj),
       showConstellationInfo: (name) => this.showConstellationInfo(name),
       unhighlightConstellation: () => this.unhighlightConstellation(),
+      clearSelection: () => this.selectionManager_?.clearSelection(),
+      getMagnitudeLimit: () => this.magnitudeLimit,
       getConstellationName: (key) => this.getConstellationName(key),
     });
   }

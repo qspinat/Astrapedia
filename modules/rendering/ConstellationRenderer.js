@@ -50,17 +50,14 @@ export class ConstellationRenderer {
     /** @private {!Array<!THREE.Line>} */
     this.glowLines_ = [];
 
-    /** @private {!Array<number>} */
-    this.originalOpacities_ = [];
-
-    /** @private {!Array<number>} */
-    this.originalColors_ = [];
-
     /** @private {!Array<!THREE.Material>} */
     this.lineMaterials_ = [];
 
     /** @private {boolean} - Whether we forced visibility for highlighting */
     this.forcedVisible_ = false;
+
+    /** @private {?string} - Currently highlighted constellation name */
+    this.highlightedConstellation_ = null;
 
     /** @private {number} */
     this.radius_ = SPHERE.CONSTELLATION_RADIUS;
@@ -166,27 +163,21 @@ export class ConstellationRenderer {
       return;
     }
 
-    // Remove any existing glow lines
+    // Remove any existing glow lines and restore previous highlight
     this.clearGlowLines_();
+    this.restoreHighlightedLines_();
+
+    // Check if lines were hidden (game mode) - only dim others in this case
+    const linesWereHidden = !this.linesGroup_.visible;
 
     // Force lines visible if currently hidden (for game mode)
-    if (!this.linesGroup_.visible) {
+    if (linesWereHidden) {
       this.linesGroup_.visible = true;
       this.forcedVisible_ = true;
-    }
 
-    // Only store original opacities if not already highlighting
-    const alreadyHighlighting = this.originalOpacities_.length > 0;
-
-    if (!alreadyHighlighting) {
-      // Store original opacities and colors, then dim all lines
-      this.originalOpacities_ = [];
-      this.originalColors_ = [];
-
+      // Dim all lines when forcing visibility (game mode)
       this.linesGroup_.children.forEach((line) => {
         if (!line.userData?.isGlow) {
-          this.originalOpacities_.push(line.material.opacity);
-          this.originalColors_.push(line.material.color.getHex());
           line.material.opacity = 0.08;
           line.material.color.setHex(0x666688);
         }
@@ -194,10 +185,16 @@ export class ConstellationRenderer {
     }
 
     // Highlight matching constellation lines
+    this.highlightedConstellation_ = constellationName;
     this.linesGroup_.children.forEach((line) => {
       if (line.userData?.isGlow) return;
 
       if (line.userData.constellation === constellationName) {
+        // Store original values for this line
+        if (!line.userData.originalOpacity) {
+          line.userData.originalOpacity = line.material.opacity;
+          line.userData.originalColor = line.material.color.getHex();
+        }
         line.material.opacity = 1.0;
         line.material.color.setHex(COLORS.HIGHLIGHT);
         line.material.linewidth = 2;
@@ -215,40 +212,52 @@ export class ConstellationRenderer {
   }
 
   /**
+   * Restore highlighted lines to their original state.
+   * @private
+   */
+  restoreHighlightedLines_() {
+    if (!this.linesGroup_ || !this.highlightedConstellation_) return;
+
+    this.linesGroup_.children.forEach((line) => {
+      if (line.userData?.isGlow) return;
+
+      if (line.userData.constellation === this.highlightedConstellation_) {
+        if (line.userData.originalOpacity !== undefined) {
+          line.material.opacity = line.userData.originalOpacity;
+          line.material.color.setHex(line.userData.originalColor);
+          line.material.linewidth = 1;
+          delete line.userData.originalOpacity;
+          delete line.userData.originalColor;
+        }
+      }
+    });
+
+    this.highlightedConstellation_ = null;
+  }
+
+  /**
    * Remove all constellation highlighting.
    */
   unhighlight() {
     // Remove glow lines first
     this.clearGlowLines_();
 
-    // Restore original visibility if we forced it
+    // Restore highlighted constellation lines
+    this.restoreHighlightedLines_();
+
+    // Restore original visibility if we forced it (game mode)
     if (this.forcedVisible_ && this.linesGroup_) {
       this.linesGroup_.visible = false;
       this.forcedVisible_ = false;
-    }
 
-    // Restore original opacities and colors
-    if (!this.linesGroup_ || this.originalOpacities_.length === 0) {
-      this.requestRender_();
-      return;
-    }
-
-    let i = 0;
-    this.linesGroup_.children.forEach((line) => {
-      if (line.userData?.isGlow) return;
-
-      if (i < this.originalOpacities_.length) {
-        line.material.opacity = this.originalOpacities_[i];
-        if (i < this.originalColors_.length) {
-          line.material.color.setHex(this.originalColors_[i]);
-        }
+      // Restore all lines to original state when hiding
+      this.linesGroup_.children.forEach((line) => {
+        if (line.userData?.isGlow) return;
+        line.material.opacity = 0.35;
+        line.material.color.setHex(COLORS.LINE);
         line.material.linewidth = 1;
-        i++;
-      }
-    });
-
-    this.originalOpacities_ = [];
-    this.originalColors_ = [];
+      });
+    }
 
     this.requestRender_();
 

@@ -36,6 +36,8 @@ describe('ClickHandler', () => {
       selectObject: jest.fn(),
       showConstellationInfo: jest.fn(),
       unhighlightConstellation: jest.fn(),
+      clearSelection: jest.fn(),
+      getMagnitudeLimit: jest.fn().mockReturnValue(8.0),
       getConstellationName: jest.fn((key) => key),
     };
 
@@ -95,6 +97,7 @@ describe('ClickHandler', () => {
       mockDeps.isGameActive.mockReturnValue(false);
       handler.handleClick(0, 0);
       expect(mockDeps.unhighlightConstellation).toHaveBeenCalled();
+      expect(mockDeps.clearSelection).toHaveBeenCalled();
     });
 
     test('does not unhighlight on empty space click during game', () => {
@@ -235,7 +238,8 @@ describe('ClickHandler', () => {
       mockDeps.isConstellationLinesVisible.mockReturnValue(true);
       mockDeps.getConstellationLinesGroup.mockReturnValue({children: []});
       handler.handleClick(0, 0);
-      expect(handler.raycaster_.params.Line.threshold).toBeCloseTo(0.5 * (30 / 60), 2);
+      // Threshold of 2.0 makes lines easier to click
+      expect(handler.raycaster_.params.Line.threshold).toBeCloseTo(2.0 * (30 / 60), 2);
     });
   });
 
@@ -281,6 +285,8 @@ describe('initializeClickHandler', () => {
       selectObject: jest.fn(),
       showConstellationInfo: jest.fn(),
       unhighlightConstellation: jest.fn(),
+      clearSelection: jest.fn(),
+      getMagnitudeLimit: jest.fn().mockReturnValue(8.0),
       getConstellationName: jest.fn(),
     };
 
@@ -406,6 +412,8 @@ describe('ClickHandler detection paths', () => {
       selectObject: jest.fn(),
       showConstellationInfo: jest.fn(),
       unhighlightConstellation: jest.fn(),
+      clearSelection: jest.fn(),
+      getMagnitudeLimit: jest.fn().mockReturnValue(8.0),
       getConstellationName: jest.fn((key) => key),
     };
 

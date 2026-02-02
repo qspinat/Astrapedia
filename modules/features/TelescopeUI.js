@@ -107,7 +107,7 @@ export class TelescopeUI {
     if (quickToggle) {
       addMobileButtonListener(quickToggle, () => {
         this.deps_.toggleMode?.();
-        quickToggle.classList.toggle('active');
+        // Note: active class is handled by updateModeUI_ via event listener
       });
     }
 

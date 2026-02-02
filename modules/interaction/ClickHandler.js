@@ -26,6 +26,8 @@ import {clamp} from '../core/Utils.js';
  *   selectObject: function(!Object): void,
  *   showConstellationInfo: function(string): void,
  *   unhighlightConstellation: function(): void,
+ *   clearSelection: function(): void,
+ *   getMagnitudeLimit: function(): number,
  *   getConstellationName: function(string): string
  * }}
  */
@@ -72,9 +74,10 @@ export class ClickHandler {
     if (this.detectDSOClick_(camera, renderer)) return;
     if (this.detectConstellationClick_(camera)) return;
 
-    // Empty space click - unhighlight any selected constellation
+    // Empty space click - deselect any selected object/constellation
     if (!this.deps_.isGameActive()) {
       this.deps_.unhighlightConstellation();
+      this.deps_.clearSelection?.();
     }
   }
 
@@ -200,11 +203,16 @@ export class ClickHandler {
     const index = intersects[0].index;
     const stars = starField.userData.stars;
     const dsos = starField.userData.dsos;
+    const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
 
     let clickedObject = null;
 
     if (index < stars.length) {
       const star = stars[index];
+      // Skip stars above magnitude limit (not visible)
+      if (star.mag !== undefined && star.mag > magnitudeLimit) {
+        return false;
+      }
       clickedObject = {
         name: star.proper || star.bf || `HIP ${star.hip}` || 'Unknown Star',
         type: 'Star',
@@ -219,6 +227,10 @@ export class ClickHandler {
       const dsoIndex = index - stars.length;
       if (dsoIndex < dsos.length) {
         const dso = dsos[dsoIndex];
+        // Skip DSOs above magnitude limit (not visible)
+        if (dso.mag !== undefined && dso.mag > magnitudeLimit) {
+          return false;
+        }
         clickedObject = {
           name: dso.messier
             ? `M${Math.floor(dso.messier)}`
@@ -320,6 +332,7 @@ export class ClickHandler {
     const canvasHeight = renderer.domElement.height;
     const pixelsPerDeg = canvasHeight / fov;
     const minSizePixels = 6;
+    const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
 
     let closestDSO = null;
     let closestDistance = Infinity;
@@ -327,6 +340,8 @@ export class ClickHandler {
     for (const sprite of extendedObjectSprites) {
       const dsoData = sprite.userData?.dso;
       if (!dsoData || !dsoData.ra) continue;
+      // Skip DSOs above magnitude limit (not visible)
+      if (dsoData.mag !== undefined && dsoData.mag > magnitudeLimit) continue;
 
       const dRa = (dsoData.ra - clickRaDec.ra) *
         Math.cos(THREE.MathUtils.degToRad(dsoData.dec));
@@ -380,8 +395,8 @@ export class ClickHandler {
     const constellationLinesGroup = this.deps_.getConstellationLinesGroup();
     if (!constellationLinesGroup) return false;
 
-    // Set line threshold based on FOV
-    this.raycaster_.params.Line = {threshold: 0.5 * (camera.fov / CAMERA.DEFAULT_FOV)};
+    // Set line threshold based on FOV (larger threshold = easier to click)
+    this.raycaster_.params.Line = {threshold: 2.0 * (camera.fov / CAMERA.DEFAULT_FOV)};
 
     const lineIntersects = this.raycaster_.intersectObjects(
       constellationLinesGroup.children,
