@@ -46,7 +46,7 @@ export class GridRenderer {
     this.gridVisible_ = true;
 
     /** @private {boolean} */
-    this.equatorVisible_ = true;
+    this.equatorVisible_ = false;
   }
 
   /**

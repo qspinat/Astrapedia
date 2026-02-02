@@ -70,7 +70,7 @@ import {
   calculateLST,
   formatAngle,
 } from './modules/core/CoordinateUtils.js';
-import {CAMERA} from './modules/core/Constants.js';
+import {CAMERA, STARS} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
 import {dataLoader} from './modules/services/DataLoader.js';
 import {astronomyCalculator} from './modules/core/AstronomyCalculator.js';
@@ -127,7 +127,7 @@ export class SkyMapApp {
     this.extendedObjectSprites = [];
 
     // State
-    this.currentMagnitude = 8.0;
+    this.currentMagnitude = STARS.DEFAULT_MAGNITUDE;
     this.currentLevel = 3;
 
     // Observer location is managed by LocationManager singleton
@@ -353,7 +353,7 @@ export class SkyMapApp {
       getPlanets: () => this.planets || [],
       getDeepSkyObjects: () => this.deepSkyObjects || [],
       getStars: () => this.stars || [],
-      getFOV: () => this.targetFov || 60,
+      getFOV: () => this.targetFov || CAMERA.DEFAULT_FOV,
       setFOV: (fov) => { this.targetFov = fov; },
       getConstellationName: (name) => this.getConstellationName(name),
     });

@@ -5,6 +5,7 @@
 
 // THREE is loaded globally from CDN in app.html
 import {cartesianToRaDec} from '../core/CoordinateUtils.js';
+import {CAMERA} from '../core/Constants.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
 import {clamp} from '../core/Utils.js';
 
@@ -61,7 +62,7 @@ export class ClickHandler {
     this.mouse_.set(x, y);
 
     // Configure raycaster with FOV-scaled threshold
-    this.raycaster_.params.Points.threshold = 5 * (camera.fov / 60);
+    this.raycaster_.params.Points.threshold = 5 * (camera.fov / CAMERA.DEFAULT_FOV);
     this.raycaster_.setFromCamera(this.mouse_, camera);
 
     // Try click detection in priority order
@@ -380,7 +381,7 @@ export class ClickHandler {
     if (!constellationLinesGroup) return false;
 
     // Set line threshold based on FOV
-    this.raycaster_.params.Line = {threshold: 0.5 * (camera.fov / 60)};
+    this.raycaster_.params.Line = {threshold: 0.5 * (camera.fov / CAMERA.DEFAULT_FOV)};
 
     const lineIntersects = this.raycaster_.intersectObjects(
       constellationLinesGroup.children,

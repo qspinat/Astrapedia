@@ -4,7 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {SPHERE} from '../core/Constants.js';
+import {SPHERE, CAMERA} from '../core/Constants.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 
 /**
@@ -305,7 +305,7 @@ export class TourController {
 
     // Determine required FOV based on tour type
     let requiredFov = this.calculateRequiredFOV_(step);
-    const currentFov = this.getFOV_?.() || 60;
+    const currentFov = this.getFOV_?.() || CAMERA.DEFAULT_FOV;
 
     if (requiredFov && currentFov < requiredFov) {
       this.setFOV_?.(requiredFov);

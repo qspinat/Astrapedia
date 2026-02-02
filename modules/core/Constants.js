@@ -56,7 +56,7 @@ export const CAMERA = {
  */
 export const STARS = {
   /** Default magnitude limit for visible stars. */
-  DEFAULT_MAGNITUDE: 8.0,
+  DEFAULT_MAGNITUDE: 4.0,
   /** Maximum magnitude stored in data. */
   MAX_MAGNITUDE: 20,
   /** Magnitude fade range for smooth transitions. */

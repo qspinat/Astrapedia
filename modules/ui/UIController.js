@@ -10,6 +10,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {STARS} from '../core/Constants.js';
 import {PanelManager, panelManager} from './PanelManager.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {addMobileButtonListener} from '../core/Utils.js';
@@ -269,7 +270,7 @@ export class SettingsHandler {
     this.deps_ = dependencies;
 
     /** @private {number} */
-    this.savedMagnitude_ = 8.0;
+    this.savedMagnitude_ = STARS.DEFAULT_MAGNITUDE;
 
     /** @private {boolean} */
     this.telescopeModeActive_ = false;

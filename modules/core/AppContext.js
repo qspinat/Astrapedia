@@ -3,6 +3,8 @@
  * Provides a clean interface to app functionality via dependency injection.
  */
 
+import {STARS} from './Constants.js';
+
 /**
  * AppContext provides a facade for accessing SkyMapApp functionality.
  * Modules should use this for decoupled access to app methods.
@@ -108,7 +110,7 @@ export class AppContext {
    * @returns {number} Current magnitude limit
    */
   getMagnitudeLimit() {
-    return this.app_.currentMagnitude || 8.0;
+    return this.app_.currentMagnitude || STARS.DEFAULT_MAGNITUDE;
   }
 
   /**

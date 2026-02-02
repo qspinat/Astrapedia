@@ -49,6 +49,7 @@
 // Core modules
 import {globalEventBus, Events} from './modules/core/EventBus.js';
 import {handleError, ErrorSeverity} from './modules/core/ErrorHandler.js';
+import {CAMERA} from './modules/core/Constants.js';
 
 // Service modules
 import {dataLoader} from './modules/services/DataLoader.js';
@@ -251,7 +252,7 @@ function initializeUI_(appInstance) {
     getTelescopeComputedProperties: () => telescopeController?.getComputedProperties() || null,
 
     // Info
-    getFOV: () => appInstance.targetFov || 60,
+    getFOV: () => appInstance.targetFov || CAMERA.DEFAULT_FOV,
     getViewDirection: () => ({ra: 0, dec: 0}),
   });
 }

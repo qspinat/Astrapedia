@@ -3,6 +3,8 @@
  * Handles horizon line and N/S/E/W directional markers.
  */
 
+import {CAMERA} from '../core/Constants.js';
+
 /**
  * Horizon configuration constants.
  * @const {!Object}
@@ -14,7 +16,7 @@ const HORIZON_CONFIG = {
   OPACITY: 0.9,
   SEGMENTS: 128,
   LABEL_SIZE: 10,
-  REFERENCE_FOV: 60,
+  REFERENCE_FOV: CAMERA.DEFAULT_FOV,
 };
 
 /**
