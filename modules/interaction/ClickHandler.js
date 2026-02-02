@@ -177,8 +177,6 @@ export class ClickHandler {
         angularSize: closestPlanet.angularSize,
         phase: closestPlanet.phase,
       };
-      console.log('Clicked planet:', clickedObject.name,
-        'at distance', closestDistance.toFixed(2), 'deg');
       this.handleObjectClick_(clickedObject);
       return true;
     }
@@ -236,7 +234,6 @@ export class ClickHandler {
     }
 
     if (clickedObject) {
-      console.log('Clicked object:', clickedObject.name);
       this.handleObjectClick_(clickedObject);
       return true;
     }
@@ -284,7 +281,6 @@ export class ClickHandler {
       angularSize: null,
     };
 
-    console.log('Clicked object:', clickedObject.name);
     this.handleObjectClick_(clickedObject);
     return true;
   }
@@ -364,7 +360,6 @@ export class ClickHandler {
         size_major: closestDSO.size_major,
         size_minor: closestDSO.size_minor,
       };
-      console.log('Clicked object:', clickedObject.name);
       this.handleObjectClick_(clickedObject);
       return true;
     }
@@ -397,9 +392,6 @@ export class ClickHandler {
       const constInternalKey = clickedLine.userData.constellation;
 
       if (constInternalKey) {
-        const constDisplayName = this.deps_.getConstellationName(constInternalKey);
-        console.log('Clicked constellation line:', constDisplayName);
-
         if (this.deps_.isGameActive()) {
           this.deps_.checkGameAnswerByName(constInternalKey);
         } else {

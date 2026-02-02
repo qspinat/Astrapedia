@@ -30,6 +30,9 @@ export class GameUI {
 
     /** @private {boolean} */
     this.isDragging_ = false;
+
+    /** @private {!Array<{unsubscribe: function(): void}>} */
+    this.subscriptions_ = [];
   }
 
   /**
@@ -176,23 +179,32 @@ export class GameUI {
    * @private
    */
   setupEventBusListeners_() {
-    globalEventBus.on(Events.GAME_STARTED, () => {
-      this.isPlaying_ = true;
-      this.updateUI_(true);
-    });
+    this.subscriptions_.push(
+      globalEventBus.on(Events.GAME_STARTED, () => {
+        this.isPlaying_ = true;
+        this.updateUI_(true);
+      }),
+      globalEventBus.on(Events.GAME_ENDED, () => {
+        this.isPlaying_ = false;
+        this.updateUI_(false);
+      }),
+      globalEventBus.on(Events.GAME_QUESTION, (data) => {
+        this.updateQuestion_(data);
+      }),
+      globalEventBus.on(Events.GAME_SCORE, (data) => {
+        this.updateScore_(data);
+      })
+    );
+  }
 
-    globalEventBus.on(Events.GAME_ENDED, () => {
-      this.isPlaying_ = false;
-      this.updateUI_(false);
-    });
-
-    globalEventBus.on(Events.GAME_QUESTION, (data) => {
-      this.updateQuestion_(data);
-    });
-
-    globalEventBus.on(Events.GAME_SCORE, (data) => {
-      this.updateScore_(data);
-    });
+  /**
+   * Clean up event subscriptions.
+   */
+  dispose() {
+    if (this.subscriptions_) {
+      this.subscriptions_.forEach((sub) => sub?.unsubscribe?.());
+      this.subscriptions_ = [];
+    }
   }
 
   /**
@@ -252,6 +264,7 @@ export let gameUI = null;
  * Reset the singleton instance (for testing only).
  */
 export function resetGameUI() {
+  gameUI?.dispose();
   gameUI = null;
 }
 

@@ -40,6 +40,7 @@ import {
   getConstellationAbbrev as getConstellationAbbrevFromData,
   getConstellationInternalKey,
   getAbbrevFromInternalKey,
+  getAvailableLanguages,
 } from './modules/data/ConstellationNames.js';
 import {ImageRenderer} from './modules/rendering/ImageRenderer.js';
 import {GridRenderer} from './modules/rendering/GridRenderer.js';
@@ -143,7 +144,12 @@ export class SkyMapApp {
     this.constellationLinesGroup = null;
     this.showConstellationLines = true;
     // Default language from browser locale (e.g., 'fr-FR' -> 'fr')
-    this.constellationLanguage = (navigator.language || 'en').split('-')[0];
+    // Validate against supported languages, fallback to English
+    const browserLang = (navigator.language || 'en').split('-')[0];
+    const supportedLangs = getAvailableLanguages();
+    this.constellationLanguage = supportedLangs.includes(browserLang)
+      ? browserLang
+      : 'en';
     this.forceNightMode = true;  // Force night mode by default
     this.telescopeModeActive = false;  // Telescope simulation mode blocks zoom
 
