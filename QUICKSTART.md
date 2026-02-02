@@ -37,16 +37,22 @@ open http://localhost:8000/app.html
 ### Time Controls
 Use the time controls at the bottom to:
 - Play/pause time simulation
-- Fast forward or rewind
+- Fast forward (100x, 1000x) or rewind
 - Jump to a specific date/time
 - Return to "Now"
 
+### Compass Mode
+1. Enable compass mode in Settings
+2. Point your device at the sky
+3. The view matches your device orientation
+4. Toggle between locked and free exploration
+
 ### Guided Tours
 Open Settings and select a tour:
-- **Tonight**: Objects visible from your location
-- **Messier**: All 110 Messier objects
+- **Tonight's Best**: Objects visible from your location
+- **Messier Marathon**: All 110 Messier objects
+- **Constellation Tour**: Learn all 88 constellations
 - **Nebulae/Galaxies/Clusters**: By object type
-- **Constellations**: Learn all 88 constellations
 
 ### Game Mode
 1. Click the Play button
@@ -54,27 +60,33 @@ Open Settings and select a tour:
 3. Find and click the target object shown
 4. Track your score and accuracy
 
+### Events Calendar
+View upcoming astronomical events:
+- Meteor showers (Perseids, Geminids, etc.)
+- Eclipses and conjunctions
+- Solstices and equinoxes
+
 ## Display Settings
 
-- **Magnitude slider**: Show more (higher) or fewer (lower) stars
-- **Constellation lines**: Toggle on/off
-- **Light pollution**: Adjust to match your sky conditions
-- **Language**: Constellation names in 8 languages
+| Setting | Description |
+|---------|-------------|
+| Magnitude slider | Show more (higher) or fewer (lower) stars |
+| Constellation lines | Toggle stick figures on/off |
+| Grid overlays | RA/Dec or Alt/Az coordinates |
+| Light pollution | Adjust to match your sky conditions |
+| Language | Constellation names in 8 languages |
 
 ## Data Files
 
 The app loads different star files based on your needs:
-- `stars_bright.json` (mag 6.5) - Naked eye stars, fastest loading
-- `stars_medium.json` (mag 8.0) - Default, good balance
-- `stars_all.json` (mag 12.0) - All stars, for deep exploration
 
-## Troubleshooting
+| File | Stars | Magnitude | Use Case |
+|------|-------|-----------|----------|
+| `stars_bright.json` | 8.9K | ≤ 6.5 | Naked eye, fastest loading |
+| `stars_medium.json` | 41K | ≤ 8.0 | Default, good balance |
+| `stars_all.json` | 118K | ≤ 12.0 | Deep exploration |
 
-**App won't load**: Use `http://localhost:8000` not `file://`
-
-**Slow performance**: Lower the magnitude limit or reduce "Max Dynamic Objects" in Settings
-
-**No location features**: Allow location access when prompted, or set location manually in Settings
+When zoomed in, additional stars load dynamically from VizieR.
 
 ## Keyboard Shortcuts
 
@@ -83,3 +95,22 @@ The app loads different star files based on your needs:
 | `Space` | Play/pause time |
 | `R` | Reset view |
 | `Esc` | Close panels |
+| `G` | Toggle grid |
+| `C` | Toggle constellation lines |
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| App won't load | Use `http://localhost:8000` not `file://` |
+| Slow performance | Lower magnitude limit or reduce "Max Dynamic Objects" in Settings |
+| No location features | Allow location access when prompted, or set manually in Settings |
+| Compass not working | Ensure device has orientation sensors and permissions are granted |
+| Images not loading | Check internet connection; some images require external APIs |
+
+## Mobile Tips
+
+- Use landscape orientation for best experience
+- Enable compass mode to match the real sky
+- Pinch slowly for precise zoom control
+- The app works offline after first load (PWA)
