@@ -89,8 +89,7 @@ import {
 // Main application class (to be slimmed down)
 import {SkyMapApp} from './skymap.js';
 
-// Debug: All imports successful
-console.log('[DEBUG] main.js: All modules imported successfully');
+// Update loading indicator
 {
   const lt = document.querySelector('.loading-text');
   if (lt) lt.textContent = 'Modules loaded, starting app...';
@@ -120,7 +119,6 @@ const modules = {
 function setupEventBusWiring_() {
   // Location changes trigger celestial rotation update
   globalEventBus.on(Events.LOCATION_UPDATED, ({latitude, longitude}) => {
-    console.log('main.js: Location updated, syncing modules...');
     if (app) {
       app.updateCelestialRotation();
     }
@@ -128,32 +126,10 @@ function setupEventBusWiring_() {
 
   // Time changes trigger sky updates
   globalEventBus.on(Events.TIME_CHANGED, ({time}) => {
-    console.log('main.js: Time changed, updating sky...');
     if (app) {
       app.requestRender();
     }
   });
-
-  // Object selection triggers info panel update
-  globalEventBus.on(Events.OBJECT_SELECTED, ({object, type}) => {
-    console.log(`main.js: Object selected: ${object?.name || object?.proper || 'unknown'}`);
-  });
-
-  // Game events for analytics/logging
-  globalEventBus.on(Events.GAME_STARTED, ({category}) => {
-    console.log(`main.js: Game started in category: ${category}`);
-  });
-
-  globalEventBus.on(Events.GAME_STOPPED, ({score, correct, total}) => {
-    console.log(`main.js: Game ended - Score: ${score}, Correct: ${correct}/${total}`);
-  });
-
-  // Tour events
-  globalEventBus.on(Events.TOUR_STARTED, ({tourName}) => {
-    console.log(`main.js: Tour started: ${tourName}`);
-  });
-
-  console.log('main.js: EventBus wiring complete');
 }
 
 /**
@@ -278,8 +254,6 @@ function initializeUI_(appInstance) {
     getFOV: () => appInstance.targetFov || 60,
     getViewDirection: () => ({ra: 0, dec: 0}),
   });
-
-  console.log('main.js: UI Controller initialized');
 }
 
 /**
@@ -289,7 +263,6 @@ function initializeUI_(appInstance) {
 function registerServiceWorker_() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
-      .then((reg) => console.log('Service worker registered'))
       .catch((err) => console.warn('Service worker registration failed:', err));
   }
 }
@@ -298,7 +271,6 @@ function registerServiceWorker_() {
  * Initialize the application.
  */
 async function initializeApp() {
-  console.log('main.js: Initializing application...');
   const loadingText = document.querySelector('.loading-text');
 
   try {
@@ -324,20 +296,8 @@ async function initializeApp() {
     // Register service worker for PWA
     registerServiceWorker_();
 
-    // Log successful initialization
-    console.log('main.js: Application initialized successfully');
-    console.log('main.js: Module architecture:', {
-      core: 'EventBus, Constants, CoordinateUtils, ErrorHandler',
-      data: 'CuratedImages, ConstellationNames',
-      services: 'DataLoader, ImageFetcher, LocationManager, DynamicDataLoader',
-      renderers: 'StarField, Constellation, Planet, Grid, Horizon, Image',
-      features: 'Search, Time, Tour, Game, Telescope, SkyConditions, Selection',
-      ui: 'UIController, PanelManager, BugReportHandler',
-      events: `${Object.keys(Events).length} event types available`,
-    });
-
   } catch (error) {
-    console.error('main.js: Initialization failed:', error);
+    console.error('Initialization failed:', error);
     handleError(error, 'Application initialization failed', ErrorSeverity.CRITICAL);
 
     // Show error on loading screen

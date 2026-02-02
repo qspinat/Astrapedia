@@ -7,6 +7,7 @@ import {globalEventBus, Events} from '../core/EventBus.js';
 import {escapeHtml, fetchWikipedia} from '../core/SecurityUtils.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
 import {descriptionGenerator} from '../data/DescriptionGenerator.js';
+import {getConstellationStory} from '../data/ConstellationStories.js';
 
 /**
  * SelectionManager handles object selection and info display.
@@ -41,28 +42,6 @@ export class SelectionManager {
 
     /** @private {?number} */
     this.highlightTimeout_ = null;
-
-    /** @private {!Object<string, !Object>} */
-    this.constellationStories_ = {
-      'Orion': {
-        mythology: 'Orion was a giant huntsman in Greek mythology, placed among the stars by Zeus. He is depicted hunting with his club and shield.',
-        bestSeen: 'Winter (Northern Hemisphere)',
-        brightestStar: 'Rigel',
-        notableObjects: ['M42 (Orion Nebula)', 'Horsehead Nebula'],
-      },
-      'UMa': {
-        mythology: 'Ursa Major, the Great Bear, was once the nymph Callisto who was transformed into a bear by Zeus\' jealous wife Hera.',
-        bestSeen: 'Spring (Northern Hemisphere)',
-        brightestStar: 'Alioth',
-        notableObjects: ['The Big Dipper asterism', 'M81 & M82 galaxies'],
-      },
-      'Cas': {
-        mythology: 'Cassiopeia was a vain queen in Greek mythology who boasted about her beauty, angering the sea gods.',
-        bestSeen: 'Autumn (Northern Hemisphere)',
-        brightestStar: 'Schedar',
-        notableObjects: ['M52 open cluster', 'NGC 7789'],
-      },
-    };
   }
 
   /**
@@ -551,7 +530,7 @@ export class SelectionManager {
    * @returns {?Object} Story data or null
    */
   getConstellationStory(constellationName) {
-    return this.constellationStories_[constellationName] || null;
+    return getConstellationStory(constellationName);
   }
 
   /**
