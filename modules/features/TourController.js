@@ -215,12 +215,14 @@ export class TourController {
    */
   start(tourName) {
     const tours = this.getAvailableTours();
-    this.currentTour_ = tours[tourName];
+    const tour = tours[tourName];
 
-    if (!this.currentTour_) {
+    if (!tour) {
       console.warn(`Tour not found: ${tourName}`);
       return;
     }
+
+    this.currentTour_ = tour;
 
     this.tourStep_ = 0;
 

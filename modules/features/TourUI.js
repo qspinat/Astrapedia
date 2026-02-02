@@ -32,6 +32,9 @@ export class TourUI {
 
     /** @private {?string} */
     this.currentTour_ = null;
+
+    /** @private {!Array<!Object>} EventBus subscriptions for cleanup */
+    this.subscriptions_ = [];
   }
 
   /**
@@ -101,32 +104,34 @@ export class TourUI {
    * @private
    */
   setupEventBusListeners_() {
-    globalEventBus.on(Events.TOUR_STARTED, (data) => {
-      this.isActive_ = true;
-      this.currentTour_ = data.tourName;
-      this.showTourUI_();
-    });
+    this.subscriptions_.push(
+      globalEventBus.on(Events.TOUR_STARTED, (data) => {
+        this.isActive_ = true;
+        this.currentTour_ = data.tourName;
+        this.showTourUI_();
+      }),
 
-    globalEventBus.on(Events.TOUR_ENDED, () => {
-      this.isActive_ = false;
-      this.currentTour_ = null;
-      this.hideTourUI_();
-    });
+      globalEventBus.on(Events.TOUR_ENDED, () => {
+        this.isActive_ = false;
+        this.currentTour_ = null;
+        this.hideTourUI_();
+      }),
 
-    globalEventBus.on(Events.TOUR_STEP_CHANGED, (data) => {
-      // Build the full tour panel with navigation buttons
-      this.buildTourPanel({
-        tourName: data.tour?.name || this.currentTour_,
-        stepName: data.step?.name || '',
-        description: data.step?.description || '',
-        stepIndex: data.stepIndex,
-        totalSteps: data.totalSteps,
-        isFirstStep: data.stepIndex === 0,
-        onPrev: () => this.deps_.prevStep?.(),
-        onNext: () => this.deps_.nextStep?.(),
-        onEnd: () => this.deps_.stopTour?.(),
-      });
-    });
+      globalEventBus.on(Events.TOUR_STEP_CHANGED, (data) => {
+        // Build the full tour panel with navigation buttons
+        this.buildTourPanel({
+          tourName: data.tour?.name || this.currentTour_,
+          stepName: data.step?.name || '',
+          description: data.step?.description || '',
+          stepIndex: data.stepIndex,
+          totalSteps: data.totalSteps,
+          isFirstStep: data.stepIndex === 0,
+          onPrev: () => this.deps_.prevStep?.(),
+          onNext: () => this.deps_.nextStep?.(),
+          onEnd: () => this.deps_.stopTour?.(),
+        });
+      })
+    );
   }
 
   /**
@@ -253,6 +258,14 @@ export class TourUI {
    */
   getCurrentTour() {
     return this.currentTour_;
+  }
+
+  /**
+   * Dispose of resources and clean up subscriptions.
+   */
+  dispose() {
+    this.subscriptions_.forEach((sub) => sub.unsubscribe());
+    this.subscriptions_ = [];
   }
 }
 

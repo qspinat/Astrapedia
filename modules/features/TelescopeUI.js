@@ -73,6 +73,9 @@ export class TelescopeUI {
 
     /** @private {boolean} */
     this.isActive_ = false;
+
+    /** @private {!Array<!Object>} EventBus subscriptions for cleanup */
+    this.subscriptions_ = [];
   }
 
   /**
@@ -306,19 +309,21 @@ export class TelescopeUI {
    * @private
    */
   setupEventBusListeners_() {
-    globalEventBus.on(Events.TELESCOPE_COMPUTED, () => {
-      this.updateComputedDisplay_();
-    });
+    this.subscriptions_.push(
+      globalEventBus.on(Events.TELESCOPE_COMPUTED, () => {
+        this.updateComputedDisplay_();
+      }),
 
-    globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, () => {
-      this.isActive_ = true;
-      this.updateModeUI_(true);
-    });
+      globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, () => {
+        this.isActive_ = true;
+        this.updateModeUI_(true);
+      }),
 
-    globalEventBus.on(Events.TELESCOPE_MODE_DEACTIVATED, () => {
-      this.isActive_ = false;
-      this.updateModeUI_(false);
-    });
+      globalEventBus.on(Events.TELESCOPE_MODE_DEACTIVATED, () => {
+        this.isActive_ = false;
+        this.updateModeUI_(false);
+      })
+    );
   }
 
   /**
@@ -345,6 +350,14 @@ export class TelescopeUI {
    */
   isActive() {
     return this.isActive_;
+  }
+
+  /**
+   * Dispose of resources and clean up subscriptions.
+   */
+  dispose() {
+    this.subscriptions_.forEach((sub) => sub.unsubscribe());
+    this.subscriptions_ = [];
   }
 }
 

@@ -186,16 +186,25 @@ export class DynamicObjectManager {
 
     // Query for stars and DSOs in this region
     const ra = raDec.ra, dec = raDec.dec, fov = camera.fov;
-    dynamicDataLoader.queryStars(ra, dec, fov, magLimit).then(stars => {
-      if (stars?.length > 0) {
-        const starArrays = stars.map(s => [s.ra, s.dec, s.mag, s.ci || 0]);
-        this.addDynamicStars(starArrays, false);
-      }
-    });
-    if (fov <= 10) {
-      dynamicDataLoader.queryDSOs(ra, dec, fov, magLimit).then(dsos => {
-        if (dsos?.length > 0) this.addDynamicDSOs(dsos);
+    dynamicDataLoader.queryStars(ra, dec, fov, magLimit)
+      .then(stars => {
+        if (stars?.length > 0) {
+          const starArrays = stars.map(s => [s.ra, s.dec, s.mag, s.ci || 0]);
+          this.addDynamicStars(starArrays, false);
+        }
+      })
+      .catch(err => {
+        // Silently handle errors - DynamicDataLoader already logs and emits events
+        console.warn('Dynamic star query failed:', err?.message || err);
       });
+    if (fov <= 10) {
+      dynamicDataLoader.queryDSOs(ra, dec, fov, magLimit)
+        .then(dsos => {
+          if (dsos?.length > 0) this.addDynamicDSOs(dsos);
+        })
+        .catch(err => {
+          console.warn('Dynamic DSO query failed:', err?.message || err);
+        });
     }
     this.queriedRegions.add(regionKey);
   }

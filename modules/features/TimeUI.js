@@ -28,6 +28,9 @@ export class TimeUI {
 
     /** @private {number} */
     this.currentSpeed_ = 0;
+
+    /** @private {!Array<!Object>} EventBus subscriptions for cleanup */
+    this.subscriptions_ = [];
   }
 
   /**
@@ -178,19 +181,21 @@ export class TimeUI {
    * @private
    */
   setupEventBusListeners_() {
-    globalEventBus.on(Events.TIME_SPEED_CHANGED, (data) => {
-      this.isPlaying_ = data.isPlaying;
-      this.currentSpeed_ = data.speed || 0;
-      this.updatePlayButton_();
-    });
+    this.subscriptions_.push(
+      globalEventBus.on(Events.TIME_SPEED_CHANGED, (data) => {
+        this.isPlaying_ = data.isPlaying;
+        this.currentSpeed_ = data.speed || 0;
+        this.updatePlayButton_();
+      }),
 
-    globalEventBus.on(Events.TIME_CHANGED, (data) => {
-      this.updateTimeDisplay_(data.time);
-    });
+      globalEventBus.on(Events.TIME_CHANGED, (data) => {
+        this.updateTimeDisplay_(data.time);
+      }),
 
-    globalEventBus.on(Events.TIME_TICK, (data) => {
-      this.updateTimeDisplay_(data.time);
-    });
+      globalEventBus.on(Events.TIME_TICK, (data) => {
+        this.updateTimeDisplay_(data.time);
+      })
+    );
   }
 
   /**
@@ -230,6 +235,14 @@ export class TimeUI {
    */
   getCurrentSpeed() {
     return this.currentSpeed_;
+  }
+
+  /**
+   * Dispose of resources and clean up subscriptions.
+   */
+  dispose() {
+    this.subscriptions_.forEach((sub) => sub.unsubscribe());
+    this.subscriptions_ = [];
   }
 }
 
