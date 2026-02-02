@@ -42,6 +42,12 @@ export class SelectionManager {
 
     /** @private {?number} */
     this.highlightTimeout_ = null;
+
+    /** @private {?AbortController} - Controller for description fetch requests */
+    this.descriptionAbortController_ = null;
+
+    /** @private {?AbortController} - Controller for image fetch requests */
+    this.imageAbortController_ = null;
   }
 
   /**
@@ -303,6 +309,13 @@ export class SelectionManager {
    * @private
    */
   async fetchObjectDescription_(obj) {
+    // Abort any pending description request
+    if (this.descriptionAbortController_) {
+      this.descriptionAbortController_.abort();
+    }
+    this.descriptionAbortController_ = new AbortController();
+    const signal = this.descriptionAbortController_.signal;
+
     const descDiv = document.getElementById('object-description');
     if (!descDiv) return;
 
@@ -330,7 +343,8 @@ export class SelectionManager {
     for (const term of searchTerms) {
       try {
         const response = await fetchWikipedia(
-          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`
+          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`,
+          signal
         );
 
         if (response.ok) {
@@ -362,6 +376,10 @@ export class SelectionManager {
           }
         }
       } catch (e) {
+        // Handle abort gracefully - just return without logging
+        if (e.name === 'AbortError') {
+          return;
+        }
         console.warn(`Wikipedia fetch failed for ${term}:`, e);
       }
     }
@@ -390,6 +408,13 @@ export class SelectionManager {
    * @private
    */
   async loadBestImage_(obj, curatedImageUrl) {
+    // Abort any pending image request
+    if (this.imageAbortController_) {
+      this.imageAbortController_.abort();
+    }
+    this.imageAbortController_ = new AbortController();
+    const signal = this.imageAbortController_.signal;
+
     const container = document.getElementById('main-image');
     if (!container) return;
 
@@ -402,14 +427,26 @@ export class SelectionManager {
 
     // Use unified image fetcher to get the best available image
     // Pass forPanel=true to enable DSS fallback for stars
-    const result = await this.deps_.fetchBestImage?.(
-      objectName,
-      obj.ra,
-      obj.dec,
-      obj.type,
-      obj.size_major || obj.angularSize,
-      true // forPanel - enables DSS for stars
-    );
+    let result;
+    try {
+      result = await this.deps_.fetchBestImage?.(
+        objectName,
+        obj.ra,
+        obj.dec,
+        obj.type,
+        obj.size_major || obj.angularSize,
+        true // forPanel - enables DSS for stars
+      );
+    } catch (e) {
+      // Handle abort gracefully
+      if (e.name === 'AbortError') {
+        return;
+      }
+      throw e;
+    }
+
+    // Check if aborted while waiting
+    if (signal.aborted) return;
 
     if (result?.url) {
       // Skip size check for trusted sources (already optimized)
@@ -424,16 +461,23 @@ export class SelectionManager {
         // Check file size before loading (max 1MB) - only for untrusted sources
         const maxSize = 1024 * 1024;
         try {
-          const headResponse = await fetch(result.url, {method: 'HEAD'});
+          const headResponse = await fetch(result.url, {method: 'HEAD', signal});
           const contentLength = parseInt(headResponse.headers.get('content-length') || '0', 10);
           if (contentLength > maxSize) {
             console.log(`⚠️ Skipping panel image: ${(contentLength / 1024 / 1024).toFixed(2)}MB exceeds 1MB limit`);
             skipDueToSize = true;
           }
         } catch (e) {
-          // If HEAD fails, proceed anyway
+          // Handle abort gracefully
+          if (e.name === 'AbortError') {
+            return;
+          }
+          // If HEAD fails for other reasons, proceed anyway
         }
       }
+
+      // Check if aborted while waiting
+      if (signal.aborted) return;
 
       if (skipDueToSize) {
         // Try DSS fallback instead of showing nothing
@@ -538,13 +582,20 @@ export class SelectionManager {
    * @param {string} constellationName - Constellation name
    */
   async fetchConstellationDescription(constellationName) {
+    // Abort any pending description request
+    if (this.descriptionAbortController_) {
+      this.descriptionAbortController_.abort();
+    }
+    this.descriptionAbortController_ = new AbortController();
+    const signal = this.descriptionAbortController_.signal;
+
     const descContainer = document.getElementById('object-description');
     if (!descContainer) return;
 
     try {
       const searchName = `${constellationName} (constellation)`;
       const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchName)}`;
-      const response = await fetchWikipedia(searchUrl);
+      const response = await fetchWikipedia(searchUrl, signal);
 
       if (response.ok) {
         const data = await response.json();
@@ -560,7 +611,7 @@ export class SelectionManager {
 
       // Fallback: search without "(constellation)"
       const fallbackUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(constellationName)}`;
-      const fallbackResponse = await fetchWikipedia(fallbackUrl);
+      const fallbackResponse = await fetchWikipedia(fallbackUrl, signal);
 
       if (fallbackResponse.ok) {
         const fallbackData = await fallbackResponse.json();
@@ -576,6 +627,10 @@ export class SelectionManager {
 
       descContainer.textContent = '';
     } catch (error) {
+      // Handle abort gracefully - just return without logging
+      if (error.name === 'AbortError') {
+        return;
+      }
       console.warn('Failed to fetch constellation description:', error);
       descContainer.textContent = '';
     }
@@ -644,6 +699,17 @@ export class SelectionManager {
       clearTimeout(this.highlightTimeout_);
       this.highlightTimeout_ = null;
     }
+
+    // Abort any pending fetch requests
+    if (this.descriptionAbortController_) {
+      this.descriptionAbortController_.abort();
+      this.descriptionAbortController_ = null;
+    }
+    if (this.imageAbortController_) {
+      this.imageAbortController_.abort();
+      this.imageAbortController_ = null;
+    }
+
     this.selectedObject_ = null;
   }
 }

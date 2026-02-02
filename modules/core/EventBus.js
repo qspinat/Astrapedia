@@ -280,6 +280,7 @@ export const Events = {
   // Application events
   APP_INITIALIZED: 'app:initialized',
   PLANETS_UPDATED: 'planets:updated',
+  SERVICE_WORKER_ERROR: 'app:sw:error',
 
   // Rendering events
   STAR_FIELD_CREATED: 'render:starfield:created',

@@ -4,6 +4,7 @@
  */
 
 import {clamp} from '../core/Utils.js';
+import {CAMERA, INPUT} from '../core/Constants.js';
 
 /**
  * InputController handles mouse and touch input for camera control.
@@ -165,10 +166,11 @@ export class InputController {
     const deltaX = event.clientX - this.previousMousePosition_.x;
     const deltaY = event.clientY - this.previousMousePosition_.y;
 
-    // Mark as dragged if moved more than 5 pixels
+    // Mark as dragged if moved more than threshold
     const totalDeltaX = event.clientX - this.mouseDownPosition_.x;
     const totalDeltaY = event.clientY - this.mouseDownPosition_.y;
-    if (Math.abs(totalDeltaX) > 5 || Math.abs(totalDeltaY) > 5) {
+    if (Math.abs(totalDeltaX) > INPUT.DRAG_THRESHOLD_PX ||
+        Math.abs(totalDeltaY) > INPUT.DRAG_THRESHOLD_PX) {
       this.dragMoved_ = true;
     }
 
@@ -209,20 +211,19 @@ export class InputController {
 
     // Multiplicative zoom for consistent feel at all zoom levels
     const delta = event.deltaY > 0 ? 1 : -1;
-    const zoomFactor = 1.15;
     let newFov;
 
     if (delta > 0) {
-      newFov = Math.min(120, currentFov * zoomFactor);
+      newFov = Math.min(CAMERA.MAX_FOV, currentFov * INPUT.ZOOM_FACTOR);
     } else {
-      newFov = Math.max(0.0001, currentFov / zoomFactor);
+      newFov = Math.max(INPUT.MIN_FOV_EXTREME, currentFov / INPUT.ZOOM_FACTOR);
     }
 
     this.setTargetFov_(newFov);
 
     // Zoom toward cursor
     const fovRatio = currentFov / newFov;
-    if (Math.abs(fovRatio - 1) > 0.001) {
+    if (Math.abs(fovRatio - 1) > INPUT.FOV_CHANGE_THRESHOLD) {
       const oldFovRad = currentFov * Math.PI / 180;
       const newFovRad = newFov * Math.PI / 180;
       const aspect = this.getAspect_();
@@ -237,7 +238,7 @@ export class InputController {
 
       this.setTargetRotation_(
         rotation.theta + rotateTheta,
-        clamp(rotation.phi + rotatePhi, 0.1, Math.PI - 0.1)
+        clamp(rotation.phi + rotatePhi, INPUT.PHI_MIN, INPUT.PHI_MAX)
       );
     }
 
@@ -320,16 +321,17 @@ export class InputController {
 
       const totalDeltaX = touch.clientX - this.mouseDownPosition_.x;
       const totalDeltaY = touch.clientY - this.mouseDownPosition_.y;
-      if (Math.abs(totalDeltaX) > 5 || Math.abs(totalDeltaY) > 5) {
+      if (Math.abs(totalDeltaX) > INPUT.DRAG_THRESHOLD_PX ||
+          Math.abs(totalDeltaY) > INPUT.DRAG_THRESHOLD_PX) {
         this.dragMoved_ = true;
       }
 
       // Track recent moves for inertia velocity calculation
       const now = performance.now();
       this.recentMoves_.push({x: touch.clientX, y: touch.clientY, t: now});
-      // Keep only moves from last 100ms
+      // Keep only moves from inertia history window
       while (this.recentMoves_.length > 0 &&
-             now - this.recentMoves_[0].t > 100) {
+             now - this.recentMoves_[0].t > INPUT.INERTIA_HISTORY_MS) {
         this.recentMoves_.shift();
       }
       this.lastMoveTime_ = now;
@@ -348,7 +350,7 @@ export class InputController {
       if (this.lastTouchDistance_ > 0) {
         const scale = this.lastTouchDistance_ / distance;
         const currentFov = this.getFov_();
-        const newFov = clamp(currentFov * scale, 0.0001, 120);
+        const newFov = clamp(currentFov * scale, INPUT.MIN_FOV_EXTREME, CAMERA.MAX_FOV);
         this.setTargetFov_(newFov);
       }
 
@@ -412,26 +414,23 @@ export class InputController {
       const last = this.recentMoves_[this.recentMoves_.length - 1];
       const dt = last.t - first.t;
       if (dt > 0) {
-        // Velocity in pixels per frame (assuming 60fps = 16.67ms per frame)
+        // Velocity in pixels per frame
         this.velocity_ = {
-          x: (last.x - first.x) / dt * 16,
-          y: (last.y - first.y) / dt * 16,
+          x: (last.x - first.x) / dt * INPUT.VELOCITY_FRAME_MS,
+          y: (last.y - first.y) / dt * INPUT.VELOCITY_FRAME_MS,
         };
       }
     }
     this.recentMoves_ = [];
 
-    const friction = 0.92;
-    const minVelocity = 0.05;
-
     const animate = () => {
       // Apply friction
-      this.velocity_.x *= friction;
-      this.velocity_.y *= friction;
+      this.velocity_.x *= INPUT.INERTIA_FRICTION;
+      this.velocity_.y *= INPUT.INERTIA_FRICTION;
 
       // Stop if velocity is too low
-      if (Math.abs(this.velocity_.x) < minVelocity &&
-          Math.abs(this.velocity_.y) < minVelocity) {
+      if (Math.abs(this.velocity_.x) < INPUT.MIN_VELOCITY &&
+          Math.abs(this.velocity_.y) < INPUT.MIN_VELOCITY) {
         this.velocity_ = {x: 0, y: 0};
         this.inertiaAnimationId_ = null;
         return;
@@ -447,8 +446,8 @@ export class InputController {
     };
 
     // Only start if we have meaningful velocity
-    if (Math.abs(this.velocity_.x) > minVelocity ||
-        Math.abs(this.velocity_.y) > minVelocity) {
+    if (Math.abs(this.velocity_.x) > INPUT.MIN_VELOCITY ||
+        Math.abs(this.velocity_.y) > INPUT.MIN_VELOCITY) {
       this.inertiaAnimationId_ = requestAnimationFrame(animate);
     }
   }
@@ -469,7 +468,7 @@ export class InputController {
 
     const rotation = this.getRotation_();
     const newTheta = rotation.theta - deltaX * radiansPerPixel;
-    const newPhi = clamp(rotation.phi + deltaY * radiansPerPixel, 0.1, Math.PI - 0.1);
+    const newPhi = clamp(rotation.phi + deltaY * radiansPerPixel, INPUT.PHI_MIN, INPUT.PHI_MAX);
 
     this.setRotation_(newTheta, newPhi);
     this.setTargetRotation_(newTheta, newPhi);

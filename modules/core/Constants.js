@@ -376,3 +376,30 @@ export const TELESCOPE = {
   /** localStorage key for telescope settings. */
   STORAGE_KEY: 'skymap_telescope_settings',
 };
+
+/**
+ * Input handling constants.
+ * @const {!Object}
+ */
+export const INPUT = {
+  /** Minimum drag distance (pixels) to trigger drag vs click. */
+  DRAG_THRESHOLD_PX: 5,
+  /** Zoom factor per wheel event (multiplicative). */
+  ZOOM_FACTOR: 1.15,
+  /** Minimum FOV for extreme zoom (degrees). */
+  MIN_FOV_EXTREME: 0.0001,
+  /** Minimum FOV change to trigger cursor-aware zoom. */
+  FOV_CHANGE_THRESHOLD: 0.001,
+  /** Minimum phi angle (radians). */
+  PHI_MIN: 0.1,
+  /** Maximum phi angle (radians). */
+  PHI_MAX: Math.PI - 0.1,
+  /** Time window (ms) for inertia velocity calculation. */
+  INERTIA_HISTORY_MS: 100,
+  /** Frame time factor for velocity (assumes ~60fps). */
+  VELOCITY_FRAME_MS: 16,
+  /** Friction coefficient for inertia (0-1). */
+  INERTIA_FRICTION: 0.92,
+  /** Minimum velocity to continue inertia. */
+  MIN_VELOCITY: 0.05,
+};

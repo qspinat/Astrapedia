@@ -263,7 +263,14 @@ function initializeUI_(appInstance) {
 function registerServiceWorker_() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
-      .catch((err) => console.warn('Service worker registration failed:', err));
+      .then((reg) => console.log('SW registered:', reg.scope))
+      .catch((err) => {
+        console.warn('Service worker registration failed:', err);
+        globalEventBus.emit(Events.SERVICE_WORKER_ERROR, {
+          error: err.message,
+          timestamp: Date.now(),
+        });
+      });
   }
 }
 
