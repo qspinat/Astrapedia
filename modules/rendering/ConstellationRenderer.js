@@ -136,6 +136,8 @@ export class ConstellationRenderer {
             raDecToCartesian(star2.ra, star2.dec, this.radius_),
           ];
           const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          // Required for raycaster to detect clicks on lines
+          geometry.computeBoundingSphere();
           const line = new THREE.Line(geometry, lineMaterial.clone());
           // Store constellation name for highlighting
           line.userData = {constellation: constName};
