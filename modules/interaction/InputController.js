@@ -238,7 +238,7 @@ export class InputController {
 
       this.setTargetRotation_(
         rotation.theta + rotateTheta,
-        clamp(rotation.phi + rotatePhi, INPUT.PHI_MIN, INPUT.PHI_MAX)
+        clamp(rotation.phi + rotatePhi, INPUT.PHI_MIN_RAD, INPUT.PHI_MAX_RAD)
       );
     }
 
@@ -468,7 +468,7 @@ export class InputController {
 
     const rotation = this.getRotation_();
     const newTheta = rotation.theta - deltaX * radiansPerPixel;
-    const newPhi = clamp(rotation.phi + deltaY * radiansPerPixel, INPUT.PHI_MIN, INPUT.PHI_MAX);
+    const newPhi = clamp(rotation.phi + deltaY * radiansPerPixel, INPUT.PHI_MIN_RAD, INPUT.PHI_MAX_RAD);
 
     this.setRotation_(newTheta, newPhi);
     this.setTargetRotation_(newTheta, newPhi);

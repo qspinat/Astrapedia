@@ -391,9 +391,9 @@ export const INPUT = {
   /** Minimum FOV change to trigger cursor-aware zoom. */
   FOV_CHANGE_THRESHOLD: 0.001,
   /** Minimum phi angle (radians). */
-  PHI_MIN: 0.1,
+  PHI_MIN_RAD: 0.1,
   /** Maximum phi angle (radians). */
-  PHI_MAX: Math.PI - 0.1,
+  PHI_MAX_RAD: Math.PI - 0.1,
   /** Time window (ms) for inertia velocity calculation. */
   INERTIA_HISTORY_MS: 100,
   /** Frame time factor for velocity (assumes ~60fps). */

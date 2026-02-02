@@ -65,6 +65,16 @@ export class SelectionManager {
   selectObject(obj) {
     this.selectedObject_ = obj;
 
+    // Abort any pending fetch requests from previous selection
+    if (this.descriptionAbortController_) {
+      this.descriptionAbortController_.abort();
+      this.descriptionAbortController_ = null;
+    }
+    if (this.imageAbortController_) {
+      this.imageAbortController_.abort();
+      this.imageAbortController_ = null;
+    }
+
     // Clear any existing highlight timeout
     if (this.highlightTimeout_) {
       clearTimeout(this.highlightTimeout_);

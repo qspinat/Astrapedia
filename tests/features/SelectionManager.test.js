@@ -364,32 +364,29 @@ describe('SelectionManager', () => {
       consoleWarnSpy.mockRestore();
     });
 
-    it('logs warning for non-abort errors (via fetchWikipedia)', async () => {
-      // This tests that fetchWikipedia correctly handles non-abort errors
-      // The actual error handling is tested in SecurityUtils.test.js
-      // Here we verify the SelectionManager doesn't swallow non-AbortErrors
+    it('propagates non-abort errors from fetch', async () => {
+      // This verifies that fetchWikipedia propagates network errors (doesn't swallow them).
+      // The actual console.warn behavior in SelectionManager's catch block can't be
+      // easily tested due to ES module caching - the module captures fetch at import time.
+      // Full error handling is tested in SecurityUtils.test.js.
       const {fetchWikipedia} = await import('../../modules/core/SecurityUtils.js');
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
       // Mock fetch to throw a regular error
       global.fetch.mockRejectedValue(new Error('Network error'));
 
       // Call fetchWikipedia directly with signal
       const controller = new AbortController();
+      let errorThrown = false;
       try {
         await fetchWikipedia('https://en.wikipedia.org/api/test', controller.signal);
       } catch (e) {
-        // Expected to throw
+        errorThrown = true;
+        expect(e.message).toBe('Network error');
       }
 
-      // The error is thrown, not swallowed - so it wouldn't reach console.warn
-      // in fetchWikipedia (which doesn't have try/catch).
-      // The warning happens in SelectionManager's catch block.
-      // Since we can't easily mock the module's internal fetch,
-      // this test verifies the fetch was called with our mock that throws
+      // Verify: fetch was called and error was propagated (not swallowed)
       expect(global.fetch).toHaveBeenCalled();
-
-      consoleWarnSpy.mockRestore();
+      expect(errorThrown).toBe(true);
     });
 
     it('aborts previous request when selecting new object rapidly', async () => {
@@ -429,6 +426,41 @@ describe('SelectionManager', () => {
 
       // Previous controller should have been aborted
       expect(abortSpy).toHaveBeenCalled();
+    });
+
+    it('selectObject() aborts pending requests immediately', () => {
+      // Set up controllers as if fetches are in progress from previous selection
+      const oldDescController = new AbortController();
+      const oldImageController = new AbortController();
+      abortManager.descriptionAbortController_ = oldDescController;
+      abortManager.imageAbortController_ = oldImageController;
+
+      const descAbortSpy = jest.spyOn(oldDescController, 'abort');
+      const imageAbortSpy = jest.spyOn(oldImageController, 'abort');
+
+      // Select a new object - should abort both pending requests immediately
+      const obj = {name: 'NewObject', ra: 0, dec: 0, type: 'Star'};
+      abortManager.selectObject(obj);
+
+      // OLD controllers should have been aborted
+      expect(descAbortSpy).toHaveBeenCalled();
+      expect(imageAbortSpy).toHaveBeenCalled();
+
+      // New controllers may be created by the info fetching, but the OLD ones are gone
+      // (new requests would have new controllers)
+    });
+
+    it('selectObject(null) also aborts pending requests', () => {
+      // Set up controllers as if fetches are in progress
+      const descController = new AbortController();
+      abortManager.descriptionAbortController_ = descController;
+      const abortSpy = jest.spyOn(descController, 'abort');
+
+      // Deselect - should abort pending requests
+      abortManager.selectObject(null);
+
+      expect(abortSpy).toHaveBeenCalled();
+      expect(abortManager.descriptionAbortController_).toBeNull();
     });
   });
 });
