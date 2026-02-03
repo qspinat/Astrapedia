@@ -142,6 +142,9 @@ android/captures/
 android/.cxx/
 android/local.properties
 
+# Capacitor generated files
+android/capacitor.settings.gradle
+
 # Signing
 *.jks
 *.keystore
