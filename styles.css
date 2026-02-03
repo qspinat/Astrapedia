@@ -336,6 +336,9 @@ body.panel-open .info-badge {
     z-index: var(--z-modal);
     overflow-y: auto;
     box-shadow: 5px 0 30px var(--shadow);
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .slide-panel.right {
@@ -1074,6 +1077,32 @@ body.night-mode .game-select-content {
     cursor: not-allowed;
 }
 
+.magnitude-control.disabled {
+    opacity: 0.6;
+}
+
+.magnitude-control.disabled::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-bottom: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.magnitude-control.disabled:hover::after {
+    opacity: 1;
+}
+
 /* ==========================================================================
    12. BOTTOM BAR
    ========================================================================== */
@@ -1548,6 +1577,18 @@ select:focus-visible {
     background: var(--bg-secondary) !important;
     border-color: var(--border) !important;
     opacity: 0.6;
+}
+
+/* Telescope quick toggle button */
+.icon-btn--telescope.active {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: white;
+}
+
+.icon-btn--telescope:not(.active) {
+    background: var(--bg-secondary) !important;
+    border-color: var(--border) !important;
 }
 
 /* Panel styling */

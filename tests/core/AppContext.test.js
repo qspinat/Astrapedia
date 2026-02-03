@@ -8,6 +8,7 @@ import {
   initializeAppContext,
   getAppContext,
 } from '../../modules/core/AppContext.js';
+import {STARS} from '../../modules/core/Constants.js';
 
 describe('AppContext', () => {
   let mockApp;
@@ -24,7 +25,7 @@ describe('AppContext', () => {
       performSearch: jest.fn().mockReturnValue([]),
       selectedObject: null,
       setMagnitudeLimit: jest.fn(),
-      currentMagnitude: 8.0,
+      currentMagnitude: STARS.DEFAULT_MAGNITUDE,
       setEquatorLineVisible: jest.fn(),
       setConstellationLanguage: jest.fn(),
       highlightConstellation: jest.fn(),
@@ -119,12 +120,12 @@ describe('AppContext', () => {
     });
 
     it('getMagnitudeLimit returns app value', () => {
-      expect(context.getMagnitudeLimit()).toBe(8.0);
+      expect(context.getMagnitudeLimit()).toBe(STARS.DEFAULT_MAGNITUDE);
     });
 
     it('getMagnitudeLimit returns default when missing', () => {
       mockApp.currentMagnitude = undefined;
-      expect(context.getMagnitudeLimit()).toBe(8.0);
+      expect(context.getMagnitudeLimit()).toBe(STARS.DEFAULT_MAGNITUDE);
     });
   });
 
@@ -235,7 +236,7 @@ describe('AppContext', () => {
       // Verify the cached context works correctly
       expect(ctx.getStars()).toEqual([{name: 'Sirius'}]);
       expect(ctx.getDSOs()).toEqual([{name: 'M31'}]);
-      expect(ctx.getMagnitudeLimit()).toBe(8.0);
+      expect(ctx.getMagnitudeLimit()).toBe(STARS.DEFAULT_MAGNITUDE);
     });
 
     it('initialized context can call app methods', () => {

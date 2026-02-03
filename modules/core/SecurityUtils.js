@@ -22,13 +22,18 @@ export const escapeHtml = (str) => {
  * Fetch from Wikipedia API with proper User-Agent header.
  * Wikipedia requires a descriptive User-Agent for API requests.
  * @param {string} url - Wikipedia API URL
+ * @param {?AbortSignal=} signal - Optional AbortSignal for cancellation
  * @returns {Promise<Response>} Fetch response
  */
-export const fetchWikipedia = (url) => {
-  return fetch(url, {
+export const fetchWikipedia = (url, signal = null) => {
+  const options = {
     headers: {
       'Api-User-Agent': 'SkyMap/1.0 (https://github.com/qspinat/SkyMap; ' +
                         'contact@skymap.app) fetch/1.0',
     },
-  });
+  };
+  if (signal) {
+    options.signal = signal;
+  }
+  return fetch(url, options);
 };

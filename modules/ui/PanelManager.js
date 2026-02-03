@@ -4,6 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {addMobileButtonListener} from '../core/Utils.js';
 
 /**
  * All panel IDs managed by PanelManager.
@@ -58,6 +59,33 @@ export class PanelManager {
    */
   initialize() {
     this.setupBackdropListener_();
+    this.setupPanelTouchHandlers_();
+    this.setupBackButtonHandler_();
+  }
+
+  /**
+   * Setup handler for browser/phone back button.
+   * Closes panels instead of navigating away.
+   * @private
+   */
+  setupBackButtonHandler_() {
+    window.addEventListener('popstate', (e) => {
+      // If a panel is open and we're going back, close it
+      if (this.currentPanel_) {
+        // Prevent default navigation, close the panel
+        this.closeAll();
+        // Push state again to prevent actual navigation
+        // (only if we didn't just pop from a panel close)
+        if (!e.state?.panelClosed) {
+          history.pushState({panelOpen: false}, '');
+        }
+      }
+    });
+
+    // Initialize history state
+    if (!history.state) {
+      history.replaceState({panelOpen: false}, '');
+    }
   }
 
   /**
@@ -66,8 +94,34 @@ export class PanelManager {
    */
   setupBackdropListener_() {
     if (this.backdrop_) {
-      this.backdrop_.addEventListener('click', () => this.closeAll());
+      addMobileButtonListener(this.backdrop_, () => this.closeAll());
     }
+  }
+
+  /**
+   * Setup touch handlers on panels to prevent events from reaching backdrop.
+   * Excludes game-panel which has its own drag handling.
+   * @private
+   */
+  setupPanelTouchHandlers_() {
+    PANEL_IDS.forEach((id) => {
+      // Skip game-panel - it has its own drag handling that needs document events
+      if (id === 'game-panel') return;
+
+      const panel = document.getElementById(id);
+      if (panel) {
+        // Stop touch events from propagating to backdrop
+        panel.addEventListener('touchstart', (e) => {
+          e.stopPropagation();
+        }, {passive: true});
+        panel.addEventListener('touchmove', (e) => {
+          e.stopPropagation();
+        }, {passive: true});
+        panel.addEventListener('touchend', (e) => {
+          e.stopPropagation();
+        }, {passive: true});
+      }
+    });
   }
 
   /**
@@ -155,6 +209,9 @@ export class PanelManager {
     document.body.classList.add('panel-open');
     this.currentPanel_ = panelId;
 
+    // Push history state so back button closes panel
+    history.pushState({panelOpen: true, panelId}, '');
+
     this.triggerOpenCallbacks_(panelId);
 
     globalEventBus.emit(Events.PANEL_OPENED, {
@@ -230,7 +287,7 @@ export class PanelManager {
   setupCloseButton(buttonId, extraCallback) {
     const btn = document.getElementById(buttonId);
     if (btn) {
-      btn.addEventListener('click', () => {
+      addMobileButtonListener(btn, () => {
         this.closeAll();
         if (extraCallback) {
           extraCallback();
@@ -302,15 +359,15 @@ export class PanelManager {
       cancelBtn.onclick = null;
     };
 
-    confirmBtn.onclick = () => {
+    addMobileButtonListener(confirmBtn, () => {
       cleanup();
       onConfirm();
-    };
+    });
 
-    cancelBtn.onclick = () => {
+    addMobileButtonListener(cancelBtn, () => {
       cleanup();
       if (onCancel) onCancel();
-    };
+    });
   }
 
   /**

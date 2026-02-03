@@ -4,6 +4,11 @@
  */
 
 import {ASTRONOMY} from './Constants.js';
+import {
+  dateToJulianDate as coordDateToJulianDate,
+  julianDateToDate as coordJulianDateToDate,
+  calculateLST as coordCalculateLST,
+} from './CoordinateUtils.js';
 
 /**
  * @typedef {{
@@ -354,57 +359,33 @@ export class AstronomyCalculator {
 
   /**
    * Convert JavaScript Date to Julian Date.
+   * Delegates to CoordinateUtils for the calculation.
    * @param {!Date} date - Date to convert
    * @returns {number} Julian Date
    */
   dateToJulianDate(date) {
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth() + 1;
-    const day = date.getUTCDate();
-    const hour = date.getUTCHours();
-    const minute = date.getUTCMinutes();
-    const second = date.getUTCSeconds();
-
-    const y = month <= 2 ? year - 1 : year;
-    const m = month <= 2 ? month + 12 : month;
-
-    const A = Math.floor(y / 100);
-    const B = 2 - A + Math.floor(A / 4);
-
-    return Math.floor(365.25 * (y + 4716)) +
-           Math.floor(30.6001 * (m + 1)) +
-           day + B - 1524.5 +
-           (hour + minute / 60 + second / 3600) / 24;
+    return coordDateToJulianDate(date);
   }
 
   /**
    * Convert Julian Date to JavaScript Date.
+   * Delegates to CoordinateUtils for the calculation.
    * @param {number} jd - Julian Date
    * @returns {!Date} JavaScript Date
    */
   julianDateToDate(jd) {
-    const unixTimestamp = (jd - ASTRONOMY.UNIX_EPOCH_JD) * 86400 * 1000;
-    return new Date(unixTimestamp);
+    return coordJulianDateToDate(jd);
   }
 
   /**
    * Calculate Local Sidereal Time.
+   * Delegates to CoordinateUtils for the calculation.
    * @param {!Date} date - Observation date
    * @param {number} longitude - Observer longitude in degrees
    * @returns {number} LST in degrees (0-360)
    */
   calculateLST(date, longitude) {
-    const jd = this.dateToJulianDate(date);
-    const T = (jd - ASTRONOMY.J2000) / ASTRONOMY.DAYS_PER_CENTURY;
-
-    // Greenwich Mean Sidereal Time at 0h UT (in degrees)
-    const gmstRaw = 280.46061837 + 360.98564736629 * (jd - ASTRONOMY.J2000) +
-                    0.000387933 * T * T - T * T * T / 38710000;
-
-    const gmst = this.normalizeAngle_(gmstRaw);
-
-    // Local Sidereal Time = GMST + observer's longitude
-    return this.normalizeAngle_(gmst + longitude);
+    return coordCalculateLST(date, longitude);
   }
 
   /**

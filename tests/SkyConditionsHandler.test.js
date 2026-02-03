@@ -4,6 +4,7 @@
 
 import {jest} from '@jest/globals';
 import {SkyConditionsHandler} from '../modules/features/SkyConditionsHandler.js';
+import {globalEventBus, Events} from '../modules/core/EventBus.js';
 
 describe('SkyConditionsHandler', () => {
   let handler;
@@ -391,6 +392,73 @@ describe('SkyConditionsHandler', () => {
       const limit = handler.calculateNakedEyeLimit();
       // Should be clamped to minimum
       expect(limit).toBe(2.0);
+    });
+  });
+
+  describe('EventBus integration', () => {
+    beforeEach(() => {
+      // Set up event listeners (normally done by UI setup)
+      handler.setupEventListeners();
+    });
+
+    test('TIME_CHANGED event updates simulationTime_', () => {
+      const testTime = new Date('2025-06-15T22:00:00Z');
+      globalEventBus.emit(Events.TIME_CHANGED, {time: testTime});
+
+      expect(handler.simulationTime_).toEqual(testTime);
+    });
+
+    test('LOCATION_CHANGED event updates observerLocation_', () => {
+      const testLocation = {lat: 48.8566, lon: 2.3522};
+      globalEventBus.emit(Events.LOCATION_CHANGED, {location: testLocation});
+
+      expect(handler.observerLocation_.lat).toBe(48.8566);
+      expect(handler.observerLocation_.lon).toBe(2.3522);
+    });
+
+    test('PLANETS_UPDATED event updates moon data', () => {
+      const moonData = {
+        name: 'Moon',
+        ra: 120,
+        dec: 15,
+        phase: 0.35,
+      };
+      globalEventBus.emit(Events.PLANETS_UPDATED, {
+        planets: [moonData],
+        moon: moonData,
+      });
+
+      expect(handler.moonPhase_).toBe(0.35);
+      expect(handler.cachedMoonData_).toEqual(moonData);
+    });
+
+    test('PLANETS_UPDATED event handles missing moon gracefully', () => {
+      const originalPhase = handler.moonPhase_;
+      globalEventBus.emit(Events.PLANETS_UPDATED, {
+        planets: [],
+        moon: null,
+      });
+
+      // Should not change when no moon data
+      expect(handler.moonPhase_).toBe(originalPhase);
+    });
+
+    test('dispose() cleans up EventBus subscriptions', () => {
+      const initialListenerCount = globalEventBus.listenerCount(Events.TIME_CHANGED);
+
+      handler.dispose();
+
+      // Listener count should decrease after dispose
+      const finalListenerCount = globalEventBus.listenerCount(Events.TIME_CHANGED);
+      expect(finalListenerCount).toBeLessThan(initialListenerCount);
+    });
+
+    test('subscriptions_ array is cleared after dispose', () => {
+      expect(handler.subscriptions_.length).toBeGreaterThan(0);
+
+      handler.dispose();
+
+      expect(handler.subscriptions_.length).toBe(0);
     });
   });
 });

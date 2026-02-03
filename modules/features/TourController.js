@@ -4,7 +4,8 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {SPHERE} from '../core/Constants.js';
+import {SPHERE, CAMERA} from '../core/Constants.js';
+import {raDecToCartesian} from '../core/CoordinateUtils.js';
 
 /**
  * @typedef {{
@@ -214,12 +215,14 @@ export class TourController {
    */
   start(tourName) {
     const tours = this.getAvailableTours();
-    this.currentTour_ = tours[tourName];
+    const tour = tours[tourName];
 
-    if (!this.currentTour_) {
+    if (!tour) {
       console.warn(`Tour not found: ${tourName}`);
       return;
     }
+
+    this.currentTour_ = tour;
 
     this.tourStep_ = 0;
 
@@ -302,7 +305,7 @@ export class TourController {
 
     // Determine required FOV based on tour type
     let requiredFov = this.calculateRequiredFOV_(step);
-    const currentFov = this.getFOV_?.() || 60;
+    const currentFov = this.getFOV_?.() || CAMERA.DEFAULT_FOV;
 
     if (requiredFov && currentFov < requiredFov) {
       this.setFOV_?.(requiredFov);
@@ -473,14 +476,8 @@ export class TourController {
     this.tourHighlight_ = new THREE.Sprite(material);
 
     const radius = SPHERE.RADIUS - 2;
-    const raRad = ra * Math.PI / 180;
-    const decRad = dec * Math.PI / 180;
-    const pos = {
-      x: radius * Math.cos(decRad) * Math.cos(raRad),
-      y: radius * Math.sin(decRad),
-      z: -radius * Math.cos(decRad) * Math.sin(raRad),
-    };
-    this.tourHighlight_.position.set(pos.x, pos.y, pos.z);
+    const pos = raDecToCartesian(ra, dec, radius);
+    this.tourHighlight_.position.copy(pos);
 
     const angularSizeRad = THREE.MathUtils.degToRad(angularSizeArcmin / 60);
     const realWorldSize = radius * angularSizeRad * 2;

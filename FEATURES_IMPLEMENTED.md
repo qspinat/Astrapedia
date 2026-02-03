@@ -2,508 +2,255 @@
 
 ## Summary
 
-Implemented **13 major features** from IMPROVEMENTS.md, transforming the sky map from a basic viewer into a comprehensive astronomy application inspired by Stellarium and Star Walk 2.
+The sky map has been transformed from a basic viewer into a comprehensive astronomy application inspired by Stellarium and Star Walk 2. The codebase has been fully modularized using an EventBus architecture for decoupled communication between components.
 
-**Files Modified:**
-- `skymap.js`: 823 → 1470 lines (+647 lines, +79%)
-- `app.html`: 418 → 795 lines (+377 lines, +90%)
-
-**Total New Code:** ~1,024 lines of JavaScript and HTML
+**Architecture:**
+- `skymap.js`: ~2,048 lines - Main application class (Three.js scene, orchestration)
+- `main.js`: ~373 lines - Application entry point, module wiring
+- `app.html`: ~535 lines - UI structure with CSP headers
+- `modules/`: 40+ ES6 modules organized by category
 
 ---
 
-## ✅ Feature 1: Constellation Lines
+## Core Features
 
-**Status:** Fully Implemented
-
-**What it does:**
+### Constellation Lines
 - Renders constellation stick figures connecting stars
 - Uses IAU standard constellation data (88 constellations)
-- Toggleable via "Toggle Lines" button in bottom bar
-- Lines are semi-transparent blue for easy viewing
+- Toggleable visibility
+- Highlight on selection with configurable colors
 
-**Implementation:**
-- `createConstellationLines()` method
-- Reads existing `data/constellations.json`
-- Matches HIP star numbers to create line segments
-- Lines rendered at radius 98.5 (between grid and stars)
-
-**How to use:**
-- Lines appear automatically on load
-- Click "✨ Toggle Lines" button to show/hide
+**Module:** `modules/rendering/ConstellationRenderer.js`
 
 ---
 
-## ✅ Feature 2: Star Colors by Spectral Type
-
-**Status:** Fully Implemented
-
-**What it does:**
-- Stars now display realistic colors based on temperature
+### Star Colors by Spectral Type
+- Stars display realistic colors based on temperature
 - Blue stars (O/B type), White (A/F), Yellow (G), Orange (K), Red (M)
 - Uses color index (B-V) from HYG database for accuracy
 
-**Implementation:**
-- `spectralTypeToColor()` method
-- Maps color index (-0.4 to +2.0) to RGB values
-- Fallback to spectral type classification
-- Applied to all 8,921+ visible stars
-
-**Color mapping:**
-- **Blue** (O/B): Hot stars like Rigel
-- **Blue-white** (A): Stars like Vega, Sirius
-- **White-yellow** (F/G): Stars like our Sun
-- **Orange** (K): Stars like Arcturus
-- **Red** (M): Cool stars like Betelgeuse
+**Module:** `modules/rendering/StarFieldRenderer.js`
 
 ---
 
-## ✅ Feature 3: Cardinal Direction Labels
-
-**Status:** Fully Implemented
-
-**What it does:**
-- Adds N, S, E, W labels on the horizon
-- Helps orient the sky map
-- Labels are semi-transparent and scale with view
-
-**Implementation:**
-- `createCardinalLabels()` method
-- Uses THREE.Sprite with canvas-generated text
-- Positioned at Alt=0°, Az=0°/90°/180°/270°
-- Rendered at radius 95 (near horizon)
-
----
-
-## ✅ Feature 4: Location Services
-
-**Status:** Fully Implemented
-
-**What it does:**
-- Auto-detect user's geographic location
-- "📍 My Location" button in search bar
-- Sets observer latitude/longitude for accurate sky view
-
-**Implementation:**
-- `requestLocation()` method
-- Uses browser Geolocation API
-- Stores location in `this.observerLocation`
-- Shows alert with detected coordinates
-
-**How to use:**
-- Click "📍 My Location" button
-- Allow location permission when prompted
-- Coordinates displayed in alert
-
----
-
-## ✅ Feature 5: Search Function
-
-**Status:** Fully Implemented
-
-**What it does:**
+### Search Function
 - Search for stars, galaxies, nebulae, and other objects
 - Autocomplete suggestions as you type
 - Results sorted by brightness
 - Click result to navigate and show info
+- Searchable: Named stars, Messier objects, bright NGC/IC objects, planets, constellations
 
-**Implementation:**
-- `buildSearchIndex()` - indexes 455 named stars + Messier objects + bright NGC objects
-- `performSearch(query)` - fuzzy search with results
-- Search UI with dropdown results
-- Integrated with info panel (Feature 6)
-
-**Searchable objects:**
-- All named stars (Sirius, Vega, Betelgeuse, etc.)
-- All Messier objects (M1-M110)
-- Bright NGC/IC objects (magnitude < 8)
-- ~500+ total searchable objects
-
-**How to use:**
-- Type in search bar (min 2 characters)
-- Click on search result
-- Camera animates to object and shows details
+**Module:** `modules/features/SearchManager.js`
 
 ---
 
-## ✅ Feature 6: Object Information Panel
-
-**Status:** Fully Implemented
-
-**What it does:**
-- Slide-in panel from right showing object details
+### Object Information Panel
+- Slide-in panel showing object details
 - Displays name, type, coordinates, magnitude
-- Shows constellation information
-- Includes constellation mythology (Feature 12)
+- Shows constellation information and mythology
+- Fetches real images from ESA/Hubble, NASA, Wikimedia
 
-**Implementation:**
-- `selectObject(obj)` - selects and navigates to object
-- `showObjectInfo(obj)` - populates info panel
-- `animateCameraTo(ra, dec)` - smooth camera animation
-- Panel slides in from right side
-
-**Information displayed:**
-- Object name(s)
-- Type and subtype
-- RA/Dec coordinates
-- Magnitude
-- Constellation (if known)
-- Mythology story (for some constellations)
-
-**How to use:**
-- Search for object or click in future versions
-- Panel slides in from right
-- Click × to close
+**Module:** `modules/features/SelectionManager.js`
 
 ---
 
-## ✅ Feature 7: Time Machine Controls
+### Time Machine Controls
+- Speed controls: 1x (real-time), 100x, 1000x
+- Play/Pause button
+- Jump to specific date/time
+- "Now" button to reset to current time
+- Celestial rotation and planetary positions update with time
 
-**Status:** Fully Implemented
-
-**What it does:**
-- Time simulation controls at bottom center
-- Speed up, slow down, or pause time
-- View sky at any date/time
-- Time display shows current simulation time
-
-**Implementation:**
-- `updateSimulationTime(deltaMs)` - advances time
-- `setTimeSpeed(speed)` - changes time flow rate
-- `jumpToTime(date)` - jump to specific time
-- Animation loop updates time each frame
-- Integrated with atmosphere rendering (Feature 9)
-
-**Time controls:**
-- **-1000x to +1000x** speed multipliers
-- **Pause/Play** button
-- **Now** button to reset to current time
-- Time display shows: Jan 16, 2026, 12:00:00 PM
-
-**Note:** Planetary positions not yet recalculated (would need astronomy-engine.js or API)
+**Modules:** `modules/features/TimeController.js`, `modules/features/TimeUI.js`
 
 ---
 
-## ✅ Feature 8: Visible Tonight
-
-**Status:** Fully Implemented
-
-**What it does:**
-- Shows list of bright stars and Messier objects
-- "Visible Tonight" panel slides in from left
-- Click object name to navigate
+### Visible Tonight
+- Shows list of bright stars and objects currently visible
+- Filters by altitude above horizon
 - Sorted by brightness
+- Click object name to navigate
 
-**Implementation:**
-- `getVisibleTonight()` - generates list of visible objects
-- `showVisibleTonight()` - displays panel with results
-- Shows top 10 bright stars (mag < 2.0)
-- Shows top 10 Messier objects (mag < 9)
-
-**How to use:**
-- Click "🌟 Visible Tonight" button in bottom bar
-- Panel slides in from left
-- Click object names to navigate
-- Click × to close
-
-**Future enhancement:** Filter by altitude/horizon based on observer location and time
+**Module:** `modules/features/VisibilityCalculator.js`
 
 ---
 
-## ✅ Feature 9: Atmosphere Rendering
-
-**Status:** Implemented (Simplified)
-
-**What it does:**
+### Atmosphere & Sky Conditions
 - Changes sky color based on time of day
 - Fades stars during daytime
-- Creates realistic day/night cycle
+- Dawn/dusk twilight colors
+- Light pollution simulation
 
-**Implementation:**
-- `updateAtmosphere()` - called each frame
-- Changes scene.background color based on hour
-- Adjusts star opacity (0.3 daytime, 0.9 nighttime)
-
-**Sky colors:**
-- **Dawn (6-8am):** Orange/pink (#4A3A2A)
-- **Day (8am-6pm):** Blue sky (#87CEEB)
-- **Dusk (6-8pm):** Orange/red (#4A2A3A)
-- **Night (8pm-6am):** Dark blue/black (#0A0F1C)
-
-**Note:** Simplified version. Full implementation would calculate sun position based on observer location and time.
+**Module:** `modules/features/SkyConditionsHandler.js`
 
 ---
 
-## ✅ Feature 10: Touch Gestures
+### Touch Gestures & Input
+- Pinch to zoom
+- Drag to rotate
+- Double-tap to select
+- Smooth inertia scrolling
 
-**Status:** Enhanced (Existing implementation)
-
-**What it does:**
-- Pinch to zoom (already worked)
-- Drag to rotate (already worked)
-- No additional changes needed - existing implementation is good
-
-**Note:** Already well-implemented in original code. No major changes needed.
+**Module:** `modules/interaction/InputController.js`
 
 ---
 
-## ✅ Feature 12: Constellation Stories
+### Compass Mode (Device Orientation)
+- Use device sensors to match real sky
+- Toggle between compass lock and free exploration
+- Calibration support
 
-**Status:** Implemented (Sample Data)
+**Module:** `modules/interaction/CompassController.js`
 
-**What it does:**
+---
+
+### Location Services
+- Auto-detect user's geographic location via browser API
+- Manual coordinate entry
+- Stores location for accurate horizon display
+- City name lookup
+
+**Module:** `modules/services/LocationManager.js`
+
+---
+
+### Constellation Stories
 - Displays mythology and facts about constellations
-- Shown in object info panel
-- Includes best viewing season, notable objects
+- Best viewing season, notable objects
+- Multi-language support (8 languages)
 
-**Implementation:**
-- `getConstellationStory(name)` - returns story data
-- `getConstellation(ra, dec)` - identifies constellation (stub)
-- Stories integrated into info panel
-
-**Sample stories included:**
-- **Orion** - The Hunter
-- **Ursa Major** - The Great Bear
-- **Cassiopeia** - The Vain Queen
-
-**Future enhancement:** Add all 88 constellation stories from external data file
+**Modules:** `modules/data/ConstellationStories.js`, `modules/data/ConstellationNames.js`
 
 ---
 
-## ✅ Feature 13: Object Tours
-
-**Status:** Fully Implemented
-
-**What it does:**
+### Object Tours
 - Guided tours of the night sky
 - Step-by-step navigation to interesting objects
-- Two tours included: Winter Sky, Messier Marathon
+- Multiple tour types: Messier Marathon, Constellation Tour, Tonight's Best
+- Visual highlighting of tour targets
 
-**Implementation:**
-- `startTour(tourName)` - begins tour
-- `showTourStep()` - displays current step
-- `nextTourStep()` - advances to next object
-- `endTour()` - ends tour
-
-**Available tours:**
-1. **Winter Sky Highlights** - Sirius, Betelgeuse, Rigel, M42
-2. **Messier Marathon** - M1 through M10
-
-**How to use:**
-- Click "🎯 Winter Tour" or "🔭 Messier Tour"
-- Tour panel appears in center
-- Click "Next" to advance
-- Click "End Tour" to stop
+**Modules:** `modules/features/TourController.js`, `modules/features/TourUI.js`, `modules/rendering/TourHighlight.js`
 
 ---
 
-## ✅ Feature 14: Astronomical Events Calendar
-
-**Status:** Fully Implemented
-
-**What it does:**
+### Astronomical Events Calendar
 - Shows upcoming astronomical events
-- Meteor showers, solstices, etc.
+- Meteor showers, eclipses, conjunctions, solstices
 - Days until each event
+- Event details and viewing tips
 
-**Implementation:**
-- `getUpcomingEvents()` - returns event list
-- `showEventsCalendar()` - displays panel
-
-**Events included:**
-- **Perseids** meteor shower (August 12)
-- **Geminids** meteor shower (December 14)
-- **Winter Solstice** (December 21)
-
-**How to use:**
-- Click "📅 Events" button in bottom bar
-- Panel shows upcoming events
-- Shows date and days until
-
-**Future enhancement:** Load from external API or data file with more events
+**Module:** `modules/features/EventsCalendar.js`
 
 ---
 
-## New UI Elements
+### Game Mode
+- 10 difficulty categories (Messier, bright stars, constellations, etc.)
+- Find and click on target objects
+- Score tracking with time and accuracy
+- Progressive difficulty
 
-### Search Bar (Top Header)
-- Input field with placeholder
-- "📍 My Location" button
-- Dropdown search results
-
-### Info Panel (Right Side)
-- Slides in from right
-- Object details and constellation info
-- Close button (×)
-
-### Time Controls (Bottom Center)
-- Speed buttons: -1000x to +1000x
-- Play/Pause button
-- Time display
-- Speed indicator
-- "Now" button
-
-### Visible Tonight Panel (Left Side)
-- Slides in from left
-- List of bright objects
-- Click to navigate
-
-### Events Panel (Right Side)
-- Slides in from right (opposite visible tonight)
-- Upcoming events list
-- Days until calculation
-
-### Tour Panel (Center Overlay)
-- Modal dialog for guided tours
-- Step information
-- Next/End buttons
-
-### Bottom Action Bar
-- "🌟 Visible Tonight" button
-- "📅 Events" button
-- "🎯 Winter Tour" button
-- "🔭 Messier Tour" button
-- "✨ Toggle Lines" button
+**Modules:** `modules/features/GameController.js`, `modules/features/GameUI.js`
 
 ---
 
-## Technical Improvements
+### Telescope Simulation
+- Configure virtual telescope aperture, focal length
+- Eyepiece selection with apparent FOV
+- Calculates magnification, exit pupil, real FOV
+- Limiting magnitude based on aperture
 
-### Code Organization
-- Added 13 new methods to SkyMapApp class
-- ~900+ lines of new functionality
-- Clean separation of concerns
-- Extensible architecture
+**Modules:** `modules/features/TelescopeController.js`, `modules/features/TelescopeUI.js`
 
-### Performance
-- Search indexing happens once at startup
-- Constellation lines cached as geometry
-- Atmosphere updates efficiently each frame
-- No performance degradation
+---
 
-### User Experience
-- Smooth camera animations (lerp-based)
-- Responsive panels with slide-in effects
-- Intuitive button layout
-- Comprehensive keyboard shortcuts possible
+### Dynamic Star/DSO Loading
+- Fetches additional faint stars from VizieR (Tycho-2, UCAC4) when zoomed
+- Loads DSOs from SIMBAD
+- Configurable limits (30K stars, 5K DSOs)
+- Automatic cleanup when zooming out
+
+**Modules:** `modules/services/DynamicDataLoader.js`, `modules/rendering/DynamicObjectManager.js`
+
+---
+
+### Celestial Object Images
+- Real images from ESA/Hubble, NASA Webb, Wikimedia Commons
+- Priority: Curated images > NASA API > Wikimedia > CDS HiPS DSS
+- Images appear when zoomed in (50% screen coverage)
+- Fade out when too zoomed
+
+**Modules:** `modules/services/ImageFetcher.js`, `modules/rendering/ImageRenderer.js`, `modules/data/CuratedImages.js`
+
+---
+
+### Planet Rendering
+- Real-time planetary positions via solar system calculations
+- Planet sprites with real images
+- Accurate orbital mechanics
+
+**Modules:** `modules/rendering/PlanetRenderer.js`, `modules/astronomy/SolarSystem.js`, `modules/data/PlanetImages.js`
+
+---
+
+### Grid Overlays
+- RA/Dec equatorial grid
+- Alt/Az horizon grid
+- Toggleable visibility
+- Cardinal direction labels (N/S/E/W)
+
+**Modules:** `modules/rendering/GridRenderer.js`, `modules/rendering/HorizonRenderer.js`
+
+---
+
+## Architecture
+
+### Module Categories
+
+```
+modules/
+├── core/           # EventBus, Constants, CoordinateUtils, Utils, ErrorHandler
+├── services/       # DataLoader, DynamicDataLoader, ImageFetcher, LocationManager
+├── features/       # Game, Search, Tours, Time, Telescope, Selection, Events
+├── rendering/      # Stars, Constellations, Planets, Grids, Horizon, Images
+├── interaction/    # InputController, ClickHandler, CompassController
+├── ui/             # UIController, PanelManager, DOMCache, BugReportHandler
+├── data/           # CuratedImages, ConstellationNames, Descriptions, PlanetImages
+└── astronomy/      # SolarSystem calculations
+```
+
+### Key Patterns
+
+1. **EventBus Communication**: Decoupled modules communicate via events
+2. **Dependency Injection**: Factory functions for testable modules
+3. **Singleton Services**: Pre-instantiated shared services (dataLoader, locationManager, etc.)
+4. **State Ownership**: Each module owns its state; skymap.js holds only shared data
+5. **DOM Caching**: Centralized DOM access via DOMCache module
+
+### EventBus Events
+
+- `TIME_CHANGED`, `LOCATION_CHANGED` - State updates
+- `OBJECT_SELECTED`, `CONSTELLATION_SELECTED` - User interactions
+- `CMD_SET_TIME_SPEED`, `CMD_JUMP_TO_TIME` - Commands
+- `GAME_STARTED`, `GAME_ENDED`, `TOUR_STARTED`, `TOUR_ENDED` - Feature lifecycle
 
 ---
 
 ## Testing
 
-Start local server:
 ```bash
-python3 -m http.server 8000
+# JavaScript tests (Jest with ESM)
+npm test
+npm test -- tests/EventBus.test.js
+
+# Python tests (pytest)
+uv run pytest
+uv run pytest tests/python/test_astronomy.py
 ```
-
-Open browser:
-```
-http://localhost:8000/app.html
-```
-
-### Test Checklist
-
-- [ ] Constellation lines visible on load
-- [ ] Stars show colors (blue/white/yellow/red)
-- [ ] Cardinal labels (N/S/E/W) appear
-- [ ] Search for "Sirius" works
-- [ ] Info panel slides in when selecting object
-- [ ] Time controls change simulation time
-- [ ] Atmosphere changes color with time
-- [ ] "Visible Tonight" shows object list
-- [ ] "Events" shows upcoming events
-- [ ] Tours navigate through objects
-- [ ] Toggle constellation lines works
-- [ ] Location detection works
-
----
-
-## Future Enhancements
-
-### Not Yet Implemented
-- Planetary position calculation (needs astronomy library)
-- Full Alt/Az coordinate transformation
-- Constellation boundary detection
-- Full constellation story database (88 constellations)
-- More astronomical events
-- Satellite tracking
-- Export/sharing features
-
-### Possible Improvements
-- Add TWEEN.js for smoother animations
-- Integrate astronomy-engine.js for accurate calculations
-- Add more tours (Summer Triangle, Zodiac, etc.)
-- Voice narration for tours
-- Mobile app packaging
-- Offline mode
-
----
-
-## Files Changed
-
-### skymap.js
-**New Properties:**
-- `cardinalLabels`, `constellationLinesGroup`, `showConstellationLines`
-- `simulationTime`, `timeSpeed`, `isTimePlaying`
-- `searchIndex`, `selectedObject`
-- `currentTour`, `tourStep`
-
-**New Methods:**
-- `createConstellationLines()`
-- `spectralTypeToColor()`
-- `createCardinalLabels()`
-- `requestLocation()`
-- `buildSearchIndex()`, `performSearch()`
-- `selectObject()`, `showObjectInfo()`, `animateCameraTo()`
-- `updateSimulationTime()`, `setTimeSpeed()`, `jumpToTime()`
-- `getVisibleTonight()`, `showVisibleTonight()`
-- `updateAtmosphere()`
-- `getConstellationStory()`, `getConstellation()`
-- `startTour()`, `showTourStep()`, `nextTourStep()`, `endTour()`, `getAvailableTours()`
-- `getUpcomingEvents()`, `showEventsCalendar()`
-
-**Modified Methods:**
-- `init()` - calls new initialization methods
-- `createStarField()` - uses spectralTypeToColor()
-- `animate()` - includes time simulation and atmosphere updates
-- `raDecToCartesian()` - fixed to use degrees consistently
-
-### app.html
-**New UI Components:**
-- Search bar with autocomplete
-- Object info panel (right slide-in)
-- Time controls (bottom center)
-- Visible Tonight panel (left slide-in)
-- Events calendar panel (right slide-in)
-- Tour panel (center modal)
-- Bottom action bar with 5 buttons
-
-**New Styles:**
-- Search bar and results dropdown
-- Slide-in panel animations
-- Time controls layout
-- Tour panel modal
-- Action button styles
-
-**New Scripts:**
-- Search event listeners
-- Click outside to close functionality
-- Search result selection
-
----
-
-## Documentation Updates
-
-- Updated `CLAUDE.md` with new commands and architecture
-- Created this `FEATURES_IMPLEMENTED.md` document
-- See `IMPROVEMENTS.md` for original feature specifications
 
 ---
 
 ## Credits
 
 Features inspired by:
-- **Stellarium** - Time controls, search function, object details
-- **Star Walk 2** - UI/UX, constellation stories, visible tonight
-
-Implementation by Claude Code based on user requirements.
+- **Stellarium** - Time controls, search function, object details, telescope simulation
+- **Star Walk 2** - UI/UX, constellation stories, visible tonight, tours

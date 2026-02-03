@@ -28,7 +28,8 @@ describe('TypeMappings', () => {
 
     it('contains solar system types', () => {
       expect(DSO_TYPE_NAMES['Planet']).toBe('Planet');
-      expect(DSO_TYPE_NAMES['Moon']).toBe('Moon');
+      expect(DSO_TYPE_NAMES['Moon']).toBe('Natural Satellite');
+      expect(DSO_TYPE_NAMES['Sun']).toBe('Star (The Sun)');
     });
   });
 

@@ -5,6 +5,7 @@
 
 import {dateToJulianDate} from '../core/CoordinateUtils.js';
 import {ASTRONOMY} from '../core/Constants.js';
+import {getPlanetImageUrl} from '../data/PlanetImages.js';
 
 /** @const {number} */
 const J2000 = ASTRONOMY.J2000;
@@ -259,6 +260,7 @@ export function calculatePlanetPositionFallback(planetName, date) {
 
 /**
  * Planet data with default angular sizes and colors.
+ * Image URLs are fetched dynamically from PlanetImages.js.
  * @const {!Array<!Object>}
  */
 export const PLANET_DEFAULTS = [
@@ -267,72 +269,63 @@ export const PLANET_DEFAULTS = [
     mag: -26.7,
     color: 0xffff00,
     angularSize: 32,
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg/480px-The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg',
+    get imageUrl() { return getPlanetImageUrl('Sun'); },
   },
   {
     name: 'Moon',
     mag: -12.7,
     color: 0xc0c0c0,
     angularSize: 31,
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/FullMoon2010.jpg/480px-FullMoon2010.jpg',
+    get imageUrl() { return getPlanetImageUrl('Moon'); },
   },
   {
     name: 'Mercury',
     mag: 0.5,
     color: 0xb5b5b5,
     angularSize: 0.1,
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Mercury_in_true_color.jpg/480px-Mercury_in_true_color.jpg',
+    get imageUrl() { return getPlanetImageUrl('Mercury'); },
   },
   {
     name: 'Venus',
     mag: -4.0,
     color: 0xfffacd,
     angularSize: 0.4,
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Venus_from_Mariner_10.jpg/480px-Venus_from_Mariner_10.jpg',
+    get imageUrl() { return getPlanetImageUrl('Venus'); },
   },
   {
     name: 'Mars',
     mag: 1.2,
     color: 0xcd5c5c,
     angularSize: 0.1,
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Mars_-_August_30_2021_-_Flickr_-_Kevin_M._Gill.png/480px-Mars_-_August_30_2021_-_Flickr_-_Kevin_M._Gill.png',
+    get imageUrl() { return getPlanetImageUrl('Mars'); },
   },
   {
     name: 'Jupiter',
     mag: -2.5,
     color: 0xffe4b5,
     angularSize: 0.7,
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Jupiter_and_its_shrunken_Great_Red_Spot.jpg/480px-Jupiter_and_its_shrunken_Great_Red_Spot.jpg',
+    get imageUrl() { return getPlanetImageUrl('Jupiter'); },
   },
   {
     name: 'Saturn',
     mag: 0.8,
     color: 0xf4d03f,
     angularSize: 0.3,
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Saturn_during_Equinox.jpg/480px-Saturn_during_Equinox.jpg',
+    get imageUrl() { return getPlanetImageUrl('Saturn'); },
   },
   {
     name: 'Uranus',
     mag: 5.7,
     color: 0xafeeee,
     angularSize: 0.06,
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Uranus2.jpg/480px-Uranus2.jpg',
+    get imageUrl() { return getPlanetImageUrl('Uranus'); },
   },
   {
     name: 'Neptune',
     mag: 7.9,
     color: 0x4169e1,
     angularSize: 0.04,
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Neptune_-_Voyager_2_%2829347980845%29_flatten_crop.jpg/480px-Neptune_-_Voyager_2_%2829347980845%29_flatten_crop.jpg',
+    get imageUrl() { return getPlanetImageUrl('Neptune'); },
   },
 ];
 
