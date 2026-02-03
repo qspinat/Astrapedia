@@ -691,6 +691,7 @@ export class SkyMapApp {
       const modal = domCache.gameSelectModal;
       if (modal) {
         modal.classList.add('visible');
+        history.pushState({gameModalOpen: true}, '');
       }
     });
 
@@ -1694,6 +1695,13 @@ export class SkyMapApp {
       // Close modal when clicking backdrop
       gameModal.addEventListener('click', (e) => {
         if (e.target === gameModal) {
+          gameModal.classList.remove('visible');
+        }
+      });
+
+      // Handle back button for game modal
+      window.addEventListener('popstate', (e) => {
+        if (gameModal.classList.contains('visible')) {
           gameModal.classList.remove('visible');
         }
       });

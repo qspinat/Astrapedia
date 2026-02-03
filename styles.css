@@ -1579,6 +1579,18 @@ select:focus-visible {
     opacity: 0.6;
 }
 
+/* Telescope quick toggle button */
+.icon-btn--telescope.active {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: white;
+}
+
+.icon-btn--telescope:not(.active) {
+    background: var(--bg-secondary) !important;
+    border-color: var(--border) !important;
+}
+
 /* Panel styling */
 .panel-title--accent {
     color: var(--accent-blue);

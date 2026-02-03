@@ -368,6 +368,10 @@ export class SettingsHandler {
     const magSlider = document.getElementById('magnitude-slider');
     const magValue = document.getElementById('mag-value');
     if (magSlider && magValue) {
+      // Initialize from constant
+      magSlider.value = STARS.DEFAULT_MAGNITUDE;
+      magValue.textContent = STARS.DEFAULT_MAGNITUDE.toFixed(1);
+
       magSlider.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value);
         magValue.textContent = val.toFixed(1);

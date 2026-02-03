@@ -60,6 +60,32 @@ export class PanelManager {
   initialize() {
     this.setupBackdropListener_();
     this.setupPanelTouchHandlers_();
+    this.setupBackButtonHandler_();
+  }
+
+  /**
+   * Setup handler for browser/phone back button.
+   * Closes panels instead of navigating away.
+   * @private
+   */
+  setupBackButtonHandler_() {
+    window.addEventListener('popstate', (e) => {
+      // If a panel is open and we're going back, close it
+      if (this.currentPanel_) {
+        // Prevent default navigation, close the panel
+        this.closeAll();
+        // Push state again to prevent actual navigation
+        // (only if we didn't just pop from a panel close)
+        if (!e.state?.panelClosed) {
+          history.pushState({panelOpen: false}, '');
+        }
+      }
+    });
+
+    // Initialize history state
+    if (!history.state) {
+      history.replaceState({panelOpen: false}, '');
+    }
   }
 
   /**
@@ -182,6 +208,9 @@ export class PanelManager {
 
     document.body.classList.add('panel-open');
     this.currentPanel_ = panelId;
+
+    // Push history state so back button closes panel
+    history.pushState({panelOpen: true, panelId}, '');
 
     this.triggerOpenCallbacks_(panelId);
 
