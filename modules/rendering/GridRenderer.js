@@ -142,6 +142,7 @@ export class GridRenderer {
     });
 
     this.equatorLine_ = new THREE.Line(equatorGeometry, equatorMaterial);
+    this.equatorLine_.visible = this.equatorVisible_;
     this.celestialSphere_.add(this.equatorLine_);
   }
 
