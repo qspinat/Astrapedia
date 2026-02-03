@@ -1,11 +1,13 @@
 /**
  * @fileoverview Application context facade for decoupled module access.
- * Provides a clean interface to app functionality without direct window.app coupling.
+ * Provides a clean interface to app functionality via dependency injection.
  */
+
+import {STARS} from './Constants.js';
 
 /**
  * AppContext provides a facade for accessing SkyMapApp functionality.
- * Modules should use this instead of directly accessing window.app.
+ * Modules should use this for decoupled access to app methods.
  */
 export class AppContext {
   /**
@@ -108,7 +110,7 @@ export class AppContext {
    * @returns {number} Current magnitude limit
    */
   getMagnitudeLimit() {
-    return this.app_.currentMagnitude || 8.0;
+    return this.app_.currentMagnitude || STARS.DEFAULT_MAGNITUDE;
   }
 
   /**
@@ -396,17 +398,8 @@ export function initializeAppContext(app) {
 
 /**
  * Get the current app context.
- * Falls back to window.app if context not initialized.
- * @returns {?AppContext} App context or null
+ * @returns {?AppContext} App context or null if not initialized
  */
 export function getAppContext() {
-  if (appContext) {
-    return appContext;
-  }
-  // Fallback: create and cache context from window.app if available
-  if (typeof window !== 'undefined' && window.app) {
-    appContext = new AppContext(window.app);
-    return appContext;
-  }
-  return null;
+  return appContext;
 }

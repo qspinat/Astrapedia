@@ -17,6 +17,8 @@ export const SPHERE = {
   CONSTELLATION_RADIUS: 98.5,
   /** Radius for cardinal direction labels. */
   CARDINAL_RADIUS: 95,
+  /** Radius for dynamic DSO sprites (slightly inside stars). */
+  DSO_SPRITE_RADIUS: 99.5,
 };
 
 /**
@@ -54,7 +56,7 @@ export const CAMERA = {
  */
 export const STARS = {
   /** Default magnitude limit for visible stars. */
-  DEFAULT_MAGNITUDE: 8.0,
+  DEFAULT_MAGNITUDE: 4.0,
   /** Maximum magnitude stored in data. */
   MAX_MAGNITUDE: 20,
   /** Magnitude fade range for smooth transitions. */
@@ -161,9 +163,9 @@ export const TIME = {
   /** Paused speed. */
   PAUSED_SPEED: 0,
   /** Maximum time speed multiplier. */
-  MAX_SPEED: 86400 * 7,
-  /** Available speed presets. */
-  SPEED_PRESETS: [0, 1, 10, 60, 600, 3600, 86400],
+  MAX_SPEED: 3600,
+  /** Available speed presets: real-time, 1min/s, 10min/s, 1hr/s. */
+  SPEED_PRESETS: [1, 60, 600, 3600],
 };
 
 /**
@@ -373,4 +375,31 @@ export const TELESCOPE = {
   MAX_MAG_MULTIPLIER: 2,
   /** localStorage key for telescope settings. */
   STORAGE_KEY: 'skymap_telescope_settings',
+};
+
+/**
+ * Input handling constants.
+ * @const {!Object}
+ */
+export const INPUT = {
+  /** Minimum drag distance (pixels) to trigger drag vs click. */
+  DRAG_THRESHOLD_PX: 5,
+  /** Zoom factor per wheel event (multiplicative). */
+  ZOOM_FACTOR: 1.15,
+  /** Minimum FOV for extreme zoom (degrees). */
+  MIN_FOV_EXTREME: 0.0001,
+  /** Minimum FOV change to trigger cursor-aware zoom. */
+  FOV_CHANGE_THRESHOLD: 0.001,
+  /** Minimum phi angle (radians). */
+  PHI_MIN_RAD: 0.1,
+  /** Maximum phi angle (radians). */
+  PHI_MAX_RAD: Math.PI - 0.1,
+  /** Time window (ms) for inertia velocity calculation. */
+  INERTIA_HISTORY_MS: 100,
+  /** Frame time factor for velocity (assumes ~60fps). */
+  VELOCITY_FRAME_MS: 16,
+  /** Friction coefficient for inertia (0-1). */
+  INERTIA_FRICTION: 0.92,
+  /** Minimum velocity to continue inertia. */
+  MIN_VELOCITY: 0.05,
 };

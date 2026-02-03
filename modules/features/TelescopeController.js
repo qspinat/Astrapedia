@@ -59,6 +59,8 @@ export class TelescopeController {
    * @param {function(): number=} dependencies.getCurrentFOV - Get current FOV
    * @param {function(): number=} dependencies.getCurrentMagnitude - Get current magnitude
    * @param {function(): number=} dependencies.getSkyLimitingMagnitude - Get sky NELM
+   * @param {function(): void=} dependencies.lockZoom - Lock zoom when telescope active
+   * @param {function(): void=} dependencies.unlockZoom - Unlock zoom when telescope inactive
    */
   constructor(dependencies = {}) {
     /** @private @const */
@@ -239,6 +241,9 @@ export class TelescopeController {
     this.deps_.setFOV?.(fov);
     this.deps_.setMagnitudeLimit?.(limitingMagnitude);
 
+    // Lock zoom to prevent user from changing FOV
+    this.deps_.lockZoom?.();
+
     this.isActive_ = true;
 
     // Emit event for UI layer to handle DOM changes (reticle, vignette)
@@ -266,6 +271,9 @@ export class TelescopeController {
     this.isActive_ = false;
     this.previousFOV_ = null;
     this.previousMagnitude_ = null;
+
+    // Unlock zoom to allow user control
+    this.deps_.unlockZoom?.();
 
     // Emit event for UI layer to handle DOM changes (reticle, vignette)
     globalEventBus.emit(Events.TELESCOPE_MODE_DEACTIVATED, {});

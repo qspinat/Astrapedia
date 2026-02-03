@@ -4,7 +4,7 @@
  */
 
 import {globalEventBus, Events} from './EventBus.js';
-import {SPHERE, CAMERA, SHADERS} from './Constants.js';
+import {CAMERA} from './Constants.js';
 
 /**
  * SceneManager handles Three.js setup and rendering.

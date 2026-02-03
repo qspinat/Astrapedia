@@ -1,5 +1,5 @@
-const CACHE_NAME = 'skymap-v3';
-const CACHE_VERSION = 3;
+const CACHE_NAME = 'skymap-v4';
+const CACHE_VERSION = 4;
 
 // Cache TTL in milliseconds (24 hours for external resources)
 const EXTERNAL_CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -10,13 +10,14 @@ const CLEANUP_TTL_MULTIPLIER = 2;
 
 const STATIC_ASSETS = [
     '/app.html',
+    '/main.js',
     '/skymap.js',
     '/styles.css',
     '/favicon.svg',
     '/icon-192.png',
     '/icon-512.png',
     '/manifest.json',
-    '/data/stars_bright.json',
+    '/data/stars_medium.json',
     '/data/constellations.json',
     '/data/deep_sky_objects.json',
     '/data/named_objects.json'

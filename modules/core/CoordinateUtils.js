@@ -47,8 +47,21 @@ export const cartesianToRaDec = (x, y, z) => {
 };
 
 /**
+ * Degrees to radians conversion factor.
+ * @const {number}
+ */
+const DEG_TO_RAD = Math.PI / 180;
+
+/**
+ * Radians to degrees conversion factor.
+ * @const {number}
+ */
+const RAD_TO_DEG = 180 / Math.PI;
+
+/**
  * Calculate angular distance between two celestial positions.
  * Uses the Haversine formula for numerical stability.
+ * Does not depend on THREE.js for testability.
  * @param {number} ra1 - RA of first position in degrees
  * @param {number} dec1 - Dec of first position in degrees
  * @param {number} ra2 - RA of second position in degrees
@@ -56,10 +69,10 @@ export const cartesianToRaDec = (x, y, z) => {
  * @returns {number} Angular distance in degrees
  */
 export const angularDistance = (ra1, dec1, ra2, dec2) => {
-  const ra1Rad = THREE.MathUtils.degToRad(ra1);
-  const dec1Rad = THREE.MathUtils.degToRad(dec1);
-  const ra2Rad = THREE.MathUtils.degToRad(ra2);
-  const dec2Rad = THREE.MathUtils.degToRad(dec2);
+  const ra1Rad = ra1 * DEG_TO_RAD;
+  const dec1Rad = dec1 * DEG_TO_RAD;
+  const ra2Rad = ra2 * DEG_TO_RAD;
+  const dec2Rad = dec2 * DEG_TO_RAD;
 
   const dRa = ra2Rad - ra1Rad;
   const dDec = dec2Rad - dec1Rad;
@@ -68,7 +81,7 @@ export const angularDistance = (ra1, dec1, ra2, dec2) => {
             Math.cos(dec1Rad) * Math.cos(dec2Rad) * Math.sin(dRa / 2) ** 2;
 
   const c = 2 * Math.asin(Math.sqrt(a));
-  return THREE.MathUtils.radToDeg(c);
+  return c * RAD_TO_DEG;
 };
 
 /**

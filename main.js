@@ -1,608 +1,381 @@
 /**
- * @fileoverview Main entry point for Sky Map Application.
- * Handles dependency wiring and module initialization.
+ * @fileoverview Application orchestration layer.
+ *
+ * This module serves as the central orchestration point for the SkyMap application.
+ * It imports all modules, initializes dependencies, and wires EventBus connections.
+ *
+ * Module Architecture:
+ * ====================
+ *
+ * CORE MODULES (modules/core/)
+ * - EventBus: Global pub/sub for module communication
+ * - Constants: Shared configuration (SPHERE, CAMERA, STARS, TIME, TELESCOPE)
+ * - CoordinateUtils: RA/Dec to Cartesian conversions
+ * - AstronomyCalculator: LST, altitude/azimuth calculations
+ * - ErrorHandler: Centralized error handling
+ * - SecurityUtils: HTML escaping, Wikipedia fetching
+ *
+ * DATA MODULES (modules/data/)
+ * - CuratedImages: Static database of curated astronomical images
+ * - ConstellationNames: Multi-language constellation name translations
+ *
+ * SERVICE MODULES (modules/services/)
+ * - DataLoader: JSON/CSV data loading with caching
+ * - ImageFetcher: Dynamic image fetching from NASA/Wikimedia/DSS
+ * - LocationManager: Geolocation with fallback
+ * - DynamicDataLoader: VizieR API for dynamic star loading
+ *
+ * RENDERING MODULES (modules/rendering/)
+ * - StarFieldRenderer: Star visualization with magnitude filtering
+ * - ConstellationRenderer: Constellation lines and labels
+ * - PlanetRenderer: Solar system objects
+ * - GridRenderer: RA/Dec coordinate grid
+ * - HorizonRenderer: Local horizon and cardinal directions
+ * - ImageRenderer: Deep sky object images
+ *
+ * FEATURE MODULES (modules/features/)
+ * - SearchManager: Object search with fuzzy matching
+ * - TimeController: Time simulation and playback
+ * - TourController: Educational tours
+ * - GameController: Object identification game
+ * - TelescopeController: Telescope mode simulation
+ * - SkyConditionsHandler: Constellation visibility helper
+ * - SelectionManager: Object selection state
+ *
+ * Communication: All modules communicate via EventBus (pub/sub pattern)
+ * for loose coupling and testability.
  */
 
 // Core modules
 import {globalEventBus, Events} from './modules/core/EventBus.js';
-import {STARS} from './modules/core/Constants.js';
-import {SceneManager} from './modules/core/SceneManager.js';
-import {
-  AstronomyCalculator,
-  initializeAstronomyCalculator,
-} from './modules/core/AstronomyCalculator.js';
-import {calculateLST} from './modules/core/CoordinateUtils.js';
+import {handleError, ErrorSeverity} from './modules/core/ErrorHandler.js';
+import {CAMERA} from './modules/core/Constants.js';
 
-// Services
+// Service modules
 import {dataLoader} from './modules/services/DataLoader.js';
-import {dynamicDataLoader} from './modules/services/DynamicDataLoader.js';
+import {imageFetcher} from './modules/services/ImageFetcher.js';
 import {locationManager} from './modules/services/LocationManager.js';
 
-// Features
-import {
-  GameController,
-  initializeGameController,
-} from './modules/features/GameController.js';
-import {searchManager} from './modules/features/SearchManager.js';
-import {
-  TourController,
-  initializeTourController,
-} from './modules/features/TourController.js';
-import {
-  TimeController,
-  initializeTimeController,
-} from './modules/features/TimeController.js';
-import {
-  TelescopeController,
-  initializeTelescopeController,
-} from './modules/features/TelescopeController.js';
-// UI
-import {panelManager} from './modules/ui/PanelManager.js';
-import {DOMCache} from './modules/ui/DOMCache.js';
-import {
-  UIController,
-  initializeUIController,
-} from './modules/ui/UIController.js';
+// Rendering modules
+import {StarFieldRenderer} from './modules/rendering/StarFieldRenderer.js';
+import {ConstellationRenderer} from './modules/rendering/ConstellationRenderer.js';
+import {PlanetRenderer} from './modules/rendering/PlanetRenderer.js';
+import {GridRenderer} from './modules/rendering/GridRenderer.js';
+import {HorizonRenderer} from './modules/rendering/HorizonRenderer.js';
+import {ImageRenderer} from './modules/rendering/ImageRenderer.js';
 
+// Feature modules
+import {SearchManager} from './modules/features/SearchManager.js';
+import {TimeController} from './modules/features/TimeController.js';
+import {TourController} from './modules/features/TourController.js';
+import {GameController} from './modules/features/GameController.js';
+import {TelescopeController} from './modules/features/TelescopeController.js';
+import {SkyConditionsHandler} from './modules/features/SkyConditionsHandler.js';
+import {SelectionManager} from './modules/features/SelectionManager.js';
+
+// UI modules
+import {initializeUIController} from './modules/ui/UIController.js';
+import {initializeBugReportHandler} from './modules/ui/BugReportHandler.js';
+import {panelManager} from './modules/ui/PanelManager.js';
+
+// Data modules
+import {CURATED_IMAGES, getCuratedImage} from './modules/data/CuratedImages.js';
+import {
+  CONSTELLATION_NAMES,
+  getConstellationName,
+  getConstellationAbbrev,
+  getConstellationNamesForLanguage,
+} from './modules/data/ConstellationNames.js';
+
+// Main application class (to be slimmed down)
+import {SkyMapApp} from './skymap.js';
+
+// Update loading indicator
+{
+  const lt = document.querySelector('.loading-text');
+  if (lt) lt.textContent = 'Modules loaded, starting app...';
+}
 
 /**
- * Application state and initialized modules.
+ * Application instance.
+ * @type {?SkyMapApp}
+ */
+let app = null;
+
+/**
+ * Module instances for advanced usage.
  * @type {!Object}
  */
-const app = {
-  /** @type {?SceneManager} */
-  sceneManager: null,
-  /** @type {?AstronomyCalculator} */
-  astronomyCalculator: null,
-  /** @type {?GameController} */
-  gameController: null,
-  /** @type {?TourController} */
-  tourController: null,
-  /** @type {?TimeController} */
-  timeController: null,
-  /** @type {?TelescopeController} */
-  telescopeController: null,
-  /** @type {?UIController} */
-  uiController: null,
-  /** @type {?DOMCache} */
-  domCache: null,
-
-  // Data
-  /** @type {!Array<!Object>} */
-  stars: [],
-  /** @type {!Array<!Object>} */
-  deepSkyObjects: [],
-  /** @type {!Object} */
-  constellations: {},
-  /** @type {!Object<string, number>} */
-  namedObjects: {},
-  /** @type {!Array<!Object>} */
-  planets: [],
-
-  // State
-  /** @type {boolean} */
-  initialized: false,
-  /** @type {?Object} */
-  selectedObject: null,
-  /** @type {number} */
-  currentMagnitude: STARS.DEFAULT_MAGNITUDE,
-
-  // Three.js objects
-  /** @type {?THREE.Group} */
-  celestialSphere: null,
-  /** @type {!Array<!THREE.Line>} */
-  constellationLines: [],
+const modules = {
+  renderers: {},
+  features: {},
+  services: {},
 };
 
 /**
- * Initialize all application modules.
- * @returns {!Promise<void>}
+ * Setup EventBus subscriptions for inter-module communication.
+ * This wires up the publish/subscribe connections between modules.
+ * @private
  */
-async function initializeApp() {
-  console.log('Initializing Sky Map Application...');
+function setupEventBusWiring_() {
+  // Location changes trigger celestial rotation update
+  globalEventBus.on(Events.LOCATION_UPDATED, ({latitude, longitude}) => {
+    if (app) {
+      app.updateCelestialRotation();
+    }
+  });
 
-  // Always use night mode
-  document.body.classList.add('night-mode');
-
-  // Get canvas container
-  const container = document.getElementById('canvas-container');
-  if (!container) {
-    throw new Error('Canvas container not found');
-  }
-
-  // Initialize DOM cache
-  app.domCache = new DOMCache();
-
-  // Initialize scene manager
-  app.sceneManager = new SceneManager(container);
-  app.sceneManager.initialize();
-  app.celestialSphere = app.sceneManager.getCelestialSphere();
-
-  // Initialize astronomy calculator
-  app.astronomyCalculator = initializeAstronomyCalculator();
-
-  // Load data
-  await loadApplicationData();
-
-  // Initialize feature modules with dependencies
-  initializeFeatureModules();
-
-  // Initialize UI
-  initializeUIModules();
-
-  // Setup event listeners
-  setupEventListeners();
-
-  // Set initial location
-  setupLocation();
-
-  // Start animation loop
-  startAnimationLoop();
-
-  app.initialized = true;
-  console.log('Sky Map Application initialized');
-
-  globalEventBus.emit(Events.APP_INITIALIZED, {});
+  // Time changes trigger sky updates
+  globalEventBus.on(Events.TIME_CHANGED, ({time}) => {
+    if (app) {
+      app.requestRender();
+    }
+  });
 }
 
 /**
- * Load all application data.
- * @returns {!Promise<void>}
+ * UI Controller instance.
+ * @type {?Object}
  */
-async function loadApplicationData() {
-  console.log('Loading application data...');
-
-  try {
-    const data = await dataLoader.loadSkyMapData();
-
-    app.stars = data.stars || [];
-    app.deepSkyObjects = data.deepSkyObjects || [];
-    app.constellations = data.constellations || {};
-    app.namedObjects = data.namedObjects || {};
-
-    // Build search index
-    searchManager.buildIndex({
-      stars: app.stars,
-      deepSkyObjects: app.deepSkyObjects,
-      constellations: app.constellations,
-      namedObjects: app.namedObjects,
-      planets: app.planets,
-    });
-
-    console.log(`Loaded: ${app.stars.length} stars, ` +
-      `${app.deepSkyObjects.length} DSOs, ` +
-      `${Object.keys(app.constellations).length} constellations`);
-
-    globalEventBus.emit(Events.DATA_LOADED, {
-      stars: app.stars.length,
-      dsos: app.deepSkyObjects.length,
-      constellations: Object.keys(app.constellations).length,
-    });
-  } catch (error) {
-    console.error('Failed to load application data:', error);
-    globalEventBus.emit(Events.DATA_ERROR, {error});
-    throw error;
-  }
-}
+let uiController = null;
 
 /**
- * Initialize feature modules with dependencies.
+ * Telescope Controller instance.
+ * @type {?TelescopeController}
  */
-function initializeFeatureModules() {
-  // Initialize time controller
-  app.timeController = initializeTimeController({
-    updatePlanets: () => createPlanets(),
-    rotateCelestialSphere: (angle) => {
-      if (app.celestialSphere) {
-        app.celestialSphere.rotation.y += angle;
-      }
-    },
-    setCelestialRotation: (rotation) => {
-      if (app.celestialSphere) {
-        app.celestialSphere.rotation.y = rotation;
-      }
-    },
-    calculateLST: (date, lon) => calculateLST(date, lon),
-    getLongitude: () => locationManager.getLongitude(),
-  });
+let telescopeController = null;
 
-  // Initialize game controller
-  app.gameController = initializeGameController({
-    getStars: () => app.stars,
-    getDeepSkyObjects: () => app.deepSkyObjects,
-    getConstellations: () => app.constellations,
-    getNamedObjects: () => app.namedObjects,
-    getPlanets: () => app.planets,
-    getConstellationName: (abbrev) => abbrev, // TODO: implement translation
-    navigateToRaDec: (ra, dec) => animateCameraTo(ra, dec),
-    checkObjectAtPosition: (ra, dec, tolerance) => checkObjectAtPosition(ra, dec, tolerance),
-  });
-
-  // Initialize tour controller
-  app.tourController = initializeTourController({
-    navigateToRaDec: (ra, dec) => animateCameraTo(ra, dec),
-    highlightConstellation: (name) => highlightConstellation(name),
-    unhighlightConstellation: () => unhighlightConstellation(),
-    showObjectInfo: (obj) => showObjectInfo(obj),
-    showConstellationInfo: (abbrev) => showConstellationInfo(abbrev),
-    getLST: () => {
-      const time = app.timeController?.getTime() || new Date();
-      return calculateLST(time, locationManager.getLongitude());
-    },
-    getLocation: () => locationManager.getLocation(),
-    getPlanets: () => app.planets,
-    getDeepSkyObjects: () => app.deepSkyObjects,
-    getStars: () => app.stars,
-    getFOV: () => app.sceneManager?.getFOV() || 60,
-    setFOV: (fov) => app.sceneManager?.setFOV(fov),
-    getConstellationName: (abbrev) => abbrev,
-  });
-
-  // Set scene callbacks for tour controller
-  app.tourController.setSceneCallbacks(
-    (sprite) => app.celestialSphere?.add(sprite),
-    (sprite) => app.celestialSphere?.remove(sprite)
-  );
+/**
+ * Initialize the UI controller with dependencies from the app.
+ * @param {!SkyMapApp} appInstance - The application instance
+ * @private
+ */
+function initializeUI_(appInstance) {
+  // Initialize panel manager (expose to window for skymap.js compatibility)
+  panelManager.initialize();
+  window.openPanel = (panelId) => panelManager.open(panelId);
+  window.closeAllPanels = () => panelManager.closeAll();
 
   // Initialize telescope controller
-  // TODO: Add SkyConditionsController module and wire getSkyLimitingMagnitude
-  // Currently, sky conditions integration is handled in ui-controller.js
-  app.telescopeController = initializeTelescopeController({
-    setFOV: (fov) => app.sceneManager?.setFOV(fov),
-    setMagnitudeLimit: (mag) => setMagnitudeLimit(mag),
-    getCurrentFOV: () => app.sceneManager?.getFOV() || 60,
-    getCurrentMagnitude: () => app.currentMagnitude,
-    // getSkyLimitingMagnitude: () => app.skyConditionsController?.getNakedEyeLimit(),
+  telescopeController = new TelescopeController({
+    setFOV: (fov) => {
+      appInstance.targetFov = fov;
+      appInstance.requestRender?.();
+    },
+    lockZoom: () => {
+      appInstance.telescopeModeActive = true;
+    },
+    unlockZoom: () => {
+      appInstance.telescopeModeActive = false;
+    },
   });
-}
+  telescopeController.initialize();
 
-/**
- * Initialize UI modules.
- */
-function initializeUIModules() {
-  // Initialize panel manager
-  panelManager.initialize();
-
-  // Initialize UI controller with all dependencies
-  app.uiController = initializeUIController({
-    panelManager,
-    performSearch: (query) => searchManager.search(query),
-    selectObject: (obj) => selectObject(obj),
-    setEquatorLineVisible: (visible) => setEquatorLineVisible(visible),
-    setConstellationLines: (visible) => setConstellationLinesVisible(visible),
-    setLanguage: (lang) => setConstellationLanguage(lang),
-    setMagnitudeLimit: (mag) => setMagnitudeLimit(mag),
-    showLocationDialog: () => showLocationDialog(),
-    requestGeolocation: () => locationManager.requestGeolocation(),
-    resetCamera: () => app.sceneManager?.resetCamera(),
-    showEventsCalendar: () => showEventsCalendar(),
-    setMaxDynamicStars: (max) => setMaxDynamicStars(max),
-    setTimeSpeed: (speed) => app.timeController?.setSpeed(speed),
-    togglePlayback: () => app.timeController?.togglePlayback(),
-    jumpToTime: (date) => app.timeController?.jumpToTime(date),
-    startGame: () => app.gameController?.start(),
-    passQuestion: () => app.gameController?.passQuestion(),
-    stopGame: () => app.gameController?.stop(),
-    startTour: (name) => app.tourController?.start(name),
-    toggleCompassMode: () => toggleCompassMode(),
-    getFOV: () => app.sceneManager?.getFOV(),
-    getViewDirection: () => app.sceneManager?.getViewDirectionCelestial(),
-    // Telescope dependencies
-    getTelescope: () => app.telescopeController?.getTelescope(),
-    setTelescope: (config) => app.telescopeController?.setTelescope(config),
-    getEyepiece: () => app.telescopeController?.getEyepiece(),
-    setEyepiece: (config) => app.telescopeController?.setEyepiece(config),
-    toggleTelescopeMode: () => app.telescopeController?.toggleTelescopeMode(),
-    isTelescopeModeActive: () => app.telescopeController?.isActive(),
-    saveTelescopePreset: (name) => app.telescopeController?.savePreset(name),
-    loadTelescopePreset: (name) => app.telescopeController?.loadPreset(name),
-    deleteTelescopePreset: (name) => app.telescopeController?.deletePreset(name),
-    getTelescopePresetNames: () => app.telescopeController?.getPresetNames() || [],
-    getTelescopeComputedProperties: () => app.telescopeController?.getComputedProperties(),
+  // Initialize bug report handler
+  initializeBugReportHandler({
+    closePanel: () => panelManager.closeAll(),
   });
 
-  // Expose for legacy compatibility
-  window.openPanel = (id) => panelManager.open(id);
-  window.closeAllPanels = () => panelManager.closeAll();
-}
-
-/**
- * Setup global event listeners.
- */
-function setupEventListeners() {
-  // Location changes
-  globalEventBus.on(Events.LOCATION_CHANGED, (data) => {
-    app.sceneManager?.setLatitudeTilt(data.location.lat);
-    app.timeController?.update(0); // Force update
-    createPlanets();
-  });
-
-  // Search result selected
-  globalEventBus.on(Events.SEARCH_RESULT_SELECTED, (data) => {
-    selectObject(data.result);
-  });
-
-  // Game events
-  globalEventBus.on(Events.GAME_CORRECT, () => {
-    // Play success feedback
-  });
-
-  globalEventBus.on(Events.GAME_INCORRECT, () => {
-    // Play failure feedback
-  });
-}
-
-/**
- * Setup initial location.
- */
-function setupLocation() {
-  const location = locationManager.getLocation();
-  app.sceneManager?.setLatitudeTilt(location.lat);
-
-  // Try to get geolocation
-  if (locationManager.isGeolocationAvailable()) {
-    locationManager.requestGeolocation().catch(() => {
-      console.log('Using default location');
+  // Setup bug report button
+  const bugReportBtn = document.getElementById('bug-report-btn');
+  if (bugReportBtn) {
+    bugReportBtn.addEventListener('click', () => {
+      panelManager.open('bug-report-panel');
     });
   }
+
+  // Setup bug report close button
+  panelManager.setupCloseButton('bug-report-close-btn');
+
+  // Initialize main UI controller with all dependencies from app
+  uiController = initializeUIController({
+    panelManager,
+
+    // Search
+    performSearch: (query) => appInstance.performSearch(query),
+    selectObject: (obj) => appInstance.selectObject(obj),
+
+    // Settings
+    setConstellationLines: (visible) => {
+      appInstance.showConstellationLines = visible;
+      if (appInstance.constellationLinesGroup) {
+        appInstance.constellationLinesGroup.visible = visible;
+      }
+      appInstance.requestRender?.();
+    },
+    setEquatorLineVisible: (visible) => appInstance.setEquatorLineVisible?.(visible),
+    setLanguage: (lang) => appInstance.setConstellationLanguage?.(lang),
+    setMagnitudeLimit: (mag) => appInstance.setMagnitudeLimit?.(mag),
+    showLocationDialog: () => appInstance.setObserverLocation?.(),
+    requestGeolocation: () => appInstance.requestGeolocation?.(),
+    resetCamera: () => appInstance.resetView?.(),
+    showEventsCalendar: () => appInstance.showEventsCalendar?.(),
+    setMaxDynamicStars: (val) => {
+      // DSOs limit is ~1/6 of stars limit
+      const maxDSOs = Math.max(1000, Math.floor(val / 6));
+      appInstance.dynamicObjectManager_?.setLimits(val, maxDSOs);
+    },
+
+    // Time
+    setTimeSpeed: (speed) => appInstance.setTimeSpeed?.(speed),
+    togglePlayback: () => {
+      globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
+    },
+    jumpToTime: (date) => appInstance.jumpToTime?.(date),
+    getSimulationTime: () => appInstance.simulationTime || new Date(),
+
+    // Game
+    startGame: () => globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT),
+    passQuestion: () => globalEventBus.emit(Events.CMD_PASS_QUESTION),
+    stopGame: () => globalEventBus.emit(Events.CMD_STOP_GAME),
+
+    // Tour
+    startTour: (name) => globalEventBus.emit(Events.CMD_START_TOUR, {tourName: name}),
+    nextTourStep: () => globalEventBus.emit(Events.CMD_NEXT_TOUR_STEP),
+    prevTourStep: () => globalEventBus.emit(Events.CMD_PREV_TOUR_STEP),
+    stopTour: () => globalEventBus.emit(Events.CMD_STOP_TOUR),
+
+    // Compass
+    toggleCompassMode: () => appInstance.toggleCompassMode?.(),
+
+    // Telescope - wired to TelescopeController instance
+    getTelescope: () => telescopeController?.getTelescope() || null,
+    setTelescope: (settings) => telescopeController?.setTelescope(settings),
+    getEyepiece: () => telescopeController?.getEyepiece() || null,
+    setEyepiece: (settings) => telescopeController?.setEyepiece(settings),
+    toggleTelescopeMode: () => telescopeController?.toggleTelescopeMode(),
+    isTelescopeModeActive: () => telescopeController?.isActive() || false,
+    saveTelescopePreset: (name) => telescopeController?.savePreset(name),
+    loadTelescopePreset: (name) => telescopeController?.loadPreset(name) || false,
+    deleteTelescopePreset: (name) => telescopeController?.deletePreset(name) || false,
+    getTelescopePresetNames: () => telescopeController?.getPresetNames() || [],
+    getTelescopeComputedProperties: () => telescopeController?.getComputedProperties() || null,
+
+    // Info
+    getFOV: () => appInstance.targetFov || CAMERA.DEFAULT_FOV,
+    getViewDirection: () => ({ra: 0, dec: 0}),
+  });
 }
 
 /**
- * Start the animation loop.
+ * Register service worker for PWA.
+ * @private
  */
-function startAnimationLoop() {
-  let lastTime = performance.now();
+function registerServiceWorker_() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then((reg) => console.log('SW registered:', reg.scope))
+      .catch((err) => {
+        console.warn('Service worker registration failed:', err);
+        globalEventBus.emit(Events.SERVICE_WORKER_ERROR, {
+          error: err.message,
+          timestamp: Date.now(),
+        });
+      });
+  }
+}
 
-  const animate = () => {
-    requestAnimationFrame(animate);
+/**
+ * Initialize the application.
+ */
+async function initializeApp() {
+  const loadingText = document.querySelector('.loading-text');
 
-    const now = performance.now();
-    const deltaMs = now - lastTime;
-    lastTime = now;
-
-    // Update time simulation
-    app.timeController?.update(deltaMs);
-
-    // Update scene animations
-    const animating = app.sceneManager?.updateAnimations();
-
-    // Update tour highlight
-    if (app.tourController?.isActive()) {
-      const fov = app.sceneManager?.getFOV() || 60;
-      const height = app.sceneManager?.getCanvasSize()?.height || 800;
-      app.tourController.updateHighlight(fov, height);
+  try {
+    // Check if THREE.js loaded
+    if (typeof THREE === 'undefined') {
+      throw new Error('THREE.js library failed to load');
     }
 
-    // Render if needed
-    if (animating || app.sceneManager?.needsRender()) {
-      app.sceneManager?.render();
+    if (loadingText) loadingText.textContent = 'Initializing...';
+
+    // Setup inter-module communication first
+    setupEventBusWiring_();
+
+    // Create main application instance
+    app = new SkyMapApp();
+
+    // Expose to window for debugging and legacy compatibility
+    window.app = app;
+
+    // Initialize UI controller with app dependencies
+    initializeUI_(app);
+
+    // Register service worker for PWA
+    registerServiceWorker_();
+
+  } catch (error) {
+    console.error('Initialization failed:', error);
+    handleError(error, 'Application initialization failed', ErrorSeverity.CRITICAL);
+
+    // Show error on loading screen
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+      loadingEl.innerHTML = `
+        <div style="color: #ff6b6b; text-align: center; padding: 20px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+          <div style="font-size: 18px; margin-bottom: 8px;">Failed to start</div>
+          <div style="font-size: 14px; color: #999; max-width: 300px;">
+            ${error.message || 'Unknown error'}
+          </div>
+          <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #3B82F6; color: white; border: none; border-radius: 8px; cursor: pointer;">
+            Retry
+          </button>
+        </div>
+      `;
     }
-  };
-
-  animate();
-}
-
-// ============================================================================
-// Placeholder functions to be implemented in SkyMapApp
-// These provide the interface expected by the modules
-// ============================================================================
-
-/**
- * Animate camera to RA/Dec position.
- * @param {number} ra - Right ascension in degrees
- * @param {number} dec - Declination in degrees
- */
-function animateCameraTo(ra, dec) {
-  // Convert RA/Dec to camera theta/phi
-  let theta = -ra * Math.PI / 180 + Math.PI;
-
-  // Account for celestial sphere rotation (time offset)
-  // Objects are children of celestialSphere, so camera needs to adjust for its rotation
-  if (app.celestialSphere) {
-    theta -= app.celestialSphere.rotation.y;
-  }
-
-  const phi = (90 - dec) * Math.PI / 180;
-  app.sceneManager?.setCameraRotation(theta, phi, true);
-}
-
-/**
- * Create/update planet positions.
- */
-function createPlanets() {
-  const time = app.timeController?.getTime() || new Date();
-
-  app.planets = app.astronomyCalculator?.calculateAllPlanetPositions(
-    time,
-    locationManager.getLatitude(),
-    locationManager.getLongitude()
-  ) || [];
-
-  // Update search index with planets
-  searchManager.updatePlanets(app.planets);
-
-  globalEventBus.emit(Events.PLANETS_UPDATED, {planets: app.planets});
-}
-
-/**
- * Select an object.
- * @param {?Object} obj - Object to select or null to deselect
- */
-function selectObject(obj) {
-  app.selectedObject = obj;
-
-  if (obj) {
-    animateCameraTo(obj.ra, obj.dec);
-    showObjectInfo(obj);
-    panelManager.open('info-panel');
-  } else {
-    panelManager.closeAll();
-  }
-
-  globalEventBus.emit(Events.OBJECT_SELECTED, {object: obj});
-}
-
-/**
- * Show object info panel.
- * @param {!Object} obj - Object to display
- */
-function showObjectInfo(obj) {
-  const infoPanel = document.getElementById('info-panel');
-  if (!infoPanel) return;
-
-  // Update panel content
-  const nameEl = infoPanel.querySelector('.object-name');
-  if (nameEl) nameEl.textContent = obj.name || 'Unknown';
-
-  const typeEl = infoPanel.querySelector('.object-type');
-  if (typeEl) typeEl.textContent = obj.type || '';
-
-  const magEl = infoPanel.querySelector('.object-magnitude');
-  if (magEl) {
-    magEl.textContent = obj.mag !== undefined ? `Magnitude: ${obj.mag.toFixed(1)}` : '';
   }
 }
 
-/**
- * Show constellation info.
- * @param {string} abbrev - Constellation abbreviation
- */
-function showConstellationInfo(abbrev) {
-  const constellation = app.constellations[abbrev];
-  if (!constellation) return;
+// Start the application when DOM is loaded
+window.addEventListener('DOMContentLoaded', initializeApp);
 
-  showObjectInfo({
-    name: constellation.name || abbrev,
-    type: 'Constellation',
-    ra: constellation.ra || 0,
-    dec: constellation.dec || 0,
-  });
-}
-
-/**
- * Highlight a constellation.
- * @param {string} name - Constellation name
- */
-function highlightConstellation(name) {
-  // TODO: Implement constellation highlighting
-}
-
-/**
- * Remove constellation highlighting.
- */
-function unhighlightConstellation() {
-  // TODO: Implement
-}
-
-/**
- * Check if object exists at position.
- * @param {number} ra - Right ascension
- * @param {number} dec - Declination
- * @param {number} tolerance - Tolerance in degrees
- * @returns {?Object} Found object or null
- */
-function checkObjectAtPosition(ra, dec, tolerance) {
-  // Check in search index
-  const nearby = searchManager.findNear(ra, dec, tolerance);
-  return nearby.length > 0 ? nearby[0] : null;
-}
-
-/**
- * Set equator line visibility.
- * @param {boolean} visible - Whether the equator line should be visible
- */
-function setEquatorLineVisible(visible) {
-  // This is handled by skymap.js app.setEquatorLineVisible
-  if (window.app?.setEquatorLineVisible) {
-    window.app.setEquatorLineVisible(visible);
+// Clean up on page unload
+window.addEventListener('beforeunload', () => {
+  if (uiController) {
+    uiController.dispose?.();
+    uiController = null;
   }
-}
+});
 
-/**
- * Set constellation lines visibility.
- * @param {boolean} visible - Whether lines should be visible
- */
-function setConstellationLinesVisible(visible) {
-  app.constellationLines.forEach((line) => {
-    line.visible = visible;
-  });
-  app.sceneManager?.requestRender();
-}
+// Export for testing and external access
+export {
+  // Application
+  app,
+  modules,
+  uiController,
 
-/**
- * Set constellation language.
- * @param {string} lang - Language code
- */
-function setConstellationLanguage(lang) {
-  // TODO: Implement language switching
-}
+  // Core
+  globalEventBus,
+  Events,
 
-/**
- * Set magnitude limit.
- * @param {number} mag - Maximum magnitude to display
- */
-function setMagnitudeLimit(mag) {
-  app.currentMagnitude = mag;
+  // Services
+  dataLoader,
+  imageFetcher,
+  locationManager,
 
-  // Update UI slider
-  const slider = document.getElementById('magnitude-slider');
-  const display = document.getElementById('mag-value');
-  if (slider) slider.value = mag;
-  if (display) display.textContent = mag.toFixed(1);
+  // Data
+  CURATED_IMAGES,
+  getCuratedImage,
+  CONSTELLATION_NAMES,
+  getConstellationName,
+  getConstellationAbbrev,
+  getConstellationNamesForLanguage,
 
-  globalEventBus.emit(Events.MAGNITUDE_CHANGED, {magnitude: mag});
-}
+  // Renderers (classes for custom usage)
+  StarFieldRenderer,
+  ConstellationRenderer,
+  PlanetRenderer,
+  GridRenderer,
+  HorizonRenderer,
+  ImageRenderer,
 
-/**
- * Show location dialog.
- */
-function showLocationDialog() {
-  // TODO: Implement location dialog
-}
-
-/**
- * Show events calendar.
- */
-function showEventsCalendar() {
-  panelManager.open('events-panel');
-}
-
-/**
- * Set max dynamic stars.
- * @param {number} max - Maximum number of dynamic stars
- */
-function setMaxDynamicStars(max) {
-  dynamicDataLoader.setMaxStars(max);
-}
-
-/**
- * Toggle compass mode.
- */
-function toggleCompassMode() {
-  // TODO: Implement compass mode
-}
-
-// ============================================================================
-// Initialization
-// ============================================================================
-
-// Wait for DOM and Three.js to be ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    initializeApp().catch(console.error);
-  });
-} else {
-  initializeApp().catch(console.error);
-}
-
-// Expose app for debugging
-window.skyMapApp = app;
-
-// Register service worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
-    .then((reg) => console.log('Service worker registered'))
-    .catch((err) => console.warn('Service worker registration failed:', err));
-}
-
-export {app, initializeApp};
+  // Features (classes for custom usage)
+  SearchManager,
+  TimeController,
+  TourController,
+  GameController,
+  TelescopeController,
+  SkyConditionsHandler,
+  SelectionManager,
+};

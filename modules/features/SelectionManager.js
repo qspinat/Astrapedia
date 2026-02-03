@@ -4,8 +4,10 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {escapeHtml} from '../core/SecurityUtils.js';
+import {escapeHtml, fetchWikipedia} from '../core/SecurityUtils.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
+import {descriptionGenerator} from '../data/DescriptionGenerator.js';
+import {getConstellationStory} from '../data/ConstellationStories.js';
 
 /**
  * SelectionManager handles object selection and info display.
@@ -22,6 +24,14 @@ export class SelectionManager {
    * @param {function(!Object): ?string=} dependencies.getImageUrl - Get object image URL
    * @param {function(string): void=} dependencies.openPanel - Open UI panel
    * @param {function(): void=} dependencies.closeAllPanels - Close all UI panels
+   * @param {function(string): string=} dependencies.getConstellationAbbrev - Get abbreviation
+   * @param {function(string): string=} dependencies.getConstellationName - Get localized name
+   * @param {function(string): string=} dependencies.getEnglishConstellationName - Get English name
+   * @param {function(): string=} dependencies.getConstellationLanguage - Get current language
+   * @param {function(string): string=} dependencies.getConstellationFullName - Get full constellation name
+   * @param {function(string, number, number, string, number): Promise=} dependencies.fetchBestImage - Fetch best image
+   * @param {function(number, number, string, number): string=} dependencies.getSkyViewImageUrl - Get DSS image URL
+   * @param {function(number, number): string=} dependencies.getConstellation - Get constellation at coords
    */
   constructor(dependencies = {}) {
     /** @private @const */
@@ -32,6 +42,12 @@ export class SelectionManager {
 
     /** @private {?number} */
     this.highlightTimeout_ = null;
+
+    /** @private {?AbortController} - Controller for description fetch requests */
+    this.descriptionAbortController_ = null;
+
+    /** @private {?AbortController} - Controller for image fetch requests */
+    this.imageAbortController_ = null;
   }
 
   /**
@@ -48,6 +64,16 @@ export class SelectionManager {
    */
   selectObject(obj) {
     this.selectedObject_ = obj;
+
+    // Abort any pending fetch requests from previous selection
+    if (this.descriptionAbortController_) {
+      this.descriptionAbortController_.abort();
+      this.descriptionAbortController_ = null;
+    }
+    if (this.imageAbortController_) {
+      this.imageAbortController_.abort();
+      this.imageAbortController_ = null;
+    }
 
     // Clear any existing highlight timeout
     if (this.highlightTimeout_) {
@@ -232,57 +258,447 @@ export class SelectionManager {
 
     content.innerHTML = html;
 
-    // Load image asynchronously
-    this.loadObjectImage_(obj);
+    // Add extra object info (Moon phase, constellation, description)
+    this.addExtraObjectInfo_(obj);
   }
 
   /**
-   * Load object image asynchronously.
-   * @param {!Object} obj - Object to load image for
+   * Add extra object info features (Moon phase, constellation, Wikipedia).
+   * @param {!Object} obj - Object being displayed
    * @private
    */
-  loadObjectImage_(obj) {
-    const imageUrl = this.deps_.getImageUrl?.(obj);
-    const container = document.getElementById('main-image');
+  addExtraObjectInfo_(obj) {
+    const content = document.getElementById('info-content');
+    if (!content) return;
 
+    // Add Moon phase info
+    if (obj.name === 'Moon' && obj.phase !== undefined) {
+      const phasePercent = (obj.phase * 100).toFixed(0);
+      const phases = ['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous',
+        'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent'];
+      const thresholds = [0.03, 0.22, 0.28, 0.47, 0.53, 0.72, 0.78, 0.97];
+      let phaseName = 'New Moon';
+      for (let i = 0; i < thresholds.length; i++) {
+        if (obj.phase < thresholds[i]) {
+          phaseName = phases[i];
+          break;
+        }
+      }
+      const phaseEl = document.createElement('p');
+      phaseEl.innerHTML = `<strong>Phase:</strong> ${phaseName} (${phasePercent}% illuminated)`;
+      content.appendChild(phaseEl);
+    }
+
+    // Add constellation info
+    const constName = this.deps_.getConstellation?.(obj.ra, obj.dec);
+    if (constName) {
+      const constEl = document.createElement('p');
+      constEl.innerHTML = `<strong>Constellation:</strong> ${escapeHtml(constName)}`;
+      content.appendChild(constEl);
+    }
+
+    // Add description placeholder and fetch
+    let descEl = document.getElementById('object-description');
+    if (!descEl) {
+      descEl = document.createElement('div');
+      descEl.id = 'object-description';
+      descEl.className = 'object-description';
+      descEl.innerHTML = '<em>Loading description...</em>';
+      content.appendChild(descEl);
+    }
+    this.fetchObjectDescription_(obj);
+
+    // Load best image
+    const curatedImageUrl = this.deps_.getImageUrl?.(obj);
+    this.loadBestImage_(obj, curatedImageUrl);
+  }
+
+  /**
+   * Fetch object description from Wikipedia.
+   * @param {!Object} obj - Object to fetch description for
+   * @private
+   */
+  async fetchObjectDescription_(obj) {
+    // Abort any pending description request
+    if (this.descriptionAbortController_) {
+      this.descriptionAbortController_.abort();
+    }
+    this.descriptionAbortController_ = new AbortController();
+    const signal = this.descriptionAbortController_.signal;
+
+    const descDiv = document.getElementById('object-description');
+    if (!descDiv) return;
+
+    // Build search terms for Wikipedia
+    const searchTerms = descriptionGenerator.getWikipediaSearchTerms(obj);
+
+    // For catalog stars without Wikipedia articles, generate a description from data
+    if (searchTerms.length === 0) {
+      const generated = descriptionGenerator.generateStarDescription(obj);
+      if (generated) {
+        descDiv.textContent = '';
+        const p = document.createElement('p');
+        p.className = 'wiki-description generated';
+        p.textContent = generated;
+        descDiv.appendChild(p);
+        return;
+      }
+      const em = document.createElement('em');
+      em.textContent = 'No description available for this catalog object.';
+      descDiv.textContent = '';
+      descDiv.appendChild(em);
+      return;
+    }
+
+    for (const term of searchTerms) {
+      try {
+        const response = await fetchWikipedia(
+          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`,
+          signal
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.extract) {
+            // Truncate to reasonable length
+            let description = data.extract;
+            if (description.length > 500) {
+              description = description.substring(0, 500) + '...';
+            }
+            // Use DOM methods to prevent XSS from API response
+            descDiv.textContent = '';
+            const p = document.createElement('p');
+            p.className = 'wiki-description';
+            p.textContent = description;
+            descDiv.appendChild(p);
+
+            const wikiUrl = data.content_urls?.desktop?.page;
+            if (wikiUrl) {
+              const a = document.createElement('a');
+              a.href = wikiUrl;
+              a.target = '_blank';
+              a.rel = 'noopener noreferrer';
+              a.className = 'wiki-link';
+              a.textContent = 'Read more on Wikipedia';
+              descDiv.appendChild(a);
+            }
+            return;
+          }
+        }
+      } catch (e) {
+        // Handle abort gracefully - just return without logging
+        if (e.name === 'AbortError') {
+          return;
+        }
+        console.warn(`Wikipedia fetch failed for ${term}:`, e);
+      }
+    }
+
+    // No description found - try generating one for stars
+    const generated = descriptionGenerator.generateStarDescription(obj);
+    if (generated) {
+      descDiv.textContent = '';
+      const p = document.createElement('p');
+      p.className = 'wiki-description generated';
+      p.textContent = generated;
+      descDiv.appendChild(p);
+      return;
+    }
+
+    const em = document.createElement('em');
+    em.textContent = 'No description available.';
+    descDiv.textContent = '';
+    descDiv.appendChild(em);
+  }
+
+  /**
+   * Load best available image for object panel.
+   * @param {!Object} obj - Object to load image for
+   * @param {?string} curatedImageUrl - Pre-fetched curated image URL
+   * @private
+   */
+  async loadBestImage_(obj, curatedImageUrl) {
+    // Abort any pending image request
+    if (this.imageAbortController_) {
+      this.imageAbortController_.abort();
+    }
+    this.imageAbortController_ = new AbortController();
+    const signal = this.imageAbortController_.signal;
+
+    const container = document.getElementById('main-image');
     if (!container) return;
 
-    if (imageUrl) {
-      const img = new Image();
-      img.onload = () => {
-        container.innerHTML = `<img src="${imageUrl}" alt="${escapeHtml(obj.name || 'Object')}" class="object-image">`;
+    // Show loading state
+    container.innerHTML = '<div class="image-loading">Loading best available image...</div>';
+
+    // Get object identifier
+    const objectName = obj.messier ? `M${Math.floor(obj.messier)}` :
+      (obj.name?.match(/^(NGC|IC)\s*\d+/)?.[0]?.replace(/\s+/g, '') || obj.name);
+
+    // Use unified image fetcher to get the best available image
+    // Pass forPanel=true to enable DSS fallback for stars
+    let result;
+    try {
+      result = await this.deps_.fetchBestImage?.(
+        objectName,
+        obj.ra,
+        obj.dec,
+        obj.type,
+        obj.size_major || obj.angularSize,
+        true // forPanel - enables DSS for stars
+      );
+    } catch (e) {
+      // Handle abort gracefully
+      if (e.name === 'AbortError') {
+        return;
+      }
+      throw e;
+    }
+
+    // Check if aborted while waiting
+    if (signal.aborted) return;
+
+    if (result?.url) {
+      // Skip size check for trusted sources (already optimized)
+      const trustedSources = ['ESA/Hubble', 'NASA', 'NASA/Webb', 'NASA/Hubble', 'Curated', 'DSS'];
+      const isTrusted = trustedSources.includes(result.source) ||
+        result.url?.includes('esahubble.org') ||
+        result.url?.includes('nasa.gov') ||
+        result.url?.includes('alasky.cds.unistra.fr');
+
+      let skipDueToSize = false;
+      if (!isTrusted) {
+        // Check file size before loading (max 1MB) - only for untrusted sources
+        const maxSize = 1024 * 1024;
+        try {
+          const headResponse = await fetch(result.url, {method: 'HEAD', signal});
+          const contentLength = parseInt(headResponse.headers.get('content-length') || '0', 10);
+          if (contentLength > maxSize) {
+            console.log(`⚠️ Skipping panel image: ${(contentLength / 1024 / 1024).toFixed(2)}MB exceeds 1MB limit`);
+            skipDueToSize = true;
+          }
+        } catch (e) {
+          // Handle abort gracefully
+          if (e.name === 'AbortError') {
+            return;
+          }
+          // If HEAD fails for other reasons, proceed anyway
+        }
+      }
+
+      // Check if aborted while waiting
+      if (signal.aborted) return;
+
+      if (skipDueToSize) {
+        // Try DSS fallback instead of showing nothing
+        console.log(`⬇️ Trying DSS fallback for ${objectName}`);
+        const dssUrl = this.deps_.getSkyViewImageUrl?.(obj.ra, obj.dec, obj.type);
+        if (dssUrl) {
+          this.displayImage_(container, obj, dssUrl, 'DSS', 'tier-vintage',
+            '📜 Digitized Sky Survey (fallback)');
+          return;
+        }
+        this.displayUnavailable_(container);
+        return;
+      }
+
+      // Map tier to display name
+      const sourceDisplay = {
+        'ESA/Hubble': '🔭 ESA/Hubble Space Telescope',
+        'NASA/Webb': '🌟 James Webb Space Telescope',
+        'NASA/Hubble': '🔭 Hubble Space Telescope',
+        'NASA/SDO': '☀️ NASA Solar Dynamics Observatory',
+        'NASA': '🚀 NASA Image Archive',
+        'Wikimedia/ESO': '🌌 ESO/ESA via Wikimedia',
+        'Wikimedia/Subaru': '🔭 Subaru Telescope (NAOJ)',
+        'Wikimedia/Astrophoto': '📷 Astrophotography',
+        'Wikimedia': '📷 Wikimedia Commons',
+        'DSS': '📜 Digitized Sky Survey',
       };
-      img.onerror = () => {
-        container.innerHTML = `<div class="image-error">Image not available</div>`;
-      };
-      img.src = imageUrl;
+
+      const tierClass = result.tier === 'iconic' ? 'tier-iconic' :
+        result.tier === 'high' ? 'tier-high' :
+          result.tier === 'survey' ? 'tier-survey' : 'tier-vintage';
+
+      this.displayImage_(container, obj, result.url, result.source, tierClass,
+        sourceDisplay[result.source] || result.source || 'Unknown source');
     } else {
-      container.innerHTML = `<div class="image-error">No image available</div>`;
+      this.displayUnavailable_(container);
+    }
+  }
+
+  /**
+   * Display an image in the container.
+   * @param {!Element} container - Container element
+   * @param {!Object} obj - Object being displayed
+   * @param {string} url - Image URL
+   * @param {string} source - Source name
+   * @param {string} tierClass - CSS class for tier
+   * @param {string} sourceText - Display text for source
+   * @private
+   */
+  displayImage_(container, obj, url, source, tierClass, sourceText) {
+    container.textContent = '';
+
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = obj.name || 'Celestial object';
+    img.className = `object-image ${tierClass}`;
+    img.onerror = () => {
+      // Try DSS fallback if not already DSS and we have coordinates
+      if (source !== 'DSS' && obj.ra !== undefined && obj.dec !== undefined) {
+        console.log(`🔄 Image failed for ${obj.name}, trying DSS fallback`);
+        const dssUrl = this.deps_.getSkyViewImageUrl?.(obj.ra, obj.dec, obj.type);
+        if (dssUrl) {
+          this.displayImage_(container, obj, dssUrl, 'DSS', 'tier-vintage',
+            '📜 Digitized Sky Survey (fallback)');
+          return;
+        }
+      }
+      this.displayUnavailable_(container);
+    };
+    container.appendChild(img);
+
+    const sourceDiv = document.createElement('div');
+    sourceDiv.className = `image-source ${tierClass}`;
+    sourceDiv.textContent = sourceText;
+    container.appendChild(sourceDiv);
+  }
+
+  /**
+   * Display unavailable message in container.
+   * @param {!Element} container - Container element
+   * @private
+   */
+  displayUnavailable_(container) {
+    container.textContent = '';
+    const fallbackDiv = document.createElement('div');
+    fallbackDiv.className = 'image-unavailable';
+    fallbackDiv.textContent = 'No image available';
+    container.appendChild(fallbackDiv);
+  }
+
+  /**
+   * Get constellation story data.
+   * @param {string} constellationName - Constellation abbreviation or name
+   * @returns {?Object} Story data or null
+   */
+  getConstellationStory(constellationName) {
+    return getConstellationStory(constellationName);
+  }
+
+  /**
+   * Fetch constellation description from Wikipedia.
+   * @param {string} constellationName - Constellation name
+   */
+  async fetchConstellationDescription(constellationName) {
+    // Abort any pending description request
+    if (this.descriptionAbortController_) {
+      this.descriptionAbortController_.abort();
+    }
+    this.descriptionAbortController_ = new AbortController();
+    const signal = this.descriptionAbortController_.signal;
+
+    const descContainer = document.getElementById('object-description');
+    if (!descContainer) return;
+
+    try {
+      const searchName = `${constellationName} (constellation)`;
+      const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchName)}`;
+      const response = await fetchWikipedia(searchUrl, signal);
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.extract) {
+          // Use textContent to prevent XSS from API response
+          descContainer.textContent = '';
+          const p = document.createElement('p');
+          p.textContent = data.extract;
+          descContainer.appendChild(p);
+          return;
+        }
+      }
+
+      // Fallback: search without "(constellation)"
+      const fallbackUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(constellationName)}`;
+      const fallbackResponse = await fetchWikipedia(fallbackUrl, signal);
+
+      if (fallbackResponse.ok) {
+        const fallbackData = await fallbackResponse.json();
+        if (fallbackData.extract) {
+          // Use textContent to prevent XSS from API response
+          descContainer.textContent = '';
+          const p = document.createElement('p');
+          p.textContent = fallbackData.extract;
+          descContainer.appendChild(p);
+          return;
+        }
+      }
+
+      descContainer.textContent = '';
+    } catch (error) {
+      // Handle abort gracefully - just return without logging
+      if (error.name === 'AbortError') {
+        return;
+      }
+      console.warn('Failed to fetch constellation description:', error);
+      descContainer.textContent = '';
     }
   }
 
   /**
    * Show constellation info in the info panel.
-   * @param {string} name - Constellation name
-   * @private
+   * @param {string} constName - Constellation name (full name or abbreviation)
    */
-  showConstellationInfo_(name) {
+  showConstellationInfo_(constName) {
     const content = document.getElementById('info-content');
     if (!content) return;
 
+    // Convert full name to abbreviation if needed
+    const abbrev = this.deps_.getConstellationAbbrev?.(constName) || constName;
+
+    // Get the full constellation name in current language
+    const fullName = this.deps_.getConstellationName?.(abbrev) || constName;
+
+    // Get English name for Wikipedia lookup
+    const englishName = this.deps_.getEnglishConstellationName?.(abbrev) || constName;
+
     // Update panel header title
     const titleEl = document.getElementById('object-title');
-    if (titleEl) titleEl.textContent = name;
+    if (titleEl) titleEl.textContent = fullName;
 
-    let html = '';
-    html += `<p><strong>Type:</strong> Constellation</p>`;
-    html += `<div class="wiki-link-container">`;
-    html += `<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(name)}_(constellation)" `;
-    html += `target="_blank" rel="noopener noreferrer" class="wiki-link">`;
-    html += `Learn more on Wikipedia</a>`;
-    html += `</div>`;
+    let html = `<h2>${escapeHtml(fullName)}</h2>`;
+    html += `<p><strong>Abbreviation:</strong> ${escapeHtml(abbrev)}</p>`;
+
+    // Show Latin name if current language is not English/Latin
+    const lang = this.deps_.getConstellationLanguage?.() || 'en';
+    if (lang !== 'en' && lang !== 'la') {
+      html += `<p><strong>Latin:</strong> ${escapeHtml(englishName)}</p>`;
+    }
+
+    // Get constellation story if available (use local method)
+    const story = this.getConstellationStory(abbrev) || this.getConstellationStory(constName);
+    if (story) {
+      html += `<div class="constellation-story">`;
+      html += `<p>${escapeHtml(story.mythology)}</p>`;
+      html += `<p><strong>Best Seen:</strong> ${escapeHtml(story.bestSeen)}</p>`;
+      html += `</div>`;
+    }
+
+    // Add placeholder for Wikipedia description
+    html += `<div id="object-description" class="object-description"><em>Loading description...</em></div>`;
 
     content.innerHTML = html;
+
+    // Highlight the clicked constellation
+    const fullConstName = this.deps_.getConstellationFullName?.(constName) || constName;
+    this.deps_.highlightConstellation?.(fullConstName);
+
+    // Fetch Wikipedia description for constellation (use local method)
+    this.fetchConstellationDescription(englishName);
+
+    // Open info panel
+    this.deps_.openPanel?.('info-panel');
   }
 
   /**
@@ -293,6 +709,17 @@ export class SelectionManager {
       clearTimeout(this.highlightTimeout_);
       this.highlightTimeout_ = null;
     }
+
+    // Abort any pending fetch requests
+    if (this.descriptionAbortController_) {
+      this.descriptionAbortController_.abort();
+      this.descriptionAbortController_ = null;
+    }
+    if (this.imageAbortController_) {
+      this.imageAbortController_.abort();
+      this.imageAbortController_ = null;
+    }
+
     this.selectedObject_ = null;
   }
 }

@@ -6,12 +6,14 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {SPHERE} from '../core/Constants.js';
+import {magnitudeToSize} from '../core/MagnitudeUtils.js';
 import {
   calculateSunPosition,
   calculateMoonPosition,
   calculatePlanetPosition,
   PLANET_DEFAULTS,
 } from '../astronomy/SolarSystem.js';
+import {getPlanetImageUrl, getPlanetFallbackUrl} from '../data/PlanetImages.js';
 
 /**
  * PlanetRenderer manages planet sprite visualization.
@@ -321,14 +323,9 @@ export class PlanetRenderer {
           if (pos.phase !== undefined) planetData.phase = pos.phase;
         }
 
-        // Update sprite position
-        const raRad = THREE.MathUtils.degToRad(pos.ra);
-        const decRad = THREE.MathUtils.degToRad(pos.dec);
-        sprite.position.set(
-          this.radius_ * Math.cos(decRad) * Math.cos(raRad),
-          this.radius_ * Math.sin(decRad),
-          -this.radius_ * Math.cos(decRad) * Math.sin(raRad)
-        );
+        // Update sprite position using shared coordinate utility
+        const newPos = raDecToCartesian(pos.ra, pos.dec, this.radius_);
+        sprite.position.copy(newPos);
 
         // Update userData
         sprite.userData.ra = pos.ra;
@@ -356,13 +353,9 @@ export class PlanetRenderer {
       const angularSizeDeg = (data.angularSize || 0.1) / 60;
       const realSizePixels = angularSizeDeg * pixelsPerDeg;
 
-      // Calculate magnitude-based size
+      // Calculate magnitude-based size (planets use larger maxSize=6)
       const mag = data.mag || 0;
-      const baseMag = 8;
-      const baseSize = 0.8;
-      const maxSize = 6;
-      const magnitudeDiff = baseMag - mag;
-      const magBasedSize = Math.min(maxSize, Math.max(baseSize, baseSize * Math.pow(1.15, magnitudeDiff)));
+      const magBasedSize = magnitudeToSize(mag, 6);
       const magBasedPixels = magBasedSize * 1.5;
 
       // Use larger of real or magnitude-based size
@@ -381,53 +374,98 @@ export class PlanetRenderer {
       }
 
       // Load real image when at real size and large enough
-      if (useRealSize && realSizePixels > 20 && !data.imageLoaded && data.imageUrl) {
+      if (useRealSize && realSizePixels > 20 && !data.imageLoaded && !data.imageFailed && data.imageUrl) {
         this.loadPlanetImage_(sprite, data.imageUrl);
       }
     }
   }
 
   /**
-   * Load real planet image texture.
+   * Load real planet image texture with fallback support.
    * @param {!THREE.Sprite} sprite - Sprite to update
-   * @param {string} imageUrl - Image URL
+   * @param {string} imageUrl - Primary image URL (unused, we use centralized URLs)
    * @private
    */
   loadPlanetImage_(sprite, imageUrl) {
     const data = sprite.userData;
-    if (data.imageLoading || data.imageLoaded) return;
+    if (data.imageLoading || data.imageLoaded || data.imageFailed) return;
 
     data.imageLoading = true;
 
+    // Use centralized planet image URL (with fallback support)
+    const primaryUrl = getPlanetImageUrl(data.name) || imageUrl;
+    const fallbackUrl = getPlanetFallbackUrl(data.name);
+
+    this.loadImageWithFallback_(sprite, primaryUrl, fallbackUrl);
+  }
+
+  /**
+   * Load image with fallback on failure.
+   * @param {!THREE.Sprite} sprite - Sprite to update
+   * @param {string} primaryUrl - Primary image URL
+   * @param {?string} fallbackUrl - Fallback URL if primary fails
+   * @private
+   */
+  loadImageWithFallback_(sprite, primaryUrl, fallbackUrl) {
+    const data = sprite.userData;
+
     this.textureLoader_.load(
-      imageUrl,
+      primaryUrl,
       (texture) => {
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-
-        const imgWidth = texture.image?.naturalWidth || texture.image?.width || 1;
-        const imgHeight = texture.image?.naturalHeight || texture.image?.height || 1;
-        data.aspectRatio = imgWidth / imgHeight;
-
-        const newMaterial = new THREE.SpriteMaterial({
-          map: texture,
-          transparent: true,
-          depthWrite: false,
-        });
-
-        sprite.material.dispose();
-        sprite.material = newMaterial;
-        data.imageLoaded = true;
-        data.imageLoading = false;
-
-        this.requestRender_();
+        this.applyTexture_(sprite, texture);
       },
       undefined,
       (error) => {
-        console.warn(`Failed to load image for ${data.name}:`, error);
-        data.imageLoading = false;
+        console.warn(`Failed to load primary image for ${data.name}, trying fallback...`);
+        if (fallbackUrl) {
+          this.textureLoader_.load(
+            fallbackUrl,
+            (texture) => {
+              this.applyTexture_(sprite, texture);
+            },
+            undefined,
+            (fallbackError) => {
+              console.warn(`Failed to load fallback image for ${data.name}:`, fallbackError);
+              data.imageLoading = false;
+              data.imageFailed = true;
+            }
+          );
+        } else {
+          data.imageLoading = false;
+          data.imageFailed = true;
+        }
       }
     );
+  }
+
+  /**
+   * Apply loaded texture to sprite.
+   * @param {!THREE.Sprite} sprite - Sprite to update
+   * @param {!THREE.Texture} texture - Loaded texture
+   * @private
+   */
+  applyTexture_(sprite, texture) {
+    const data = sprite.userData;
+
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+
+    const imgWidth = texture.image?.naturalWidth || texture.image?.width || 1;
+    const imgHeight = texture.image?.naturalHeight || texture.image?.height || 1;
+    data.aspectRatio = imgWidth / imgHeight;
+
+    const newMaterial = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+    });
+
+    sprite.material.dispose();
+    sprite.material = newMaterial;
+    data.imageLoaded = true;
+    data.imageLoading = false;
+
+    this.requestRender_();
   }
 
   /**

@@ -5,6 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {DEFAULT_LOCATION} from '../core/Constants.js';
+import {dateToJulianDate} from '../core/CoordinateUtils.js';
 
 /**
  * @typedef {{
@@ -244,7 +245,7 @@ export class LocationManager {
    * @returns {number} LST in degrees (0-360)
    */
   calculateLST(date) {
-    const jd = this.dateToJulianDate_(date);
+    const jd = dateToJulianDate(date);
     const T = (jd - 2451545.0) / 36525;
 
     // Greenwich Mean Sidereal Time
@@ -258,32 +259,6 @@ export class LocationManager {
     const lstRaw = gmst + this.location_.lon;
     const lstMod = lstRaw % 360;
     return lstMod < 0 ? lstMod + 360 : lstMod;
-  }
-
-  /**
-   * Convert JavaScript Date to Julian Date.
-   * @param {!Date} date - Date to convert
-   * @returns {number} Julian Date
-   * @private
-   */
-  dateToJulianDate_(date) {
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth() + 1;
-    const day = date.getUTCDate();
-    const hour = date.getUTCHours();
-    const minute = date.getUTCMinutes();
-    const second = date.getUTCSeconds();
-
-    const y = month <= 2 ? year - 1 : year;
-    const m = month <= 2 ? month + 12 : month;
-
-    const A = Math.floor(y / 100);
-    const B = 2 - A + Math.floor(A / 4);
-
-    return Math.floor(365.25 * (y + 4716)) +
-           Math.floor(30.6001 * (m + 1)) +
-           day + B - 1524.5 +
-           (hour + minute / 60 + second / 3600) / 24;
   }
 
   /**
@@ -383,6 +358,304 @@ export class LocationManager {
    */
   getLatitudeTilt() {
     return (90 - this.location_.lat) * Math.PI / 180;
+  }
+
+  /**
+   * Check and request location permission on startup.
+   * Uses Permissions API to check state before prompting.
+   * @param {function(): void=} onLocationGranted - Callback when location is granted
+   */
+  async requestLocationOnStartup(onLocationGranted) {
+    if (!this.geolocationAvailable_) {
+      return; // Silently fail if not supported
+    }
+
+    this.onLocationGrantedCallback_ = onLocationGranted;
+
+    // Check permission state using Permissions API (if available)
+    if ('permissions' in navigator) {
+      try {
+        const permission = await navigator.permissions.query({name: 'geolocation'});
+
+        if (permission.state === 'granted') {
+          // Already granted - get location silently
+          this.getLocationSilently_();
+        } else if (permission.state === 'prompt') {
+          // Not yet asked - show a friendly prompt first
+          this.showLocationPrompt_();
+        } else if (permission.state === 'denied') {
+          // Previously denied - show how to enable
+          console.log('Location permission was previously denied');
+        }
+
+        // Listen for permission changes
+        permission.addEventListener('change', () => {
+          if (permission.state === 'granted') {
+            this.getLocationSilently_();
+          }
+        });
+      } catch (e) {
+        // Permissions API not fully supported, try showing prompt
+        this.showLocationPrompt_();
+      }
+    } else {
+      // No Permissions API, show prompt
+      this.showLocationPrompt_();
+    }
+  }
+
+  /**
+   * Show a friendly prompt asking user for location permission.
+   * @private
+   */
+  showLocationPrompt_() {
+    // Create a non-blocking prompt dialog
+    const dialog = document.createElement('div');
+    dialog.className = 'location-prompt-dialog';
+    dialog.innerHTML = `
+      <div class="location-prompt-content">
+        <div class="location-prompt-icon">📍</div>
+        <h3>Enable Location?</h3>
+        <p>SkyMap can show you the exact sky visible from your location right now.</p>
+        <div class="location-prompt-buttons">
+          <button class="location-prompt-btn location-prompt-btn--secondary" id="location-skip">
+            Not now
+          </button>
+          <button class="location-prompt-btn location-prompt-btn--primary" id="location-allow">
+            Allow
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+
+    this.addPromptStyles_();
+
+    document.getElementById('location-skip').addEventListener('click', () => {
+      dialog.remove();
+    });
+
+    document.getElementById('location-allow').addEventListener('click', () => {
+      dialog.remove();
+      this.requestGeolocationWithUI_();
+    });
+  }
+
+  /**
+   * Show help dialog when location permission was denied.
+   */
+  showLocationDeniedHelp() {
+    const dialog = document.createElement('div');
+    dialog.className = 'location-prompt-dialog';
+    dialog.innerHTML = `
+      <div class="location-prompt-content">
+        <div class="location-prompt-icon">🔒</div>
+        <h3>Location Disabled</h3>
+        <p>Location access was denied. To see the sky from your location, please enable location permission in your device settings.</p>
+        <div class="location-prompt-buttons">
+          <button class="location-prompt-btn location-prompt-btn--primary" id="location-dismiss">
+            OK
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+
+    this.addPromptStyles_();
+
+    document.getElementById('location-dismiss').addEventListener('click', () => {
+      dialog.remove();
+    });
+  }
+
+  /**
+   * Add CSS styles for location prompts if not already present.
+   * @private
+   */
+  addPromptStyles_() {
+    if (document.getElementById('location-prompt-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'location-prompt-styles';
+    style.textContent = `
+      .location-prompt-dialog {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
+        padding: 20px;
+      }
+      .location-prompt-content {
+        background: rgba(30, 30, 40, 0.95);
+        border-radius: 16px;
+        padding: 24px;
+        max-width: 300px;
+        text-align: center;
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .location-prompt-icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+      }
+      .location-prompt-content h3 {
+        margin: 0 0 8px 0;
+        color: #fff;
+        font-size: 18px;
+      }
+      .location-prompt-content p {
+        margin: 0 0 20px 0;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 14px;
+        line-height: 1.4;
+      }
+      .location-prompt-buttons {
+        display: flex;
+        gap: 12px;
+      }
+      .location-prompt-btn {
+        flex: 1;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .location-prompt-btn--secondary {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.7);
+      }
+      .location-prompt-btn--primary {
+        background: #3B82F6;
+        color: #fff;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /**
+   * Get location silently (no alerts) - used when permission already granted.
+   * @private
+   */
+  getLocationSilently_() {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        this.location_ = {
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+          height: position.coords.altitude || 0,
+        };
+        this.saveLocation_();
+
+        console.log(`✓ Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
+
+        globalEventBus.emit(Events.LOCATION_CHANGED, {
+          location: this.getLocation(),
+          source: 'geolocation-silent',
+        });
+
+        if (this.onLocationGrantedCallback_) {
+          this.onLocationGrantedCallback_();
+        }
+      },
+      (error) => {
+        console.warn('Could not get location:', error.message);
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 5000,
+        maximumAge: 300000,
+      }
+    );
+  }
+
+  /**
+   * Request geolocation with UI feedback.
+   * Shows loading state and handles errors with user-friendly messages.
+   * @private
+   */
+  requestGeolocationWithUI_() {
+    // Show loading state on button if exists
+    const btn = document.getElementById('auto-location-btn');
+    const originalContent = btn ? btn.innerHTML : '';
+    if (btn) btn.innerHTML = '⏳';
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        this.location_ = {
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+          height: position.coords.altitude || 0,
+        };
+        this.saveLocation_();
+
+        console.log(`✓ Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
+
+        globalEventBus.emit(Events.LOCATION_CHANGED, {
+          location: this.getLocation(),
+          source: 'geolocation',
+        });
+
+        if (this.onLocationGrantedCallback_) {
+          this.onLocationGrantedCallback_();
+        }
+
+        alert(`Location set to:\n${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°\n\nSky now shows correct position for your location and time.`);
+        if (btn) btn.innerHTML = originalContent;
+      },
+      (error) => {
+        console.warn('Location access denied:', error);
+        if (btn) btn.innerHTML = originalContent;
+
+        if (error.code === error.PERMISSION_DENIED) {
+          this.showLocationDeniedHelp();
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          alert('Location unavailable.\n\nPlease check your GPS/location services are enabled.');
+        } else if (error.code === error.TIMEOUT) {
+          alert('Location request timed out.\n\nPlease try again.');
+        } else {
+          alert('Could not get your location.');
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000,
+      }
+    );
+  }
+
+  /**
+   * Request geolocation from the device.
+   * Called when user clicks location button.
+   */
+  requestGeolocationInteractive() {
+    if (!this.geolocationAvailable_) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    // Check if permission is denied first
+    if ('permissions' in navigator) {
+      navigator.permissions.query({name: 'geolocation'}).then((permission) => {
+        if (permission.state === 'denied') {
+          this.showLocationDeniedHelp();
+          return;
+        }
+        this.requestGeolocationWithUI_();
+      }).catch(() => {
+        this.requestGeolocationWithUI_();
+      });
+    } else {
+      this.requestGeolocationWithUI_();
+    }
   }
 }
 

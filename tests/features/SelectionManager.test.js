@@ -1,4 +1,5 @@
 /**
+ * @jest-environment jsdom
  * @fileoverview Tests for SelectionManager module.
  */
 
@@ -164,6 +165,302 @@ describe('SelectionManager', () => {
       const instance = initializeSelectionManager(mockDeps);
       expect(instance).toBeInstanceOf(SelectionManager);
       instance.dispose();
+    });
+  });
+
+  describe('DSS fallback on image error', () => {
+    let managerWithDss;
+    let mockDepsWithDss;
+
+    beforeEach(() => {
+      mockDepsWithDss = {
+        ...mockDeps,
+        getSkyViewImageUrl: jest.fn().mockReturnValue('https://dss.example.com/image.jpg'),
+        fetchBestImage: jest.fn().mockResolvedValue({
+          url: 'https://nasa.gov/image.jpg',
+          source: 'NASA',
+          tier: 'high',
+        }),
+      };
+      managerWithDss = new SelectionManager(mockDepsWithDss);
+    });
+
+    afterEach(() => {
+      managerWithDss.dispose();
+    });
+
+    it('calls getSkyViewImageUrl when image fails and source is not DSS', () => {
+      const container = document.getElementById('main-image');
+      const obj = {name: 'M31', ra: 10.68, dec: 41.27, type: 'G'};
+
+      // Call the private method via public interface
+      managerWithDss.displayImage_(container, obj, 'https://fail.url', 'NASA', 'tier-high', 'NASA');
+
+      // Simulate image error
+      const img = container.querySelector('img');
+      expect(img).toBeTruthy();
+
+      // Trigger onerror
+      img.onerror();
+
+      // Should have called getSkyViewImageUrl for DSS fallback
+      expect(mockDepsWithDss.getSkyViewImageUrl).toHaveBeenCalledWith(10.68, 41.27, 'G');
+    });
+
+    it('does not try DSS fallback when source is already DSS', () => {
+      const container = document.getElementById('main-image');
+      const obj = {name: 'M31', ra: 10.68, dec: 41.27, type: 'G'};
+
+      managerWithDss.displayImage_(container, obj, 'https://dss.url', 'DSS', 'tier-vintage', 'DSS');
+
+      const img = container.querySelector('img');
+      img.onerror();
+
+      // Should NOT call getSkyViewImageUrl since source is already DSS
+      expect(mockDepsWithDss.getSkyViewImageUrl).not.toHaveBeenCalled();
+
+      // Should show unavailable message
+      const unavailable = container.querySelector('.image-unavailable');
+      expect(unavailable).toBeTruthy();
+    });
+
+    it('does not try DSS fallback when object has no coordinates', () => {
+      const container = document.getElementById('main-image');
+      const obj = {name: 'Unknown', type: 'Star'}; // No ra/dec
+
+      managerWithDss.displayImage_(container, obj, 'https://fail.url', 'NASA', 'tier-high', 'NASA');
+
+      const img = container.querySelector('img');
+      img.onerror();
+
+      // Should NOT call getSkyViewImageUrl since no coordinates
+      expect(mockDepsWithDss.getSkyViewImageUrl).not.toHaveBeenCalled();
+    });
+
+    it('shows DSS fallback with correct source text', () => {
+      const container = document.getElementById('main-image');
+      const obj = {name: 'M31', ra: 10.68, dec: 41.27, type: 'G'};
+
+      managerWithDss.displayImage_(container, obj, 'https://fail.url', 'NASA', 'tier-high', 'NASA');
+
+      // Trigger onerror - this should recursively call displayImage_ with DSS
+      const img = container.querySelector('img');
+      img.onerror();
+
+      // After DSS fallback, should have new img with DSS URL
+      const dssImg = container.querySelector('img');
+      expect(dssImg.src).toBe('https://dss.example.com/image.jpg');
+
+      // Should show DSS source text
+      const sourceDiv = container.querySelector('.image-source');
+      expect(sourceDiv.textContent).toBe('📜 Digitized Sky Survey (fallback)');
+    });
+  });
+
+  describe('AbortController behavior', () => {
+    let abortManager;
+    let mockAbortDeps;
+    let originalFetch;
+
+    beforeEach(() => {
+      // Save original fetch and create mock
+      originalFetch = global.fetch;
+      global.fetch = jest.fn();
+
+      mockAbortDeps = {
+        ...mockDeps,
+        fetchBestImage: jest.fn().mockResolvedValue({
+          url: 'https://example.com/image.jpg',
+          source: 'NASA',
+          tier: 'high',
+        }),
+      };
+      abortManager = new SelectionManager(mockAbortDeps);
+    });
+
+    afterEach(() => {
+      abortManager.dispose();
+      // Restore original fetch
+      global.fetch = originalFetch;
+    });
+
+    it('dispose() aborts pending description requests', () => {
+      // Set up an AbortController manually
+      abortManager.descriptionAbortController_ = new AbortController();
+      const abortSpy = jest.spyOn(abortManager.descriptionAbortController_, 'abort');
+
+      abortManager.dispose();
+
+      expect(abortSpy).toHaveBeenCalled();
+      expect(abortManager.descriptionAbortController_).toBeNull();
+    });
+
+    it('dispose() aborts pending image requests', () => {
+      // Set up an AbortController manually
+      abortManager.imageAbortController_ = new AbortController();
+      const abortSpy = jest.spyOn(abortManager.imageAbortController_, 'abort');
+
+      abortManager.dispose();
+
+      expect(abortSpy).toHaveBeenCalled();
+      expect(abortManager.imageAbortController_).toBeNull();
+    });
+
+    it('creates new AbortController for each description fetch', async () => {
+      // Mock fetch response
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({extract: 'Test description'}),
+      });
+
+      // First fetch creates controller
+      const obj1 = {name: 'Sirius', ra: 0, dec: 0, type: 'Star'};
+      await abortManager.fetchObjectDescription_(obj1);
+      const controller1 = abortManager.descriptionAbortController_;
+      expect(controller1).toBeInstanceOf(AbortController);
+
+      // Second fetch creates new controller
+      const obj2 = {name: 'Vega', ra: 0, dec: 0, type: 'Star'};
+      await abortManager.fetchObjectDescription_(obj2);
+      const controller2 = abortManager.descriptionAbortController_;
+      expect(controller2).toBeInstanceOf(AbortController);
+      expect(controller2).not.toBe(controller1);
+    });
+
+    it('passes signal to fetch via fetchWikipedia', async () => {
+      // Import fetchWikipedia directly and test it
+      const {fetchWikipedia} = await import('../../modules/core/SecurityUtils.js');
+
+      // Mock fetch response
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({extract: 'Test'}),
+      });
+
+      // Create an AbortController and pass its signal
+      const controller = new AbortController();
+      await fetchWikipedia('https://en.wikipedia.org/api/test', controller.signal);
+
+      // Verify signal was passed to fetch
+      expect(global.fetch).toHaveBeenCalled();
+      const fetchOptions = global.fetch.mock.calls[0][1];
+      expect(fetchOptions.signal).toBe(controller.signal);
+    });
+
+    it('handles AbortError gracefully without console warning', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Mock fetch to throw AbortError
+      const abortError = new Error('Aborted');
+      abortError.name = 'AbortError';
+      global.fetch.mockRejectedValue(abortError);
+
+      const obj = {name: 'Test', ra: 0, dec: 0, type: 'Star'};
+      await abortManager.fetchObjectDescription_(obj);
+
+      // Should NOT log warning for AbortError
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('propagates non-abort errors from fetch', async () => {
+      // This verifies that fetchWikipedia propagates network errors (doesn't swallow them).
+      // The actual console.warn behavior in SelectionManager's catch block can't be
+      // easily tested due to ES module caching - the module captures fetch at import time.
+      // Full error handling is tested in SecurityUtils.test.js.
+      const {fetchWikipedia} = await import('../../modules/core/SecurityUtils.js');
+
+      // Mock fetch to throw a regular error
+      global.fetch.mockRejectedValue(new Error('Network error'));
+
+      // Call fetchWikipedia directly with signal
+      const controller = new AbortController();
+      let errorThrown = false;
+      try {
+        await fetchWikipedia('https://en.wikipedia.org/api/test', controller.signal);
+      } catch (e) {
+        errorThrown = true;
+        expect(e.message).toBe('Network error');
+      }
+
+      // Verify: fetch was called and error was propagated (not swallowed)
+      expect(global.fetch).toHaveBeenCalled();
+      expect(errorThrown).toBe(true);
+    });
+
+    it('aborts previous request when selecting new object rapidly', async () => {
+      // Set up a controller as if first fetch is in progress
+      const firstController = new AbortController();
+      abortManager.descriptionAbortController_ = firstController;
+      const abortSpy = jest.spyOn(firstController, 'abort');
+
+      // Mock fetch for second request
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({extract: 'Second'}),
+      });
+
+      // Start second fetch - should abort first
+      const obj2 = {name: 'Second', ra: 0, dec: 0, type: 'Star'};
+      await abortManager.fetchObjectDescription_(obj2);
+
+      // First controller should have been aborted
+      expect(abortSpy).toHaveBeenCalled();
+    });
+
+    it('constellation description also aborts previous requests', async () => {
+      // Set up a controller as if previous fetch is in progress
+      const prevController = new AbortController();
+      abortManager.descriptionAbortController_ = prevController;
+      const abortSpy = jest.spyOn(prevController, 'abort');
+
+      // Mock fetch
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({extract: 'Orion constellation'}),
+      });
+
+      // Fetch constellation description - should abort previous
+      await abortManager.fetchConstellationDescription('Orion');
+
+      // Previous controller should have been aborted
+      expect(abortSpy).toHaveBeenCalled();
+    });
+
+    it('selectObject() aborts pending requests immediately', () => {
+      // Set up controllers as if fetches are in progress from previous selection
+      const oldDescController = new AbortController();
+      const oldImageController = new AbortController();
+      abortManager.descriptionAbortController_ = oldDescController;
+      abortManager.imageAbortController_ = oldImageController;
+
+      const descAbortSpy = jest.spyOn(oldDescController, 'abort');
+      const imageAbortSpy = jest.spyOn(oldImageController, 'abort');
+
+      // Select a new object - should abort both pending requests immediately
+      const obj = {name: 'NewObject', ra: 0, dec: 0, type: 'Star'};
+      abortManager.selectObject(obj);
+
+      // OLD controllers should have been aborted
+      expect(descAbortSpy).toHaveBeenCalled();
+      expect(imageAbortSpy).toHaveBeenCalled();
+
+      // New controllers may be created by the info fetching, but the OLD ones are gone
+      // (new requests would have new controllers)
+    });
+
+    it('selectObject(null) also aborts pending requests', () => {
+      // Set up controllers as if fetches are in progress
+      const descController = new AbortController();
+      abortManager.descriptionAbortController_ = descController;
+      const abortSpy = jest.spyOn(descController, 'abort');
+
+      // Deselect - should abort pending requests
+      abortManager.selectObject(null);
+
+      expect(abortSpy).toHaveBeenCalled();
+      expect(abortManager.descriptionAbortController_).toBeNull();
     });
   });
 });

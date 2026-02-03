@@ -4,8 +4,9 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {SHADERS, SPHERE} from '../core/Constants.js';
+import {SHADERS, SPHERE, STARS} from '../core/Constants.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {magnitudeToSize} from '../core/MagnitudeUtils.js';
 
 /**
  * DSO type to color mapping.
@@ -55,7 +56,7 @@ export class StarFieldRenderer {
     this.material_ = null;
 
     /** @private {number} */
-    this.magnitudeLimit_ = 8.0;
+    this.magnitudeLimit_ = STARS.DEFAULT_MAGNITUDE;
 
     /** @private {number} */
     this.radius_ = SPHERE.RADIUS;
@@ -205,14 +206,7 @@ export class StarFieldRenderer {
    * @returns {number} Point size
    */
   magnitudeToSize(mag) {
-    const baseMag = 8;
-    const baseSize = 0.8;
-    const maxSize = 3.5;
-
-    const magnitudeDiff = baseMag - mag;
-    const size = baseSize * Math.pow(1.15, magnitudeDiff);
-
-    return Math.min(maxSize, Math.max(baseSize, size));
+    return magnitudeToSize(mag);
   }
 
   /**

@@ -338,6 +338,14 @@ export class TimeController {
   }
 
   /**
+   * Refresh celestial sphere rotation based on current time and observer location.
+   * Call this when observer location changes to update the sky position.
+   */
+  refreshCelestialRotation() {
+    this.updateCelestialRotation_();
+  }
+
+  /**
    * Check if planets need updating.
    * @private
    */
@@ -361,17 +369,14 @@ export class TimeController {
       return 'Paused';
     } else if (this.timeSpeed_ === 1) {
       return 'Real-time';
-    } else if (this.timeSpeed_ >= 86400) {
-      const days = this.timeSpeed_ / 86400;
-      return `${days} day${days > 1 ? 's' : ''}/sec`;
-    } else if (this.timeSpeed_ >= 3600) {
-      const hours = this.timeSpeed_ / 3600;
-      return `${hours} hr${hours > 1 ? 's' : ''}/sec`;
-    } else if (this.timeSpeed_ >= 60) {
-      const mins = this.timeSpeed_ / 60;
-      return `${mins} min${mins > 1 ? 's' : ''}/sec`;
+    } else if (this.timeSpeed_ === 60) {
+      return '1 min/s';
+    } else if (this.timeSpeed_ === 600) {
+      return '10 min/s';
+    } else if (this.timeSpeed_ === 3600) {
+      return '1 hr/s';
     } else {
-      return `${this.timeSpeed_}x`;
+      return `x${this.timeSpeed_}`;
     }
   }
 

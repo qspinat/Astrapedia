@@ -9,31 +9,52 @@
  * @const {!Object<string, string>}
  */
 export const DSO_TYPE_NAMES = {
+  // Stars
+  '*': 'Star',
+  '**': 'Double Star',
+  '*Ass': 'Stellar Association',
+  'Star': 'Star',
+
+  // Galaxies
   'G': 'Galaxy',
   'GClstr': 'Galaxy Cluster',
   'GPair': 'Galaxy Pair',
   'GTrpl': 'Galaxy Triplet',
   'GGroup': 'Galaxy Group',
+
+  // Nebulae
   'PN': 'Planetary Nebula',
   'HII': 'HII Region',
   'EmN': 'Emission Nebula',
   'RfN': 'Reflection Nebula',
   'SNR': 'Supernova Remnant',
-  'Nova': 'Nova Remnant',
+  'Nova': 'Nova',
   'NonEx': 'Non-Existent',
   'Neb': 'Nebula',
   'Cl+N': 'Cluster with Nebulosity',
+  'Dark': 'Dark Nebula',
+  'DrkN': 'Dark Nebula',
+  'DN': 'Dark Nebula',
+
+  // Clusters
   'GCl': 'Globular Cluster',
   'OCl': 'Open Cluster',
-  'Star': 'Star',
-  'DrkN': 'Dark Nebula',
+  'Cl': 'Star Cluster',
+
+  // Other
+  'Ast': 'Asterism',
+  'PD': 'Protoplanetary Disk',
+  'QSO': 'Quasar',
+  'AGN': 'Active Galactic Nucleus',
   'Other': 'Other',
   'Dup': 'Duplicate',
-  '*': 'Star',
-  '**': 'Double Star',
-  '*Ass': 'Star Association',
+
+  // Planets and solar system
   'Planet': 'Planet',
-  'Moon': 'Moon',
+  'planet': 'Planet',
+  'Dwarf': 'Dwarf Planet',
+  'Sun': 'Star (The Sun)',
+  'Moon': 'Natural Satellite',
   'Constellation': 'Constellation',
 };
 

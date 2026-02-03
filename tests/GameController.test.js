@@ -41,9 +41,17 @@ describe('GameController', () => {
 
   const testConstellations = {
     'Orion': {ra: 85, dec: 0},
-    'Ursa Major': {ra: 165, dec: 55},
+    'UrsaMajor': {ra: 165, dec: 55},
     'Cassiopeia': {ra: 15, dec: 60},
     'Scorpius': {ra: 255, dec: -30},
+  };
+
+  // Constellations with lines (matching real data format)
+  const testConstellationsWithLines = {
+    'TestConstellation': {
+      name: 'TestConstellation',
+      lines: [[1, 2], [2, 3]],
+    },
   };
 
   const testDSOs = [
@@ -107,6 +115,32 @@ describe('GameController', () => {
       newController.setCategory('all-constellations');
       newController.start();
       expect(newController.getCurrentQuestion()).not.toBeNull();
+      newController.stop();
+    });
+  });
+
+  describe('setLanguage', () => {
+    test('sets language for constellation names', () => {
+      const newController = new GameController();
+      newController.setData({constellations: {'UrsaMajor': {ra: 165, dec: 55}}});
+      newController.setLanguage('fr');
+      newController.setCategory('all-constellations');
+      newController.start();
+      const question = newController.getCurrentQuestion();
+      expect(question).not.toBeNull();
+      // French name for Ursa Major
+      expect(question.displayName).toBe('Grande Ourse');
+      newController.stop();
+    });
+
+    test('uses English by default', () => {
+      const newController = new GameController();
+      newController.setData({constellations: {'UrsaMajor': {ra: 165, dec: 55}}});
+      newController.setCategory('all-constellations');
+      newController.start();
+      const question = newController.getCurrentQuestion();
+      expect(question).not.toBeNull();
+      expect(question.displayName).toBe('Ursa Major');
       newController.stop();
     });
   });
@@ -420,13 +454,52 @@ describe('GameController', () => {
       controller.start();
       expect(controller.isActive()).toBe(true);
     });
+
+    test('builds 12 questions when all known constellations are available', () => {
+      // Create controller with all 12 known constellations
+      const fullController = new GameController();
+      fullController.setData({
+        constellations: {
+          'Orion': {ra: 85, dec: 0},
+          'UrsaMajor': {ra: 165, dec: 55},
+          'UrsaMinor': {ra: 230, dec: 75},
+          'Cassiopeia': {ra: 15, dec: 60},
+          'Scorpius': {ra: 255, dec: -30},
+          'Cygnus': {ra: 310, dec: 40},
+          'Leo': {ra: 160, dec: 15},
+          'Gemini': {ra: 110, dec: 25},
+          'Taurus': {ra: 65, dec: 20},
+          'Aquila': {ra: 295, dec: 5},
+          'Lyra': {ra: 285, dec: 35},
+          'CanisMajor': {ra: 100, dec: -20},
+        },
+      });
+      fullController.setCategory('known-constellations');
+      fullController.start();
+
+      // Count total questions by tracking what gets asked
+      let questionCount = 0;
+      const askedNames = new Set();
+      while (fullController.isActive()) {
+        const q = fullController.getCurrentQuestion();
+        if (q && !askedNames.has(q.name)) {
+          askedNames.add(q.name);
+          questionCount++;
+        }
+        fullController.nextQuestion();
+        jest.advanceTimersByTime(1000);
+      }
+
+      expect(questionCount).toBe(12);
+      fullController.stop();
+    });
   });
 
   describe('category: north-constellations', () => {
     test('includes only northern constellations', () => {
       controller.setCategory('north-constellations');
       controller.start();
-      // Ursa Major and Cassiopeia are in north, should have questions
+      // UrsaMajor and Cassiopeia are in north, should have questions
       expect(controller.getCurrentQuestion()).not.toBeNull();
     });
   });
@@ -513,6 +586,72 @@ describe('GameController', () => {
       controller.start();
       controller.stop();
       // Timer should be cleared
+    });
+  });
+
+  describe('getConstellationCenter_', () => {
+    test('uses existing ra/dec if present', () => {
+      // testConstellations has ra/dec directly
+      controller.setCategory('all-constellations');
+      controller.start();
+      const question = controller.getCurrentQuestion();
+      // Should have valid coordinates from the test constellation data
+      expect(question.data.ra).toBeDefined();
+      expect(question.data.dec).toBeDefined();
+      expect(typeof question.data.ra).toBe('number');
+      expect(typeof question.data.dec).toBe('number');
+    });
+
+    test('calculates center from star lines when ra/dec not present', () => {
+      // Create controller with constellation that has lines but no ra/dec
+      const lineController = new GameController();
+      const starsWithHip = [
+        {hip: 1, ra: 100, dec: 10},
+        {hip: 2, ra: 110, dec: 20},
+        {hip: 3, ra: 120, dec: 30},
+      ];
+      lineController.setData({
+        constellations: testConstellationsWithLines,
+        stars: starsWithHip,
+        deepSkyObjects: [],
+        namedObjects: {},
+      });
+      lineController.setCategory('all-constellations');
+      lineController.start();
+      const question = lineController.getCurrentQuestion();
+      // Center should be average: (100+110+120)/3 = 110, (10+20+30)/3 = 20
+      expect(question.data.ra).toBeCloseTo(110, 1);
+      expect(question.data.dec).toBeCloseTo(20, 1);
+    });
+
+    test('returns 0,0 for constellation with no lines or ra/dec', () => {
+      const emptyController = new GameController();
+      emptyController.setData({
+        constellations: {'Empty': {name: 'Empty', lines: []}},
+        stars: [],
+        deepSkyObjects: [],
+        namedObjects: {},
+      });
+      emptyController.setCategory('all-constellations');
+      emptyController.start();
+      const question = emptyController.getCurrentQuestion();
+      expect(question.data.ra).toBe(0);
+      expect(question.data.dec).toBe(0);
+    });
+
+    test('returns 0,0 when star IDs not found', () => {
+      const noMatchController = new GameController();
+      noMatchController.setData({
+        constellations: {'NoMatch': {name: 'NoMatch', lines: [[999, 998]]}},
+        stars: [{hip: 1, ra: 100, dec: 10}], // Different IDs
+        deepSkyObjects: [],
+        namedObjects: {},
+      });
+      noMatchController.setCategory('all-constellations');
+      noMatchController.start();
+      const question = noMatchController.getCurrentQuestion();
+      expect(question.data.ra).toBe(0);
+      expect(question.data.dec).toBe(0);
     });
   });
 });

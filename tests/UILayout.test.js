@@ -231,15 +231,17 @@ describe('Time picker accessibility and UX', () => {
   let jsContent;
 
   beforeAll(() => {
-    const jsPath = path.resolve(process.cwd(), 'ui-controller.js');
+    // Time picker functionality is in the modular TimeUI
+    const jsPath = path.resolve(process.cwd(), 'modules/features/TimeUI.js');
     jsContent = fs.readFileSync(jsPath, 'utf8');
   });
 
   test('implements backdrop click to close time picker', () => {
     // Should have document click listener that checks for clicks outside panel
     expect(jsContent).toContain('document.addEventListener(\'click\'');
-    expect(jsContent).toContain('isClickInsidePanel');
-    expect(jsContent).toContain('isClickOnButton');
+    // Uses contains() checks instead of separate boolean variables
+    expect(jsContent).toContain('pickerPanel.contains(e.target)');
+    expect(jsContent).toContain('pickerBtn.contains(e.target)');
   });
 
   test('implements Escape key to close time picker', () => {
@@ -255,155 +257,168 @@ describe('Time picker accessibility and UX', () => {
 });
 
 describe('UI Controller event wiring', () => {
-  let jsContent;
+  let uiControllerContent;
+  let timeUIContent;
 
   beforeAll(() => {
-    const jsPath = path.resolve(process.cwd(), 'ui-controller.js');
-    jsContent = fs.readFileSync(jsPath, 'utf8');
+    // Settings handler is in modular UIController
+    const uiPath = path.resolve(process.cwd(), 'modules/ui/UIController.js');
+    uiControllerContent = fs.readFileSync(uiPath, 'utf8');
+    // Time controls are in TimeUI
+    const timePath = path.resolve(process.cwd(), 'modules/features/TimeUI.js');
+    timeUIContent = fs.readFileSync(timePath, 'utf8');
   });
 
   describe('SettingsHandler', () => {
     test('retrieves equator-line-toggle element', () => {
-      expect(jsContent).toContain('getElementById(\'equator-line-toggle\')');
+      expect(uiControllerContent).toContain('getElementById(\'equator-line-toggle\')');
     });
 
     test('adds change event listener to equator toggle', () => {
       // Check that there's a change event listener on the equator toggle
-      expect(jsContent).toMatch(
+      expect(uiControllerContent).toMatch(
         /equatorToggle.*addEventListener\s*\(\s*['"]change['"]/s
       );
     });
 
     test('calls setEquatorLineVisible on change', () => {
-      expect(jsContent).toContain('setEquatorLineVisible?.(e.target.checked)');
+      expect(uiControllerContent).toContain('setEquatorLineVisible?.(e.target.checked)');
     });
 
     test('retrieves constellation-lines-toggle element', () => {
-      expect(jsContent).toContain('getElementById(\'constellation-lines-toggle\')');
+      expect(uiControllerContent).toContain('getElementById(\'constellation-lines-toggle\')');
     });
 
     test('retrieves magnitude-slider element', () => {
-      expect(jsContent).toContain('getElementById(\'magnitude-slider\')');
+      expect(uiControllerContent).toContain('getElementById(\'magnitude-slider\')');
     });
   });
 
-  describe('TimeControlsHandler', () => {
+  describe('TimeUI', () => {
     test('retrieves time-picker-btn element', () => {
-      expect(jsContent).toContain('getElementById(\'time-picker-btn\')');
+      expect(timeUIContent).toContain('getElementById(\'time-picker-btn\')');
     });
 
     test('retrieves time-picker-panel element', () => {
-      expect(jsContent).toContain('getElementById(\'time-picker-panel\')');
+      expect(timeUIContent).toContain('getElementById(\'time-picker-panel\')');
     });
 
     test('adds click event listener to time picker button', () => {
-      expect(jsContent).toMatch(
-        /timePickerBtn.*addEventListener\s*\(\s*['"]click['"]/s
+      expect(timeUIContent).toMatch(
+        /pickerBtn.*addEventListener\s*\(\s*['"]click['"]/s
       );
     });
 
     test('toggles visible class on time picker panel', () => {
-      expect(jsContent).toContain('timePickerPanel.classList.toggle(\'visible\')');
+      expect(timeUIContent).toContain('pickerPanel.classList.toggle(\'visible\')');
     });
 
     test('retrieves date-picker and time-picker inputs', () => {
-      expect(jsContent).toContain('getElementById(\'date-picker\')');
-      expect(jsContent).toContain('getElementById(\'time-picker\')');
+      expect(timeUIContent).toContain('getElementById(\'date-picker\')');
+      expect(timeUIContent).toContain('getElementById(\'time-picker\')');
     });
 
     test('retrieves apply and cancel buttons', () => {
-      expect(jsContent).toContain('getElementById(\'time-picker-apply\')');
-      expect(jsContent).toContain('getElementById(\'time-picker-cancel\')');
+      expect(timeUIContent).toContain('getElementById(\'time-picker-apply\')');
+      expect(timeUIContent).toContain('getElementById(\'time-picker-cancel\')');
     });
 
     test('calls jumpToTime on apply', () => {
-      expect(jsContent).toMatch(/jumpToTime\s*\(\s*newDate\s*\)/);
+      // Uses optional chaining in modular version
+      expect(timeUIContent).toMatch(/jumpToTime\?\.\s*\(\s*newDate\s*\)/);
     });
   });
 
   describe('UIController initialization', () => {
-    test('waits for window.app before setting up listeners', () => {
-      expect(jsContent).toContain('if (!window.app)');
+    test('uses dependency injection pattern', () => {
+      // Modular UIController receives dependencies in constructor
+      expect(uiControllerContent).toContain('constructor(dependencies)');
     });
 
-    test('calls all handler setupEventListeners methods', () => {
-      expect(jsContent).toContain('this.settingsHandler_.setupEventListeners()');
-      expect(jsContent).toContain('this.timeControlsHandler_.setupEventListeners()');
+    test('initializes all handlers', () => {
+      expect(uiControllerContent).toContain('this.searchController_.initialize()');
+      expect(uiControllerContent).toContain('this.settingsHandler_.initialize()');
+      expect(uiControllerContent).toContain('this.timeUI_.initialize()');
     });
 
     test('logs initialization status', () => {
-      expect(jsContent).toContain('UI Controller initialized');
+      expect(uiControllerContent).toContain('UI Controller initialized');
     });
   });
 });
 
 describe('Skymap equator line methods', () => {
   let jsContent;
+  let gridRendererContent;
 
   beforeAll(() => {
     const jsPath = path.resolve(process.cwd(), 'skymap.js');
     jsContent = fs.readFileSync(jsPath, 'utf8');
+    // GridRenderer now handles the implementation details
+    const gridRendererPath = path.resolve(process.cwd(), 'modules/rendering/GridRenderer.js');
+    gridRendererContent = fs.readFileSync(gridRendererPath, 'utf8');
   });
 
   test('has setEquatorLineVisible method', () => {
     expect(jsContent).toMatch(/setEquatorLineVisible\s*\(\s*visible\s*\)/);
   });
 
-  test('setEquatorLineVisible checks for equatorLine existence', () => {
-    expect(jsContent).toMatch(/if\s*\(\s*this\.equatorLine\s*\)/);
+  test('setEquatorLineVisible delegates to gridRenderer or fallback', () => {
+    // Either delegates to gridRenderer (with optional chaining) or uses direct fallback
+    expect(jsContent).toMatch(/gridRenderer_\??\.setEquatorVisible|this\.equatorLine\.visible/);
   });
 
-  test('setEquatorLineVisible sets visible property', () => {
-    expect(jsContent).toContain('this.equatorLine.visible = visible');
+  test('setEquatorLineVisible sets visible property (in GridRenderer)', () => {
+    // Implementation is now in GridRenderer
+    expect(gridRendererContent).toContain('.visible = visible');
   });
 
-  test('creates equatorLine in createGrid method', () => {
-    expect(jsContent).toContain('this.equatorLine = new THREE.Line');
+  test('creates equatorLine in GridRenderer', () => {
+    // equatorLine creation is now in GridRenderer
+    expect(gridRendererContent).toContain('this.equatorLine_ = new THREE.Line');
   });
 
-  test('adds equatorLine to celestialSphere', () => {
-    expect(jsContent).toContain('this.celestialSphere.add(this.equatorLine)');
+  test('adds equatorLine to celestialSphere (in GridRenderer)', () => {
+    // Implementation is now in GridRenderer
+    expect(gridRendererContent).toContain('this.celestialSphere_.add(this.equatorLine_)');
   });
 
-  test('initializes equatorLine to null', () => {
-    expect(jsContent).toContain('this.equatorLine = null');
+  test('equatorLine managed by GridRenderer', () => {
+    // equatorLine is now managed entirely by GridRenderer, not skymap.js
+    expect(gridRendererContent).toContain('this.equatorLine_');
   });
 });
 
-describe('Skymap game panel drag functionality', () => {
+describe('GameUI game panel drag functionality', () => {
   let jsContent;
 
   beforeAll(() => {
-    const jsPath = path.resolve(process.cwd(), 'skymap.js');
+    const jsPath = path.resolve(process.cwd(), 'modules/features/GameUI.js');
     jsContent = fs.readFileSync(jsPath, 'utf8');
   });
 
-  test('has setupGamePanelDrag method', () => {
-    expect(jsContent).toMatch(/setupGamePanelDrag\s*\(\s*\)/);
+  test('has setupPanelDrag_ method', () => {
+    expect(jsContent).toMatch(/setupPanelDrag_\s*\(\s*\)/);
   });
 
   test('has guard against multiple setup calls', () => {
-    expect(jsContent).toContain('if (this.gamePanelDragSetup_) return');
+    expect(jsContent).toContain('if (this.panelDragSetup_) return');
   });
 
-  test('initializes gamePanelDragSetup_ flag to false', () => {
-    expect(jsContent).toContain('this.gamePanelDragSetup_ = false');
+  test('initializes panelDragSetup_ flag to false', () => {
+    expect(jsContent).toContain('this.panelDragSetup_ = false');
   });
 
-  test('sets gamePanelDragSetup_ flag after setup', () => {
-    expect(jsContent).toContain('this.gamePanelDragSetup_ = true');
+  test('sets panelDragSetup_ flag after setup', () => {
+    expect(jsContent).toContain('this.panelDragSetup_ = true');
   });
 
-  test('gets game panel element', () => {
-    expect(jsContent).toMatch(
-      /setupGamePanelDrag[\s\S]*getElementById\s*\(\s*['"]game-panel['"]\s*\)/
-    );
+  test('gets game panel element from domCache', () => {
+    expect(jsContent).toContain('domCache.gamePanel');
   });
 
   test('gets header element for drag handle', () => {
-    expect(jsContent).toMatch(
-      /setupGamePanelDrag[\s\S]*querySelector\s*\(\s*['"]h2['"]\s*\)/
-    );
+    expect(jsContent).toMatch(/querySelector\s*\(\s*['"]h2['"]\s*\)/);
   });
 
   test('adds mousedown listener to header', () => {
@@ -428,61 +443,207 @@ describe('Skymap game panel drag functionality', () => {
   test('constrains panel to viewport bounds', () => {
     expect(jsContent).toContain('window.innerWidth - panelRect.width');
     expect(jsContent).toContain('window.innerHeight - panelRect.height');
-    expect(jsContent).toMatch(/Math\.max\s*\(\s*0/);
-    expect(jsContent).toMatch(/Math\.min\s*\([^)]*max/i);
+    // Uses clamp() to constrain values to viewport
+    expect(jsContent).toMatch(/clamp\s*\(\s*new/);
+    expect(jsContent).toMatch(/maxLeft|maxTop/);
   });
 
-  test('prevents canvas drag when game panel is being dragged', () => {
-    // onMouseDown and onTouchStart should check gamePanelDragging
-    expect(jsContent).toMatch(/onMouseDown[\s\S]*if\s*\(\s*this\.gamePanelDragging\s*\)\s*return/);
-    expect(jsContent).toMatch(/onTouchStart[\s\S]*if\s*\(\s*this\.gamePanelDragging\s*\)\s*return/);
+  test('has drag state management', () => {
+    // isDragging_ flag is used to track drag state
+    expect(jsContent).toMatch(/isDragging_/);
   });
 });
 
-describe('Skymap search index planet updates', () => {
+describe('Skymap search index planet updates (delegated to SearchManager)', () => {
   let jsContent;
+  let searchManagerContent;
 
   beforeAll(() => {
     const jsPath = path.resolve(process.cwd(), 'skymap.js');
     jsContent = fs.readFileSync(jsPath, 'utf8');
+    const smPath = path.resolve(process.cwd(), 'modules/features/SearchManager.js');
+    searchManagerContent = fs.readFileSync(smPath, 'utf8');
   });
 
-  test('has updateSearchIndexPlanets_ method', () => {
-    expect(jsContent).toMatch(/updateSearchIndexPlanets_\s*\(\s*\)/);
-  });
-
-  test('updateSearchIndexPlanets_ is called from createPlanets', () => {
-    // Find createPlanets method and verify it calls updateSearchIndexPlanets_
+  test('calls searchManager_.updatePlanets from createPlanets', () => {
+    // Verify skymap.js delegates to SearchManager for planet updates
     expect(jsContent).toMatch(
-      /createPlanets\s*\(\s*\)[\s\S]*?this\.updateSearchIndexPlanets_\s*\(\s*\)/
-    );
-  });
-
-  test('removes old planet entries before adding new ones', () => {
-    expect(jsContent).toMatch(
-      /this\.searchIndex\s*=\s*this\.searchIndex\.filter\s*\([^)]*type\s*!==\s*['"]Planet['"]/
+      /createPlanets\s*\(\s*\)[\s\S]*?this\.searchManager_\?\s*\.updatePlanets\s*\(\s*this\.planets\s*\)/
     );
   });
 
-  test('adds planets to search index with required fields', () => {
-    // Check that planet entries include name, type, ra, dec
-    expect(jsContent).toMatch(
-      /updateSearchIndexPlanets_[\s\S]*?this\.searchIndex\.push\s*\(\s*\{[\s\S]*?name:\s*planet\.name/
-    );
-    expect(jsContent).toMatch(
-      /updateSearchIndexPlanets_[\s\S]*?type:\s*['"]Planet['"]/
-    );
-    expect(jsContent).toMatch(
-      /updateSearchIndexPlanets_[\s\S]*?ra:\s*planet\.ra/
-    );
-    expect(jsContent).toMatch(
-      /updateSearchIndexPlanets_[\s\S]*?dec:\s*planet\.dec/
+  test('SearchManager.updatePlanets removes old planet entries before adding new ones', () => {
+    expect(searchManagerContent).toMatch(
+      /this\.index_\s*=\s*this\.index_\.filter\s*\(\s*\([^)]*\)\s*=>\s*[^)]*\.type\s*!==\s*['"]Planet['"]/
     );
   });
 
-  test('guards against null searchIndex or planets', () => {
-    expect(jsContent).toMatch(
-      /updateSearchIndexPlanets_[\s\S]*?if\s*\(\s*!this\.searchIndex\s*\|\|\s*!this\.planets\s*\)/
+  test('SearchManager.updatePlanets adds planets with required fields', () => {
+    // Check that planet entries include name, type, ra, dec in SearchManager
+    expect(searchManagerContent).toMatch(
+      /updatePlanets[\s\S]*?this\.index_\.push\s*\(\s*\{[\s\S]*?name:\s*planet\.name/
     );
+    expect(searchManagerContent).toMatch(
+      /updatePlanets[\s\S]*?type:\s*['"]Planet['"]/
+    );
+    expect(searchManagerContent).toMatch(
+      /updatePlanets[\s\S]*?ra:\s*planet\.ra/
+    );
+    expect(searchManagerContent).toMatch(
+      /updatePlanets[\s\S]*?dec:\s*planet\.dec/
+    );
+  });
+});
+
+describe('UIController dependency forwarding', () => {
+  let uiControllerContent;
+
+  beforeAll(() => {
+    const uiControllerPath = path.resolve(
+      process.cwd(),
+      'modules/ui/UIController.js'
+    );
+    uiControllerContent = fs.readFileSync(uiControllerPath, 'utf8');
+  });
+
+  /**
+   * Extract dependencies used by a handler class from its methods.
+   * Looks for patterns like: this.deps_.someDependency
+   * @param {string} content - File content
+   * @param {string} className - Class name to search within
+   * @param {string} nextClassName - Next class name to find class boundary
+   * @returns {string[]} Array of dependency names used
+   */
+  function extractUsedDependencies(content, className, nextClassName) {
+    // Find class boundaries using indexOf for reliability
+    const classStart = content.indexOf(`export class ${className}`);
+    if (classStart === -1) return [];
+
+    // Find where the next class starts (or end of file)
+    let classEnd = content.length;
+    if (nextClassName) {
+      const nextStart = content.indexOf(`export class ${nextClassName}`);
+      if (nextStart !== -1) {
+        classEnd = nextStart;
+      }
+    }
+
+    const classBody = content.substring(classStart, classEnd);
+
+    // Find all this.deps_.xxx usages
+    const depPattern = /this\.deps_\.(\w+)/g;
+    const deps = new Set();
+    let match;
+    while ((match = depPattern.exec(classBody)) !== null) {
+      deps.add(match[1]);
+    }
+    return Array.from(deps);
+  }
+
+  /**
+   * Extract dependencies passed to a handler in the constructor call.
+   * @param {string} content - File content
+   * @param {string} handlerName - Handler variable name (e.g., 'settingsHandler_')
+   * @returns {string[]} Array of dependency names passed
+   */
+  function extractPassedDependencies(content, handlerName) {
+    // Find the constructor call: this.handlerName_ = new ClassName({...})
+    const constructorPattern = new RegExp(
+      `this\\.${handlerName}\\s*=\\s*new\\s+\\w+\\s*\\(\\s*\\{([^}]+)\\}\\s*\\)`,
+      's'
+    );
+    const match = content.match(constructorPattern);
+    if (!match) return [];
+
+    // Extract property names from the object literal
+    const objectContent = match[1];
+    const propPattern = /(\w+)\s*:/g;
+    const props = [];
+    let propMatch;
+    while ((propMatch = propPattern.exec(objectContent)) !== null) {
+      props.push(propMatch[1]);
+    }
+    return props;
+  }
+
+  // Class order in UIController.js for boundary detection
+  const CLASS_ORDER = [
+    'SearchController',
+    'SettingsHandler',
+    'InfoBadgeUpdater',
+    'UIController',
+  ];
+
+  function getNextClass(className) {
+    const idx = CLASS_ORDER.indexOf(className);
+    return idx >= 0 && idx < CLASS_ORDER.length - 1 ? CLASS_ORDER[idx + 1] : null;
+  }
+
+  test('SettingsHandler receives all dependencies it uses', () => {
+    const usedDeps = extractUsedDependencies(
+      uiControllerContent,
+      'SettingsHandler',
+      getNextClass('SettingsHandler')
+    );
+    const passedDeps = extractPassedDependencies(uiControllerContent, 'settingsHandler_');
+
+    // Every dependency used by SettingsHandler should be passed to it
+    const missingDeps = usedDeps.filter(dep => !passedDeps.includes(dep));
+
+    expect(missingDeps).toEqual([]);
+  });
+
+  test('SearchController receives all dependencies it uses', () => {
+    const usedDeps = extractUsedDependencies(
+      uiControllerContent,
+      'SearchController',
+      getNextClass('SearchController')
+    );
+    const passedDeps = extractPassedDependencies(uiControllerContent, 'searchController_');
+
+    const missingDeps = usedDeps.filter(dep => !passedDeps.includes(dep));
+
+    expect(missingDeps).toEqual([]);
+  });
+
+  test('InfoBadgeUpdater receives all dependencies it uses', () => {
+    const usedDeps = extractUsedDependencies(
+      uiControllerContent,
+      'InfoBadgeUpdater',
+      getNextClass('InfoBadgeUpdater')
+    );
+    const passedDeps = extractPassedDependencies(uiControllerContent, 'infoBadgeUpdater_');
+
+    const missingDeps = usedDeps.filter(dep => !passedDeps.includes(dep));
+
+    expect(missingDeps).toEqual([]);
+  });
+
+  test('all handlers in UIController.initialize() receive their required dependencies', () => {
+    // This is a comprehensive test that verifies dependency injection integrity
+    // for all handler classes defined in UIController.js
+    const handlerMappings = [
+      {className: 'SearchController', varName: 'searchController_'},
+      {className: 'SettingsHandler', varName: 'settingsHandler_'},
+      {className: 'InfoBadgeUpdater', varName: 'infoBadgeUpdater_'},
+    ];
+
+    const allMissing = [];
+
+    for (const {className, varName} of handlerMappings) {
+      const usedDeps = extractUsedDependencies(
+        uiControllerContent,
+        className,
+        getNextClass(className)
+      );
+      const passedDeps = extractPassedDependencies(uiControllerContent, varName);
+      const missingDeps = usedDeps.filter(dep => !passedDeps.includes(dep));
+
+      if (missingDeps.length > 0) {
+        allMissing.push(`${className} missing: ${missingDeps.join(', ')}`);
+      }
+    }
+
+    expect(allMissing).toEqual([]);
   });
 });

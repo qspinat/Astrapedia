@@ -5,7 +5,8 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {IMAGES, API_ENDPOINTS} from '../core/Constants.js';
-import {getCuratedImage, getCuratedImageKeys} from '../data/CuratedImages.js';
+import {getCuratedImage} from '../data/CuratedImages.js';
+import {getPlanetImageInfo} from '../data/PlanetImages.js';
 
 /**
  * @typedef {{
@@ -16,82 +17,6 @@ import {getCuratedImage, getCuratedImageKeys} from '../data/CuratedImages.js';
  * }}
  */
 let ImageResult;
-
-/**
- * Hardcoded images for planets and special objects.
- * @const {!Object<string, {url: string, source: string, tier: string}>}
- */
-const SPECIAL_OBJECT_IMAGES = {
-  Sun: {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/' +
-         'The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_' +
-         'Solar_Dynamics_Observatory_-_20100819.jpg/400px-The_Sun_by_the_' +
-         'Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_' +
-         'Observatory_-_20100819.jpg',
-    source: 'NASA/SDO',
-    tier: 'iconic',
-  },
-  Moon: {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/' +
-         'FullMoon2010.jpg/400px-FullMoon2010.jpg',
-    source: 'NASA/Wikimedia',
-    tier: 'high',
-  },
-  Mercury: {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/' +
-         'Mercury_in_true_color.jpg/400px-Mercury_in_true_color.jpg',
-    source: 'NASA/MESSENGER',
-    tier: 'iconic',
-  },
-  Venus: {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/' +
-         'PIA23791-Venus-NewlyProcessedView-20200608.jpg/' +
-         '400px-PIA23791-Venus-NewlyProcessedView-20200608.jpg',
-    source: 'NASA/Mariner',
-    tier: 'iconic',
-  },
-  Mars: {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/' +
-         'Mars_-_August_30_2021_-_Flickr_-_Kevin_M._Gill.png/' +
-         '400px-Mars_-_August_30_2021_-_Flickr_-_Kevin_M._Gill.png',
-    source: 'NASA/Hubble',
-    tier: 'iconic',
-  },
-  Jupiter: {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/' +
-         'Jupiter_New_Horizons.jpg/400px-Jupiter_New_Horizons.jpg',
-    source: 'NASA/New Horizons',
-    tier: 'iconic',
-  },
-  Saturn: {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/' +
-         'Saturn_during_Equinox.jpg/400px-Saturn_during_Equinox.jpg',
-    source: 'NASA/Cassini',
-    tier: 'iconic',
-  },
-  Uranus: {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/' +
-         'Uranus_as_seen_by_NASA%27s_Voyager_2_%28reprocessed%29_-_' +
-         'JPEG_converted.jpg/400px-Uranus_as_seen_by_NASA%27s_Voyager_2_' +
-         '%28reprocessed%29_-_JPEG_converted.jpg',
-    source: 'NASA/Voyager',
-    tier: 'iconic',
-  },
-  Neptune: {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/' +
-         'Neptune_Voyager2_color_calibrated.png/' +
-         '400px-Neptune_Voyager2_color_calibrated.png',
-    source: 'NASA/Voyager',
-    tier: 'iconic',
-  },
-  Pluto: {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/' +
-         'Pluto_in_True_Color_-_High-Res.jpg/' +
-         '400px-Pluto_in_True_Color_-_High-Res.jpg',
-    source: 'NASA/New Horizons',
-    tier: 'iconic',
-  },
-};
 
 /**
  * Famous stars that should use API search instead of DSS.
@@ -297,9 +222,9 @@ export class ImageFetcher {
    * @private
    */
   checkSpecialObject_(name, cacheKey) {
-    if (!name || !SPECIAL_OBJECT_IMAGES[name]) return null;
+    const special = name ? getPlanetImageInfo(name) : null;
+    if (!special) return null;
 
-    const special = SPECIAL_OBJECT_IMAGES[name];
     const result = {
       url: special.url,
       loading: false,

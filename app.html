@@ -112,7 +112,7 @@
                 </label>
                 <label class="toggle-row">
                     <span class="toggle-row__label">Equator Line</span>
-                    <input type="checkbox" id="equator-line-toggle" checked>
+                    <input type="checkbox" id="equator-line-toggle">
                     <span class="toggle-switch"></span>
                 </label>
             </div>
@@ -318,22 +318,27 @@
                     <button class="game-select-btn" data-category="north-constellations">
                         <span class="game-select-icon">★</span>
                         <span class="game-select-name">North Constellations</span>
-                        <span class="game-select-count">44</span>
+                        <span class="game-select-count">36</span>
                     </button>
                     <button class="game-select-btn" data-category="south-constellations">
                         <span class="game-select-icon">★</span>
                         <span class="game-select-name">South Constellations</span>
-                        <span class="game-select-count">44</span>
+                        <span class="game-select-count">53</span>
                     </button>
                     <button class="game-select-btn" data-category="all-constellations">
                         <span class="game-select-icon">★</span>
                         <span class="game-select-name">All Constellations</span>
-                        <span class="game-select-count">88</span>
+                        <span class="game-select-count">89</span>
                     </button>
                     <button class="game-select-btn" data-category="famous-objects">
                         <span class="game-select-icon">🌟</span>
                         <span class="game-select-name">Famous Objects</span>
-                        <span class="game-select-count">20</span>
+                        <span class="game-select-count">18</span>
+                    </button>
+                    <button class="game-select-btn" data-category="famous-objects-hard">
+                        <span class="game-select-icon">💫</span>
+                        <span class="game-select-name">Famous Objects (Hard)</span>
+                        <span class="game-select-count">40</span>
                     </button>
                     <button class="game-select-btn" data-category="star-clusters">
                         <span class="game-select-icon">✨</span>
@@ -424,10 +429,11 @@
         </div>
 
         <!-- Magnitude Control (floating) -->
+        <!-- Initial values overridden by JS from STARS.DEFAULT_MAGNITUDE -->
         <div class="magnitude-control">
             <span class="mag-label">MAG</span>
-            <input type="range" id="magnitude-slider" min="0" max="25" step="0.5" value="8.0">
-            <span id="mag-value" class="mag-value">8.0</span>
+            <input type="range" id="magnitude-slider" min="0" max="25" step="0.5">
+            <span id="mag-value" class="mag-value">--</span>
         </div>
 
         <!-- Visible Tonight Panel -->
@@ -526,10 +532,10 @@
             crossorigin="anonymous"
             referrerpolicy="no-referrer"></script>
 
-    <!-- Main Application (ES6 Module) -->
-    <script type="module" src="skymap.js"></script>
+    <!-- Debug script (checks libraries and catches errors) -->
+    <script src="debug.js"></script>
 
-    <!-- UI Controller (ES6 Module) -->
-    <script type="module" src="ui-controller.js"></script>
+    <!-- Main Application (ES6 Module) -->
+    <script type="module" src="main.js"></script>
 </body>
 </html>

@@ -21,8 +21,10 @@ An interactive 3D celestial sphere application for learning astronomical coordin
 - **Time Controls**: Simulate the sky at any date/time with play/pause and speed controls
 - **Telescope Simulation**: Configure virtual telescope and eyepiece to see realistic field of view and limiting magnitude
 - **Observer Location**: Set your Earth coordinates to see horizon and altitude/azimuth grid
+- **Astronomical Events**: Calendar of upcoming meteor showers, eclipses, and celestial events
+- **Compass Mode**: Device orientation support to match the real sky
 - **Multi-language**: Constellation names in 8 languages (en, la, fr, de, es, ja, zh, ar)
-- **Dynamic Loading**: Fetches additional faint stars from VizieR when zoomed in
+- **Dynamic Loading**: Fetches additional faint stars from VizieR/Gaia when zoomed in
 - **Android App**: Build native Android APK via Capacitor
 
 ## Quick Start
@@ -87,12 +89,16 @@ Then open http://localhost:8000/app.html
 skymap/
 ├── app.html                    # Main application HTML
 ├── main.js                     # Application entry point
+├── skymap.js                   # Main application class (Three.js scene, rendering)
 ├── modules/                    # ES6 modules
-│   ├── core/                   # Core utilities (EventBus, Constants, CoordinateUtils)
+│   ├── core/                   # EventBus, Constants, CoordinateUtils, Utils
 │   ├── services/               # Data loading, image fetching, geolocation
-│   ├── features/               # Game, search, tours, time, telescope
+│   ├── features/               # Game, search, tours, time, telescope, selection
+│   ├── rendering/              # Star field, constellations, planets, grids, horizon
+│   ├── interaction/            # Input handling (mouse/touch), click detection
+│   ├── astronomy/              # Solar system calculations
 │   ├── ui/                     # UI controllers and panel management
-│   └── data/                   # Curated image database
+│   └── data/                   # Curated images, constellation names, descriptions
 ├── data/                       # Generated astronomical data (JSON)
 ├── skymap/                     # Python package for data processing
 ├── data_pipeline.py            # Download and process catalogs
@@ -172,6 +178,8 @@ Requires a modern browser with WebGL and ES6 support:
 - Firefox 88+
 - Safari 14+
 - Edge 90+
+
+The app includes a service worker for offline support (PWA-ready).
 
 ## License
 
