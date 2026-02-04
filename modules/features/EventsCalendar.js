@@ -182,6 +182,7 @@ export class EventsCalendar {
 
   /**
    * Get fallback events when online fetch fails.
+   * Includes meteor showers, eclipses, planetary events, and more.
    * @returns {!Array<!Object>} Fallback events
    */
   getFallbackEvents() {
@@ -189,8 +190,9 @@ export class EventsCalendar {
     const year = now.getFullYear();
     const nextYear = year + 1;
 
-    return [
-      // Meteor Showers
+    // Build events array with annual recurring events
+    const events = [
+      // ===== METEOR SHOWERS =====
       {name: 'Quadrantids Meteor Shower', date: new Date(year, 0, 3), type: 'meteor',
        description: 'Up to 120 meteors/hour. Best viewed from Northern Hemisphere.'},
       {name: 'Lyrids Meteor Shower', date: new Date(year, 3, 22), type: 'meteor',
@@ -209,7 +211,8 @@ export class EventsCalendar {
        description: 'Up to 150 meteors/hour. Best meteor shower of the year.'},
       {name: 'Ursids Meteor Shower', date: new Date(year, 11, 22), type: 'meteor',
        description: 'Up to 10 meteors/hour. Often overlooked due to holidays.'},
-      // Solstices and Equinoxes
+
+      // ===== SOLSTICES AND EQUINOXES =====
       {name: 'Vernal Equinox', date: new Date(year, 2, 20), type: 'equinox',
        description: 'Spring begins in Northern Hemisphere.'},
       {name: 'Summer Solstice', date: new Date(year, 5, 21), type: 'solstice',
@@ -218,10 +221,171 @@ export class EventsCalendar {
        description: 'Fall begins in Northern Hemisphere.'},
       {name: 'Winter Solstice', date: new Date(year, 11, 21), type: 'solstice',
        description: 'Shortest day of the year in Northern Hemisphere.'},
-      // Next year
+
+      // Next year recurring
       {name: 'Quadrantids Meteor Shower', date: new Date(nextYear, 0, 3), type: 'meteor',
        description: 'Up to 120 meteors/hour.'},
+      {name: 'Vernal Equinox', date: new Date(nextYear, 2, 20), type: 'equinox',
+       description: 'Spring begins in Northern Hemisphere.'},
     ];
+
+    // Add year-specific events (eclipses, planetary events) for 4 years
+    for (let y = year; y <= year + 3; y++) {
+      events.push(...this.getYearSpecificEvents_(y));
+    }
+
+    return events;
+  }
+
+  /**
+   * Get year-specific astronomical events (eclipses, planetary events).
+   * Data verified from NASA, TimeandDate.com, and other authoritative sources.
+   * @param {number} year - The year to get events for
+   * @returns {!Array<!Object>} Year-specific events
+   * @private
+   */
+  getYearSpecificEvents_(year) {
+    const events = [];
+
+    // Eclipse and planetary event data by year
+    // Sources: NASA, TimeandDate.com, EclipseWise.com, Almanac.com
+    const yearData = {
+      2025: {
+        eclipses: [
+          {name: 'Total Lunar Eclipse', date: new Date(2025, 2, 14), type: 'eclipse',
+           description: 'Visible from Americas, Europe, Africa. Totality lasts 65 minutes.'},
+          {name: 'Partial Solar Eclipse', date: new Date(2025, 2, 29), type: 'eclipse',
+           description: 'Visible from Europe, N. Africa, N. America. Max coverage 93%.'},
+          {name: 'Total Lunar Eclipse', date: new Date(2025, 8, 7), type: 'eclipse',
+           description: 'Visible from Europe, Africa, Asia, Australia.'},
+          {name: 'Partial Solar Eclipse', date: new Date(2025, 8, 21), type: 'eclipse',
+           description: 'Visible from S. Pacific, New Zealand, Antarctica.'},
+        ],
+        planets: [
+          {name: 'Mars at Opposition', date: new Date(2025, 0, 16), type: 'planet',
+           description: 'Mars closest to Earth, visible all night. Magnitude -1.4.'},
+          {name: 'Saturn at Opposition', date: new Date(2025, 8, 21), type: 'planet',
+           description: 'Saturn at its brightest in Pisces. Rings appear edge-on!'},
+          {name: 'Neptune at Opposition', date: new Date(2025, 8, 23), type: 'planet',
+           description: 'Neptune at its brightest in Pisces. Telescope required.'},
+          {name: 'Uranus at Opposition', date: new Date(2025, 10, 21), type: 'planet',
+           description: 'Uranus at its brightest in Taurus. Binoculars recommended.'},
+        ],
+        moons: [
+          {name: 'Supermoon (Harvest Moon)', date: new Date(2025, 9, 6), type: 'moon',
+           description: 'First of three supermoons. Largest Full Moon of 2025.'},
+          {name: 'Supermoon (Beaver Moon)', date: new Date(2025, 10, 5), type: 'moon',
+           description: 'Closest supermoon of 2025 at 356,980 km from Earth.'},
+          {name: 'Supermoon (Cold Moon)', date: new Date(2025, 11, 4), type: 'moon',
+           description: 'Third consecutive supermoon. Won\'t repeat until 2037.'},
+        ],
+      },
+      2026: {
+        eclipses: [
+          {name: 'Annular Solar Eclipse', date: new Date(2026, 1, 17), type: 'eclipse',
+           description: 'Visible from Antarctica, S. America, S. Africa. Ring of fire.'},
+          {name: 'Total Lunar Eclipse', date: new Date(2026, 2, 3), type: 'eclipse',
+           description: 'Visible from Americas, Europe, Africa. Totality lasts 58 minutes.'},
+          {name: 'Total Solar Eclipse', date: new Date(2026, 7, 12), type: 'eclipse',
+           description: 'Path crosses Greenland, Iceland, Spain. Totality up to 2m18s.'},
+          {name: 'Partial Lunar Eclipse', date: new Date(2026, 7, 28), type: 'eclipse',
+           description: 'Visible from E. Asia, Australia, Pacific, Americas.'},
+        ],
+        planets: [
+          {name: 'Jupiter at Opposition', date: new Date(2026, 0, 10), type: 'planet',
+           description: 'Jupiter at its brightest in Gemini, visible all night.'},
+          {name: 'Neptune at Opposition', date: new Date(2026, 8, 24), type: 'planet',
+           description: 'Neptune at its brightest. Telescope required.'},
+          {name: 'Saturn at Opposition', date: new Date(2026, 9, 4), type: 'planet',
+           description: 'Saturn at its brightest, visible all night.'},
+          {name: 'Uranus at Opposition', date: new Date(2026, 10, 23), type: 'planet',
+           description: 'Uranus at its brightest. Binoculars recommended.'},
+        ],
+        moons: [
+          {name: 'Supermoon (Wolf Moon)', date: new Date(2026, 0, 3), type: 'moon',
+           description: 'First supermoon of 2026. Coincides with Earth at perihelion.'},
+          {name: 'Supermoon (Beaver Moon)', date: new Date(2026, 10, 24), type: 'moon',
+           description: 'Second supermoon of 2026.'},
+          {name: 'Supermoon (Cold Moon)', date: new Date(2026, 11, 23), type: 'moon',
+           description: 'Closest Full Moon of 2026 at 221,667 miles from Earth.'},
+        ],
+      },
+      2027: {
+        eclipses: [
+          {name: 'Annular Solar Eclipse', date: new Date(2027, 1, 6), type: 'eclipse',
+           description: 'Visible from S. America, Atlantic, Africa. Ring of fire.'},
+          {name: 'Penumbral Lunar Eclipse', date: new Date(2027, 1, 20), type: 'eclipse',
+           description: 'Visible from Americas, Europe, Africa. Subtle darkening.'},
+          {name: 'Total Solar Eclipse', date: new Date(2027, 7, 2), type: 'eclipse',
+           description: 'Path crosses Spain, N. Africa, Middle East. Totality 6m23s!'},
+          {name: 'Partial Lunar Eclipse', date: new Date(2027, 7, 17), type: 'eclipse',
+           description: 'Visible from Asia, Australia, Pacific.'},
+        ],
+        planets: [
+          {name: 'Jupiter at Opposition', date: new Date(2027, 1, 4), type: 'planet',
+           description: 'Jupiter at its brightest in Leo, visible all night.'},
+          {name: 'Mars at Opposition', date: new Date(2027, 1, 19), type: 'planet',
+           description: 'Mars closest approach. Best viewing until 2029.'},
+          {name: 'Saturn at Opposition', date: new Date(2027, 9, 18), type: 'planet',
+           description: 'Saturn at its brightest, visible all night.'},
+        ],
+        moons: [
+          {name: 'Supermoon', date: new Date(2027, 0, 22), type: 'moon',
+           description: 'First of two supermoons in 2027.'},
+          {name: 'Supermoon', date: new Date(2027, 1, 20), type: 'moon',
+           description: 'Second supermoon, coincides with penumbral lunar eclipse.'},
+        ],
+      },
+      2028: {
+        eclipses: [
+          {name: 'Partial Lunar Eclipse', date: new Date(2028, 0, 12), type: 'eclipse',
+           description: 'Visible from Americas, Europe, Africa.'},
+          {name: 'Annular Solar Eclipse', date: new Date(2028, 0, 26), type: 'eclipse',
+           description: 'Visible from S. America, Antarctica. Ring of fire.'},
+          {name: 'Partial Lunar Eclipse', date: new Date(2028, 6, 6), type: 'eclipse',
+           description: 'Visible from Australia, Asia, Americas.'},
+          {name: 'Total Solar Eclipse', date: new Date(2028, 6, 22), type: 'eclipse',
+           description: 'Path crosses Australia, New Zealand. Totality up to 5m10s.'},
+          {name: 'Total Lunar Eclipse', date: new Date(2028, 11, 31), type: 'eclipse',
+           description: 'New Year\'s Eve eclipse! Visible from Europe, Africa, Americas.'},
+        ],
+        planets: [
+          {name: 'Jupiter at Opposition', date: new Date(2028, 2, 12), type: 'planet',
+           description: 'Jupiter at its brightest in Leo.'},
+          {name: 'Saturn at Opposition', date: new Date(2028, 9, 30), type: 'planet',
+           description: 'Saturn at its brightest. Rings well-angled at 18 degrees.'},
+        ],
+        moons: [],
+      },
+      2029: {
+        eclipses: [
+          {name: 'Partial Solar Eclipse', date: new Date(2029, 0, 14), type: 'eclipse',
+           description: 'Visible from N. America, Europe.'},
+          {name: 'Partial Solar Eclipse', date: new Date(2029, 5, 12), type: 'eclipse',
+           description: 'Visible from Arctic, N. Europe, N. Asia.'},
+          {name: 'Partial Lunar Eclipse', date: new Date(2029, 5, 26), type: 'eclipse',
+           description: 'Visible from Americas, Europe, Africa.'},
+          {name: 'Partial Lunar Eclipse', date: new Date(2029, 11, 20), type: 'eclipse',
+           description: 'Visible from Americas, Europe, Africa, Asia.'},
+        ],
+        planets: [
+          {name: 'Mars at Opposition', date: new Date(2029, 2, 25), type: 'planet',
+           description: 'Mars at its brightest, visible all night.'},
+          {name: 'Jupiter at Opposition', date: new Date(2029, 3, 12), type: 'planet',
+           description: 'Jupiter at its brightest in Virgo.'},
+        ],
+        moons: [],
+      },
+    };
+
+    const data = yearData[year];
+    if (data) {
+      if (data.eclipses) events.push(...data.eclipses);
+      if (data.planets) events.push(...data.planets);
+      if (data.moons) events.push(...data.moons);
+    }
+
+    return events;
   }
 
   /**
