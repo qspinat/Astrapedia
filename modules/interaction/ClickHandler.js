@@ -5,7 +5,7 @@
 
 // THREE is loaded globally from CDN in app.html
 import {cartesianToRaDec} from '../core/CoordinateUtils.js';
-import {CAMERA} from '../core/Constants.js';
+import {CAMERA, STARS} from '../core/Constants.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
 import {clamp} from '../core/Utils.js';
 
@@ -200,55 +200,62 @@ export class ClickHandler {
     const intersects = this.raycaster_.intersectObject(starField);
     if (intersects.length === 0) return false;
 
-    const index = intersects[0].index;
     const stars = starField.userData.stars;
     const dsos = starField.userData.dsos;
     const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
 
-    let clickedObject = null;
+    // Iterate through all intersections to find the first visible object
+    // (faint stars above magnitude limit may be closer in 3D but invisible)
+    // Stars in the fade range (up to FADE_RANGE beyond limit) are still visible
+    const effectiveLimit = magnitudeLimit + STARS.FADE_RANGE;
 
-    if (index < stars.length) {
-      const star = stars[index];
-      // Skip stars above magnitude limit (not visible)
-      if (star.mag !== undefined && star.mag > magnitudeLimit) {
-        return false;
-      }
-      clickedObject = {
-        name: star.proper || star.bf || `HIP ${star.hip}` || 'Unknown Star',
-        type: 'Star',
-        subtype: star.spect ? `Spectral type ${star.spect}` : null,
-        ra: star.ra,
-        dec: star.dec,
-        mag: star.mag,
-        distance: star.dist ? `${star.dist.toFixed(1)} ly` : null,
-        angularSize: null,
-      };
-    } else {
-      const dsoIndex = index - stars.length;
-      if (dsoIndex < dsos.length) {
-        const dso = dsos[dsoIndex];
-        // Skip DSOs above magnitude limit (not visible)
-        if (dso.mag !== undefined && dso.mag > magnitudeLimit) {
-          return false;
+    for (const intersection of intersects) {
+      const index = intersection.index;
+      let clickedObject = null;
+
+      if (index < stars.length) {
+        const star = stars[index];
+        // Skip stars beyond the fade range (completely invisible)
+        if (star.mag !== undefined && star.mag > effectiveLimit) {
+          continue;
         }
         clickedObject = {
-          name: dso.messier
-            ? `M${Math.floor(dso.messier)}`
-            : (dso.ngc ? `NGC ${dso.ngc}` : dso.name || 'Unknown Object'),
-          type: getDsoTypeName(dso.type),
-          subtype: dso.type,
-          ra: dso.ra,
-          dec: dso.dec,
-          mag: dso.mag,
-          size_major: dso.size_major,
-          size_minor: dso.size_minor,
+          name: star.proper || star.bf || `HIP ${star.hip}` || 'Unknown Star',
+          type: 'Star',
+          subtype: star.spect ? `Spectral type ${star.spect}` : null,
+          ra: star.ra,
+          dec: star.dec,
+          mag: star.mag,
+          distance: star.dist ? `${star.dist.toFixed(1)} ly` : null,
+          angularSize: null,
         };
+      } else {
+        const dsoIndex = index - stars.length;
+        if (dsoIndex < dsos.length) {
+          const dso = dsos[dsoIndex];
+          // Skip DSOs beyond the fade range (completely invisible)
+          if (dso.mag !== undefined && dso.mag > effectiveLimit) {
+            continue;
+          }
+          clickedObject = {
+            name: dso.messier
+              ? `M${Math.floor(dso.messier)}`
+              : (dso.ngc ? `NGC ${dso.ngc}` : dso.name || 'Unknown Object'),
+            type: getDsoTypeName(dso.type),
+            subtype: dso.type,
+            ra: dso.ra,
+            dec: dso.dec,
+            mag: dso.mag,
+            size_major: dso.size_major,
+            size_minor: dso.size_minor,
+          };
+        }
       }
-    }
 
-    if (clickedObject) {
-      this.handleObjectClick_(clickedObject);
-      return true;
+      if (clickedObject) {
+        this.handleObjectClick_(clickedObject);
+        return true;
+      }
     }
 
     return false;
@@ -269,40 +276,47 @@ export class ClickHandler {
     const intersects = this.raycaster_.intersectObject(dynamicStarField);
     if (intersects.length === 0) return false;
 
-    const visibleIndex = intersects[0].index;
     const visibleIndices = dynamicObjectManager.getVisibleIndices?.();
     const dynamicStars = dynamicObjectManager.getDynamicStars?.();
 
     if (!dynamicStars) return false;
 
-    const originalIndex = visibleIndices
-      ? visibleIndices[visibleIndex]
-      : visibleIndex;
-
-    if (originalIndex === undefined || originalIndex >= dynamicStars.length) {
-      return false;
-    }
-
-    const star = dynamicStars[originalIndex];
     const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
+    const effectiveLimit = magnitudeLimit + STARS.FADE_RANGE;
 
-    // Skip stars above magnitude limit (not visible)
-    if (star.mag !== undefined && star.mag > magnitudeLimit) {
-      return false;
+    // Iterate through all intersections to find the first visible star
+    for (const intersection of intersects) {
+      const visibleIndex = intersection.index;
+      const originalIndex = visibleIndices
+        ? visibleIndices[visibleIndex]
+        : visibleIndex;
+
+      if (originalIndex === undefined || originalIndex >= dynamicStars.length) {
+        continue;
+      }
+
+      const star = dynamicStars[originalIndex];
+
+      // Skip stars beyond the fade range (completely invisible)
+      if (star.mag !== undefined && star.mag > effectiveLimit) {
+        continue;
+      }
+
+      const clickedObject = {
+        name: `Star at RA ${star.ra.toFixed(4)}`,
+        type: 'Star',
+        subtype: 'Catalog star (VizieR)',
+        ra: star.ra,
+        dec: star.dec,
+        mag: star.mag,
+        angularSize: null,
+      };
+
+      this.handleObjectClick_(clickedObject);
+      return true;
     }
 
-    const clickedObject = {
-      name: `Star at RA ${star.ra.toFixed(4)}`,
-      type: 'Star',
-      subtype: 'Catalog star (VizieR)',
-      ra: star.ra,
-      dec: star.dec,
-      mag: star.mag,
-      angularSize: null,
-    };
-
-    this.handleObjectClick_(clickedObject);
-    return true;
+    return false;
   }
 
   /**
@@ -340,6 +354,7 @@ export class ClickHandler {
     const pixelsPerDeg = canvasHeight / fov;
     const minSizePixels = 6;
     const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
+    const effectiveLimit = magnitudeLimit + STARS.FADE_RANGE;
 
     let closestDSO = null;
     let closestDistance = Infinity;
@@ -347,8 +362,8 @@ export class ClickHandler {
     for (const sprite of extendedObjectSprites) {
       const dsoData = sprite.userData?.dso;
       if (!dsoData || !dsoData.ra) continue;
-      // Skip DSOs above magnitude limit (not visible)
-      if (dsoData.mag !== undefined && dsoData.mag > magnitudeLimit) continue;
+      // Skip DSOs beyond the fade range (completely invisible)
+      if (dsoData.mag !== undefined && dsoData.mag > effectiveLimit) continue;
 
       const dRa = (dsoData.ra - clickRaDec.ra) *
         Math.cos(THREE.MathUtils.degToRad(dsoData.dec));
