@@ -624,17 +624,18 @@ export class GameController {
       return {ra: 0, dec: 0};
     }
 
-    // Find stars and calculate average position using circular mean for RA.
-    // This correctly handles constellations that span the 0°/360° boundary.
-    let sumX = 0;  // cos(ra) component
-    let sumY = 0;  // sin(ra) component
+    // Calculate average position using circular mean for RA
+    const DEG_TO_RAD = Math.PI / 180;
+    const RAD_TO_DEG = 180 / Math.PI;
+    let sumX = 0;
+    let sumY = 0;
     let sumDec = 0;
     let count = 0;
 
     starIds.forEach((id) => {
       const star = this.stars_.find((s) => s.hip === id || s.id === id);
       if (star && star.ra !== undefined && star.dec !== undefined) {
-        const raRad = star.ra * Math.PI / 180;
+        const raRad = star.ra * DEG_TO_RAD;
         sumX += Math.cos(raRad);
         sumY += Math.sin(raRad);
         sumDec += star.dec;
@@ -646,18 +647,11 @@ export class GameController {
       return {ra: 0, dec: 0};
     }
 
-    // Calculate circular mean for RA using atan2
-    const meanRaRad = Math.atan2(sumY / count, sumX / count);
-    let meanRa = meanRaRad * 180 / Math.PI;
-    // Normalize to [0, 360)
-    if (meanRa < 0) {
-      meanRa += 360;
-    }
+    // Circular mean using atan2, normalized to [0, 360)
+    let meanRa = Math.atan2(sumY / count, sumX / count) * RAD_TO_DEG;
+    if (meanRa < 0) meanRa += 360;
 
-    return {
-      ra: meanRa,
-      dec: sumDec / count,
-    };
+    return {ra: meanRa, dec: sumDec / count};
   }
 
   /**

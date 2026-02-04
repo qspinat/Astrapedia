@@ -379,13 +379,15 @@ export class EventsCalendar {
     };
 
     const data = yearData[year];
-    if (data) {
-      if (data.eclipses) events.push(...data.eclipses);
-      if (data.planets) events.push(...data.planets);
-      if (data.moons) events.push(...data.moons);
-    }
+    if (!data) return events;
 
-    return events;
+    // Combine all event categories
+    return [
+      ...events,
+      ...(data.eclipses || []),
+      ...(data.planets || []),
+      ...(data.moons || []),
+    ];
   }
 
   /**

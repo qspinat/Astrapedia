@@ -144,37 +144,27 @@ export class GridRenderer {
     let raInterval = this.currentRaInterval_;
     let decInterval = this.currentDecInterval_;
 
-    // Limit maximum number of lines to prevent performance issues.
-    // Even at fine zoom levels, 360 lines (1° spacing) provides excellent precision.
+    // Limit maximum number of lines to prevent performance issues
     const maxLines = 360;
-    const requestedRaLines = Math.ceil(360 / raInterval);
-    const requestedDecLines = Math.ceil(180 / decInterval);
-
-    if (requestedRaLines > maxLines) {
+    if (Math.ceil(360 / raInterval) > maxLines) {
       raInterval = 360 / maxLines;
     }
-    if (requestedDecLines > maxLines / 2) {
+    if (Math.ceil(180 / decInterval) > maxLines / 2) {
       decInterval = 180 / (maxLines / 2);
     }
 
-    const numRaLines = Math.ceil(360 / raInterval);
-    const numDecLines = Math.ceil(180 / decInterval);
-
-    // Point step for line smoothness. Use smaller steps for smoother curves,
-    // but scale with grid interval to avoid excessive vertices.
-    // Target ~50 segments per line for smooth appearance.
+    // Point step for line smoothness (~50 segments per line)
     const pointStep = Math.min(Math.max(raInterval, decInterval, 0.5), 5);
 
     // Collect all line segments as pairs of vertices
     const vertices = [];
 
-    // RA lines (meridians) - each line segment connects adjacent points
+    // RA lines (meridians)
     for (let ra = 0; ra < 360; ra += raInterval) {
       let prevPos = null;
       for (let dec = -90; dec <= 90; dec += pointStep) {
         const pos = raDecToCartesian(ra, dec, radius);
         if (prevPos) {
-          // Add segment from previous point to current point
           vertices.push(prevPos.x, prevPos.y, prevPos.z);
           vertices.push(pos.x, pos.y, pos.z);
         }
@@ -182,15 +172,12 @@ export class GridRenderer {
       }
     }
 
-    // Dec lines (parallels) - each line segment connects adjacent points
-    const minDec = -90 + decInterval;
-    const maxDec = 90 - decInterval;
-    for (let dec = minDec; dec <= maxDec; dec += decInterval) {
+    // Dec lines (parallels)
+    for (let dec = -90 + decInterval; dec <= 90 - decInterval; dec += decInterval) {
       let prevPos = null;
       for (let ra = 0; ra <= 360; ra += pointStep) {
         const pos = raDecToCartesian(ra, dec, radius);
         if (prevPos) {
-          // Add segment from previous point to current point
           vertices.push(prevPos.x, prevPos.y, prevPos.z);
           vertices.push(pos.x, pos.y, pos.z);
         }
