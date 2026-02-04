@@ -293,29 +293,19 @@ export class SettingsHandler {
     globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, () => {
       this.telescopeModeActive_ = true;
       const magSlider = document.getElementById('magnitude-slider');
-      const magControl = document.getElementById('magnitude-control');
       if (magSlider) {
         this.savedMagnitude_ = parseFloat(magSlider.value);
         magSlider.disabled = true;
-      }
-      if (magControl) {
-        magControl.classList.add('disabled');
-        magControl.title = 'Controlled by telescope mode';
       }
     });
 
     globalEventBus.on(Events.TELESCOPE_MODE_DEACTIVATED, () => {
       this.telescopeModeActive_ = false;
       const magSlider = document.getElementById('magnitude-slider');
-      const magControl = document.getElementById('magnitude-control');
       if (magSlider) {
         magSlider.disabled = false;
         magSlider.value = this.savedMagnitude_;
         this.deps_.setMagnitudeLimit?.(this.savedMagnitude_);
-      }
-      if (magControl) {
-        magControl.classList.remove('disabled');
-        magControl.title = '';
       }
     });
   }

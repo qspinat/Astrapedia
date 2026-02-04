@@ -19,19 +19,35 @@ const GRID_CONFIG = {
 };
 
 /**
- * Grid density levels based on FOV.
- * Each level defines FOV threshold and grid spacing.
+ * Grid density levels based on camera FOV.
+ *
+ * The grid adapts to zoom level to maintain visual clarity:
+ * - At wide FOV (zoomed out): sparse grid to avoid visual clutter
+ * - At narrow FOV (zoomed in): dense grid for precise coordinate reading
+ *
+ * Rationale for intervals:
+ * - Grid lines should be ~3-10% of visible FOV for readability
+ * - Smaller intervals at high zoom enable precise positioning
+ * - Larger intervals at low zoom prevent overwhelming the star field
+ *
  * @const {!Array<!Object>}
  */
 const GRID_LEVELS = [
-  {maxFov: 0.5, raInterval: 1/60, decInterval: 1/60},      // 1 arcmin
-  {maxFov: 1, raInterval: 5/60, decInterval: 5/60},        // 5 arcmin
-  {maxFov: 2, raInterval: 10/60, decInterval: 10/60},      // 10 arcmin
-  {maxFov: 5, raInterval: 0.5, decInterval: 0.5},          // 30 arcmin
-  {maxFov: 15, raInterval: 1, decInterval: 1},             // 1 degree
-  {maxFov: 30, raInterval: 5, decInterval: 5},             // 5 degrees
-  {maxFov: Infinity, raInterval: 15, decInterval: 15},     // 15 degrees
+  {maxFov: 0.5, raInterval: 1/60, decInterval: 1/60},      // 1 arcmin - telescope view
+  {maxFov: 1, raInterval: 5/60, decInterval: 5/60},        // 5 arcmin - high magnification
+  {maxFov: 2, raInterval: 10/60, decInterval: 10/60},      // 10 arcmin - medium-high zoom
+  {maxFov: 5, raInterval: 0.5, decInterval: 0.5},          // 30 arcmin - medium zoom
+  {maxFov: 15, raInterval: 1, decInterval: 1},             // 1 degree - low zoom
+  {maxFov: 30, raInterval: 5, decInterval: 5},             // 5 degrees - wide view
+  {maxFov: Infinity, raInterval: 15, decInterval: 15},     // 15 degrees - full sky
 ];
+
+/**
+ * Minimum time between grid rebuilds in milliseconds.
+ * Prevents excessive geometry creation during smooth zoom.
+ * @const {number}
+ */
+const FOV_UPDATE_THROTTLE_MS = 100;
 
 /**
  * GridRenderer manages the RA/Dec coordinate grid visualization.
@@ -74,6 +90,9 @@ export class GridRenderer {
 
     /** @private {number} */
     this.currentDecInterval_ = 15;
+
+    /** @private {number} Last FOV update timestamp for throttling */
+    this.lastFovUpdateTime_ = 0;
 
     // Shared materials - created once and reused
     /** @private {?THREE.LineBasicMaterial} */
@@ -260,9 +279,16 @@ export class GridRenderer {
   /**
    * Update grid density based on camera FOV.
    * Recreates grid if density level changes.
+   * Throttled to prevent excessive geometry rebuilds during smooth zoom.
    * @param {number} fov - Current camera field of view in degrees
    */
   updateForFov(fov) {
+    // Throttle updates to prevent excessive geometry creation during zoom
+    const now = Date.now();
+    if (now - this.lastFovUpdateTime_ < FOV_UPDATE_THROTTLE_MS) {
+      return;
+    }
+
     // Find appropriate grid level for current FOV
     let newRaInterval = 15;
     let newDecInterval = 15;
@@ -278,6 +304,7 @@ export class GridRenderer {
     // Only recreate if intervals changed
     if (newRaInterval !== this.currentRaInterval_ ||
         newDecInterval !== this.currentDecInterval_) {
+      this.lastFovUpdateTime_ = now;
       this.currentRaInterval_ = newRaInterval;
       this.currentDecInterval_ = newDecInterval;
 

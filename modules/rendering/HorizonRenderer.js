@@ -12,8 +12,9 @@ import {CAMERA} from '../core/Constants.js';
 const HORIZON_CONFIG = {
   RADIUS: 99,
   CARDINAL_RADIUS: 95,
-  COLOR: 0x1a9a4a,  // Dimmer green for night vision
-  OPACITY: 0.5,     // Reduced brightness
+  COLOR: 0x1a9a4a,       // Dimmer green for night vision
+  COLOR_CSS: '#1a9a4a',  // Same color as CSS hex for canvas drawing
+  OPACITY: 0.5,          // Reduced brightness
   SEGMENTS: 128,
   LABEL_SIZE: 10,
   REFERENCE_FOV: CAMERA.DEFAULT_FOV,
@@ -155,7 +156,7 @@ export class HorizonRenderer {
     const ctx = canvas.getContext('2d');
 
     // Draw text with dimmer green color for night vision
-    ctx.fillStyle = '#1a9a4a';
+    ctx.fillStyle = HORIZON_CONFIG.COLOR_CSS;
     ctx.font = 'bold 80px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

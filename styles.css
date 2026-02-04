@@ -501,7 +501,7 @@ body.panel-open .info-badge {
 
 .panel-accordion__header:hover {
     color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-secondary);
 }
 
 .panel-accordion__icon {
@@ -1313,11 +1313,6 @@ body.night-mode .game-select-content {
 /* ==========================================================================
    11b. MAGNITUDE CONTROL (floating above time)
    ========================================================================== */
-
-/* Legacy magnitude-control class (element removed, keep for JS compatibility) */
-.magnitude-control {
-    display: none;
-}
 
 /* ==========================================================================
    12. BOTTOM BAR
