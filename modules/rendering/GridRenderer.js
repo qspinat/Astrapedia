@@ -1,6 +1,7 @@
 /**
  * @fileoverview RA/Dec coordinate grid and equator line rendering.
  * Handles celestial coordinate grid visualization.
+ * Optimized to use shared materials and LineSegments for performance.
  */
 
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
@@ -34,6 +35,7 @@ const GRID_LEVELS = [
 
 /**
  * GridRenderer manages the RA/Dec coordinate grid visualization.
+ * Uses shared materials and combined geometry for optimal performance.
  */
 export class GridRenderer {
   /**
@@ -49,11 +51,17 @@ export class GridRenderer {
     /** @private @const */
     this.requestRender_ = dependencies.requestRender || (() => {});
 
-    /** @private {?THREE.Group} */
+    /** @private {?THREE.LineSegments} */
     this.gridLines_ = null;
+
+    /** @private {?THREE.BufferGeometry} */
+    this.gridGeometry_ = null;
 
     /** @private {?THREE.Line} */
     this.equatorLine_ = null;
+
+    /** @private {?THREE.BufferGeometry} */
+    this.equatorGeometry_ = null;
 
     /** @private {boolean} */
     this.gridVisible_ = false;
@@ -66,11 +74,42 @@ export class GridRenderer {
 
     /** @private {number} */
     this.currentDecInterval_ = 15;
+
+    // Shared materials - created once and reused
+    /** @private {?THREE.LineBasicMaterial} */
+    this.gridMaterial_ = null;
+
+    /** @private {?THREE.LineBasicMaterial} */
+    this.equatorMaterial_ = null;
+
+    this.createMaterials_();
   }
 
   /**
-   * Get the grid lines group.
-   * @returns {?THREE.Group} Grid lines group
+   * Create shared materials for grid and equator lines.
+   * @private
+   */
+  createMaterials_() {
+    this.gridMaterial_ = new THREE.LineBasicMaterial({
+      color: GRID_CONFIG.COLOR,
+      transparent: true,
+      opacity: GRID_CONFIG.OPACITY,
+      depthTest: false,
+      depthWrite: false,
+    });
+
+    this.equatorMaterial_ = new THREE.LineBasicMaterial({
+      color: GRID_CONFIG.EQUATOR_COLOR,
+      transparent: true,
+      opacity: GRID_CONFIG.EQUATOR_OPACITY,
+      depthTest: false,
+      depthWrite: false,
+    });
+  }
+
+  /**
+   * Get the grid lines object.
+   * @returns {?THREE.LineSegments} Grid lines object
    */
   getGridLines() {
     return this.gridLines_;
@@ -86,66 +125,90 @@ export class GridRenderer {
 
   /**
    * Create the coordinate grid visualization.
+   * Uses a single LineSegments object for optimal performance.
    */
   create() {
     this.cleanup_();
+    this.createGridGeometry_();
+    this.createEquatorLine_();
+    console.log('GridRenderer: Created RA/Dec grid');
+  }
 
-    const gridGroup = new THREE.Group();
+  /**
+   * Build grid geometry using LineSegments for efficiency.
+   * All lines are combined into a single geometry.
+   * @private
+   */
+  createGridGeometry_() {
     const radius = GRID_CONFIG.RADIUS;
-    const raInterval = this.currentRaInterval_;
-    const decInterval = this.currentDecInterval_;
+    let raInterval = this.currentRaInterval_;
+    let decInterval = this.currentDecInterval_;
 
-    // Point step size for smooth lines (smaller for finer grids)
-    const pointStep = Math.min(raInterval, decInterval, 5);
+    // Limit maximum number of lines to prevent performance issues.
+    // Even at fine zoom levels, 360 lines (1° spacing) provides excellent precision.
+    const maxLines = 360;
+    const requestedRaLines = Math.ceil(360 / raInterval);
+    const requestedDecLines = Math.ceil(180 / decInterval);
 
-    // RA lines (meridians)
-    for (let ra = 0; ra < 360; ra += raInterval) {
-      const points = [];
-      for (let dec = -90; dec <= 90; dec += pointStep) {
-        const pos = raDecToCartesian(ra, dec, radius);
-        points.push(pos);
-      }
-      const geometry = new THREE.BufferGeometry().setFromPoints(points);
-      const material = new THREE.LineBasicMaterial({
-        color: GRID_CONFIG.COLOR,
-        transparent: true,
-        opacity: GRID_CONFIG.OPACITY,
-        depthTest: false,
-        depthWrite: false,
-      });
-      const line = new THREE.Line(geometry, material);
-      gridGroup.add(line);
+    if (requestedRaLines > maxLines) {
+      raInterval = 360 / maxLines;
+    }
+    if (requestedDecLines > maxLines / 2) {
+      decInterval = 180 / (maxLines / 2);
     }
 
-    // Dec lines (parallels)
+    const numRaLines = Math.ceil(360 / raInterval);
+    const numDecLines = Math.ceil(180 / decInterval);
+
+    // Point step for line smoothness. Use smaller steps for smoother curves,
+    // but scale with grid interval to avoid excessive vertices.
+    // Target ~50 segments per line for smooth appearance.
+    const pointStep = Math.min(Math.max(raInterval, decInterval, 0.5), 5);
+
+    // Collect all line segments as pairs of vertices
+    const vertices = [];
+
+    // RA lines (meridians) - each line segment connects adjacent points
+    for (let ra = 0; ra < 360; ra += raInterval) {
+      let prevPos = null;
+      for (let dec = -90; dec <= 90; dec += pointStep) {
+        const pos = raDecToCartesian(ra, dec, radius);
+        if (prevPos) {
+          // Add segment from previous point to current point
+          vertices.push(prevPos.x, prevPos.y, prevPos.z);
+          vertices.push(pos.x, pos.y, pos.z);
+        }
+        prevPos = pos;
+      }
+    }
+
+    // Dec lines (parallels) - each line segment connects adjacent points
     const minDec = -90 + decInterval;
     const maxDec = 90 - decInterval;
     for (let dec = minDec; dec <= maxDec; dec += decInterval) {
-      const points = [];
+      let prevPos = null;
       for (let ra = 0; ra <= 360; ra += pointStep) {
         const pos = raDecToCartesian(ra, dec, radius);
-        points.push(pos);
+        if (prevPos) {
+          // Add segment from previous point to current point
+          vertices.push(prevPos.x, prevPos.y, prevPos.z);
+          vertices.push(pos.x, pos.y, pos.z);
+        }
+        prevPos = pos;
       }
-      const geometry = new THREE.BufferGeometry().setFromPoints(points);
-      const material = new THREE.LineBasicMaterial({
-        color: GRID_CONFIG.COLOR,
-        transparent: true,
-        opacity: GRID_CONFIG.OPACITY,
-        depthTest: false,
-        depthWrite: false,
-      });
-      const line = new THREE.Line(geometry, material);
-      gridGroup.add(line);
     }
 
-    this.gridLines_ = gridGroup;
+    // Create single geometry with all segments
+    this.gridGeometry_ = new THREE.BufferGeometry();
+    this.gridGeometry_.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(vertices, 3)
+    );
+
+    // Use LineSegments - much more efficient than many Line objects
+    this.gridLines_ = new THREE.LineSegments(this.gridGeometry_, this.gridMaterial_);
     this.gridLines_.visible = this.gridVisible_;
     this.celestialSphere_.add(this.gridLines_);
-
-    // Create equator line (dec = 0)
-    this.createEquatorLine_();
-
-    console.log('GridRenderer: Created RA/Dec grid');
   }
 
   /**
@@ -161,17 +224,8 @@ export class GridRenderer {
       equatorPoints.push(pos);
     }
 
-    const equatorGeometry = new THREE.BufferGeometry().setFromPoints(equatorPoints);
-    const equatorMaterial = new THREE.LineBasicMaterial({
-      color: GRID_CONFIG.EQUATOR_COLOR,
-      transparent: true,
-      opacity: GRID_CONFIG.EQUATOR_OPACITY,
-      linewidth: 2,
-      depthTest: false,
-      depthWrite: false,
-    });
-
-    this.equatorLine_ = new THREE.Line(equatorGeometry, equatorMaterial);
+    this.equatorGeometry_ = new THREE.BufferGeometry().setFromPoints(equatorPoints);
+    this.equatorLine_ = new THREE.Line(this.equatorGeometry_, this.equatorMaterial_);
     this.equatorLine_.visible = this.equatorVisible_;
     this.celestialSphere_.add(this.equatorLine_);
   }
@@ -244,53 +298,8 @@ export class GridRenderer {
       if (this.gridLines_) {
         const wasVisible = this.gridVisible_;
         this.cleanupGrid_();
-
-        // Recreate grid with new intervals
-        const gridGroup = new THREE.Group();
-        const radius = GRID_CONFIG.RADIUS;
-        const pointStep = Math.min(newRaInterval, newDecInterval, 5);
-
-        // RA lines (meridians)
-        for (let ra = 0; ra < 360; ra += newRaInterval) {
-          const points = [];
-          for (let dec = -90; dec <= 90; dec += pointStep) {
-            const pos = raDecToCartesian(ra, dec, radius);
-            points.push(pos);
-          }
-          const geometry = new THREE.BufferGeometry().setFromPoints(points);
-          const material = new THREE.LineBasicMaterial({
-            color: GRID_CONFIG.COLOR,
-            transparent: true,
-            opacity: GRID_CONFIG.OPACITY,
-            depthWrite: false,
-          });
-          const line = new THREE.Line(geometry, material);
-          gridGroup.add(line);
-        }
-
-        // Dec lines (parallels)
-        const minDec = -90 + newDecInterval;
-        const maxDec = 90 - newDecInterval;
-        for (let dec = minDec; dec <= maxDec; dec += newDecInterval) {
-          const points = [];
-          for (let ra = 0; ra <= 360; ra += pointStep) {
-            const pos = raDecToCartesian(ra, dec, radius);
-            points.push(pos);
-          }
-          const geometry = new THREE.BufferGeometry().setFromPoints(points);
-          const material = new THREE.LineBasicMaterial({
-            color: GRID_CONFIG.COLOR,
-            transparent: true,
-            opacity: GRID_CONFIG.OPACITY,
-            depthWrite: false,
-          });
-          const line = new THREE.Line(geometry, material);
-          gridGroup.add(line);
-        }
-
-        this.gridLines_ = gridGroup;
+        this.createGridGeometry_();
         this.gridLines_.visible = wasVisible;
-        this.celestialSphere_.add(this.gridLines_);
         this.requestRender_();
       }
     }
@@ -298,12 +307,17 @@ export class GridRenderer {
 
   /**
    * Cleanup grid lines only (preserves equator).
+   * Properly disposes of geometry to prevent memory leaks.
    * @private
    */
   cleanupGrid_() {
     if (this.gridLines_) {
       this.celestialSphere_.remove(this.gridLines_);
       this.gridLines_ = null;
+    }
+    if (this.gridGeometry_) {
+      this.gridGeometry_.dispose();
+      this.gridGeometry_ = null;
     }
   }
 
@@ -317,12 +331,24 @@ export class GridRenderer {
       this.celestialSphere_.remove(this.equatorLine_);
       this.equatorLine_ = null;
     }
+    if (this.equatorGeometry_) {
+      this.equatorGeometry_.dispose();
+      this.equatorGeometry_ = null;
+    }
   }
 
   /**
-   * Dispose of all resources.
+   * Dispose of all resources including materials.
    */
   dispose() {
     this.cleanup_();
+    if (this.gridMaterial_) {
+      this.gridMaterial_.dispose();
+      this.gridMaterial_ = null;
+    }
+    if (this.equatorMaterial_) {
+      this.equatorMaterial_.dispose();
+      this.equatorMaterial_ = null;
+    }
   }
 }

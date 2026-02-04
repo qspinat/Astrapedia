@@ -130,6 +130,11 @@ canvas:active {
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s;
+    filter: brightness(0.7);
+}
+
+.icon-btn:hover {
+    filter: brightness(0.9);
 }
 
 .icon-btn svg {
@@ -576,6 +581,11 @@ select:focus {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    filter: brightness(0.7);
+}
+
+.action-btn:hover {
+    filter: brightness(0.9);
 }
 
 .action-btn:hover {
@@ -943,10 +953,12 @@ body.night-mode .game-select-content {
     display: flex;
     align-items: center;
     justify-content: center;
+    filter: brightness(0.7);
 }
 
 .time-btn:hover {
     background: var(--accent);
+    filter: brightness(0.9);
 }
 
 .time-btn.small {
@@ -1637,10 +1649,15 @@ select:focus-visible {
     width: 100%;
 }
 
-/* Tour buttons */
+/* Tour buttons - dimmed icons for night vision */
 .tour-btn__icon {
     font-size: 24px;
-    color: var(--accent-blue);
+    color: var(--text-secondary);
+    filter: brightness(0.6) saturate(0.7);
+}
+
+.tour-btn:hover .tour-btn__icon {
+    filter: brightness(0.8) saturate(0.9);
 }
 
 .tour-btn__text {

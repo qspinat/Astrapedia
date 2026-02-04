@@ -12,8 +12,8 @@ import {CAMERA} from '../core/Constants.js';
 const HORIZON_CONFIG = {
   RADIUS: 99,
   CARDINAL_RADIUS: 95,
-  COLOR: 0x22C55E,
-  OPACITY: 0.9,
+  COLOR: 0x1a9a4a,  // Dimmer green for night vision
+  OPACITY: 0.5,     // Reduced brightness
   SEGMENTS: 128,
   LABEL_SIZE: 10,
   REFERENCE_FOV: CAMERA.DEFAULT_FOV,
@@ -154,8 +154,8 @@ export class HorizonRenderer {
     canvas.height = 128;
     const ctx = canvas.getContext('2d');
 
-    // Draw text with green color to match horizon
-    ctx.fillStyle = '#22C55E';
+    // Draw text with dimmer green color for night vision
+    ctx.fillStyle = '#1a9a4a';
     ctx.font = 'bold 80px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -165,7 +165,7 @@ export class HorizonRenderer {
     const material = new THREE.SpriteMaterial({
       map: texture,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.5,
       depthWrite: false,
     });
 
