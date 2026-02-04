@@ -105,6 +105,7 @@ export class HorizonRenderer {
       transparent: true,
       opacity: HORIZON_CONFIG.OPACITY,
       linewidth: 2,
+      depthTest: false,
       depthWrite: false,
     });
     const horizonCircle = new THREE.Line(horizonGeometry, horizonMaterial);

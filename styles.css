@@ -7,16 +7,16 @@
    ========================================================================== */
 
 :root {
-    /* Colors */
-    --bg-primary: rgba(19, 27, 46, 0.95);
-    --bg-secondary: rgba(31, 41, 55, 0.8);
-    --bg-dark: #0A0F1C;
-    --text-primary: #F3F4F6;
-    --text-secondary: #9CA3AF;
-    --accent: #3B82F6;
-    --accent-hover: #2563EB;
-    --accent-blue: #60A5FA;
-    --border: rgba(255, 255, 255, 0.1);
+    /* Colors - night vision friendly */
+    --bg-primary: rgba(15, 20, 30, 0.95);
+    --bg-secondary: rgba(25, 32, 45, 0.8);
+    --bg-dark: #080c14;
+    --text-primary: #8899aa;
+    --text-secondary: #667788;
+    --accent: #335577;
+    --accent-hover: #2a4466;
+    --accent-blue: #446688;
+    --border: rgba(100, 120, 140, 0.15);
     --shadow: rgba(0, 0, 0, 0.4);
     --radius: 12px;
     --radius-sm: 8px;
@@ -124,7 +124,7 @@ canvas:active {
     border-radius: 50%;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    color: #F3F4F6;
+    color: #8899aa;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -133,7 +133,7 @@ canvas:active {
 }
 
 .icon-btn svg {
-    stroke: #F3F4F6;
+    stroke: #8899aa;
 }
 
 /* Only apply hover on devices that support it (not touch) */
@@ -144,7 +144,7 @@ canvas:active {
     }
 
     .icon-btn:hover svg {
-        stroke: white;
+        stroke: #99aabb;
     }
 }
 
@@ -244,7 +244,7 @@ canvas:active {
 
 .search-result-item .mag {
     font-size: 12px;
-    color: #60A5FA;
+    color: #446688;
 }
 
 .search-result-item.no-results {
@@ -277,7 +277,7 @@ canvas:active {
 }
 
 #fov-badge {
-    color: #60A5FA;
+    color: #446688;
     font-weight: 600;
 }
 
@@ -384,8 +384,8 @@ body.panel-open .info-badge {
 }
 
 .close-btn:hover {
-    background: #EF4444;
-    color: white;
+    background: #8B3030;
+    color: #aabbcc;
 }
 
 /* ==========================================================================
@@ -395,7 +395,7 @@ body.panel-open .info-badge {
 .panel-section {
     padding: 16px;
     border-bottom: 1px solid var(--border);
-    color: #F3F4F6;
+    color: #8899aa;
 }
 
 .panel-section:last-child {
@@ -405,7 +405,7 @@ body.panel-open .info-badge {
 .panel-section h3 {
     font-size: 12px;
     font-weight: 600;
-    color: #9CA3AF;
+    color: #667788;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 12px;
@@ -413,7 +413,7 @@ body.panel-open .info-badge {
 
 .panel-section span,
 .panel-section label {
-    color: #F3F4F6;
+    color: #8899aa;
 }
 
 /* Toggle Switch */
@@ -449,7 +449,7 @@ body.panel-open .info-badge {
     left: 3px;
     width: 22px;
     height: 22px;
-    background: white;
+    background: #8899aa;
     border-radius: 50%;
     transition: transform 0.2s;
 }
@@ -527,7 +527,7 @@ select:focus {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    color: #F3F4F6 !important;
+    color: #8899aa !important;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -535,7 +535,7 @@ select:focus {
 }
 
 .tour-btn span {
-    color: #F3F4F6;
+    color: #8899aa;
 }
 
 .tour-btn:hover {
@@ -547,12 +547,12 @@ select:focus {
 .tour-icon {
     width: 28px;
     height: 28px;
-    stroke: #60A5FA;
+    stroke: #446688;
     flex-shrink: 0;
 }
 
 .tour-btn:hover .tour-icon {
-    stroke: white;
+    stroke: #99aabb;
 }
 
 /* Action Buttons */
@@ -571,7 +571,7 @@ select:focus {
     background: var(--accent);
     border: none;
     border-radius: var(--radius-sm);
-    color: white;
+    color: #aabbcc;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -588,7 +588,7 @@ select:focus {
 }
 
 .action-btn.secondary:hover {
-    background: #374151;
+    background: #1a2535;
 }
 
 /* ==========================================================================
@@ -631,7 +631,7 @@ select:focus {
     background: var(--accent);
     border: none;
     border-radius: 20px;
-    color: white;
+    color: #aabbcc;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -680,7 +680,7 @@ select:focus {
 .game-question {
     font-size: 18px;
     font-weight: 700;
-    color: #60A5FA;
+    color: #446688;
     margin: 6px 0;
 }
 
@@ -865,7 +865,7 @@ body.night-mode .game-select-content {
 
 #info-panel h2,
 #info-panel .panel-header h2 {
-    color: #60A5FA;
+    color: #446688;
 }
 
 .image-loading,
@@ -963,7 +963,7 @@ body.night-mode .game-select-content {
 }
 
 .time-btn.small.secondary:hover {
-    background: #374151;
+    background: #1a2535;
 }
 
 /* Date/Time Picker Panel */
@@ -1022,7 +1022,7 @@ body.night-mode .game-select-content {
 #time-display {
     font-family: 'Monaco', monospace;
     font-size: 12px;
-    color: #60A5FA;
+    color: #446688;
 }
 
 #time-speed-display {
@@ -1142,15 +1142,15 @@ body.night-mode .game-select-content {
 .quick-btn .btn-label {
     font-size: 11px;
     font-weight: 500;
-    color: #F3F4F6;
+    color: #8899aa;
 }
 
 .quick-btn svg {
-    stroke: #60A5FA;
+    stroke: #446688;
 }
 
 .quick-btn:hover svg {
-    stroke: white;
+    stroke: #99aabb;
 }
 
 /* ==========================================================================
@@ -1180,7 +1180,7 @@ body.night-mode .game-select-content {
 
 #tour-panel h3 {
     font-size: 18px;
-    color: #60A5FA;
+    color: #446688;
     margin-bottom: 8px;
 }
 
@@ -1366,7 +1366,7 @@ body.night-mode .game-select-content {
 }
 
 .side-panel a {
-    color: #60A5FA;
+    color: #446688;
     text-decoration: none;
 }
 
@@ -1376,7 +1376,7 @@ body.night-mode .game-select-content {
 
 button {
     background: var(--accent);
-    color: white;
+    color: #aabbcc;
     border: none;
     border-radius: var(--radius-sm);
     padding: 12px 20px;
@@ -1401,7 +1401,7 @@ button.secondary {
 }
 
 button.secondary:hover {
-    background: #374151;
+    background: #1a2535;
 }
 
 /* ==========================================================================
@@ -1457,8 +1457,8 @@ button.secondary:hover {
    ========================================================================== */
 
 body.night-mode {
-    --accent: #DC2626;
-    --accent-hover: #B91C1C;
+    --accent: #8B3030;
+    --accent-hover: #6B2020;
 }
 
 body.night-mode .header,
@@ -1570,7 +1570,7 @@ select:focus-visible {
 .icon-btn--constellations.active {
     background: var(--accent) !important;
     border-color: var(--accent) !important;
-    color: white;
+    color: #aabbcc;
 }
 
 .icon-btn--constellations:not(.active) {
@@ -1583,7 +1583,7 @@ select:focus-visible {
 .icon-btn--telescope.active {
     background: var(--accent) !important;
     border-color: var(--accent) !important;
-    color: white;
+    color: #aabbcc;
 }
 
 .icon-btn--telescope:not(.active) {
@@ -1629,7 +1629,7 @@ select:focus-visible {
 }
 
 .performance-hint {
-    color: #6B7280;
+    color: #4a5566;
     font-size: 10px;
 }
 
@@ -1661,7 +1661,7 @@ select:focus-visible {
 /* Language select styling */
 .language-select {
     color: var(--text-primary);
-    background: #1F2937;
+    background: #151c28;
 }
 
 /* Magnitude control labels */
@@ -1843,7 +1843,7 @@ select:focus-visible {
     background: rgba(239, 68, 68, 0.15);
     border: 1px solid rgba(239, 68, 68, 0.4);
     border-radius: var(--radius-sm);
-    color: #EF4444;
+    color: #8B3030;
     font-size: 12px;
     font-weight: 500;
     display: none;
@@ -1885,29 +1885,29 @@ select:focus-visible {
 
 .reticle-circle {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.15);
+    stroke: rgba(180, 80, 80, 0.2);
     stroke-width: 1;
 }
 
 .reticle-circle.active {
-    stroke: rgba(255, 255, 255, 0.8);
+    stroke: rgba(180, 80, 80, 0.6);
     stroke-width: 2.5;
 }
 
 .reticle-line {
-    stroke: rgba(255, 255, 255, 0.4);
+    stroke: rgba(180, 80, 80, 0.35);
     stroke-width: 1.5;
 }
 
 .reticle-label {
-    fill: rgba(255, 255, 255, 0.2);
+    fill: rgba(180, 80, 80, 0.25);
     font-size: 6px;
     text-anchor: middle;
     font-family: 'Monaco', 'Menlo', monospace;
 }
 
 .reticle-label.active {
-    fill: rgba(255, 255, 255, 0.9);
+    fill: rgba(180, 80, 80, 0.7);
     font-size: 7px;
     font-weight: bold;
 }
@@ -1921,7 +1921,7 @@ select:focus-visible {
     gap: 16px;
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(180, 80, 80, 0.6);
     white-space: nowrap;
 }
 
@@ -1948,7 +1948,7 @@ body.telescope-mode::after {
 body.night-mode .telescope-warning {
     background: rgba(220, 38, 38, 0.15);
     border-color: rgba(220, 38, 38, 0.4);
-    color: #DC2626;
+    color: #8B3030;
 }
 
 body.night-mode .reticle-circle {

@@ -257,6 +257,7 @@ export class SettingsHandler {
    * @param {function(): void=} dependencies.toggleNightMode - Toggle night mode
    * @param {function(boolean): void=} dependencies.setConstellationLines - Set lines
    * @param {function(boolean): void=} dependencies.setEquatorLineVisible - Set equator
+   * @param {function(boolean): void=} dependencies.setGridVisible - Set grid visibility
    * @param {function(string): void=} dependencies.setLanguage - Set language
    * @param {function(number): void=} dependencies.setMagnitudeLimit - Set magnitude
    * @param {function(): void=} dependencies.showLocationDialog - Show location dialog
@@ -329,6 +330,14 @@ export class SettingsHandler {
     if (equatorToggle) {
       equatorToggle.addEventListener('change', (e) => {
         this.deps_.setEquatorLineVisible?.(e.target.checked);
+      });
+    }
+
+    // Coordinate grid toggle
+    const gridToggle = document.getElementById('grid-toggle');
+    if (gridToggle) {
+      gridToggle.addEventListener('change', (e) => {
+        this.deps_.setGridVisible?.(e.target.checked);
       });
     }
 
@@ -638,6 +647,7 @@ export class UIController {
       toggleNightMode: this.deps_.toggleNightMode,
       setConstellationLines: this.deps_.setConstellationLines,
       setEquatorLineVisible: this.deps_.setEquatorLineVisible,
+      setGridVisible: this.deps_.setGridVisible,
       setLanguage: this.deps_.setLanguage,
       setMagnitudeLimit: this.deps_.setMagnitudeLimit,
       showLocationDialog: this.deps_.showLocationDialog,

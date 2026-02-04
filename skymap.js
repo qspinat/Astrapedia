@@ -607,7 +607,7 @@ export class SkyMapApp {
       showConstellationInfo: (name) => this.showConstellationInfo(name),
       unhighlightConstellation: () => this.unhighlightConstellation(),
       clearSelection: () => this.selectionManager_?.clearSelection(),
-      getMagnitudeLimit: () => this.magnitudeLimit,
+      getMagnitudeLimit: () => this.currentMagnitude,
       getConstellationName: (key) => this.getConstellationName(key),
     });
   }
@@ -1034,6 +1034,15 @@ export class SkyMapApp {
     this.gridRenderer_?.setEquatorVisible(visible);
   }
 
+  /**
+   * Set the visibility of the coordinate grid.
+   * Delegates to GridRenderer module.
+   * @param {boolean} visible - Whether the grid should be visible
+   */
+  setGridVisible(visible) {
+    this.gridRenderer_?.setGridVisible(visible);
+  }
+
   // Feature 1: Constellation Lines
   /**
    * Create constellation lines from star data.
@@ -1209,6 +1218,9 @@ export class SkyMapApp {
       this.camera.fov += fovDiff * this.zoomLerpSpeed;
       this.camera.updateProjectionMatrix();
       changed = true;
+
+      // Update grid density based on new FOV
+      this.gridRenderer_?.updateForFov(this.camera.fov);
     }
 
     // Smoothly interpolate rotation

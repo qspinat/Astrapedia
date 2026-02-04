@@ -284,6 +284,13 @@ export class ClickHandler {
     }
 
     const star = dynamicStars[originalIndex];
+    const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
+
+    // Skip stars above magnitude limit (not visible)
+    if (star.mag !== undefined && star.mag > magnitudeLimit) {
+      return false;
+    }
+
     const clickedObject = {
       name: `Star at RA ${star.ra.toFixed(4)}`,
       type: 'Star',

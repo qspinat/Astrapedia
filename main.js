@@ -204,6 +204,7 @@ function initializeUI_(appInstance) {
       appInstance.requestRender?.();
     },
     setEquatorLineVisible: (visible) => appInstance.setEquatorLineVisible?.(visible),
+    setGridVisible: (visible) => appInstance.setGridVisible?.(visible),
     setLanguage: (lang) => appInstance.setConstellationLanguage?.(lang),
     setMagnitudeLimit: (mag) => appInstance.setMagnitudeLimit?.(mag),
     showLocationDialog: () => appInstance.setObserverLocation?.(),
