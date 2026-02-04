@@ -240,6 +240,12 @@ export class EventsCalendar {
   /**
    * Get year-specific astronomical events (eclipses, planetary events).
    * Data verified from NASA, TimeandDate.com, and other authoritative sources.
+   *
+   * MAINTENANCE NOTE: This data covers 2025-2029 and should be updated when:
+   * - The current year approaches 2028 (add 2030+ events)
+   * - NASA/TimeandDate publish corrections to eclipse times
+   * - Last updated: February 2026
+   *
    * @param {number} year - The year to get events for
    * @returns {!Array<!Object>} Year-specific events
    * @private
@@ -248,7 +254,8 @@ export class EventsCalendar {
     const events = [];
 
     // Eclipse and planetary event data by year
-    // Sources: NASA, TimeandDate.com, EclipseWise.com, Almanac.com
+    // Sources: NASA Eclipse Page, TimeandDate.com, EclipseWise.com, Almanac.com
+    // TODO: Add 2030+ events when approaching 2028
     const yearData = {
       2025: {
         eclipses: [
