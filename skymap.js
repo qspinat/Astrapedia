@@ -712,12 +712,16 @@ export class SkyMapApp {
 
     // Tour commands - delegate directly to TourController
     globalEventBus.on(Events.CMD_START_TOUR, (data) => {
+      console.log('[SkyMap] CMD_START_TOUR received:', data?.tourName);
       if (data?.tourName) {
         this.tourController_.start(data.tourName);
+      } else {
+        console.warn('[SkyMap] CMD_START_TOUR received with no tourName');
       }
     });
 
     globalEventBus.on(Events.CMD_NEXT_TOUR_STEP, () => {
+      console.log('[SkyMap] CMD_NEXT_TOUR_STEP received');
       this.tourController_.next();
     });
 
@@ -1646,8 +1650,8 @@ export class SkyMapApp {
    * Show events calendar panel.
    * Delegates to EventsCalendar module.
    */
-  async showEventsCalendar() {
-    await eventsCalendar.showEventsCalendar(window.openPanel);
+  showEventsCalendar() {
+    eventsCalendar.showEventsCalendar(window.openPanel);
   }
 
   /* ======================================================================

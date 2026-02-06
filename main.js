@@ -146,6 +146,12 @@ let uiController = null;
 let telescopeController = null;
 
 /**
+ * Sky Conditions Handler instance.
+ * @type {?SkyConditionsHandler}
+ */
+let skyConditionsHandler = null;
+
+/**
  * Initialize the UI controller with dependencies from the app.
  * @param {!SkyMapApp} appInstance - The application instance
  * @private
@@ -156,12 +162,20 @@ function initializeUI_(appInstance) {
   window.openPanel = (panelId) => panelManager.open(panelId);
   window.closeAllPanels = () => panelManager.closeAll();
 
+  // Initialize sky conditions handler
+  skyConditionsHandler = new SkyConditionsHandler();
+  skyConditionsHandler.setupEventListeners();
+  skyConditionsHandler.onChange(() => {
+    appInstance.requestRender?.();
+  });
+
   // Initialize telescope controller
   telescopeController = new TelescopeController({
     setFOV: (fov) => {
       appInstance.targetFov = fov;
       appInstance.requestRender?.();
     },
+    getSkyLimitingMagnitude: () => skyConditionsHandler?.getNakedEyeLimit(),
     lockZoom: () => {
       appInstance.telescopeModeActive = true;
     },

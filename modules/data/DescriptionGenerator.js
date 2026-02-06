@@ -139,6 +139,7 @@ export class DescriptionGenerator {
   getWikipediaSearchTerms(obj) {
     const terms = [];
     const name = obj.name;
+    if (!name) return terms;
 
     // Messier objects have specific Wikipedia titles
     const messierMatch = name.match(/M(\d+)/i);

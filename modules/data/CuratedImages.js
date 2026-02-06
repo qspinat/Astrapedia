@@ -135,10 +135,10 @@ export const CURATED_IMAGES = {
     source: 'ESA/Hubble',
   },
   'NGC7000': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/' +
-         'North_America_Nebula_%28NGC_7000%29.jpg/' +
-         '1024px-North_America_Nebula_%28NGC_7000%29.jpg',
-    source: 'Wikimedia',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/' +
+         'NGC_7000-_The_North_America_Nebula_and_the_Pelican_Nebula_%28noao-n7000mosblock%29.jpg/' +
+         '1024px-NGC_7000-_The_North_America_Nebula_and_the_Pelican_Nebula_%28noao-n7000mosblock%29.jpg',
+    source: 'NOAO/AURA/NSF via Wikimedia',
   },
   'NGC7023': {
     url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/' +

@@ -1,21 +1,10 @@
 /**
  * @fileoverview Astronomy events calendar module.
- * Handles fetching, parsing, and displaying astronomical events.
+ * Displays astronomical events from built-in data (meteor showers, eclipses,
+ * solstices, equinoxes, planetary events).
  */
 
 import {escapeHtml} from '../core/SecurityUtils.js';
-
-/**
- * Cache duration for events (24 hours in ms).
- * @const {number}
- */
-const EVENTS_CACHE_DURATION = 24 * 60 * 60 * 1000;
-
-/**
- * iCal calendar URL for astronomy events.
- * @const {string}
- */
-const ICAL_URL = 'https://raw.githubusercontent.com/toupeira/AstroCalendar/master/AstroCalendar.ics';
 
 /**
  * Event type icons for display.
@@ -41,9 +30,6 @@ export class EventsCalendar {
   constructor() {
     /** @private {?Array<!Object>} */
     this.eventsCache_ = null;
-
-    /** @private {?number} */
-    this.cacheTime_ = null;
   }
 
   /**
@@ -114,8 +100,12 @@ export class EventsCalendar {
         event.description = value
           .replace(/\\n/g, ' ')
           .replace(/\\,/g, ',')
+          .replace(/&ndash;/g, '\u2013')
           .replace(/\s+/g, ' ')
           .trim();
+        break;
+      case 'URL':
+        event.url = value.trim();
         break;
     }
   }
@@ -149,35 +139,14 @@ export class EventsCalendar {
   }
 
   /**
-   * Fetch astronomy events from online iCal calendar.
-   * @returns {!Promise<?Array<!Object>>} Array of event objects or null on failure
+   * Get astronomy events (from built-in data).
+   * @returns {!Array<!Object>} Array of event objects
    */
-  async fetchAstronomyEvents() {
-    // Check cache first
-    if (this.eventsCache_ && this.cacheTime_ &&
-        (Date.now() - this.cacheTime_) < EVENTS_CACHE_DURATION) {
-      return this.eventsCache_;
+  getEvents() {
+    if (!this.eventsCache_) {
+      this.eventsCache_ = this.getFallbackEvents();
     }
-
-    try {
-      const response = await fetch(ICAL_URL);
-      if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
-      }
-
-      const icalData = await response.text();
-      const events = this.parseICalEvents(icalData);
-
-      // Cache the results
-      this.eventsCache_ = events;
-      this.cacheTime_ = Date.now();
-
-      console.log(`✓ Fetched ${events.length} astronomy events from online calendar`);
-      return events;
-    } catch (error) {
-      console.warn('Failed to fetch astronomy events:', error);
-      return null;
-    }
+    return this.eventsCache_;
   }
 
   /**
@@ -403,7 +372,7 @@ export class EventsCalendar {
    */
   getUpcomingEvents() {
     const now = new Date();
-    const events = this.eventsCache_ || this.getFallbackEvents();
+    const events = this.getEvents();
 
     return events
       .filter((event) => event.date > now)
@@ -415,7 +384,7 @@ export class EventsCalendar {
    * Show events calendar in the events panel.
    * @param {function(string): void=} openPanel - Function to open panel
    */
-  async showEventsCalendar(openPanel) {
+  showEventsCalendar(openPanel) {
     const panel = document.getElementById('events-panel');
     if (!panel) return;
 
@@ -429,14 +398,6 @@ export class EventsCalendar {
     } else {
       panel.classList.add('visible');
     }
-
-    // Show loading state
-    if (content) {
-      content.innerHTML = '<div class="events-loading">Loading astronomy events...</div>';
-    }
-
-    // Try to fetch online events
-    await this.fetchAstronomyEvents();
 
     // Get events
     const events = this.getUpcomingEvents();
@@ -477,10 +438,7 @@ export class EventsCalendar {
       html = '<p>No upcoming events found.</p>';
     }
 
-    // Add source attribution
-    if (this.eventsCache_) {
-      html += '<div class="events-source">Data from AstroCalendar (GitHub)</div>';
-    }
+    html += '<div class="events-source">Sources: NASA, TimeandDate.com</div>';
 
     if (content) content.innerHTML = html;
   }
@@ -498,7 +456,6 @@ export class EventsCalendar {
    */
   clearCache() {
     this.eventsCache_ = null;
-    this.cacheTime_ = null;
   }
 }
 

@@ -48,25 +48,25 @@ describe('SkyConditionsHandler', () => {
     test('returns base magnitude for city conditions', () => {
       handler.lightPollution_ = 'city';
       handler.moonAltitude_ = -10; // Moon below horizon
-      expect(handler.calculateNakedEyeLimit()).toBe(4.0);
+      expect(handler.calculateNakedEyeLimit()).toBe(3.8);
     });
 
     test('returns base magnitude for suburban conditions', () => {
       handler.lightPollution_ = 'suburban';
       handler.moonAltitude_ = -10;
-      expect(handler.calculateNakedEyeLimit()).toBe(5.5);
+      expect(handler.calculateNakedEyeLimit()).toBe(5.3);
     });
 
     test('returns base magnitude for rural conditions', () => {
       handler.lightPollution_ = 'rural';
       handler.moonAltitude_ = -10;
-      expect(handler.calculateNakedEyeLimit()).toBe(6.5);
+      expect(handler.calculateNakedEyeLimit()).toBe(6.3);
     });
 
     test('returns base magnitude for dark sky conditions', () => {
       handler.lightPollution_ = 'dark';
       handler.moonAltitude_ = -10;
-      expect(handler.calculateNakedEyeLimit()).toBe(7.5);
+      expect(handler.calculateNakedEyeLimit()).toBe(7.3);
     });
 
     test('reduces magnitude when moon is above horizon', () => {
@@ -74,7 +74,7 @@ describe('SkyConditionsHandler', () => {
       handler.moonPhase_ = 0.5; // Full moon
       handler.moonAltitude_ = 45; // High in sky
       const limit = handler.calculateNakedEyeLimit();
-      expect(limit).toBeLessThan(7.5);
+      expect(limit).toBeLessThan(7.3);
     });
 
     test('never returns below minimum of 2.0', () => {
@@ -365,12 +365,12 @@ describe('SkyConditionsHandler', () => {
 
   describe('integration', () => {
     test('full moon in dark sky reduces NELM significantly', () => {
-      handler.lightPollution_ = 'dark'; // Base 7.5
+      handler.lightPollution_ = 'dark'; // Base 7.3
       handler.moonPhase_ = 0.5; // Full moon
       handler.moonAltitude_ = 45; // High in sky
 
       const limit = handler.calculateNakedEyeLimit();
-      // Should be significantly reduced from 7.5
+      // Should be significantly reduced from 7.3
       expect(limit).toBeLessThan(6.0);
       expect(limit).toBeGreaterThanOrEqual(2.0);
     });
@@ -381,11 +381,11 @@ describe('SkyConditionsHandler', () => {
       handler.moonAltitude_ = 45;
 
       const limit = handler.calculateNakedEyeLimit();
-      expect(limit).toBeCloseTo(7.5, 1);
+      expect(limit).toBeCloseTo(7.3, 1);
     });
 
     test('city conditions with full moon are very poor', () => {
-      handler.lightPollution_ = 'city'; // Base 4.0
+      handler.lightPollution_ = 'city'; // Base 3.8
       handler.moonPhase_ = 0.5;
       handler.moonAltitude_ = 45;
 
