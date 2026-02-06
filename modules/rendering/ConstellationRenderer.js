@@ -132,7 +132,7 @@ export class ConstellationRenderer {
       const lineMaterial = new THREE.LineBasicMaterial({
         color: COLORS.LINE,
         transparent: true,
-        opacity: 0.35,
+        opacity: CONSTELLATIONS.LINE_OPACITY,
         linewidth: 1,
         depthWrite: false,
       });
@@ -280,7 +280,7 @@ export class ConstellationRenderer {
       // Restore all lines to original state when hiding
       this.linesGroup_.children.forEach((line) => {
         if (line.userData?.isGlow) return;
-        line.material.opacity = 0.35;
+        line.material.opacity = CONSTELLATIONS.LINE_OPACITY;
         line.material.color.setHex(COLORS.LINE);
         line.material.linewidth = 1;
       });
