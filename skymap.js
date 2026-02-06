@@ -1222,28 +1222,9 @@ export class SkyMapApp {
     this.camera.position.set(x, y, z);
     this.camera.lookAt(0, 0, 0);
 
-    // Update camera info display - compute RA/Dec in celestial coordinates
-    // Reuse temporary vectors/matrices to avoid allocations in hot path
-    // Get camera's forward direction in world coordinates
-    this.camera.getWorldDirection(this._tempVec3);
+    // Update camera info display
+    const raDec = this.getViewCenterRaDec();
 
-    // Transform view direction from world coords to celestial coords
-    // by applying the INVERSE of the celestialSphere's world transformation
-    this._tempVec3B.copy(this._tempVec3);
-    if (this.celestialSphere) {
-      // Get the inverse of the celestialSphere's world matrix
-      this.celestialSphere.updateMatrixWorld();
-      this._tempMatrix4.copy(this.celestialSphere.matrixWorld);
-      this._tempMatrix4B.copy(this._tempMatrix4).invert();
-
-      // Apply inverse transformation (rotation only, ignore translation)
-      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
-      this._tempVec3B.applyMatrix3(this._tempMatrix3);
-    }
-
-    const raDec = cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
-
-    // Use optional chaining for cleaner null checks
     if (domCache.raDisplay) domCache.raDisplay.textContent = `${raDec.ra.toFixed(1)}°`;
     if (domCache.decDisplay) domCache.decDisplay.textContent = `${raDec.dec.toFixed(1)}°`;
     if (domCache.fovDisplay) domCache.fovDisplay.textContent = formatAngle(this.camera.fov);
