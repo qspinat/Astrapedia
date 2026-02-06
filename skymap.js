@@ -670,12 +670,6 @@ export class SkyMapApp {
       this.setConstellationLinesMode(mode);
     });
 
-    globalEventBus.on(Events.CMD_SET_CONSTELLATION_LINES_MODE, (data) => {
-      if (data?.mode) {
-        this.setConstellationLinesMode(data.mode);
-      }
-    });
-
     // Camera commands
     globalEventBus.on(Events.CMD_RESET_CAMERA, () => {
       this.resetView();
@@ -1070,6 +1064,7 @@ export class SkyMapApp {
    */
   setConstellationLinesMode(mode) {
     this.constellationLinesMode = mode;
+    this.constellationRenderer_?.setMode(mode);
     if (!this.constellationLinesGroup) return;
 
     if (mode === CONSTELLATIONS.MODE_OFF) {

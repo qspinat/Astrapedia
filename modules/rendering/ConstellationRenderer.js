@@ -62,6 +62,9 @@ export class ConstellationRenderer {
     /** @private {number} */
     this.radius_ = SPHERE.CONSTELLATION_RADIUS;
 
+    /** @private {string} - Current display mode */
+    this.mode_ = CONSTELLATIONS.MODE_ALL;
+
     /** @private {!Map<string, {ra: number, dec: number}>} */
     this.constellationCenters_ = new Map();
 
@@ -95,6 +98,14 @@ export class ConstellationRenderer {
       this.linesGroup_.visible = visible;
     }
     this.requestRender_();
+  }
+
+  /**
+   * Set the current display mode.
+   * @param {string} mode - One of CONSTELLATIONS.MODE_OFF/MODE_FOCUS/MODE_ALL
+   */
+  setMode(mode) {
+    this.mode_ = mode;
   }
 
   /**
@@ -199,9 +210,8 @@ export class ConstellationRenderer {
       if (line.userData?.isGlow) return;
 
       if (line.userData.constellation === constellationName) {
-        // Store original values for this line
-        if (!line.userData.originalOpacity) {
-          line.userData.originalOpacity = line.material.opacity;
+        // Store original color (opacity restored from mode, not snapshot)
+        if (!line.userData.originalColor) {
           line.userData.originalColor = line.material.color.getHex();
         }
         line.material.opacity = 1.0;
@@ -231,11 +241,19 @@ export class ConstellationRenderer {
       if (line.userData?.isGlow) return;
 
       if (line.userData.constellation === this.highlightedConstellation_) {
-        if (line.userData.originalOpacity !== undefined) {
-          line.material.opacity = line.userData.originalOpacity;
+        if (line.userData.originalColor !== undefined) {
+          // In focus mode, restore to lerped opacity from focus state
+          // In all mode, restore to default constant
+          if (this.mode_ === CONSTELLATIONS.MODE_FOCUS) {
+            const focusOpacity = this.constellationOpacities_.get(
+              this.highlightedConstellation_) ?? 0;
+            line.material.opacity = focusOpacity;
+            line.visible = focusOpacity > 0.005;
+          } else {
+            line.material.opacity = CONSTELLATIONS.LINE_OPACITY;
+          }
           line.material.color.setHex(line.userData.originalColor);
           line.material.linewidth = 1;
-          delete line.userData.originalOpacity;
           delete line.userData.originalColor;
         }
       }
@@ -392,18 +410,20 @@ export class ConstellationRenderer {
       }
     });
 
-    // Apply opacities to line materials
-    this.linesGroup_.children.forEach((line) => {
-      if (line.userData?.isGlow) return;
-      const constName = line.userData.constellation;
+    // Only touch line materials when opacities actually changed
+    if (needsRender) {
+      this.linesGroup_.children.forEach((line) => {
+        if (line.userData?.isGlow) return;
+        const constName = line.userData.constellation;
 
-      // Skip highlighted constellation (tour/selection takes priority)
-      if (constName === this.highlightedConstellation_) return;
+        // Skip highlighted constellation (tour/selection takes priority)
+        if (constName === this.highlightedConstellation_) return;
 
-      const opacity = this.constellationOpacities_.get(constName) ?? 0;
-      line.material.opacity = opacity;
-      line.visible = opacity > 0.005;
-    });
+        const opacity = this.constellationOpacities_.get(constName) ?? 0;
+        line.material.opacity = opacity;
+        line.visible = opacity > 0.005;
+      });
+    }
 
     return needsRender;
   }
