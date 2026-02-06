@@ -1797,6 +1797,12 @@ select:focus-visible {
     opacity: 0.6;
 }
 
+.icon-btn--constellations[data-mode="focus"] {
+    background: linear-gradient(to top, var(--accent) 50%, var(--bg-secondary) 50%) !important;
+    border-color: var(--accent) !important;
+    opacity: 1;
+}
+
 /* Telescope quick toggle button */
 .icon-btn--telescope.active {
     background: var(--accent) !important;

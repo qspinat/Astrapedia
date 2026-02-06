@@ -211,11 +211,10 @@ function initializeUI_(appInstance) {
 
     // Settings
     setConstellationLines: (visible) => {
-      appInstance.showConstellationLines = visible;
-      if (appInstance.constellationLinesGroup) {
-        appInstance.constellationLinesGroup.visible = visible;
-      }
-      appInstance.requestRender?.();
+      appInstance.setConstellationLinesMode(visible ? 'all' : 'off');
+    },
+    setConstellationLinesMode: (mode) => {
+      appInstance.setConstellationLinesMode(mode);
     },
     setEquatorLineVisible: (visible) => appInstance.setEquatorLineVisible?.(visible),
     setGridVisible: (visible) => appInstance.setGridVisible?.(visible),

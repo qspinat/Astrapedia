@@ -245,8 +245,11 @@
             <div class="panel-section panel-section--compact">
                 <label class="toggle-row">
                     <span class="toggle-row__label">Constellation Lines</span>
-                    <input type="checkbox" id="constellation-lines-toggle" checked>
-                    <span class="toggle-switch"></span>
+                    <select id="constellation-lines-mode" class="language-select">
+                        <option value="all" selected>All</option>
+                        <option value="focus">Focus</option>
+                        <option value="off">Off</option>
+                    </select>
                 </label>
                 <label class="toggle-row">
                     <span class="toggle-row__label">Equator Line</span>

@@ -282,8 +282,8 @@ describe('UI Controller event wiring', () => {
       expect(uiControllerContent).toContain('setEquatorLineVisible?.(e.target.checked)');
     });
 
-    test('retrieves constellation-lines-toggle element', () => {
-      expect(uiControllerContent).toContain('getElementById(\'constellation-lines-toggle\')');
+    test('retrieves constellation-lines-mode element', () => {
+      expect(uiControllerContent).toContain('getElementById(\'constellation-lines-mode\')');
     });
 
     test('retrieves magnitude-slider element', () => {

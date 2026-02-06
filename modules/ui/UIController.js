@@ -256,6 +256,7 @@ export class SettingsHandler {
    * @param {!Object} dependencies - Required dependencies
    * @param {function(): void=} dependencies.toggleNightMode - Toggle night mode
    * @param {function(boolean): void=} dependencies.setConstellationLines - Set lines
+   * @param {function(string): void=} dependencies.setConstellationLinesMode - Set mode
    * @param {function(boolean): void=} dependencies.setEquatorLineVisible - Set equator
    * @param {function(boolean): void=} dependencies.setGridVisible - Set grid visibility
    * @param {function(string): void=} dependencies.setLanguage - Set language
@@ -331,21 +332,19 @@ export class SettingsHandler {
       });
     }
 
-    // Constellation lines toggle
-    const constLinesToggle = document.getElementById('constellation-lines-toggle');
-    if (constLinesToggle) {
-      constLinesToggle.addEventListener('change', (e) => {
-        this.deps_.setConstellationLines?.(e.target.checked);
+    // Constellation lines mode selector
+    const constLinesMode = document.getElementById('constellation-lines-mode');
+    if (constLinesMode) {
+      constLinesMode.addEventListener('change', (e) => {
+        const mode = e.target.value;
+        this.deps_.setConstellationLinesMode?.(mode);
 
         // Sync quick toggle button state
-        const quickToggle = document.getElementById('constellations-quick-toggle');
-        if (quickToggle) {
-          quickToggle.classList.toggle('active', e.target.checked);
-        }
+        this.syncConstellationQuickToggle_(mode);
 
         globalEventBus.emit(Events.SETTING_CHANGED, {
-          setting: 'constellationLines',
-          value: e.target.checked,
+          setting: 'constellationLinesMode',
+          value: mode,
         });
       });
     }
@@ -432,18 +431,35 @@ export class SettingsHandler {
       });
     }
 
-    // Constellation quick toggle
+    // Constellation quick toggle - cycles: all → focus → off → all
     const quickToggle = document.getElementById('constellations-quick-toggle');
     if (quickToggle) {
       addMobileButtonListener(quickToggle, () => {
-        const settingsToggle = document.getElementById('constellation-lines-toggle');
-        if (settingsToggle) {
-          settingsToggle.checked = !settingsToggle.checked;
-          settingsToggle.dispatchEvent(new Event('change'));
+        const modeSelect = document.getElementById('constellation-lines-mode');
+        const cycleOrder = ['all', 'focus', 'off'];
+        const currentMode = modeSelect?.value || 'all';
+        const nextIdx = (cycleOrder.indexOf(currentMode) + 1) % cycleOrder.length;
+        const nextMode = cycleOrder[nextIdx];
+
+        if (modeSelect) {
+          modeSelect.value = nextMode;
+          modeSelect.dispatchEvent(new Event('change'));
         }
-        quickToggle.classList.toggle('active', settingsToggle?.checked);
       });
     }
+  }
+
+  /**
+   * Sync the constellation quick toggle button with the current mode.
+   * @param {string} mode - 'off', 'focus', or 'all'
+   * @private
+   */
+  syncConstellationQuickToggle_(mode) {
+    const quickToggle = document.getElementById('constellations-quick-toggle');
+    if (!quickToggle) return;
+
+    quickToggle.classList.toggle('active', mode === 'all');
+    quickToggle.dataset.mode = mode;
   }
 
   /**
@@ -459,10 +475,17 @@ export class SettingsHandler {
         break;
       }
       case 'constellationLines': {
-        const toggle = document.getElementById('constellation-lines-toggle');
-        if (toggle) toggle.checked = value;
-        const quickToggle = document.getElementById('constellations-quick-toggle');
-        if (quickToggle) quickToggle.classList.toggle('active', value);
+        // Legacy boolean support
+        const mode = value ? 'all' : 'off';
+        const select = document.getElementById('constellation-lines-mode');
+        if (select) select.value = mode;
+        this.syncConstellationQuickToggle_(mode);
+        break;
+      }
+      case 'constellationLinesMode': {
+        const select = document.getElementById('constellation-lines-mode');
+        if (select) select.value = value;
+        this.syncConstellationQuickToggle_(value);
         break;
       }
       case 'magnitudeLimit': {
@@ -636,6 +659,7 @@ export class UIController {
     this.settingsHandler_ = new SettingsHandler({
       toggleNightMode: this.deps_.toggleNightMode,
       setConstellationLines: this.deps_.setConstellationLines,
+      setConstellationLinesMode: this.deps_.setConstellationLinesMode,
       setEquatorLineVisible: this.deps_.setEquatorLineVisible,
       setGridVisible: this.deps_.setGridVisible,
       setLanguage: this.deps_.setLanguage,

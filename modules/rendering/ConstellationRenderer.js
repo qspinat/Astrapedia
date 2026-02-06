@@ -4,8 +4,8 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {raDecToCartesian} from '../core/CoordinateUtils.js';
-import {SPHERE} from '../core/Constants.js';
+import {raDecToCartesian, cartesianToRaDec, angularDistance} from '../core/CoordinateUtils.js';
+import {SPHERE, CONSTELLATIONS} from '../core/Constants.js';
 
 /**
  * Default colors for constellation lines.
@@ -61,6 +61,12 @@ export class ConstellationRenderer {
 
     /** @private {number} */
     this.radius_ = SPHERE.CONSTELLATION_RADIUS;
+
+    /** @private {!Map<string, {ra: number, dec: number}>} */
+    this.constellationCenters_ = new Map();
+
+    /** @private {!Map<string, number>} */
+    this.constellationOpacities_ = new Map();
   }
 
   /**
@@ -146,6 +152,9 @@ export class ConstellationRenderer {
 
     this.linesGroup_.visible = this.visible_;
     this.celestialSphere_.add(this.linesGroup_);
+
+    // Precompute constellation centers for focus mode
+    this.computeConstellationCenters_(stars, constellations);
 
     globalEventBus.emit(Events.CONSTELLATION_LINES_CREATED, {
       count: linesCreated,
@@ -295,6 +304,128 @@ export class ConstellationRenderer {
       if (line.material) line.material.dispose();
     });
     this.glowLines_ = [];
+  }
+
+  /**
+   * Precompute center positions for each constellation using Cartesian mean.
+   * @param {!Array<!Object>} stars - Star array
+   * @param {!Object} constellations - Constellations data
+   * @private
+   */
+  computeConstellationCenters_(stars, constellations) {
+    this.constellationCenters_.clear();
+    this.constellationOpacities_.clear();
+
+    const starByHip = new Map();
+    stars.forEach((s) => {
+      if (s.hip) starByHip.set(s.hip, s);
+    });
+
+    Object.entries(constellations).forEach(([constName, constellation]) => {
+      const hipSet = new Set();
+      constellation.lines.forEach(([hip1, hip2]) => {
+        hipSet.add(hip1);
+        hipSet.add(hip2);
+      });
+
+      let sx = 0, sy = 0, sz = 0;
+      let count = 0;
+      hipSet.forEach((hip) => {
+        const star = starByHip.get(hip);
+        if (star) {
+          const raRad = star.ra * Math.PI / 180;
+          const decRad = star.dec * Math.PI / 180;
+          sx += Math.cos(decRad) * Math.cos(raRad);
+          sy += Math.sin(decRad);
+          sz += Math.cos(decRad) * Math.sin(raRad);
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        const raDec = cartesianToRaDec(sx / count, sy / count, -(sz / count));
+        this.constellationCenters_.set(constName, {ra: raDec.ra, dec: raDec.dec});
+        this.constellationOpacities_.set(constName, 0);
+      }
+    });
+  }
+
+  /**
+   * Update focus mode - fade in nearest constellation, fade out others.
+   * @param {number} viewRa - View center RA in degrees
+   * @param {number} viewDec - View center Dec in degrees
+   * @returns {boolean} True if any opacity is still changing (needs more frames)
+   */
+  updateFocusMode(viewRa, viewDec) {
+    if (!this.linesGroup_) return false;
+
+    // Find nearest constellation center
+    let nearestConst = null;
+    let nearestDist = Infinity;
+    this.constellationCenters_.forEach(({ra, dec}, name) => {
+      const dist = angularDistance(viewRa, viewDec, ra, dec);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestConst = name;
+      }
+    });
+
+    // Only select if within focus radius
+    if (nearestDist > CONSTELLATIONS.FOCUS_RADIUS) {
+      nearestConst = null;
+    }
+
+    let needsRender = false;
+    const lerpSpeed = CONSTELLATIONS.FOCUS_LERP_SPEED;
+
+    // Update opacities for each constellation
+    this.constellationOpacities_.forEach((currentOpacity, name) => {
+      const target = (name === nearestConst) ? CONSTELLATIONS.LINE_OPACITY : 0;
+      const newOpacity = currentOpacity + (target - currentOpacity) * lerpSpeed;
+
+      // Snap to target when close enough
+      const finalOpacity = Math.abs(newOpacity - target) < 0.005 ? target : newOpacity;
+
+      if (finalOpacity !== currentOpacity) {
+        this.constellationOpacities_.set(name, finalOpacity);
+        needsRender = true;
+      }
+    });
+
+    // Apply opacities to line materials
+    this.linesGroup_.children.forEach((line) => {
+      if (line.userData?.isGlow) return;
+      const constName = line.userData.constellation;
+
+      // Skip highlighted constellation (tour/selection takes priority)
+      if (constName === this.highlightedConstellation_) return;
+
+      const opacity = this.constellationOpacities_.get(constName) ?? 0;
+      line.material.opacity = opacity;
+      line.visible = opacity > 0.005;
+    });
+
+    return needsRender;
+  }
+
+  /**
+   * Reset all line opacities to default (for switching away from focus mode).
+   */
+  resetOpacities() {
+    if (!this.linesGroup_) return;
+
+    this.constellationOpacities_.forEach((_, name) => {
+      this.constellationOpacities_.set(name, 0);
+    });
+
+    this.linesGroup_.children.forEach((line) => {
+      if (line.userData?.isGlow) return;
+      line.material.opacity = CONSTELLATIONS.LINE_OPACITY;
+      line.material.color.setHex(COLORS.LINE);
+      line.visible = true;
+    });
+
+    this.requestRender_();
   }
 
   /**

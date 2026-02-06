@@ -316,6 +316,7 @@ export const Events = {
   CMD_REQUEST_GEOLOCATION: 'cmd:location:request',
   CMD_SHOW_EVENTS: 'cmd:events:show',
   CMD_SET_CONSTELLATION_LINES: 'cmd:constellation:lines',
+  CMD_SET_CONSTELLATION_LINES_MODE: 'cmd:constellation:lines:mode',
   CMD_REQUEST_RENDER: 'cmd:render:request',
 };
 

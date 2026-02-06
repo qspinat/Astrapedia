@@ -128,6 +128,16 @@ export const CONSTELLATIONS = {
   HIGHLIGHT_COLOR: 0x66aaff,
   /** Opacity when highlighted. */
   HIGHLIGHT_OPACITY: 0.8,
+  /** Display mode: all lines hidden. */
+  MODE_OFF: 'off',
+  /** Display mode: only nearest constellation visible. */
+  MODE_FOCUS: 'focus',
+  /** Display mode: all lines visible. */
+  MODE_ALL: 'all',
+  /** Max angular distance (degrees) from view center to match a constellation. */
+  FOCUS_RADIUS: 40,
+  /** Per-frame opacity interpolation speed (~0.5s fade). */
+  FOCUS_LERP_SPEED: 0.08,
 };
 
 /**

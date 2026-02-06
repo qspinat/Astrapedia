@@ -70,7 +70,7 @@ import {
   calculateLST,
   formatAngle,
 } from './modules/core/CoordinateUtils.js';
-import {CAMERA, STARS} from './modules/core/Constants.js';
+import {CAMERA, STARS, CONSTELLATIONS} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
 import {dataLoader} from './modules/services/DataLoader.js';
 import {astronomyCalculator} from './modules/core/AstronomyCalculator.js';
@@ -142,7 +142,7 @@ export class SkyMapApp {
     this.planets = [];
     this.planetSprites = [];
     this.constellationLinesGroup = null;
-    this.showConstellationLines = true;
+    this.constellationLinesMode = CONSTELLATIONS.MODE_ALL;
     // Default language from browser locale (e.g., 'fr-FR' -> 'fr')
     // Validate against supported languages, fallback to English
     const browserLang = (navigator.language || 'en').split('-')[0];
@@ -599,7 +599,7 @@ export class SkyMapApp {
       getExtendedObjectSprites: () => this.extendedObjectSprites || [],
       getConstellationLinesGroup: () => this.constellationLinesGroup,
       getDynamicObjectManager: () => this.dynamicObjectManager_,
-      isConstellationLinesVisible: () => this.showConstellationLines,
+      isConstellationLinesVisible: () => this.constellationLinesMode !== CONSTELLATIONS.MODE_OFF,
       isGameActive: () => this.isGameActive(),
       checkGameAnswer: (obj) => this.checkGameAnswer(obj),
       checkGameAnswerByName: (name) => this.checkGameAnswerByName(name),
@@ -666,10 +666,13 @@ export class SkyMapApp {
     });
 
     globalEventBus.on(Events.CMD_SET_CONSTELLATION_LINES, (data) => {
-      if (this.constellationLinesGroup) {
-        this.showConstellationLines = !!data?.visible;
-        this.constellationLinesGroup.visible = this.showConstellationLines;
-        this.requestRender();
+      const mode = data?.visible ? CONSTELLATIONS.MODE_ALL : CONSTELLATIONS.MODE_OFF;
+      this.setConstellationLinesMode(mode);
+    });
+
+    globalEventBus.on(Events.CMD_SET_CONSTELLATION_LINES_MODE, (data) => {
+      if (data?.mode) {
+        this.setConstellationLinesMode(data.mode);
       }
     });
 
@@ -1056,8 +1059,45 @@ export class SkyMapApp {
     this.constellationRenderer_.createLines();
     this.constellationLinesGroup = this.constellationRenderer_.getLinesGroup();
     if (this.constellationLinesGroup) {
-      this.constellationLinesGroup.visible = this.showConstellationLines;
+      this.constellationLinesGroup.visible =
+        this.constellationLinesMode !== CONSTELLATIONS.MODE_OFF;
     }
+  }
+
+  /**
+   * Set constellation lines display mode (off/focus/all).
+   * @param {string} mode - One of CONSTELLATIONS.MODE_OFF/MODE_FOCUS/MODE_ALL
+   */
+  setConstellationLinesMode(mode) {
+    this.constellationLinesMode = mode;
+    if (!this.constellationLinesGroup) return;
+
+    if (mode === CONSTELLATIONS.MODE_OFF) {
+      this.constellationLinesGroup.visible = false;
+    } else {
+      this.constellationLinesGroup.visible = true;
+      if (mode === CONSTELLATIONS.MODE_ALL) {
+        this.constellationRenderer_?.resetOpacities();
+      }
+    }
+    this.requestRender();
+  }
+
+  /**
+   * Get the RA/Dec coordinates of the current view center.
+   * @returns {{ra: number, dec: number}} View center in degrees
+   */
+  getViewCenterRaDec() {
+    this.camera.getWorldDirection(this._tempVec3);
+    this._tempVec3B.copy(this._tempVec3);
+    if (this.celestialSphere) {
+      this.celestialSphere.updateMatrixWorld();
+      this._tempMatrix4.copy(this.celestialSphere.matrixWorld);
+      this._tempMatrix4B.copy(this._tempMatrix4).invert();
+      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
+      this._tempVec3B.applyMatrix3(this._tempMatrix3);
+    }
+    return cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
   }
 
   // Feature 3: Cardinal Direction Labels
@@ -2011,6 +2051,17 @@ export class SkyMapApp {
     // Update tour highlight animation (cheap, runs every frame when active)
     if (this.tourHighlightModule_?.isActive()) {
       this.updateTourHighlight();
+    }
+
+    // Constellation focus mode - fade nearest constellation
+    if (this.constellationLinesMode === CONSTELLATIONS.MODE_FOCUS) {
+      const viewCenter = this.getViewCenterRaDec();
+      const stillFading = this.constellationRenderer_?.updateFocusMode(
+        viewCenter.ra, viewCenter.dec
+      );
+      if (stillFading) {
+        this.requestRender();
+      }
     }
 
     this.renderer.render(this.scene, this.camera);
