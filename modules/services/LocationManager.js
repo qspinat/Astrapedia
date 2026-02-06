@@ -506,12 +506,12 @@ export class LocationManager {
       }
       .location-prompt-content h3 {
         margin: 0 0 8px 0;
-        color: #fff;
+        color: #99aabb;
         font-size: 18px;
       }
       .location-prompt-content p {
         margin: 0 0 20px 0;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgba(150, 160, 170, 0.8);
         font-size: 14px;
         line-height: 1.4;
       }
@@ -529,12 +529,12 @@ export class LocationManager {
         cursor: pointer;
       }
       .location-prompt-btn--secondary {
-        background: rgba(255, 255, 255, 0.1);
-        color: rgba(255, 255, 255, 0.7);
+        background: rgba(100, 120, 140, 0.2);
+        color: rgba(150, 160, 170, 0.8);
       }
       .location-prompt-btn--primary {
-        background: #3B82F6;
-        color: #fff;
+        background: #2a5080;
+        color: #99aabb;
       }
     `;
     document.head.appendChild(style);

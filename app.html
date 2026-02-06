@@ -14,6 +14,8 @@
             https://commons.wikimedia.org
             https://upload.wikimedia.org
             https://images-api.nasa.gov
+            https://cdn.esawebb.org
+            https://cdn.esahubble.org
             https://simbad.u-strasbg.fr
             https://tapvizier.u-strasbg.fr
             https://vizier.cds.unistra.fr
@@ -21,7 +23,6 @@
             https://skyserver.sdss.org
             https://archive.stsci.edu
             https://alasky.cds.unistra.fr
-            https://raw.githubusercontent.com
             https://formspree.io;
         font-src 'self';
         object-src 'none';
@@ -40,6 +41,143 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- SVG Icon Symbols (reusable via <use href="#icon-name">) -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+        <defs>
+            <!-- Moon/Tonight icon -->
+            <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </symbol>
+            <!-- Clipboard/Messier icon -->
+            <symbol id="icon-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                <rect x="9" y="3" width="6" height="4" rx="1"/>
+                <path d="M9 12h6M9 16h6"/>
+            </symbol>
+            <!-- Nebula icon -->
+            <symbol id="icon-nebula" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <ellipse cx="12" cy="12" rx="8" ry="5" opacity="0.6"/>
+                <ellipse cx="12" cy="12" rx="5" ry="8" opacity="0.6"/>
+                <circle cx="12" cy="12" r="2"/>
+            </symbol>
+            <!-- Galaxy icon -->
+            <symbol id="icon-galaxy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(-30 12 12)"/>
+                <ellipse cx="12" cy="12" rx="6" ry="2.5" transform="rotate(-30 12 12)" opacity="0.6"/>
+                <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+            </symbol>
+            <!-- Star cluster icon -->
+            <symbol id="icon-cluster" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="1.5"/>
+                <circle cx="8" cy="10" r="1"/>
+                <circle cx="16" cy="10" r="1"/>
+                <circle cx="10" cy="15" r="1"/>
+                <circle cx="14" cy="15" r="1"/>
+                <circle cx="6" cy="13" r="0.8"/>
+                <circle cx="18" cy="13" r="0.8"/>
+                <circle cx="12" cy="7" r="0.8"/>
+                <circle cx="9" cy="18" r="0.6"/>
+                <circle cx="15" cy="18" r="0.6"/>
+            </symbol>
+            <!-- Constellation (full) icon -->
+            <symbol id="icon-constellation" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="5" cy="8" r="1.5" fill="currentColor"/>
+                <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
+                <circle cx="19" cy="9" r="1.5" fill="currentColor"/>
+                <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
+                <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
+                <path d="M5 8l7-3 7 4M5 8l3 8 8 2M12 5l4 13"/>
+            </symbol>
+            <!-- Constellation (simple/partial) icon -->
+            <symbol id="icon-constellation-simple" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="5" cy="8" r="1.5" fill="currentColor"/>
+                <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
+                <circle cx="19" cy="9" r="1.5" fill="currentColor"/>
+                <path d="M5 8l7-3 7 4"/>
+            </symbol>
+            <!-- Planet (Saturn) icon -->
+            <symbol id="icon-planet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="6"/>
+                <ellipse cx="12" cy="12" rx="10" ry="3" transform="rotate(-20 12 12)"/>
+            </symbol>
+            <!-- Snowflake/Winter icon -->
+            <symbol id="icon-winter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 2v20M2 12h20"/>
+                <path d="M12 2l3 3m-6 0l3-3M12 22l3-3m-6 0l3 3"/>
+                <path d="M2 12l3 3m0-6l-3 3M22 12l-3 3m0-6l3 3"/>
+                <path d="M6 6l3 3m6 6l3 3M18 6l-3 3m-6 6l-3 3" opacity="0.6"/>
+            </symbol>
+            <!-- Star icon -->
+            <symbol id="icon-star" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7-6.3-4.6-6.3 4.6 2.3-7-6-4.6h7.6z"/>
+            </symbol>
+            <!-- North direction icon -->
+            <symbol id="icon-north" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="6" r="1.5" fill="currentColor"/>
+                <path d="M12 6v12M8 10l4-4 4 4"/>
+            </symbol>
+            <!-- South direction icon -->
+            <symbol id="icon-south" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="18" r="1.5" fill="currentColor"/>
+                <path d="M12 18V6M8 14l4 4 4-4"/>
+            </symbol>
+            <!-- Famous objects icon -->
+            <symbol id="icon-famous" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="3"/>
+                <circle cx="12" cy="4" r="1.5" opacity="0.6"/>
+                <circle cx="12" cy="20" r="1.5" opacity="0.6"/>
+                <circle cx="4" cy="12" r="1.5" opacity="0.6"/>
+                <circle cx="20" cy="12" r="1.5" opacity="0.6"/>
+            </symbol>
+            <!-- Famous objects hard icon -->
+            <symbol id="icon-famous-hard" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="2.5"/>
+                <circle cx="6" cy="6" r="1" opacity="0.8"/>
+                <circle cx="18" cy="6" r="1" opacity="0.8"/>
+                <circle cx="6" cy="18" r="1" opacity="0.8"/>
+                <circle cx="18" cy="18" r="1" opacity="0.8"/>
+                <circle cx="12" cy="4" r="0.8" opacity="0.5"/>
+                <circle cx="12" cy="20" r="0.8" opacity="0.5"/>
+                <circle cx="4" cy="12" r="0.8" opacity="0.5"/>
+                <circle cx="20" cy="12" r="0.8" opacity="0.5"/>
+            </symbol>
+            <!-- Sun/sky conditions icon -->
+            <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="5"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </symbol>
+            <!-- Settings/gear icon -->
+            <symbol id="icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </symbol>
+            <!-- Location pin icon -->
+            <symbol id="icon-location" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="10" r="3"/>
+                <path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/>
+            </symbol>
+            <!-- Reset/refresh icon -->
+            <symbol id="icon-reset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+            </symbol>
+            <!-- Calendar icon -->
+            <symbol id="icon-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                <path d="M16 2v4M8 2v4M3 10h18"/>
+            </symbol>
+            <!-- Bug icon -->
+            <symbol id="icon-bug" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M8 2l1.88 1.88M14.12 3.88L16 2M9 7.13v-1a3 3 0 1 1 6 0v1"/>
+                <path d="M12 20c-3.3 0-6-2.7-6-6v-3a6 6 0 0 1 12 0v3c0 3.3-2.7 6-6 6zM5 11H2M22 11h-3M5 17H2M22 17h-3"/>
+            </symbol>
+            <!-- Chevron down icon -->
+            <symbol id="icon-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"/>
+            </symbol>
+        </defs>
+    </svg>
+
     <!-- Loading Screen -->
     <div id="loading">
         <div class="loading-spinner"></div>
@@ -99,119 +237,120 @@
         <!-- Settings Panel (retractable) -->
         <div id="settings-panel" class="slide-panel">
             <div class="panel-header">
-                <h2 class="panel-title--accent">Settings & Tours</h2>
+                <h2 class="panel-title--accent">Settings</h2>
                 <button class="close-btn close-btn--panel" id="settings-close-btn">✕</button>
             </div>
 
-            <div class="panel-section">
-                <h3 class="panel-section__title">Display</h3>
+            <!-- DISPLAY SECTION - Always visible (most used) -->
+            <div class="panel-section panel-section--compact">
                 <label class="toggle-row">
                     <span class="toggle-row__label">Constellation Lines</span>
-                    <input type="checkbox" id="constellation-lines-toggle" checked>
-                    <span class="toggle-switch"></span>
+                    <select id="constellation-lines-mode" class="language-select">
+                        <option value="all" selected>All</option>
+                        <option value="focus">Focus</option>
+                        <option value="off">Off</option>
+                    </select>
                 </label>
                 <label class="toggle-row">
                     <span class="toggle-row__label">Equator Line</span>
                     <input type="checkbox" id="equator-line-toggle">
                     <span class="toggle-switch"></span>
                 </label>
+                <label class="toggle-row">
+                    <span class="toggle-row__label">Coordinate Grid</span>
+                    <input type="checkbox" id="grid-toggle">
+                    <span class="toggle-switch"></span>
+                </label>
             </div>
 
-            <div class="panel-section">
-                <h3 class="panel-section__title">Language</h3>
-                <select id="constellation-language" class="language-select">
-                    <option value="en">English</option>
-                    <option value="la">Latin (Scientific)</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="es">Spanish</option>
-                    <option value="zh">Chinese</option>
-                    <option value="ja">Japanese</option>
-                    <option value="ar">Arabic</option>
-                </select>
-            </div>
-
-            <div class="panel-section">
-                <h3 class="panel-section__title">Performance</h3>
-                <div class="performance-settings">
-                    <div class="performance-header">
-                        <span class="performance-label">Max Dynamic Objects</span>
-                        <span id="max-dynamic-stars-value" class="performance-value">30K</span>
-                    </div>
-                    <input type="range" id="max-dynamic-stars" min="5000" max="100000" step="5000" value="30000" class="performance-slider">
-                    <span class="performance-hint">Stars, galaxies, nebulae loaded when zooming</span>
-                </div>
-            </div>
-
-            <div class="panel-section">
-                <h3 class="panel-section__title">Guided Tours</h3>
-                <div class="tour-grid">
+            <!-- GUIDED TOURS - Collapsible -->
+            <details class="panel-accordion" open>
+                <summary class="panel-accordion__header">
+                    <svg class="panel-accordion__icon"><use href="#icon-moon"/></svg>
+                    <span>Guided Tours</span>
+                    <svg class="panel-accordion__chevron"><use href="#icon-chevron"/></svg>
+                </summary>
+                <div class="panel-accordion__content">
+                    <div class="tour-grid">
                     <button class="tour-btn" id="tour-tonight-btn">
-                        <span class="tour-btn__icon">🌙</span>
+                        <svg class="tour-btn__icon"><use href="#icon-moon"/></svg>
                         <span class="tour-btn__text">Tonight</span>
                     </button>
                     <button class="tour-btn" id="tour-messier-btn">
-                        <span class="tour-btn__icon">📋</span>
+                        <svg class="tour-btn__icon"><use href="#icon-clipboard"/></svg>
                         <span class="tour-btn__text">Messier</span>
                     </button>
                     <button class="tour-btn" id="tour-nebulae-btn">
-                        <span class="tour-btn__icon">☁</span>
+                        <svg class="tour-btn__icon"><use href="#icon-nebula"/></svg>
                         <span class="tour-btn__text">Nebulae</span>
                     </button>
                     <button class="tour-btn" id="tour-galaxies-btn">
-                        <span class="tour-btn__icon">🌀</span>
+                        <svg class="tour-btn__icon"><use href="#icon-galaxy"/></svg>
                         <span class="tour-btn__text">Galaxies</span>
                     </button>
                     <button class="tour-btn" id="tour-clusters-btn">
-                        <span class="tour-btn__icon">✨</span>
+                        <svg class="tour-btn__icon"><use href="#icon-cluster"/></svg>
                         <span class="tour-btn__text">Clusters</span>
                     </button>
                     <button class="tour-btn" id="tour-constellations-btn">
-                        <span class="tour-btn__icon">★</span>
+                        <svg class="tour-btn__icon"><use href="#icon-constellation"/></svg>
                         <span class="tour-btn__text">Constellations</span>
                     </button>
                     <button class="tour-btn" id="tour-planets-btn">
-                        <span class="tour-btn__icon">◐</span>
+                        <svg class="tour-btn__icon"><use href="#icon-planet"/></svg>
                         <span class="tour-btn__text">Planets</span>
                     </button>
                     <button class="tour-btn" id="tour-winter-btn">
-                        <span class="tour-btn__icon">❄</span>
+                        <svg class="tour-btn__icon"><use href="#icon-winter"/></svg>
                         <span class="tour-btn__text">Winter Sky</span>
                     </button>
-                </div>
-            </div>
-
-            <div class="panel-section">
-                <h3 class="panel-section__title">Sky Conditions</h3>
-
-                <div class="input-row">
-                    <label for="light-pollution-select">Light Pollution</label>
-                    <select id="light-pollution-select" class="language-select">
-                        <option value="city">City (Bortle 8-9)</option>
-                        <option value="suburban">Suburban (Bortle 5-6)</option>
-                        <option value="rural" selected>Rural (Bortle 4)</option>
-                        <option value="dark">Dark Sky (Bortle 2-3)</option>
-                    </select>
-                </div>
-
-                <div class="sky-conditions-display">
-                    <div class="sky-condition-item">
-                        <span class="sky-condition-label">Moon Phase</span>
-                        <span class="sky-condition-value" id="moon-phase-display">🌑 New Moon</span>
-                    </div>
-                    <div class="sky-condition-item">
-                        <span class="sky-condition-label">Moon Altitude</span>
-                        <span class="sky-condition-value" id="moon-altitude-display">Below horizon</span>
-                    </div>
-                    <div class="sky-condition-item sky-condition-item--highlight">
-                        <span class="sky-condition-label">Naked Eye Limit</span>
-                        <span class="sky-condition-value" id="naked-eye-limit-display">mag 6.5</span>
                     </div>
                 </div>
-            </div>
+            </details>
 
-            <div class="panel-section">
-                <h3 class="panel-section__title">Telescope Simulation</h3>
+            <!-- SKY CONDITIONS - Collapsible -->
+            <details class="panel-accordion">
+                <summary class="panel-accordion__header">
+                    <svg class="panel-accordion__icon"><use href="#icon-sun"/></svg>
+                    <span>Sky Conditions</span>
+                    <svg class="panel-accordion__chevron"><use href="#icon-chevron"/></svg>
+                </summary>
+                <div class="panel-accordion__content">
+                    <div class="input-row">
+                        <label for="light-pollution-select">Light Pollution</label>
+                        <select id="light-pollution-select" class="language-select">
+                            <option value="city">City (Bortle 8-9)</option>
+                            <option value="suburban">Suburban (Bortle 5-6)</option>
+                            <option value="rural" selected>Rural (Bortle 4)</option>
+                            <option value="dark">Dark Sky (Bortle 2-3)</option>
+                        </select>
+                    </div>
+
+                    <div class="sky-conditions-display">
+                        <div class="sky-condition-item">
+                            <span class="sky-condition-label">Moon Phase</span>
+                            <span class="sky-condition-value" id="moon-phase-display">New Moon</span>
+                        </div>
+                        <div class="sky-condition-item">
+                            <span class="sky-condition-label">Moon Altitude</span>
+                            <span class="sky-condition-value" id="moon-altitude-display">Below horizon</span>
+                        </div>
+                        <div class="sky-condition-item sky-condition-item--highlight">
+                            <span class="sky-condition-label">Naked Eye Limit</span>
+                            <span class="sky-condition-value" id="naked-eye-limit-display">mag 6.5</span>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- TELESCOPE - Collapsible -->
+            <details class="panel-accordion">
+                <summary class="panel-accordion__header">
+                    <svg class="panel-accordion__icon"><use href="#icon-planet"/></svg>
+                    <span>Telescope Simulation</span>
+                    <svg class="panel-accordion__chevron"><use href="#icon-chevron"/></svg>
+                </summary>
+                <div class="panel-accordion__content">
                 <label class="toggle-row">
                     <span class="toggle-row__label">Telescope Mode</span>
                     <input type="checkbox" id="telescope-mode-toggle">
@@ -274,22 +413,59 @@
                 <div class="telescope-warning" id="telescope-warning">
                     Over-magnified! Image quality will be reduced.
                 </div>
-            </div>
+                </div>
+            </details>
 
-            <div class="panel-section">
-                <h3 class="panel-section__title">Actions</h3>
+            <!-- PREFERENCES - Collapsible -->
+            <details class="panel-accordion">
+                <summary class="panel-accordion__header">
+                    <svg class="panel-accordion__icon"><use href="#icon-settings"/></svg>
+                    <span>Preferences</span>
+                    <svg class="panel-accordion__chevron"><use href="#icon-chevron"/></svg>
+                </summary>
+                <div class="panel-accordion__content">
+                    <div class="input-row">
+                        <label for="constellation-language">Language</label>
+                        <select id="constellation-language" class="language-select">
+                            <option value="en">English</option>
+                            <option value="la">Latin (Scientific)</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="es">Spanish</option>
+                            <option value="zh">Chinese</option>
+                            <option value="ja">Japanese</option>
+                            <option value="ar">Arabic</option>
+                        </select>
+                    </div>
+                    <div class="performance-settings">
+                        <div class="performance-header">
+                            <span class="performance-label">Max Dynamic Objects</span>
+                            <span id="max-dynamic-stars-value" class="performance-value">30K</span>
+                        </div>
+                        <input type="range" id="max-dynamic-stars" min="5000" max="100000" step="5000" value="30000" class="performance-slider">
+                        <span class="performance-hint">Stars loaded when zooming</span>
+                    </div>
+                </div>
+            </details>
+
+            <!-- QUICK ACTIONS - Always visible at bottom -->
+            <div class="panel-section panel-section--actions">
                 <div class="action-buttons">
                     <button class="action-btn secondary" id="set-location-btn">
-                        <span class="action-btn__icon">◎</span> Set Location
+                        <svg class="action-btn__icon"><use href="#icon-location"/></svg>
+                        Location
                     </button>
                     <button class="action-btn secondary" id="reset-view-btn">
-                        <span class="action-btn__icon">↺</span> Reset View
+                        <svg class="action-btn__icon"><use href="#icon-reset"/></svg>
+                        Reset
                     </button>
                     <button class="action-btn secondary" id="events-btn">
-                        <span class="action-btn__icon">📅</span> Upcoming Events
+                        <svg class="action-btn__icon"><use href="#icon-calendar"/></svg>
+                        Events
                     </button>
                     <button class="action-btn secondary" id="bug-report-btn">
-                        <span class="action-btn__icon">🐛</span> Report a Bug
+                        <svg class="action-btn__icon"><use href="#icon-bug"/></svg>
+                        Bug
                     </button>
                 </div>
             </div>
@@ -311,57 +487,57 @@
                 <h3>Choose a Game</h3>
                 <div class="game-select-grid">
                     <button class="game-select-btn" data-category="known-constellations">
-                        <span class="game-select-icon">★</span>
+                        <svg class="game-select-icon"><use href="#icon-constellation-simple"/></svg>
                         <span class="game-select-name">Known Constellations</span>
                         <span class="game-select-count">12</span>
                     </button>
                     <button class="game-select-btn" data-category="north-constellations">
-                        <span class="game-select-icon">★</span>
+                        <svg class="game-select-icon"><use href="#icon-north"/></svg>
                         <span class="game-select-name">North Constellations</span>
                         <span class="game-select-count">36</span>
                     </button>
                     <button class="game-select-btn" data-category="south-constellations">
-                        <span class="game-select-icon">★</span>
+                        <svg class="game-select-icon"><use href="#icon-south"/></svg>
                         <span class="game-select-name">South Constellations</span>
                         <span class="game-select-count">53</span>
                     </button>
                     <button class="game-select-btn" data-category="all-constellations">
-                        <span class="game-select-icon">★</span>
+                        <svg class="game-select-icon"><use href="#icon-constellation"/></svg>
                         <span class="game-select-name">All Constellations</span>
                         <span class="game-select-count">89</span>
                     </button>
                     <button class="game-select-btn" data-category="famous-objects">
-                        <span class="game-select-icon">🌟</span>
+                        <svg class="game-select-icon"><use href="#icon-famous"/></svg>
                         <span class="game-select-name">Famous Objects</span>
                         <span class="game-select-count">18</span>
                     </button>
                     <button class="game-select-btn" data-category="famous-objects-hard">
-                        <span class="game-select-icon">💫</span>
+                        <svg class="game-select-icon"><use href="#icon-famous-hard"/></svg>
                         <span class="game-select-name">Famous Objects (Hard)</span>
                         <span class="game-select-count">40</span>
                     </button>
                     <button class="game-select-btn" data-category="star-clusters">
-                        <span class="game-select-icon">✨</span>
+                        <svg class="game-select-icon"><use href="#icon-cluster"/></svg>
                         <span class="game-select-name">Star Clusters</span>
                         <span class="game-select-count">15</span>
                     </button>
                     <button class="game-select-btn" data-category="nebulae">
-                        <span class="game-select-icon">☁</span>
+                        <svg class="game-select-icon"><use href="#icon-nebula"/></svg>
                         <span class="game-select-name">Nebulae</span>
                         <span class="game-select-count">15</span>
                     </button>
                     <button class="game-select-btn" data-category="galaxies">
-                        <span class="game-select-icon">🌀</span>
+                        <svg class="game-select-icon"><use href="#icon-galaxy"/></svg>
                         <span class="game-select-name">Galaxies</span>
                         <span class="game-select-count">15</span>
                     </button>
                     <button class="game-select-btn" data-category="bright-stars">
-                        <span class="game-select-icon">⭐</span>
+                        <svg class="game-select-icon"><use href="#icon-star"/></svg>
                         <span class="game-select-name">Bright Stars</span>
                         <span class="game-select-count">25</span>
                     </button>
                     <button class="game-select-btn" data-category="messier-objects">
-                        <span class="game-select-icon">📋</span>
+                        <svg class="game-select-icon"><use href="#icon-clipboard"/></svg>
                         <span class="game-select-name">Messier Objects</span>
                         <span class="game-select-count">110</span>
                     </button>
@@ -403,17 +579,52 @@
             <div id="info-content"></div>
         </div>
 
-        <!-- Time Controls (compact) -->
-        <div class="time-controls">
-            <button class="time-btn" id="time-rewind-btn">⏪</button>
-            <button class="time-btn" id="time-play-btn">⏯</button>
-            <div class="time-display">
-                <div id="time-display">Loading...</div>
-                <div id="time-speed-display">Paused</div>
+        <!-- Observatory Control Bar (unified time + magnitude) -->
+        <div class="control-bar">
+            <!-- Magnitude Row (top) -->
+            <div class="control-bar__row control-bar__magnitude">
+                <span class="control-bar__label">MAG</span>
+                <input type="range" id="magnitude-slider" min="0" max="25" step="0.1">
+                <span id="mag-value" class="control-bar__value">--</span>
             </div>
-            <button class="time-btn" id="time-forward-btn">⏩</button>
-            <button class="time-btn small" id="time-now-btn">Now</button>
-            <button class="time-btn small" id="time-picker-btn" title="Set date/time">📅</button>
+
+            <!-- Time Row (bottom) -->
+            <div class="control-bar__row control-bar__time">
+                <button class="time-btn" id="time-rewind-btn" aria-label="Rewind">
+                    <svg viewBox="0 0 24 24">
+                        <polygon points="11,5 11,19 2,12"/>
+                        <polygon points="22,5 22,19 13,12"/>
+                    </svg>
+                </button>
+                <button class="time-btn" id="time-play-btn" aria-label="Play/Pause">
+                    <svg class="play-icon" viewBox="0 0 24 24">
+                        <polygon points="6,4 20,12 6,20"/>
+                    </svg>
+                    <svg class="pause-icon" viewBox="0 0 24 24">
+                        <rect x="5" y="4" width="5" height="16"/>
+                        <rect x="14" y="4" width="5" height="16"/>
+                    </svg>
+                </button>
+                <div class="time-display">
+                    <div id="time-display">Loading...</div>
+                    <div id="time-speed-display">Paused</div>
+                </div>
+                <button class="time-btn" id="time-forward-btn" aria-label="Fast Forward">
+                    <svg viewBox="0 0 24 24">
+                        <polygon points="2,5 2,19 11,12"/>
+                        <polygon points="13,5 13,19 22,12"/>
+                    </svg>
+                </button>
+                <button class="time-btn small" id="time-now-btn">Now</button>
+                <button class="time-btn small" id="time-picker-btn" title="Set date/time" aria-label="Date picker">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                    </svg>
+                </button>
+            </div>
         </div>
 
         <!-- Date/Time Picker Panel -->
@@ -426,14 +637,6 @@
                 <button class="time-btn small" id="time-picker-apply">Go</button>
                 <button class="time-btn small secondary" id="time-picker-cancel">Cancel</button>
             </div>
-        </div>
-
-        <!-- Magnitude Control (floating) -->
-        <!-- Initial values overridden by JS from STARS.DEFAULT_MAGNITUDE -->
-        <div class="magnitude-control">
-            <span class="mag-label">MAG</span>
-            <input type="range" id="magnitude-slider" min="0" max="25" step="0.5">
-            <span id="mag-value" class="mag-value">--</span>
         </div>
 
         <!-- Visible Tonight Panel -->

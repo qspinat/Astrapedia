@@ -214,6 +214,7 @@ export class TourController {
    * @param {string} tourName - Name of tour to start
    */
   start(tourName) {
+    console.log('[TourController] start() called with tourName:', tourName);
     const tours = this.getAvailableTours();
     const tour = tours[tourName];
 
@@ -222,6 +223,7 @@ export class TourController {
       return;
     }
 
+    console.log('[TourController] Tour found:', tour.name, 'with', tour.steps?.length, 'steps');
     this.currentTour_ = tour;
 
     this.tourStep_ = 0;
@@ -254,12 +256,18 @@ export class TourController {
    * Advance to next step.
    */
   next() {
-    if (!this.currentTour_) return;
+    console.log('[TourController] next() called, currentStep:', this.tourStep_);
+    if (!this.currentTour_) {
+      console.log('[TourController] next() - no current tour, returning');
+      return;
+    }
 
     this.unhighlightConstellation_?.();
     this.tourStep_++;
+    console.log('[TourController] next() - advanced to step:', this.tourStep_, 'of', this.currentTour_.steps.length);
 
     if (this.tourStep_ >= this.currentTour_.steps.length) {
+      console.log('[TourController] next() - reached end, stopping tour');
       this.stop();
       return;
     }
@@ -296,12 +304,15 @@ export class TourController {
    * @private
    */
   showStep_() {
+    console.log('[TourController] showStep_() called, step:', this.tourStep_);
     if (!this.currentTour_ || this.tourStep_ >= this.currentTour_.steps.length) {
+      console.log('[TourController] showStep_() - invalid state, stopping');
       this.stop();
       return;
     }
 
     const step = this.currentTour_.steps[this.tourStep_];
+    console.log('[TourController] showStep_() - showing:', step?.name);
 
     // Determine required FOV based on tour type
     let requiredFov = this.calculateRequiredFOV_(step);
@@ -419,6 +430,7 @@ export class TourController {
     this.showHighlight_(step.ra, step.dec, angularSizeArcmin);
 
     if (obj) {
+      if (!obj.name && step.name) obj.name = step.name;
       this.showObjectInfo_?.(obj);
     }
   }
@@ -583,7 +595,9 @@ export class TourController {
     // Check by name
     let obj = dsos.find((d) =>
       d.name === name ||
-      (d.common_names && d.common_names.toLowerCase().includes(name.toLowerCase()))
+      (d.common_names && (Array.isArray(d.common_names)
+        ? d.common_names.some((n) => n.toLowerCase().includes(name.toLowerCase()))
+        : d.common_names.toLowerCase().includes(name.toLowerCase())))
     );
     if (obj) return obj;
 
@@ -682,7 +696,9 @@ export class TourController {
             (dso.name?.match(/^(NGC|IC)\d+/)?.[0] || dso.name);
           const typeName = DSO_TYPE_DESCRIPTIONS[dso.type] || dso.type ||
             'Deep Sky Object';
-          const commonName = dso.common_names ? ` (${dso.common_names})` : '';
+          const commonName = dso.common_names
+            ? ` (${Array.isArray(dso.common_names) ? dso.common_names.join(', ') : dso.common_names})`
+            : '';
 
           objects.push({
             name,

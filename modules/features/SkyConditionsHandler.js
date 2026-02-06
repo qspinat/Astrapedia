@@ -42,10 +42,10 @@ export class SkyConditionsHandler {
      * @private @const {!Object<string, number>}
      */
     this.baseMagnitudes_ = {
-      city: 4.0,      // Bortle 8-9: Inner city, only bright stars visible
-      suburban: 5.5,  // Bortle 5-6: Suburban sky
-      rural: 6.5,     // Bortle 4: Rural/suburban transition
-      dark: 7.5,      // Bortle 2-3: Dark sky site, excellent conditions
+      city: 3.8,      // Bortle 8-9: Inner city, NELM ~3.6-4.1
+      suburban: 5.3,  // Bortle 5-6: Suburban sky, NELM ~5.1-5.6
+      rural: 6.3,     // Bortle 3-4: Rural sky, NELM ~6.1-6.6
+      dark: 7.3,      // Bortle 1-2: Dark sky site, NELM ~7.1-7.6
     };
 
     /** @private {string} */

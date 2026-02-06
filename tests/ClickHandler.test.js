@@ -558,6 +558,9 @@ describe('ClickHandler detection paths', () => {
 
   describe('dynamic star click detection', () => {
     test('detects click on dynamic star', () => {
+      // Set magnitude limit high enough to allow clicking on the star
+      mockDeps.getMagnitudeLimit.mockReturnValue(15);
+
       const mockDynamicManager = {
         getDynamicStarField: jest.fn().mockReturnValue({}),
         getVisibleIndices: jest.fn().mockReturnValue([0, 1, 2]),
@@ -588,6 +591,25 @@ describe('ClickHandler detection paths', () => {
         getDynamicStarField: jest.fn().mockReturnValue({}),
         getVisibleIndices: jest.fn().mockReturnValue([100]), // Out of range
         getDynamicStars: jest.fn().mockReturnValue([{ra: 0, dec: 0, mag: 10}]),
+      };
+      mockDeps.getDynamicObjectManager.mockReturnValue(mockDynamicManager);
+      handler.raycaster_.intersectObject = jest.fn().mockReturnValue([
+        {index: 0, distance: 50},
+      ]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).not.toHaveBeenCalled();
+    });
+
+    test('skips stars above magnitude limit', () => {
+      // Default magnitude limit is 8.0, star has magnitude 12
+      const mockDynamicManager = {
+        getDynamicStarField: jest.fn().mockReturnValue({}),
+        getVisibleIndices: jest.fn().mockReturnValue([0]),
+        getDynamicStars: jest.fn().mockReturnValue([
+          {ra: 45.123, dec: 30.456, mag: 12},
+        ]),
       };
       mockDeps.getDynamicObjectManager.mockReturnValue(mockDynamicManager);
       handler.raycaster_.intersectObject = jest.fn().mockReturnValue([

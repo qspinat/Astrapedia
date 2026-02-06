@@ -4,8 +4,8 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {raDecToCartesian} from '../core/CoordinateUtils.js';
-import {SPHERE} from '../core/Constants.js';
+import {raDecToCartesian, cartesianToRaDec, angularDistance} from '../core/CoordinateUtils.js';
+import {SPHERE, CONSTELLATIONS} from '../core/Constants.js';
 
 /**
  * Default colors for constellation lines.
@@ -61,6 +61,15 @@ export class ConstellationRenderer {
 
     /** @private {number} */
     this.radius_ = SPHERE.CONSTELLATION_RADIUS;
+
+    /** @private {string} - Current display mode */
+    this.mode_ = CONSTELLATIONS.MODE_ALL;
+
+    /** @private {!Map<string, {ra: number, dec: number}>} */
+    this.constellationCenters_ = new Map();
+
+    /** @private {!Map<string, number>} */
+    this.constellationOpacities_ = new Map();
   }
 
   /**
@@ -92,6 +101,14 @@ export class ConstellationRenderer {
   }
 
   /**
+   * Set the current display mode.
+   * @param {string} mode - One of CONSTELLATIONS.MODE_OFF/MODE_FOCUS/MODE_ALL
+   */
+  setMode(mode) {
+    this.mode_ = mode;
+  }
+
+  /**
    * Create constellation lines from star data.
    */
   createLines() {
@@ -115,7 +132,7 @@ export class ConstellationRenderer {
       const lineMaterial = new THREE.LineBasicMaterial({
         color: COLORS.LINE,
         transparent: true,
-        opacity: 0.35,
+        opacity: CONSTELLATIONS.LINE_OPACITY,
         linewidth: 1,
         depthWrite: false,
       });
@@ -146,6 +163,9 @@ export class ConstellationRenderer {
 
     this.linesGroup_.visible = this.visible_;
     this.celestialSphere_.add(this.linesGroup_);
+
+    // Precompute constellation centers for focus mode
+    this.computeConstellationCenters_(stars, constellations);
 
     globalEventBus.emit(Events.CONSTELLATION_LINES_CREATED, {
       count: linesCreated,
@@ -190,9 +210,8 @@ export class ConstellationRenderer {
       if (line.userData?.isGlow) return;
 
       if (line.userData.constellation === constellationName) {
-        // Store original values for this line
-        if (!line.userData.originalOpacity) {
-          line.userData.originalOpacity = line.material.opacity;
+        // Store original color (opacity restored from mode, not snapshot)
+        if (!line.userData.originalColor) {
           line.userData.originalColor = line.material.color.getHex();
         }
         line.material.opacity = 1.0;
@@ -222,11 +241,19 @@ export class ConstellationRenderer {
       if (line.userData?.isGlow) return;
 
       if (line.userData.constellation === this.highlightedConstellation_) {
-        if (line.userData.originalOpacity !== undefined) {
-          line.material.opacity = line.userData.originalOpacity;
+        if (line.userData.originalColor !== undefined) {
+          // In focus mode, restore to lerped opacity from focus state
+          // In all mode, restore to default constant
+          if (this.mode_ === CONSTELLATIONS.MODE_FOCUS) {
+            const focusOpacity = this.constellationOpacities_.get(
+              this.highlightedConstellation_) ?? 0;
+            line.material.opacity = focusOpacity;
+            line.visible = focusOpacity > 0.005;
+          } else {
+            line.material.opacity = CONSTELLATIONS.LINE_OPACITY;
+          }
           line.material.color.setHex(line.userData.originalColor);
           line.material.linewidth = 1;
-          delete line.userData.originalOpacity;
           delete line.userData.originalColor;
         }
       }
@@ -253,7 +280,7 @@ export class ConstellationRenderer {
       // Restore all lines to original state when hiding
       this.linesGroup_.children.forEach((line) => {
         if (line.userData?.isGlow) return;
-        line.material.opacity = 0.35;
+        line.material.opacity = CONSTELLATIONS.LINE_OPACITY;
         line.material.color.setHex(COLORS.LINE);
         line.material.linewidth = 1;
       });
@@ -295,6 +322,130 @@ export class ConstellationRenderer {
       if (line.material) line.material.dispose();
     });
     this.glowLines_ = [];
+  }
+
+  /**
+   * Precompute center positions for each constellation using Cartesian mean.
+   * @param {!Array<!Object>} stars - Star array
+   * @param {!Object} constellations - Constellations data
+   * @private
+   */
+  computeConstellationCenters_(stars, constellations) {
+    this.constellationCenters_.clear();
+    this.constellationOpacities_.clear();
+
+    const starByHip = new Map();
+    stars.forEach((s) => {
+      if (s.hip) starByHip.set(s.hip, s);
+    });
+
+    Object.entries(constellations).forEach(([constName, constellation]) => {
+      const hipSet = new Set();
+      constellation.lines.forEach(([hip1, hip2]) => {
+        hipSet.add(hip1);
+        hipSet.add(hip2);
+      });
+
+      let sx = 0, sy = 0, sz = 0;
+      let count = 0;
+      hipSet.forEach((hip) => {
+        const star = starByHip.get(hip);
+        if (star) {
+          const raRad = star.ra * Math.PI / 180;
+          const decRad = star.dec * Math.PI / 180;
+          sx += Math.cos(decRad) * Math.cos(raRad);
+          sy += Math.sin(decRad);
+          sz += Math.cos(decRad) * Math.sin(raRad);
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        const raDec = cartesianToRaDec(sx / count, sy / count, -(sz / count));
+        this.constellationCenters_.set(constName, {ra: raDec.ra, dec: raDec.dec});
+        this.constellationOpacities_.set(constName, 0);
+      }
+    });
+  }
+
+  /**
+   * Update focus mode - fade in nearest constellation, fade out others.
+   * @param {number} viewRa - View center RA in degrees
+   * @param {number} viewDec - View center Dec in degrees
+   * @returns {boolean} True if any opacity is still changing (needs more frames)
+   */
+  updateFocusMode(viewRa, viewDec) {
+    if (!this.linesGroup_) return false;
+
+    // Find nearest constellation center
+    let nearestConst = null;
+    let nearestDist = Infinity;
+    this.constellationCenters_.forEach(({ra, dec}, name) => {
+      const dist = angularDistance(viewRa, viewDec, ra, dec);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestConst = name;
+      }
+    });
+
+    // Only select if within focus radius
+    if (nearestDist > CONSTELLATIONS.FOCUS_RADIUS) {
+      nearestConst = null;
+    }
+
+    let needsRender = false;
+    const lerpSpeed = CONSTELLATIONS.FOCUS_LERP_SPEED;
+
+    // Update opacities for each constellation
+    this.constellationOpacities_.forEach((currentOpacity, name) => {
+      const target = (name === nearestConst) ? CONSTELLATIONS.LINE_OPACITY : 0;
+      const newOpacity = currentOpacity + (target - currentOpacity) * lerpSpeed;
+
+      // Snap to target when close enough
+      const finalOpacity = Math.abs(newOpacity - target) < 0.005 ? target : newOpacity;
+
+      if (finalOpacity !== currentOpacity) {
+        this.constellationOpacities_.set(name, finalOpacity);
+        needsRender = true;
+      }
+    });
+
+    // Only touch line materials when opacities actually changed
+    if (needsRender) {
+      this.linesGroup_.children.forEach((line) => {
+        if (line.userData?.isGlow) return;
+        const constName = line.userData.constellation;
+
+        // Skip highlighted constellation (tour/selection takes priority)
+        if (constName === this.highlightedConstellation_) return;
+
+        const opacity = this.constellationOpacities_.get(constName) ?? 0;
+        line.material.opacity = opacity;
+        line.visible = opacity > 0.005;
+      });
+    }
+
+    return needsRender;
+  }
+
+  /**
+   * Reset all line opacities to default (for switching away from focus mode).
+   */
+  resetOpacities() {
+    if (!this.linesGroup_) return;
+
+    this.constellationOpacities_.forEach((_, name) => {
+      this.constellationOpacities_.set(name, 0);
+    });
+
+    this.linesGroup_.children.forEach((line) => {
+      if (line.userData?.isGlow) return;
+      line.material.opacity = CONSTELLATIONS.LINE_OPACITY;
+      line.material.color.setHex(COLORS.LINE);
+      line.visible = true;
+    });
+
+    this.requestRender_();
   }
 
   /**

@@ -93,9 +93,12 @@ export class TourUI {
     const btn = document.getElementById(buttonId);
     if (btn) {
       addMobileButtonListener(btn, () => {
+        console.log('[TourUI] Tour button clicked:', tourName);
         this.deps_.startTour?.(tourName);
         this.panelManager_?.closeAll?.();
       });
+    } else {
+      console.warn('[TourUI] Button not found:', buttonId);
     }
   }
 
@@ -106,18 +109,21 @@ export class TourUI {
   setupEventBusListeners_() {
     this.subscriptions_.push(
       globalEventBus.on(Events.TOUR_STARTED, (data) => {
+        console.log('[TourUI] TOUR_STARTED received:', data.tourName);
         this.isActive_ = true;
         this.currentTour_ = data.tourName;
         this.showTourUI_();
       }),
 
       globalEventBus.on(Events.TOUR_ENDED, () => {
+        console.log('[TourUI] TOUR_ENDED received');
         this.isActive_ = false;
         this.currentTour_ = null;
         this.hideTourUI_();
       }),
 
       globalEventBus.on(Events.TOUR_STEP_CHANGED, (data) => {
+        console.log('[TourUI] TOUR_STEP_CHANGED received:', data.stepIndex, 'of', data.totalSteps);
         // Build the full tour panel with navigation buttons
         this.buildTourPanel({
           tourName: data.tour?.name || this.currentTour_,
@@ -188,8 +194,12 @@ export class TourUI {
    * @param {function(): void} tourData.onEnd - End tour callback
    */
   buildTourPanel(tourData) {
+    console.log('[TourUI] buildTourPanel() called, step:', tourData.stepIndex + 1, 'of', tourData.totalSteps, '-', tourData.stepName);
     const tourPanel = document.getElementById('tour-panel');
-    if (!tourPanel) return;
+    if (!tourPanel) {
+      console.warn('[TourUI] tour-panel not found');
+      return;
+    }
 
     // Clear existing content
     tourPanel.textContent = '';
@@ -228,7 +238,10 @@ export class TourUI {
     // Next button
     const nextBtn = document.createElement('button');
     nextBtn.textContent = 'Next →';
-    addMobileButtonListener(nextBtn, () => tourData.onNext?.());
+    addMobileButtonListener(nextBtn, () => {
+      console.log('[TourUI] Next button clicked');
+      tourData.onNext?.();
+    });
     btnContainer.appendChild(nextBtn);
 
     tourPanel.appendChild(btnContainer);

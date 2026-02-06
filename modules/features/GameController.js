@@ -596,6 +596,8 @@ export class GameController {
 
   /**
    * Calculate the center coordinates of a constellation from its star positions.
+   * Uses circular mean for RA to correctly handle constellations spanning the
+   * 0°/360° boundary (e.g., Pegasus, Pisces, Andromeda).
    * @param {!Object} constData - Constellation data with lines array
    * @returns {{ra: number, dec: number}} Center coordinates
    * @private
@@ -622,15 +624,20 @@ export class GameController {
       return {ra: 0, dec: 0};
     }
 
-    // Find stars and calculate average position
-    let sumRa = 0;
+    // Calculate average position using circular mean for RA
+    const DEG_TO_RAD = Math.PI / 180;
+    const RAD_TO_DEG = 180 / Math.PI;
+    let sumX = 0;
+    let sumY = 0;
     let sumDec = 0;
     let count = 0;
 
     starIds.forEach((id) => {
       const star = this.stars_.find((s) => s.hip === id || s.id === id);
       if (star && star.ra !== undefined && star.dec !== undefined) {
-        sumRa += star.ra;
+        const raRad = star.ra * DEG_TO_RAD;
+        sumX += Math.cos(raRad);
+        sumY += Math.sin(raRad);
         sumDec += star.dec;
         count++;
       }
@@ -640,10 +647,11 @@ export class GameController {
       return {ra: 0, dec: 0};
     }
 
-    return {
-      ra: sumRa / count,
-      dec: sumDec / count,
-    };
+    // Circular mean using atan2, normalized to [0, 360)
+    let meanRa = Math.atan2(sumY / count, sumX / count) * RAD_TO_DEG;
+    if (meanRa < 0) meanRa += 360;
+
+    return {ra: meanRa, dec: sumDec / count};
   }
 
   /**
