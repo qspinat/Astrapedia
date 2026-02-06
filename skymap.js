@@ -70,7 +70,7 @@ import {
   calculateLST,
   formatAngle,
 } from './modules/core/CoordinateUtils.js';
-import {CAMERA, STARS} from './modules/core/Constants.js';
+import {CAMERA, STARS, CONSTELLATIONS} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
 import {dataLoader} from './modules/services/DataLoader.js';
 import {astronomyCalculator} from './modules/core/AstronomyCalculator.js';
@@ -142,7 +142,7 @@ export class SkyMapApp {
     this.planets = [];
     this.planetSprites = [];
     this.constellationLinesGroup = null;
-    this.showConstellationLines = true;
+    this.constellationLinesMode = CONSTELLATIONS.MODE_ALL;
     // Default language from browser locale (e.g., 'fr-FR' -> 'fr')
     // Validate against supported languages, fallback to English
     const browserLang = (navigator.language || 'en').split('-')[0];
@@ -599,7 +599,7 @@ export class SkyMapApp {
       getExtendedObjectSprites: () => this.extendedObjectSprites || [],
       getConstellationLinesGroup: () => this.constellationLinesGroup,
       getDynamicObjectManager: () => this.dynamicObjectManager_,
-      isConstellationLinesVisible: () => this.showConstellationLines,
+      isConstellationLinesVisible: () => this.constellationLinesMode !== CONSTELLATIONS.MODE_OFF,
       isGameActive: () => this.isGameActive(),
       checkGameAnswer: (obj) => this.checkGameAnswer(obj),
       checkGameAnswerByName: (name) => this.checkGameAnswerByName(name),
@@ -607,7 +607,7 @@ export class SkyMapApp {
       showConstellationInfo: (name) => this.showConstellationInfo(name),
       unhighlightConstellation: () => this.unhighlightConstellation(),
       clearSelection: () => this.selectionManager_?.clearSelection(),
-      getMagnitudeLimit: () => this.magnitudeLimit,
+      getMagnitudeLimit: () => this.currentMagnitude,
       getConstellationName: (key) => this.getConstellationName(key),
     });
   }
@@ -666,11 +666,8 @@ export class SkyMapApp {
     });
 
     globalEventBus.on(Events.CMD_SET_CONSTELLATION_LINES, (data) => {
-      if (this.constellationLinesGroup) {
-        this.showConstellationLines = !!data?.visible;
-        this.constellationLinesGroup.visible = this.showConstellationLines;
-        this.requestRender();
-      }
+      const mode = data?.visible ? CONSTELLATIONS.MODE_ALL : CONSTELLATIONS.MODE_OFF;
+      this.setConstellationLinesMode(mode);
     });
 
     // Camera commands
@@ -712,12 +709,16 @@ export class SkyMapApp {
 
     // Tour commands - delegate directly to TourController
     globalEventBus.on(Events.CMD_START_TOUR, (data) => {
+      console.log('[SkyMap] CMD_START_TOUR received:', data?.tourName);
       if (data?.tourName) {
         this.tourController_.start(data.tourName);
+      } else {
+        console.warn('[SkyMap] CMD_START_TOUR received with no tourName');
       }
     });
 
     globalEventBus.on(Events.CMD_NEXT_TOUR_STEP, () => {
+      console.log('[SkyMap] CMD_NEXT_TOUR_STEP received');
       this.tourController_.next();
     });
 
@@ -1034,6 +1035,15 @@ export class SkyMapApp {
     this.gridRenderer_?.setEquatorVisible(visible);
   }
 
+  /**
+   * Set the visibility of the coordinate grid.
+   * Delegates to GridRenderer module.
+   * @param {boolean} visible - Whether the grid should be visible
+   */
+  setGridVisible(visible) {
+    this.gridRenderer_?.setGridVisible(visible);
+  }
+
   // Feature 1: Constellation Lines
   /**
    * Create constellation lines from star data.
@@ -1043,8 +1053,46 @@ export class SkyMapApp {
     this.constellationRenderer_.createLines();
     this.constellationLinesGroup = this.constellationRenderer_.getLinesGroup();
     if (this.constellationLinesGroup) {
-      this.constellationLinesGroup.visible = this.showConstellationLines;
+      this.constellationLinesGroup.visible =
+        this.constellationLinesMode !== CONSTELLATIONS.MODE_OFF;
     }
+  }
+
+  /**
+   * Set constellation lines display mode (off/focus/all).
+   * @param {string} mode - One of CONSTELLATIONS.MODE_OFF/MODE_FOCUS/MODE_ALL
+   */
+  setConstellationLinesMode(mode) {
+    this.constellationLinesMode = mode;
+    this.constellationRenderer_?.setMode(mode);
+    if (!this.constellationLinesGroup) return;
+
+    if (mode === CONSTELLATIONS.MODE_OFF) {
+      this.constellationLinesGroup.visible = false;
+    } else {
+      this.constellationLinesGroup.visible = true;
+      if (mode === CONSTELLATIONS.MODE_ALL) {
+        this.constellationRenderer_?.resetOpacities();
+      }
+    }
+    this.requestRender();
+  }
+
+  /**
+   * Get the RA/Dec coordinates of the current view center.
+   * @returns {{ra: number, dec: number}} View center in degrees
+   */
+  getViewCenterRaDec() {
+    this.camera.getWorldDirection(this._tempVec3);
+    this._tempVec3B.copy(this._tempVec3);
+    if (this.celestialSphere) {
+      this.celestialSphere.updateMatrixWorld();
+      this._tempMatrix4.copy(this.celestialSphere.matrixWorld);
+      this._tempMatrix4B.copy(this._tempMatrix4).invert();
+      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
+      this._tempVec3B.applyMatrix3(this._tempMatrix3);
+    }
+    return cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
   }
 
   // Feature 3: Cardinal Direction Labels
@@ -1169,28 +1217,9 @@ export class SkyMapApp {
     this.camera.position.set(x, y, z);
     this.camera.lookAt(0, 0, 0);
 
-    // Update camera info display - compute RA/Dec in celestial coordinates
-    // Reuse temporary vectors/matrices to avoid allocations in hot path
-    // Get camera's forward direction in world coordinates
-    this.camera.getWorldDirection(this._tempVec3);
+    // Update camera info display
+    const raDec = this.getViewCenterRaDec();
 
-    // Transform view direction from world coords to celestial coords
-    // by applying the INVERSE of the celestialSphere's world transformation
-    this._tempVec3B.copy(this._tempVec3);
-    if (this.celestialSphere) {
-      // Get the inverse of the celestialSphere's world matrix
-      this.celestialSphere.updateMatrixWorld();
-      this._tempMatrix4.copy(this.celestialSphere.matrixWorld);
-      this._tempMatrix4B.copy(this._tempMatrix4).invert();
-
-      // Apply inverse transformation (rotation only, ignore translation)
-      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
-      this._tempVec3B.applyMatrix3(this._tempMatrix3);
-    }
-
-    const raDec = cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
-
-    // Use optional chaining for cleaner null checks
     if (domCache.raDisplay) domCache.raDisplay.textContent = `${raDec.ra.toFixed(1)}°`;
     if (domCache.decDisplay) domCache.decDisplay.textContent = `${raDec.dec.toFixed(1)}°`;
     if (domCache.fovDisplay) domCache.fovDisplay.textContent = formatAngle(this.camera.fov);
@@ -1209,6 +1238,9 @@ export class SkyMapApp {
       this.camera.fov += fovDiff * this.zoomLerpSpeed;
       this.camera.updateProjectionMatrix();
       changed = true;
+
+      // Update grid density based on new FOV
+      this.gridRenderer_?.updateForFov(this.camera.fov);
     }
 
     // Smoothly interpolate rotation
@@ -1634,8 +1666,8 @@ export class SkyMapApp {
    * Show events calendar panel.
    * Delegates to EventsCalendar module.
    */
-  async showEventsCalendar() {
-    await eventsCalendar.showEventsCalendar(window.openPanel);
+  showEventsCalendar() {
+    eventsCalendar.showEventsCalendar(window.openPanel);
   }
 
   /* ======================================================================
@@ -1995,6 +2027,17 @@ export class SkyMapApp {
     // Update tour highlight animation (cheap, runs every frame when active)
     if (this.tourHighlightModule_?.isActive()) {
       this.updateTourHighlight();
+    }
+
+    // Constellation focus mode - fade nearest constellation
+    if (this.constellationLinesMode === CONSTELLATIONS.MODE_FOCUS) {
+      const viewCenter = this.getViewCenterRaDec();
+      const stillFading = this.constellationRenderer_?.updateFocusMode(
+        viewCenter.ra, viewCenter.dec
+      );
+      if (stillFading) {
+        this.requestRender();
+      }
     }
 
     this.renderer.render(this.scene, this.camera);

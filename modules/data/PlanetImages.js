@@ -1,16 +1,14 @@
 /**
  * @fileoverview Centralized planet image URLs with fallback support.
- * Primary URLs use CORS-friendly sources (Wikimedia, NASA JPL).
- * NASA GSFC URLs don't support CORS so are not used.
+ * All primary URLs use CORS-friendly sources (Wikimedia Commons).
  */
 
 /**
  * Planet image configuration with primary and fallback URLs.
- * @const {!Object<string, {primary: string, fallback: string, source: string, tier: string}>}
+ * @const {!Object<string, {primary: string, fallback: ?string, source: string, tier: string}>}
  */
 export const PLANET_IMAGES = {
   Sun: {
-    // Wikimedia - NASA SDO image (CORS-friendly, unlike live NASA SDO)
     primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/' +
       'The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_' +
       '-_20100819.jpg/400px-The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_' +
@@ -21,7 +19,6 @@ export const PLANET_IMAGES = {
     tier: 'iconic',
   },
   Moon: {
-    // Wikimedia full moon image (CORS-friendly)
     primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/' +
       'FullMoon2010.jpg/400px-FullMoon2010.jpg',
     fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/' +
@@ -30,69 +27,61 @@ export const PLANET_IMAGES = {
     tier: 'high',
   },
   Mercury: {
-    // NASA Photojournal
-    primary: 'https://photojournal.jpl.nasa.gov/jpegMod/PIA15160_modest.jpg',
-    fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/' +
+    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/' +
       'Mercury_in_true_color.jpg/400px-Mercury_in_true_color.jpg',
-    source: 'NASA/MESSENGER',
+    fallback: null,
+    source: 'NASA/MESSENGER via Wikimedia',
     tier: 'iconic',
   },
   Venus: {
-    // NASA Photojournal - Mariner 10 true color
-    primary: 'https://photojournal.jpl.nasa.gov/jpegMod/PIA23791_modest.jpg',
-    fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/' +
+    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/' +
       'PIA23791-Venus-NewlyProcessedView-20200608.jpg/400px-PIA23791-Venus-' +
       'NewlyProcessedView-20200608.jpg',
-    source: 'NASA/Mariner',
+    fallback: null,
+    source: 'NASA/Mariner via Wikimedia',
     tier: 'iconic',
   },
   Mars: {
-    // NASA Photojournal
-    primary: 'https://photojournal.jpl.nasa.gov/jpegMod/PIA14293_modest.jpg',
-    fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/' +
+    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/' +
       'Mars_-_August_30_2021_-_Flickr_-_Kevin_M._Gill.png/400px-Mars_-_August_30_2021' +
       '_-_Flickr_-_Kevin_M._Gill.png',
-    source: 'NASA/Hubble',
+    fallback: null,
+    source: 'NASA/Hubble via Wikimedia',
     tier: 'iconic',
   },
   Jupiter: {
-    // NASA Photojournal - Juno
-    primary: 'https://photojournal.jpl.nasa.gov/jpegMod/PIA21973_modest.jpg',
-    fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/' +
+    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/' +
       'Jupiter_New_Horizons.jpg/400px-Jupiter_New_Horizons.jpg',
-    source: 'NASA/Juno',
+    fallback: null,
+    source: 'NASA/New Horizons via Wikimedia',
     tier: 'iconic',
   },
   Saturn: {
-    // NASA Photojournal - Cassini
-    primary: 'https://photojournal.jpl.nasa.gov/jpegMod/PIA11141_modest.jpg',
-    fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/' +
+    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/' +
       'Saturn_during_Equinox.jpg/400px-Saturn_during_Equinox.jpg',
-    source: 'NASA/Cassini',
+    fallback: null,
+    source: 'NASA/Cassini via Wikimedia',
     tier: 'iconic',
   },
   Uranus: {
-    // NASA Photojournal - Voyager
-    primary: 'https://photojournal.jpl.nasa.gov/jpegMod/PIA18182_modest.jpg',
-    fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/' +
+    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/' +
       'Uranus2.jpg/400px-Uranus2.jpg',
-    source: 'NASA/Voyager',
+    fallback: null,
+    source: 'NASA/Voyager via Wikimedia',
     tier: 'iconic',
   },
   Neptune: {
-    // NASA Photojournal - Voyager
-    primary: 'https://photojournal.jpl.nasa.gov/jpegMod/PIA01492_modest.jpg',
-    fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/' +
+    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/' +
       'Neptune_Voyager2_color_calibrated.png/400px-Neptune_Voyager2_color_calibrated.png',
-    source: 'NASA/Voyager',
+    fallback: null,
+    source: 'NASA/Voyager via Wikimedia',
     tier: 'iconic',
   },
   Pluto: {
-    // NASA Photojournal - New Horizons
-    primary: 'https://photojournal.jpl.nasa.gov/jpegMod/PIA19952_modest.jpg',
-    fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/' +
+    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/' +
       'Pluto_in_True_Color_-_High-Res.jpg/400px-Pluto_in_True_Color_-_High-Res.jpg',
-    source: 'NASA/New Horizons',
+    fallback: null,
+    source: 'NASA/New Horizons via Wikimedia',
     tier: 'iconic',
   },
 };

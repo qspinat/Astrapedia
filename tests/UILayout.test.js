@@ -25,16 +25,16 @@ describe('UI Layout - HTML Structure', () => {
       expect(htmlContent).toContain('id="settings-panel"');
     });
 
-    test('time controls exist', () => {
-      expect(htmlContent).toContain('class="time-controls"');
+    test('control bar exists (unified time + magnitude)', () => {
+      expect(htmlContent).toContain('class="control-bar"');
     });
 
     test('time picker panel exists', () => {
       expect(htmlContent).toContain('id="time-picker-panel"');
     });
 
-    test('magnitude control exists', () => {
-      expect(htmlContent).toContain('class="magnitude-control"');
+    test('magnitude slider exists in control bar', () => {
+      expect(htmlContent).toContain('id="magnitude-slider"');
     });
   });
 
@@ -93,23 +93,23 @@ describe('CSS Layout Rules', () => {
       expect(cssContent).toMatch(/\.time-picker-panel\s*\{[^}]*position:\s*fixed/);
     });
 
-    test('time-picker-panel is positioned above time-controls', () => {
+    test('time-picker-panel is positioned above control-bar', () => {
       // Extract bottom values
       const timePickerMatch = cssContent.match(
         /\.time-picker-panel\s*\{[^}]*bottom:\s*calc\((\d+)px/
       );
-      const timeControlsMatch = cssContent.match(
-        /\.time-controls\s*\{[^}]*bottom:\s*calc\((\d+)px/
+      const controlBarMatch = cssContent.match(
+        /\.control-bar\s*\{[^}]*bottom:\s*calc\((\d+)px/
       );
 
       expect(timePickerMatch).not.toBeNull();
-      expect(timeControlsMatch).not.toBeNull();
+      expect(controlBarMatch).not.toBeNull();
 
       const timePickerBottom = parseInt(timePickerMatch[1], 10);
-      const timeControlsBottom = parseInt(timeControlsMatch[1], 10);
+      const controlBarBottom = parseInt(controlBarMatch[1], 10);
 
-      // Time picker should be higher (larger bottom value) than time controls
-      expect(timePickerBottom).toBeGreaterThan(timeControlsBottom);
+      // Time picker should be higher (larger bottom value) than control bar
+      expect(timePickerBottom).toBeGreaterThan(controlBarBottom);
     });
 
     test('time-picker-panel has z-index defined', () => {
@@ -157,18 +157,15 @@ describe('Panel non-overlap validation', () => {
 
   test('bottom UI elements have distinct vertical positions', () => {
     // Get bottom positions of key elements
-    const timeControlsBottom = extractBottomValue('\\.time-controls');
-    const magControlBottom = extractBottomValue('\\.magnitude-control');
+    const controlBarBottom = extractBottomValue('\\.control-bar');
     const timePickerBottom = extractBottomValue('\\.time-picker-panel');
 
-    // All should be defined
-    expect(timeControlsBottom).not.toBeNull();
-    expect(magControlBottom).not.toBeNull();
+    // Both should be defined
+    expect(controlBarBottom).not.toBeNull();
     expect(timePickerBottom).not.toBeNull();
 
-    // Time controls is lowest, magnitude and picker are higher
-    expect(timeControlsBottom).toBeLessThanOrEqual(magControlBottom);
-    expect(timeControlsBottom).toBeLessThanOrEqual(timePickerBottom);
+    // Time picker should be higher (larger bottom value) than control bar
+    expect(timePickerBottom).toBeGreaterThan(controlBarBottom);
   });
 
   test('game panel has fixed positioning', () => {
@@ -285,8 +282,8 @@ describe('UI Controller event wiring', () => {
       expect(uiControllerContent).toContain('setEquatorLineVisible?.(e.target.checked)');
     });
 
-    test('retrieves constellation-lines-toggle element', () => {
-      expect(uiControllerContent).toContain('getElementById(\'constellation-lines-toggle\')');
+    test('retrieves constellation-lines-mode element', () => {
+      expect(uiControllerContent).toContain('getElementById(\'constellation-lines-mode\')');
     });
 
     test('retrieves magnitude-slider element', () => {
