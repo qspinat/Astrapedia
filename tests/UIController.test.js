@@ -28,7 +28,6 @@ const mockElements = {
   'search-input': mockSearchInput,
   'search-results': mockSearchResults,
   'equator-line-toggle': {addEventListener: jest.fn(), checked: false},
-  'constellation-lines-mode': {addEventListener: jest.fn(), value: 'all'},
   'constellation-language': {addEventListener: jest.fn(), value: 'en'},
   'magnitude-slider': {addEventListener: jest.fn(), value: '6.0'},
   'mag-value': {textContent: '6.0'},
@@ -334,10 +333,6 @@ describe('UIController Module', () => {
       settingsHandler.initialize();
 
       // Check that event listeners were added to various controls
-      expect(
-        mockElements['constellation-lines-mode'].addEventListener
-      ).toHaveBeenCalledWith('change', expect.any(Function));
-
       expect(
         mockElements['magnitude-slider'].addEventListener
       ).toHaveBeenCalledWith('input', expect.any(Function));

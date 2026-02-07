@@ -438,6 +438,8 @@ export class GameController {
 
     this.passedQuestions_.push(this.currentQuestion_);
 
+    this.updateUI_();
+
     const questionData = this.currentQuestion_.data;
     const questionName = this.currentQuestion_.name;
     const displayName = this.currentQuestion_.displayName || questionName;

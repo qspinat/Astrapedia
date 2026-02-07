@@ -1423,6 +1423,9 @@ export class SkyMapApp {
   }
 
   animateCameraTo(ra, dec) {
+    // Stop any ongoing inertia so it doesn't fight the animation
+    this.inputController_?.stopInertia();
+
     // Get the object position in celestial (local) coordinates
     const localPos = raDecToCartesian(ra, dec, 100);
 

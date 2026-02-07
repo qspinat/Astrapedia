@@ -332,23 +332,6 @@ export class SettingsHandler {
       });
     }
 
-    // Constellation lines mode selector
-    const constLinesMode = document.getElementById('constellation-lines-mode');
-    if (constLinesMode) {
-      constLinesMode.addEventListener('change', (e) => {
-        const mode = e.target.value;
-        this.deps_.setConstellationLinesMode?.(mode);
-
-        // Sync quick toggle button state
-        this.syncConstellationQuickToggle_(mode);
-
-        globalEventBus.emit(Events.SETTING_CHANGED, {
-          setting: 'constellationLinesMode',
-          value: mode,
-        });
-      });
-    }
-
     // Language selector
     const languageSelect = document.getElementById('constellation-language');
     if (languageSelect) {
@@ -435,16 +418,18 @@ export class SettingsHandler {
     const quickToggle = document.getElementById('constellations-quick-toggle');
     if (quickToggle) {
       addMobileButtonListener(quickToggle, () => {
-        const modeSelect = document.getElementById('constellation-lines-mode');
         const cycleOrder = ['all', 'focus', 'off'];
-        const currentMode = modeSelect?.value || 'all';
+        const currentMode = quickToggle.dataset.mode || 'all';
         const nextIdx = (cycleOrder.indexOf(currentMode) + 1) % cycleOrder.length;
         const nextMode = cycleOrder[nextIdx];
 
-        if (modeSelect) {
-          modeSelect.value = nextMode;
-          modeSelect.dispatchEvent(new Event('change'));
-        }
+        this.deps_.setConstellationLinesMode?.(nextMode);
+        this.syncConstellationQuickToggle_(nextMode);
+
+        globalEventBus.emit(Events.SETTING_CHANGED, {
+          setting: 'constellationLinesMode',
+          value: nextMode,
+        });
       });
     }
   }
@@ -477,14 +462,10 @@ export class SettingsHandler {
       case 'constellationLines': {
         // Legacy boolean support
         const mode = value ? 'all' : 'off';
-        const select = document.getElementById('constellation-lines-mode');
-        if (select) select.value = mode;
         this.syncConstellationQuickToggle_(mode);
         break;
       }
       case 'constellationLinesMode': {
-        const select = document.getElementById('constellation-lines-mode');
-        if (select) select.value = value;
         this.syncConstellationQuickToggle_(value);
         break;
       }
