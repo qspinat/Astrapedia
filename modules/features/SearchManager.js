@@ -5,10 +5,14 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {angularDistance} from '../core/CoordinateUtils.js';
+import {CONSTELLATION_NAMES, getAbbrevFromInternalKey} from '../data/ConstellationNames.js';
+import {PLANET_NAMES} from '../data/PlanetNames.js';
+import {DSO_NAMES} from '../data/DsoNames.js';
 
 /**
  * @typedef {{
  *   name: string,
+ *   displayName: (string|undefined),
  *   type: string,
  *   ra: number,
  *   dec: number,
@@ -22,6 +26,7 @@ let SearchEntry;
 /**
  * @typedef {{
  *   name: string,
+ *   internalName: (string|undefined),
  *   type: string,
  *   ra: number,
  *   dec: number,
@@ -93,10 +98,14 @@ export class SearchManager {
     // Add named stars
     if (stars && namedObjects) {
       Object.entries(namedObjects).forEach(([name, starId]) => {
-        // Use Map lookup for O(1) access instead of Array.find
-        const star = this.starByHip_.get(starId) || this.starById_.get(starId);
+        // Handle both scalar IDs and object format {id, hip, ra, dec, mag}
+        const hipId = typeof starId === 'object' ? starId.hip : starId;
+        const idNum = typeof starId === 'object' ? starId.id : starId;
+        const star = (hipId && this.starByHip_.get(hipId)) ||
+                     (idNum && this.starById_.get(idNum)) ||
+                     (typeof starId === 'object' ? starId : null);
         if (star) {
-          this.index_.push({
+          const entry = {
             name,
             type: 'Star',
             ra: star.ra,
@@ -104,8 +113,10 @@ export class SearchManager {
             mag: star.mag,
             isAlias: false,
             data: star,
-          });
+          };
+          this.index_.push(entry);
           this.indexedNames_.add(name);
+          this.addStarCatalogAliases_(star, name);
         }
       });
 
@@ -123,6 +134,7 @@ export class SearchManager {
             data: star,
           });
           this.indexedNames_.add(star.proper);
+          this.addStarCatalogAliases_(star, star.proper);
         }
       });
     }
@@ -187,16 +199,20 @@ export class SearchManager {
                 data: dso,
               });
             }
+
+            // Add translated names for this common name
+            this.addDsoLanguageAliases_(dso, commonName, primaryName);
           });
         }
       });
     }
 
-    // Add constellations
+    // Add constellations with all language names
     if (constellations) {
-      Object.entries(constellations).forEach(([name, data]) => {
+      Object.entries(constellations).forEach(([internalKey, data]) => {
+        // Primary entry with internal key
         this.index_.push({
-          name,
+          name: internalKey,
           type: 'Constellation',
           ra: data.ra || 0,
           dec: data.dec || 0,
@@ -204,22 +220,44 @@ export class SearchManager {
           isAlias: false,
           data,
         });
+
+        // IAU abbreviation alias (e.g., "UMa" for "UrsaMajor")
+        const abbrev = getAbbrevFromInternalKey(internalKey);
+        if (abbrev !== internalKey) {
+          this.index_.push({
+            name: internalKey,
+            displayName: abbrev,
+            type: 'Constellation',
+            ra: data.ra || 0,
+            dec: data.dec || 0,
+            mag: null,
+            isAlias: true,
+            data,
+          });
+        }
+
+        // Add names in all languages
+        for (const [lang, langData] of Object.entries(CONSTELLATION_NAMES)) {
+          const localizedName = langData[abbrev];
+          if (localizedName && localizedName !== internalKey) {
+            this.index_.push({
+              name: internalKey,
+              displayName: localizedName,
+              type: 'Constellation',
+              ra: data.ra || 0,
+              dec: data.dec || 0,
+              mag: null,
+              isAlias: true,
+              data,
+            });
+          }
+        }
       });
     }
 
-    // Add planets
+    // Add planets with all language names
     if (planets) {
-      planets.forEach((planet) => {
-        this.index_.push({
-          name: planet.name,
-          type: 'Planet',
-          ra: planet.ra,
-          dec: planet.dec,
-          mag: planet.mag,
-          isAlias: false,
-          data: planet,
-        });
-      });
+      this.addPlanetEntries_(planets);
     }
 
     this.built_ = true;
@@ -255,18 +293,29 @@ export class SearchManager {
 
     const results = this.index_
       .map((entry) => {
-        const nameLower = entry.name.toLowerCase();
+        const displayName = entry.displayName || entry.name;
+        const displayLower = displayName.toLowerCase();
         let score = 0;
 
-        // Exact match gets highest score
-        if (nameLower === lowerQuery) {
+        // Match against displayName first
+        if (displayLower === lowerQuery) {
           score = 1000;
-        } else if (nameLower.startsWith(lowerQuery)) {
-          // Starts with query
+        } else if (displayLower.startsWith(lowerQuery)) {
           score = 500;
-        } else if (nameLower.includes(lowerQuery)) {
-          // Contains query
+        } else if (displayLower.includes(lowerQuery)) {
           score = 100;
+        }
+
+        // Fall back to matching against internal name if no displayName match
+        if (score === 0 && entry.displayName) {
+          const nameLower = entry.name.toLowerCase();
+          if (nameLower === lowerQuery) {
+            score = 1000;
+          } else if (nameLower.startsWith(lowerQuery)) {
+            score = 500;
+          } else if (nameLower.includes(lowerQuery)) {
+            score = 100;
+          }
         }
 
         // Penalize aliases
@@ -284,7 +333,8 @@ export class SearchManager {
         if (entry.type === 'Constellation') score += 30;
 
         return {
-          name: entry.name,
+          name: displayName,
+          internalName: entry.name,
           type: entry.type,
           ra: entry.ra,
           dec: entry.dec,
@@ -312,8 +362,10 @@ export class SearchManager {
    * @returns {?SearchEntry} Entry or null if not found
    */
   findByName(name) {
+    const lower = name.toLowerCase();
     return this.index_.find(
-      (e) => e.name.toLowerCase() === name.toLowerCase()
+      (e) => e.name.toLowerCase() === lower ||
+             (e.displayName && e.displayName.toLowerCase() === lower)
     ) || null;
   }
 
@@ -358,8 +410,14 @@ export class SearchManager {
    * @returns {!Array<!SearchEntry>} Messier entries sorted by number
    */
   getMessierObjects() {
+    const seen = new Set();
     return this.index_
-      .filter((e) => /^M\d+$/i.test(e.name))
+      .filter((e) => /^M\d+$/i.test(e.name) && !e.isAlias)
+      .filter((e) => {
+        if (seen.has(e.name)) return false;
+        seen.add(e.name);
+        return true;
+      })
       .sort((a, b) => {
         const numA = parseInt(a.name.substring(1), 10);
         const numB = parseInt(b.name.substring(1), 10);
@@ -394,8 +452,18 @@ export class SearchManager {
     // Remove old planet entries
     this.index_ = this.index_.filter((e) => e.type !== 'Planet');
 
-    // Add updated planets
+    // Re-add with all language aliases
+    this.addPlanetEntries_(planets);
+  }
+
+  /**
+   * Add planet entries with all language aliases.
+   * @param {!Array<!Object>} planets - Planet data array
+   * @private
+   */
+  addPlanetEntries_(planets) {
     planets.forEach((planet) => {
+      // Primary English entry
       this.index_.push({
         name: planet.name,
         type: 'Planet',
@@ -405,7 +473,80 @@ export class SearchManager {
         isAlias: false,
         data: planet,
       });
+
+      // Add translated names
+      const translations = PLANET_NAMES[planet.name];
+      if (translations) {
+        for (const [lang, localizedName] of Object.entries(translations)) {
+          if (localizedName !== planet.name) {
+            this.index_.push({
+              name: planet.name,
+              displayName: localizedName,
+              type: 'Planet',
+              ra: planet.ra,
+              dec: planet.dec,
+              mag: planet.mag,
+              isAlias: true,
+              data: planet,
+            });
+          }
+        }
+      }
     });
+  }
+
+  /**
+   * Add catalog ID aliases for a named star (HIP, HD, HR, Gl).
+   * @param {!Object} star - Star data object
+   * @param {string} properName - The star's proper name
+   * @private
+   */
+  addStarCatalogAliases_(star, properName) {
+    const aliases = [];
+    if (star.hip) aliases.push(`HIP ${star.hip}`);
+    if (star.hd) aliases.push(`HD ${star.hd}`);
+    if (star.hr) aliases.push(`HR ${star.hr}`);
+    if (star.gl) aliases.push(`Gl ${star.gl}`);
+
+    aliases.forEach((alias) => {
+      this.index_.push({
+        name: alias,
+        displayName: `${alias} (${properName})`,
+        type: 'Star',
+        ra: star.ra,
+        dec: star.dec,
+        mag: star.mag,
+        isAlias: true,
+        data: star,
+      });
+    });
+  }
+
+  /**
+   * Add translated name aliases for a DSO common name.
+   * @param {!Object} dso - DSO data object
+   * @param {string} englishName - English common name
+   * @param {string} primaryName - Primary catalog name (e.g., 'M31')
+   * @private
+   */
+  addDsoLanguageAliases_(dso, englishName, primaryName) {
+    const translations = DSO_NAMES[englishName];
+    if (!translations) return;
+
+    for (const [lang, localizedName] of Object.entries(translations)) {
+      if (localizedName !== englishName && localizedName !== primaryName) {
+        this.index_.push({
+          name: primaryName || englishName,
+          displayName: localizedName,
+          type: dso.type || 'DSO',
+          ra: dso.ra,
+          dec: dso.dec,
+          mag: dso.mag,
+          isAlias: true,
+          data: dso,
+        });
+      }
+    }
   }
 }
 

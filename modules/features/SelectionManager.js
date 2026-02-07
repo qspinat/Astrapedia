@@ -96,9 +96,10 @@ export class SelectionManager {
 
     // Handle constellations specially
     if (obj.type === 'Constellation') {
+      const constellationKey = obj.internalName || obj.name;
       this.deps_.hideHighlight?.();
-      this.deps_.highlightConstellation?.(obj.name);
-      this.showConstellationInfo_(obj.name);
+      this.deps_.highlightConstellation?.(constellationKey);
+      this.showConstellationInfo_(constellationKey);
       this.deps_.openPanel?.('info-panel');
 
       globalEventBus.emit(Events.OBJECT_SELECTED, {
