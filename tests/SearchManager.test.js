@@ -5,6 +5,8 @@
 import {jest} from '@jest/globals';
 import {SearchManager, searchManager} from '../modules/features/SearchManager.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
+import {getPlanetName} from '../modules/data/PlanetNames.js';
+import {getDsoName} from '../modules/data/DsoNames.js';
 
 describe('SearchManager', () => {
   let manager;
@@ -593,6 +595,123 @@ describe('SearchManager', () => {
       const notNear = manager.findNear(0, 0, 5);
       expect(notNear.some((r) => r.name === 'B')).toBe(false);
     });
+  });
+
+  describe('findByName with displayName', () => {
+    beforeEach(() => {
+      manager.buildIndex({
+        stars: testStars,
+        namedObjects: testNamedObjects,
+        constellations: testConstellations,
+        planets: testPlanets,
+      });
+    });
+
+    test('finds entry by displayName and returns raw entry with internal name', () => {
+      const result = manager.findByName('Grande Ourse');
+      expect(result).not.toBeNull();
+      expect(result.name).toBe('UrsaMajor');
+      expect(result.displayName).toBe('Grande Ourse');
+    });
+
+    test('finds catalog alias by displayName', () => {
+      const result = manager.findByName('HIP 11767 (Polaris)');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Star');
+      expect(result.displayName).toBe('HIP 11767 (Polaris)');
+    });
+
+    test('prefers displayName match over name match', () => {
+      // 'UMa' is a displayName (abbreviation alias for UrsaMajor)
+      const result = manager.findByName('UMa');
+      expect(result).not.toBeNull();
+      expect(result.name).toBe('UrsaMajor');
+    });
+  });
+
+  describe('search fallback path', () => {
+    test('matches internal name when displayName does not match', () => {
+      manager.buildIndex({constellations: testConstellations});
+      // 'UrsaMajor' is the internal name, not a displayName
+      // It should match via the fallback path (name match when displayName miss)
+      const results = manager.search('UrsaMajor');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results.some((r) => r.internalName === 'UrsaMajor')).toBe(true);
+    });
+  });
+
+  describe('constellation deduplication', () => {
+    test('does not create duplicate displayName entries for identical names across languages', () => {
+      manager.buildIndex({constellations: testConstellations});
+      // 'Orion' matches the internalKey, so it should never appear as a displayName
+      const orionDisplayEntries = manager.findByType('Constellation')
+        .filter((e) => e.displayName === 'Orion');
+      expect(orionDisplayEntries.length).toBe(0);
+    });
+
+    test('deduplicates identical localized names across languages', () => {
+      manager.buildIndex({constellations: testConstellations});
+      // UrsaMajor has unique names per language, each should appear once
+      const umaEntries = manager.findByType('Constellation')
+        .filter((e) => e.name === 'UrsaMajor');
+      const displayNames = umaEntries
+        .map((e) => e.displayName)
+        .filter(Boolean);
+      // No duplicates in displayNames
+      expect(displayNames.length).toBe(new Set(displayNames).size);
+    });
+  });
+});
+
+describe('getPlanetName', () => {
+  test('returns English name for en language', () => {
+    expect(getPlanetName('Mars', 'en')).toBe('Mars');
+  });
+
+  test('returns French translation', () => {
+    expect(getPlanetName('Sun', 'fr')).toBe('Soleil');
+  });
+
+  test('returns Chinese translation', () => {
+    expect(getPlanetName('Jupiter', 'zh')).toBe('木星');
+  });
+
+  test('returns English name for unknown language', () => {
+    expect(getPlanetName('Mars', 'xx')).toBe('Mars');
+  });
+
+  test('returns English name for unknown planet', () => {
+    expect(getPlanetName('Pluto', 'fr')).toBe('Pluto');
+  });
+
+  test('returns English name by default', () => {
+    expect(getPlanetName('Neptune')).toBe('Neptune');
+  });
+});
+
+describe('getDsoName', () => {
+  test('returns English name for en language', () => {
+    expect(getDsoName('Orion Nebula', 'en')).toBe('Orion Nebula');
+  });
+
+  test('returns French translation', () => {
+    expect(getDsoName('Orion Nebula', 'fr')).toBe("Nébuleuse d'Orion");
+  });
+
+  test('returns Chinese translation', () => {
+    expect(getDsoName('Andromeda Galaxy', 'zh')).toBe('仙女座星系');
+  });
+
+  test('returns null for unknown DSO', () => {
+    expect(getDsoName('Nonexistent Nebula', 'fr')).toBeNull();
+  });
+
+  test('returns null for unknown language on known DSO', () => {
+    expect(getDsoName('Orion Nebula', 'xx')).toBeNull();
+  });
+
+  test('returns English name by default', () => {
+    expect(getDsoName('Pleiades')).toBe('Pleiades');
   });
 });
 

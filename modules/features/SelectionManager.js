@@ -63,6 +63,14 @@ export class SelectionManager {
    * @param {?Object} obj - Object to select, or null to deselect
    */
   selectObject(obj) {
+    // When selecting from search results, flatten raw data into the object
+    // so that downstream code can access DSO fields (messier, common_names,
+    // size_major, etc.) directly. Preserve search-specific fields like
+    // internalName on top.
+    if (obj?.data && obj.internalName !== undefined) {
+      obj = {...obj.data, ...obj, name: obj.internalName};
+    }
+
     this.selectedObject_ = obj;
 
     // Abort any pending fetch requests from previous selection
@@ -250,9 +258,10 @@ export class SelectionManager {
       html += `<p><strong>Messier:</strong> M${obj.messier}</p>`;
     }
 
-    // Wikipedia link
+    // Wikipedia link - use internal/English name for en.wikipedia lookup
+    const wikiName = obj.internalName || displayName;
     html += `<div class="wiki-link-container">`;
-    html += `<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(displayName)}" `;
+    html += `<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(wikiName)}" `;
     html += `target="_blank" rel="noopener noreferrer" class="wiki-link">`;
     html += `Learn more on Wikipedia</a>`;
     html += `</div>`;
@@ -432,9 +441,13 @@ export class SelectionManager {
     // Show loading state
     container.innerHTML = '<div class="image-loading">Loading best available image...</div>';
 
-    // Get object identifier
-    const objectName = obj.messier ? `M${Math.floor(obj.messier)}` :
-      (obj.name?.match(/^(NGC|IC)\s*\d+/)?.[0]?.replace(/\s+/g, '') || obj.name);
+    // Get object identifier - prefer catalog names from raw data or internalName
+    // to avoid using localized display names (e.g., 'Galaxie du Sombrero')
+    const raw = obj.data || obj;
+    const objectName = raw.messier ? `M${Math.floor(raw.messier)}` :
+      (raw.ngc ? `NGC${raw.ngc}` :
+        (raw.ic ? `IC${raw.ic}` :
+          (obj.internalName || obj.name)));
 
     // Use unified image fetcher to get the best available image
     // Pass forPanel=true to enable DSS fallback for stars

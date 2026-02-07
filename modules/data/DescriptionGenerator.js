@@ -138,7 +138,9 @@ export class DescriptionGenerator {
    */
   getWikipediaSearchTerms(obj) {
     const terms = [];
-    const name = obj.name;
+    // Prefer internalName (catalog key like 'M104') over display name
+    // which may be localized (e.g., 'Galaxie du Sombrero')
+    const name = obj.internalName || obj.name;
     if (!name) return terms;
 
     // Messier objects have specific Wikipedia titles
@@ -159,7 +161,7 @@ export class DescriptionGenerator {
       terms.push(`IC_${icMatch[1]}`);
     }
 
-    // Planets
+    // Planets - check internalName (always English)
     if (['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'].includes(name)) {
       terms.push(`${name}_(planet)`);
     }
@@ -169,11 +171,27 @@ export class DescriptionGenerator {
       terms.push(STAR_WIKIPEDIA_MAPPING[name]);
     }
 
+    // Add English common names from raw data (e.g., 'Sombrero Galaxy')
+    const data = obj.data;
+    if (data?.common_names) {
+      const commonNames = Array.isArray(data.common_names)
+        ? data.common_names
+        : data.common_names.split(',').map((n) => n.trim()).filter(Boolean);
+      for (const cn of commonNames) {
+        const wikiTerm = cn.replace(/\s+/g, '_');
+        if (!terms.includes(wikiTerm)) {
+          terms.push(wikiTerm);
+        }
+      }
+    }
+
     // Skip catalog-only names that don't have Wikipedia articles
     const catalogPattern = /^(HIP|TYC|HD|HR|SAO|BD|CD|CPD|UCAC|2MASS|GAIA)\s*[\d\-\+]+$/i;
     if (!catalogPattern.test(name)) {
-      // Only try the exact name if it's not a generic catalog ID
-      terms.push(name.replace(/\s+/g, '_'));
+      const wikiName = name.replace(/\s+/g, '_');
+      if (!terms.includes(wikiName)) {
+        terms.push(wikiName);
+      }
     }
 
     return terms;

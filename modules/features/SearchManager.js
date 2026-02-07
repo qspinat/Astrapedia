@@ -159,7 +159,8 @@ export class SearchManager {
         // NGC alias
         if (dso.ngc && primaryName !== `NGC${dso.ngc}`) {
           this.index_.push({
-            name: `NGC${dso.ngc}`,
+            name: primaryName || `NGC${dso.ngc}`,
+            displayName: `NGC${dso.ngc}`,
             type: dso.type || 'DSO',
             ra: dso.ra,
             dec: dso.dec,
@@ -172,7 +173,8 @@ export class SearchManager {
         // IC alias
         if (dso.ic) {
           this.index_.push({
-            name: `IC${dso.ic}`,
+            name: primaryName || `IC${dso.ic}`,
+            displayName: `IC${dso.ic}`,
             type: dso.type || 'DSO',
             ra: dso.ra,
             dec: dso.dec,
@@ -190,7 +192,8 @@ export class SearchManager {
           names.forEach((commonName) => {
             if (commonName !== primaryName) {
               this.index_.push({
-                name: commonName,
+                name: primaryName || commonName,
+                displayName: commonName,
                 type: dso.type || 'DSO',
                 ra: dso.ra,
                 dec: dso.dec,
@@ -236,10 +239,13 @@ export class SearchManager {
           });
         }
 
-        // Add names in all languages
-        for (const [lang, langData] of Object.entries(CONSTELLATION_NAMES)) {
+        // Add names in all languages (dedup identical names across languages)
+        const seenNames = new Set();
+        for (const [, langData] of Object.entries(CONSTELLATION_NAMES)) {
           const localizedName = langData[abbrev];
-          if (localizedName && localizedName !== internalKey) {
+          if (localizedName && localizedName !== internalKey &&
+              !seenNames.has(localizedName)) {
+            seenNames.add(localizedName);
             this.index_.push({
               name: internalKey,
               displayName: localizedName,
@@ -357,15 +363,17 @@ export class SearchManager {
   }
 
   /**
-   * Find an object by exact name.
-   * @param {string} name - Object name
+   * Find an object by exact name (checks both displayName and internal name).
+   * Returns the raw index entry with `name` as internal key. For the
+   * user-facing display name, use `entry.displayName || entry.name`.
+   * @param {string} name - Object name (display name or internal key)
    * @returns {?SearchEntry} Entry or null if not found
    */
   findByName(name) {
     const lower = name.toLowerCase();
     return this.index_.find(
-      (e) => e.name.toLowerCase() === lower ||
-             (e.displayName && e.displayName.toLowerCase() === lower)
+      (e) => (e.displayName && e.displayName.toLowerCase() === lower) ||
+             e.name.toLowerCase() === lower
     ) || null;
   }
 
@@ -477,7 +485,7 @@ export class SearchManager {
       // Add translated names
       const translations = PLANET_NAMES[planet.name];
       if (translations) {
-        for (const [lang, localizedName] of Object.entries(translations)) {
+        for (const [, localizedName] of Object.entries(translations)) {
           if (localizedName !== planet.name) {
             this.index_.push({
               name: planet.name,
@@ -533,7 +541,7 @@ export class SearchManager {
     const translations = DSO_NAMES[englishName];
     if (!translations) return;
 
-    for (const [lang, localizedName] of Object.entries(translations)) {
+    for (const [, localizedName] of Object.entries(translations)) {
       if (localizedName !== englishName && localizedName !== primaryName) {
         this.index_.push({
           name: primaryName || englishName,

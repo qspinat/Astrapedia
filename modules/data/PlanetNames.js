@@ -5,43 +5,44 @@
 
 /**
  * Planet names indexed by English name, then by language code.
+ * English omitted since it matches the key and is used as-is.
  * @const {!Object<string, !Object<string, string>>}
  */
 export const PLANET_NAMES = {
   'Sun': {
-    en: 'Sun', fr: 'Soleil', de: 'Sonne', es: 'Sol',
+    fr: 'Soleil', de: 'Sonne', es: 'Sol',
     la: 'Sol', zh: '太阳', ja: '太陽', ar: 'الشمس',
   },
   'Moon': {
-    en: 'Moon', fr: 'Lune', de: 'Mond', es: 'Luna',
+    fr: 'Lune', de: 'Mond', es: 'Luna',
     la: 'Luna', zh: '月球', ja: '月', ar: 'القمر',
   },
   'Mercury': {
-    en: 'Mercury', fr: 'Mercure', de: 'Merkur', es: 'Mercurio',
+    fr: 'Mercure', de: 'Merkur', es: 'Mercurio',
     la: 'Mercurius', zh: '水星', ja: '水星', ar: 'عطارد',
   },
   'Venus': {
-    en: 'Venus', fr: 'Vénus', de: 'Venus', es: 'Venus',
+    fr: 'Vénus', de: 'Venus', es: 'Venus',
     la: 'Venus', zh: '金星', ja: '金星', ar: 'الزهرة',
   },
   'Mars': {
-    en: 'Mars', fr: 'Mars', de: 'Mars', es: 'Marte',
+    fr: 'Mars', de: 'Mars', es: 'Marte',
     la: 'Mars', zh: '火星', ja: '火星', ar: 'المريخ',
   },
   'Jupiter': {
-    en: 'Jupiter', fr: 'Jupiter', de: 'Jupiter', es: 'Júpiter',
+    fr: 'Jupiter', de: 'Jupiter', es: 'Júpiter',
     la: 'Iuppiter', zh: '木星', ja: '木星', ar: 'المشتري',
   },
   'Saturn': {
-    en: 'Saturn', fr: 'Saturne', de: 'Saturn', es: 'Saturno',
+    fr: 'Saturne', de: 'Saturn', es: 'Saturno',
     la: 'Saturnus', zh: '土星', ja: '土星', ar: 'زحل',
   },
   'Uranus': {
-    en: 'Uranus', fr: 'Uranus', de: 'Uranus', es: 'Urano',
+    fr: 'Uranus', de: 'Uranus', es: 'Urano',
     la: 'Uranus', zh: '天王星', ja: '天王星', ar: 'أورانوس',
   },
   'Neptune': {
-    en: 'Neptune', fr: 'Neptune', de: 'Neptun', es: 'Neptuno',
+    fr: 'Neptune', de: 'Neptun', es: 'Neptuno',
     la: 'Neptunus', zh: '海王星', ja: '海王星', ar: 'نبتون',
   },
 };
@@ -53,5 +54,6 @@ export const PLANET_NAMES = {
  * @returns {string} Translated planet name, or English name if not found
  */
 export function getPlanetName(englishName, lang = 'en') {
+  if (lang === 'en') return englishName;
   return PLANET_NAMES[englishName]?.[lang] || englishName;
 }
