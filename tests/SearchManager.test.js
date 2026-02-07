@@ -689,6 +689,10 @@ describe('getPlanetName', () => {
     expect(getPlanetName('Pluto', 'fr')).toBeNull();
   });
 
+  test('returns null for unknown planet even with en', () => {
+    expect(getPlanetName('Pluto', 'en')).toBeNull();
+  });
+
   test('returns English name by default', () => {
     expect(getPlanetName('Neptune')).toBe('Neptune');
   });
@@ -709,6 +713,10 @@ describe('getDsoName', () => {
 
   test('returns null for unknown DSO', () => {
     expect(getDsoName('Nonexistent Nebula', 'fr')).toBeNull();
+  });
+
+  test('returns null for unknown DSO even with en', () => {
+    expect(getDsoName('Nonexistent Nebula', 'en')).toBeNull();
   });
 
   test('returns null for unknown language on known DSO', () => {

@@ -203,8 +203,10 @@ export class SearchManager {
               });
             }
 
-            // Add translated names for this common name
-            this.addDsoLanguageAliases_(dso, commonName, primaryName);
+            // Add translated names for this common name (skip if not in DSO_NAMES)
+            if (DSO_NAMES[commonName]) {
+              this.addDsoLanguageAliases_(dso, commonName, primaryName);
+            }
           });
         }
       });

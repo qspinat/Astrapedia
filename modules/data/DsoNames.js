@@ -104,6 +104,7 @@ export const DSO_NAMES = {
  * @returns {?string} Translated name, or null if not found
  */
 export function getDsoName(englishName, lang = 'en') {
+  if (!DSO_NAMES[englishName]) return null;
   if (lang === 'en') return englishName;
-  return DSO_NAMES[englishName]?.[lang] || null;
+  return DSO_NAMES[englishName][lang] || null;
 }

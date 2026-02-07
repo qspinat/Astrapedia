@@ -20,6 +20,9 @@ import {getConstellationStory} from '../data/ConstellationStories.js';
  */
 export function resolveCanonicalObject(obj) {
   if (obj?.data && obj.internalName !== undefined) {
+    // Spread order: raw data first (messier, common_names, size_major, ...),
+    // then search result fields on top (type, ra, dec, mag, data, internalName),
+    // then normalize name to canonical key. The `data` ref is preserved as-is.
     return {...obj.data, ...obj, name: obj.internalName};
   }
   return obj;

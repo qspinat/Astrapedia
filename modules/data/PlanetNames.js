@@ -54,6 +54,7 @@ export const PLANET_NAMES = {
  * @returns {?string} Translated name, English name for 'en', or null if not found
  */
 export function getPlanetName(englishName, lang = 'en') {
+  if (!PLANET_NAMES[englishName]) return null;
   if (lang === 'en') return englishName;
-  return PLANET_NAMES[englishName]?.[lang] || null;
+  return PLANET_NAMES[englishName][lang] || null;
 }
