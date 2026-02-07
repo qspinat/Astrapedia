@@ -225,6 +225,7 @@ export const constellationCenter = (constData, getStarById) => {
   }
 
   if (!constData?.lines || constData.lines.length === 0) {
+    console.warn('constellationCenter: no line data, falling back to (0, 0)');
     return {ra: 0, dec: 0};
   }
 
@@ -253,7 +254,10 @@ export const constellationCenter = (constData, getStarById) => {
     }
   }
 
-  if (count === 0) return {ra: 0, dec: 0};
+  if (count === 0) {
+    console.warn('constellationCenter: no matching stars found, falling back to (0, 0)');
+    return {ra: 0, dec: 0};
+  }
 
   let meanRa = Math.atan2(sumY / count, sumX / count) * RAD_TO_DEG;
   if (meanRa < 0) meanRa += 360;
