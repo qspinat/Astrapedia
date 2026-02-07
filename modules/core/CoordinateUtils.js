@@ -236,8 +236,6 @@ export const constellationCenter = (constData, getStarById) => {
     }
   }
 
-  const DEG_TO_RAD = Math.PI / 180;
-  const RAD_TO_DEG = 180 / Math.PI;
   let sumX = 0;
   let sumY = 0;
   let sumDec = 0;

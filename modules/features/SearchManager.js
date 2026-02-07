@@ -468,8 +468,8 @@ export class SearchManager {
   getMessierObjects() {
     const seen = new Set();
     return this.index_
-      .filter((e) => /^M\d+$/i.test(e.name) && !e.isAlias)
       .filter((e) => {
+        if (!/^M\d+$/i.test(e.name) || e.isAlias) return false;
         if (seen.has(e.name)) return false;
         seen.add(e.name);
         return true;
