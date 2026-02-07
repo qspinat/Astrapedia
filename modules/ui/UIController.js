@@ -417,6 +417,7 @@ export class SettingsHandler {
     // Constellation quick toggle - cycles: all → focus → off → all
     const quickToggle = document.getElementById('constellations-quick-toggle');
     if (quickToggle) {
+      this.syncConstellationQuickToggle_('all');
       addMobileButtonListener(quickToggle, () => {
         const cycleOrder = ['all', 'focus', 'off'];
         const currentMode = quickToggle.dataset.mode || 'all';

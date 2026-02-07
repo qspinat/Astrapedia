@@ -197,6 +197,7 @@ describe('SearchManager', () => {
     });
 
     test('search returns internalName for constellation', () => {
+      manager.setLanguage('fr');
       const results = manager.search('Grande Ourse');
       expect(results.length).toBeGreaterThan(0);
       const match = results[0];
@@ -276,6 +277,7 @@ describe('SearchManager', () => {
     });
 
     test('search for planet in Spanish returns localized display name', () => {
+      manager.setLanguage('es');
       const results = manager.search('Júpiter');
       expect(results.length).toBeGreaterThan(0);
       expect(results[0].name).toBe('Júpiter');
@@ -307,6 +309,7 @@ describe('SearchManager', () => {
     });
 
     test('search for DSO in French returns translated display name', () => {
+      manager.setLanguage('fr');
       const results = manager.search("Nébuleuse d'Orion");
       expect(results.length).toBeGreaterThan(0);
       expect(results[0].name).toBe("Nébuleuse d'Orion");
@@ -317,6 +320,7 @@ describe('SearchManager', () => {
   describe('displayName field', () => {
     test('search results include displayName for localized entries', () => {
       manager.buildIndex({planets: testPlanets});
+      manager.setLanguage('fr');
       const results = manager.search('Saturne');
       expect(results.length).toBeGreaterThan(0);
       expect(results[0].name).toBe('Saturne');
@@ -329,6 +333,64 @@ describe('SearchManager', () => {
       expect(results.length).toBeGreaterThan(0);
       expect(results[0].name).toBe('Mars');
       expect(results[0].internalName).toBe('Mars');
+    });
+  });
+
+  describe('language filtering in search', () => {
+    beforeEach(() => {
+      manager.buildIndex({
+        planets: testPlanets,
+        constellations: testConstellations,
+        deepSkyObjects: testDSOs,
+      });
+    });
+
+    test('filters out non-active language results', () => {
+      manager.setLanguage('en');
+      const results = manager.search('Saturne');
+      // 'Saturne' is French — should not appear when language is 'en'
+      expect(results.length).toBe(0);
+    });
+
+    test('shows results in current language', () => {
+      manager.setLanguage('fr');
+      const results = manager.search('Saturne');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].name).toBe('Saturne');
+    });
+
+    test('always shows English results regardless of current language', () => {
+      manager.setLanguage('zh');
+      const results = manager.search('Orion Nebula');
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    test('always shows Latin planet names regardless of current language', () => {
+      manager.setLanguage('zh');
+      // 'Saturnus' is the Latin name for Saturn — should always be visible
+      const results = manager.search('Saturnus');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].internalName).toBe('Saturn');
+    });
+
+    test('always shows Latin/English constellation names regardless of current language', () => {
+      manager.setLanguage('zh');
+      // 'Scorpius' is the internal key and shared en/la name
+      const results = manager.search('Scorpius');
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    test('always shows scientific catalog names regardless of language', () => {
+      manager.setLanguage('ja');
+      const results = manager.search('M31');
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    test('findByName still works for any language (unfiltered)', () => {
+      manager.setLanguage('en');
+      // findByName is not filtered — it always searches all languages
+      const result = manager.findByName('Saturne');
+      expect(result).not.toBeNull();
     });
   });
 
@@ -635,13 +697,23 @@ describe('SearchManager', () => {
   });
 
   describe('search fallback path', () => {
-    test('matches internal name when displayName does not match', () => {
+    test('matches internal name via displayName entries when searching CamelCase key', () => {
       manager.buildIndex({constellations: testConstellations});
-      // 'UrsaMajor' is the internal name, not a displayName
-      // It should match via the fallback path (name match when displayName miss)
-      const results = manager.search('UrsaMajor');
+      // 'UrsaMajor' is hidden from search (no displayName on primary entry),
+      // but 'Ursa Major' (the English displayName) should still be findable
+      const results = manager.search('Ursa Major');
       expect(results.length).toBeGreaterThan(0);
       expect(results.some((r) => r.internalName === 'UrsaMajor')).toBe(true);
+    });
+
+    test('never displays CamelCase constellation keys in search results', () => {
+      manager.buildIndex({constellations: testConstellations});
+      // Searching 'UrsaMajor' may match via internal name fallback,
+      // but displayed names should never be the raw CamelCase key
+      const results = manager.search('UrsaMajor');
+      results.forEach((r) => {
+        expect(r.name).not.toBe('UrsaMajor');
+      });
     });
   });
 

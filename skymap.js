@@ -369,6 +369,7 @@ export class SkyMapApp {
    */
   initSearchManager_() {
     this.searchManager_ = new SearchManager();
+    this.searchManager_.setLanguage(this.constellationLanguage);
   }
 
   /**
@@ -1350,6 +1351,9 @@ export class SkyMapApp {
   setConstellationLanguage(lang) {
     this.constellationLanguage = lang;
     console.log(`Constellation language set to: ${lang}`);
+
+    // Update search filter to show only relevant language results
+    this.searchManager_?.setLanguage(lang);
 
     // Update game controller language so game questions use the selected language
     this.gameController_?.setLanguage(lang);

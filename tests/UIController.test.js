@@ -40,6 +40,7 @@ const mockElements = {
   'constellations-quick-toggle': {
     addEventListener: jest.fn(),
     classList: {toggle: jest.fn()},
+    dataset: {},
   },
   'settings-close-btn': {addEventListener: jest.fn()},
   'visible-tonight-close-btn': {addEventListener: jest.fn()},

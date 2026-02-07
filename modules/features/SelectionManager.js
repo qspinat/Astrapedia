@@ -15,14 +15,16 @@ import {getConstellationStory} from '../data/ConstellationStories.js';
  * This merges the raw data (messier, common_names, size_major, etc.) into the
  * top-level object and normalizes `name` to the canonical internal key.
  * Safe to call on already-canonical objects (no-op if no `internalName`).
+ *
+ * Known overlapping fields between obj.data and obj: type, ra, dec, mag.
+ * The search result's values (obj) win by spread order, which is intentional —
+ * search entries carry the authoritative type mapping and coordinates.
+ *
  * @param {?Object} obj - Search result or raw object
  * @returns {?Object} Canonical object with all fields accessible at top level
  */
 export function resolveCanonicalObject(obj) {
   if (obj?.data && obj.internalName !== undefined) {
-    // Spread order: raw data first (messier, common_names, size_major, ...),
-    // then search result fields on top (type, ra, dec, mag, data, internalName),
-    // then normalize name to canonical key. The `data` ref is preserved as-is.
     return {...obj.data, ...obj, name: obj.internalName};
   }
   return obj;

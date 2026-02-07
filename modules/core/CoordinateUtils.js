@@ -211,3 +211,52 @@ export const calculateLST = (date, longitude) => {
 
   return lst;
 };
+
+/**
+ * Compute the center RA/Dec of a constellation from its line star pairs.
+ * Uses circular mean for RA to handle wrap-around at 0/360.
+ * @param {!Object} constData - Constellation data with `lines` array of star ID pairs
+ * @param {function(number): ?Object} getStarById - Lookup returning star with {ra, dec}
+ * @returns {{ra: number, dec: number}} Center coordinates
+ */
+export const constellationCenter = (constData, getStarById) => {
+  if (constData?.ra !== undefined && constData?.dec !== undefined) {
+    return {ra: constData.ra, dec: constData.dec};
+  }
+
+  if (!constData?.lines || constData.lines.length === 0) {
+    return {ra: 0, dec: 0};
+  }
+
+  const starIds = new Set();
+  for (const pair of constData.lines) {
+    if (Array.isArray(pair)) {
+      pair.forEach((id) => starIds.add(id));
+    }
+  }
+
+  const DEG_TO_RAD = Math.PI / 180;
+  const RAD_TO_DEG = 180 / Math.PI;
+  let sumX = 0;
+  let sumY = 0;
+  let sumDec = 0;
+  let count = 0;
+
+  for (const id of starIds) {
+    const star = getStarById(id);
+    if (star?.ra !== undefined && star?.dec !== undefined) {
+      const raRad = star.ra * DEG_TO_RAD;
+      sumX += Math.cos(raRad);
+      sumY += Math.sin(raRad);
+      sumDec += star.dec;
+      count++;
+    }
+  }
+
+  if (count === 0) return {ra: 0, dec: 0};
+
+  let meanRa = Math.atan2(sumY / count, sumX / count) * RAD_TO_DEG;
+  if (meanRa < 0) meanRa += 360;
+
+  return {ra: meanRa, dec: sumDec / count};
+};

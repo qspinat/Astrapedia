@@ -4,7 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {angularDistance} from '../core/CoordinateUtils.js';
+import {angularDistance, constellationCenter} from '../core/CoordinateUtils.js';
 import {CONSTELLATION_NAMES, getAbbrevFromInternalKey} from '../data/ConstellationNames.js';
 import {PLANET_NAMES} from '../data/PlanetNames.js';
 import {DSO_NAMES} from '../data/DsoNames.js';
@@ -13,6 +13,7 @@ import {DSO_NAMES} from '../data/DsoNames.js';
  * @typedef {{
  *   name: string,
  *   displayName: (string|undefined),
+ *   lang: (string|undefined),
  *   type: string,
  *   ra: number,
  *   dec: number,
@@ -73,6 +74,18 @@ export class SearchManager {
      * @private {!Set<string>}
      */
     this.indexedNames_ = new Set();
+
+    /**
+     * Map for O(1) findByName lookup (lowercase key → first matching entry).
+     * @private {!Map<string, !SearchEntry>}
+     */
+    this.nameIndex_ = new Map();
+
+    /**
+     * Current UI language for filtering search results.
+     * @private {string}
+     */
+    this.currentLang_ = 'en';
   }
 
   /**
@@ -194,6 +207,7 @@ export class SearchManager {
               this.index_.push({
                 name: primaryName || commonName,
                 displayName: commonName,
+                lang: 'en',
                 type: dso.type || 'DSO',
                 ra: dso.ra,
                 dec: dso.dec,
@@ -215,12 +229,17 @@ export class SearchManager {
     // Add constellations with all language names
     if (constellations) {
       Object.entries(constellations).forEach(([internalKey, data]) => {
+        // Compute center RA/Dec from constellation line stars
+        const center = constellationCenter(data, (id) => this.starByHip_.get(id));
+        const ra = data.ra || center.ra;
+        const dec = data.dec || center.dec;
+
         // Primary entry with internal key
         this.index_.push({
           name: internalKey,
           type: 'Constellation',
-          ra: data.ra || 0,
-          dec: data.dec || 0,
+          ra,
+          dec,
           mag: null,
           isAlias: false,
           data,
@@ -233,32 +252,40 @@ export class SearchManager {
             name: internalKey,
             displayName: abbrev,
             type: 'Constellation',
-            ra: data.ra || 0,
-            dec: data.dec || 0,
+            ra,
+            dec,
             mag: null,
             isAlias: true,
             data,
           });
         }
 
-        // Add names in all languages (dedup identical names across languages)
-        const seenNames = new Set();
-        for (const [, langData] of Object.entries(CONSTELLATION_NAMES)) {
+        // Collect localized names with their language(s)
+        const nameToLangs = new Map();
+        for (const [langCode, langData] of Object.entries(CONSTELLATION_NAMES)) {
           const localizedName = langData[abbrev];
-          if (localizedName && localizedName !== internalKey &&
-              !seenNames.has(localizedName)) {
-            seenNames.add(localizedName);
-            this.index_.push({
-              name: internalKey,
-              displayName: localizedName,
-              type: 'Constellation',
-              ra: data.ra || 0,
-              dec: data.dec || 0,
-              mag: null,
-              isAlias: true,
-              data,
-            });
+          if (localizedName && localizedName !== internalKey) {
+            if (!nameToLangs.has(localizedName)) {
+              nameToLangs.set(localizedName, []);
+            }
+            nameToLangs.get(localizedName).push(langCode);
           }
+        }
+
+        // Add deduplicated entries; names in en/la are universal (no lang tag)
+        for (const [localizedName, langs] of nameToLangs) {
+          const isUniversal = langs.includes('en') || langs.includes('la');
+          this.index_.push({
+            name: internalKey,
+            displayName: localizedName,
+            ...(isUniversal ? {} : {lang: langs[0]}),
+            type: 'Constellation',
+            ra,
+            dec,
+            mag: null,
+            isAlias: true,
+            data,
+          });
         }
       });
     }
@@ -268,6 +295,7 @@ export class SearchManager {
       this.addPlanetEntries_(planets);
     }
 
+    this.rebuildNameIndex_();
     this.built_ = true;
     console.log(`✓ Built search index with ${this.index_.length} entries`);
   }
@@ -278,6 +306,15 @@ export class SearchManager {
    */
   isBuilt() {
     return this.built_;
+  }
+
+  /**
+   * Set the current language for filtering search results.
+   * Search only returns entries in en, la, current language, or without a lang tag.
+   * @param {string} lang - Language code (e.g., 'fr', 'de')
+   */
+  setLanguage(lang) {
+    this.currentLang_ = lang;
   }
 
   /**
@@ -298,8 +335,18 @@ export class SearchManager {
     if (!query || query.length < 2) return [];
 
     const lowerQuery = query.toLowerCase();
+    const lang = this.currentLang_;
 
     const results = this.index_
+      .filter((entry) => {
+        // Hide internal CamelCase constellation keys (e.g., 'UrsaMajor');
+        // user-facing names are indexed as separate displayName entries
+        if (entry.type === 'Constellation' && !entry.displayName) return false;
+        // No lang tag = scientific/catalog name, always shown
+        if (!entry.lang) return true;
+        // Always show English, Latin, and current language
+        return entry.lang === 'en' || entry.lang === 'la' || entry.lang === lang;
+      })
       .map((entry) => {
         const displayName = entry.displayName || entry.name;
         const displayLower = displayName.toLowerCase();
@@ -326,19 +373,22 @@ export class SearchManager {
           }
         }
 
-        // Penalize aliases
-        if (entry.isAlias) {
-          score -= 10;
-        }
+        // Only apply ranking boosts when there is a text match
+        if (score > 0) {
+          // Penalize aliases
+          if (entry.isAlias) {
+            score -= 10;
+          }
 
-        // Boost by brightness
-        if (entry.mag !== null && entry.mag !== undefined) {
-          score += (10 - entry.mag) * 5;
-        }
+          // Boost by brightness
+          if (entry.mag !== null && entry.mag !== undefined) {
+            score += (10 - entry.mag) * 5;
+          }
 
-        // Boost planets and constellations
-        if (entry.type === 'Planet') score += 50;
-        if (entry.type === 'Constellation') score += 30;
+          // Boost planets and constellations
+          if (entry.type === 'Planet') score += 50;
+          if (entry.type === 'Constellation') score += 30;
+        }
 
         return {
           name: displayName,
@@ -372,11 +422,7 @@ export class SearchManager {
    * @returns {?SearchEntry} Entry or null if not found
    */
   findByName(name) {
-    const lower = name.toLowerCase();
-    return this.index_.find(
-      (e) => (e.displayName && e.displayName.toLowerCase() === lower) ||
-             e.name.toLowerCase() === lower
-    ) || null;
+    return this.nameIndex_.get(name.toLowerCase()) || null;
   }
 
   /**
@@ -444,6 +490,7 @@ export class SearchManager {
     this.starByHip_.clear();
     this.starById_.clear();
     this.indexedNames_.clear();
+    this.nameIndex_.clear();
   }
 
   /**
@@ -452,6 +499,17 @@ export class SearchManager {
    */
   addEntry(entry) {
     this.index_.push(entry);
+    // Update name index incrementally (first match wins, so only add if absent)
+    if (entry.displayName) {
+      const displayKey = entry.displayName.toLowerCase();
+      if (!this.nameIndex_.has(displayKey)) {
+        this.nameIndex_.set(displayKey, entry);
+      }
+    }
+    const nameKey = entry.name.toLowerCase();
+    if (!this.nameIndex_.has(nameKey)) {
+      this.nameIndex_.set(nameKey, entry);
+    }
   }
 
   /**
@@ -464,6 +522,28 @@ export class SearchManager {
 
     // Re-add with all language aliases
     this.addPlanetEntries_(planets);
+    this.rebuildNameIndex_();
+  }
+
+  /**
+   * Rebuild the name index map from the current index array.
+   * First match wins — earlier entries in the array take priority.
+   * @private
+   */
+  rebuildNameIndex_() {
+    this.nameIndex_.clear();
+    for (const entry of this.index_) {
+      if (entry.displayName) {
+        const displayKey = entry.displayName.toLowerCase();
+        if (!this.nameIndex_.has(displayKey)) {
+          this.nameIndex_.set(displayKey, entry);
+        }
+      }
+      const nameKey = entry.name.toLowerCase();
+      if (!this.nameIndex_.has(nameKey)) {
+        this.nameIndex_.set(nameKey, entry);
+      }
+    }
   }
 
   /**
@@ -484,14 +564,16 @@ export class SearchManager {
         data: planet,
       });
 
-      // Add translated names
+      // Add translated names (en/la names are universal, others are language-specific)
       const translations = PLANET_NAMES[planet.name];
       if (translations) {
-        for (const [, localizedName] of Object.entries(translations)) {
+        for (const [langCode, localizedName] of Object.entries(translations)) {
           if (localizedName !== planet.name) {
+            const isUniversal = langCode === 'en' || langCode === 'la';
             this.index_.push({
               name: planet.name,
               displayName: localizedName,
+              ...(isUniversal ? {} : {lang: langCode}),
               type: 'Planet',
               ra: planet.ra,
               dec: planet.dec,
@@ -543,11 +625,12 @@ export class SearchManager {
     const translations = DSO_NAMES[englishName];
     if (!translations) return;
 
-    for (const [, localizedName] of Object.entries(translations)) {
+    for (const [langCode, localizedName] of Object.entries(translations)) {
       if (localizedName !== englishName && localizedName !== primaryName) {
         this.index_.push({
           name: primaryName || englishName,
           displayName: localizedName,
+          lang: langCode,
           type: dso.type || 'DSO',
           ra: dso.ra,
           dec: dso.dec,
