@@ -138,37 +138,45 @@ export class DescriptionGenerator {
    */
   getWikipediaSearchTerms(obj) {
     const terms = [];
+    const seen = new Set();
     // Prefer internalName (catalog key like 'M104') over display name
     // which may be localized (e.g., 'Galaxie du Sombrero')
     const name = obj.internalName || obj.name;
     if (!name) return terms;
 
+    const addTerm = (term) => {
+      if (!seen.has(term)) {
+        seen.add(term);
+        terms.push(term);
+      }
+    };
+
     // Messier objects have specific Wikipedia titles
     const messierMatch = name.match(/M(\d+)/i);
     if (messierMatch) {
-      terms.push(`Messier_${messierMatch[1]}`);
+      addTerm(`Messier_${messierMatch[1]}`);
     }
 
     // NGC objects - remove leading zeros for Wikipedia (NGC0869 -> NGC_869)
     const ngcMatch = name.match(/NGC\s*0*(\d+)/i);
     if (ngcMatch) {
-      terms.push(`NGC_${ngcMatch[1]}`);
+      addTerm(`NGC_${ngcMatch[1]}`);
     }
 
     // IC objects - format as IC_number for Wikipedia
     const icMatch = name.match(/IC\s*0*(\d+)/i);
     if (icMatch) {
-      terms.push(`IC_${icMatch[1]}`);
+      addTerm(`IC_${icMatch[1]}`);
     }
 
     // Planets - check internalName (always English)
     if (['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'].includes(name)) {
-      terms.push(`${name}_(planet)`);
+      addTerm(`${name}_(planet)`);
     }
 
     // Famous stars/objects with common names
     if (STAR_WIKIPEDIA_MAPPING[name]) {
-      terms.push(STAR_WIKIPEDIA_MAPPING[name]);
+      addTerm(STAR_WIKIPEDIA_MAPPING[name]);
     }
 
     // Add English common names from raw data (e.g., 'Sombrero Galaxy')
@@ -178,20 +186,14 @@ export class DescriptionGenerator {
         ? data.common_names
         : data.common_names.split(',').map((n) => n.trim()).filter(Boolean);
       for (const cn of commonNames) {
-        const wikiTerm = cn.replace(/\s+/g, '_');
-        if (!terms.includes(wikiTerm)) {
-          terms.push(wikiTerm);
-        }
+        addTerm(cn.replace(/\s+/g, '_'));
       }
     }
 
     // Skip catalog-only names that don't have Wikipedia articles
     const catalogPattern = /^(HIP|TYC|HD|HR|SAO|BD|CD|CPD|UCAC|2MASS|GAIA)\s*[\d\-\+]+$/i;
     if (!catalogPattern.test(name)) {
-      const wikiName = name.replace(/\s+/g, '_');
-      if (!terms.includes(wikiName)) {
-        terms.push(wikiName);
-      }
+      addTerm(name.replace(/\s+/g, '_'));
     }
 
     return terms;

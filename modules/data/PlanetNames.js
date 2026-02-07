@@ -51,9 +51,9 @@ export const PLANET_NAMES = {
  * Get planet name in a specific language.
  * @param {string} englishName - English planet name (e.g., 'Mars')
  * @param {string=} lang - Language code (default: 'en')
- * @returns {string} Translated planet name, or English name if not found
+ * @returns {?string} Translated name, English name for 'en', or null if not found
  */
 export function getPlanetName(englishName, lang = 'en') {
   if (lang === 'en') return englishName;
-  return PLANET_NAMES[englishName]?.[lang] || englishName;
+  return PLANET_NAMES[englishName]?.[lang] || null;
 }

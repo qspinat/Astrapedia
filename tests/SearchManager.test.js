@@ -222,28 +222,32 @@ describe('SearchManager', () => {
       manager.buildIndex({stars: testStars, namedObjects: testNamedObjects});
     });
 
-    test('finds star by HIP number', () => {
-      const result = manager.findByName('HIP 11767');
+    test('finds star by HIP display name', () => {
+      const result = manager.findByName('HIP 11767 (Polaris)');
       expect(result).not.toBeNull();
       expect(result.type).toBe('Star');
+      expect(result.name).toBe('Polaris');
     });
 
     test('search for HIP shows display name with proper name', () => {
       const results = manager.search('HIP 11767');
       expect(results.length).toBeGreaterThan(0);
       expect(results[0].name).toBe('HIP 11767 (Polaris)');
+      expect(results[0].internalName).toBe('Polaris');
     });
 
-    test('finds star by HD number', () => {
-      const result = manager.findByName('HD 172167');
+    test('finds star by HD display name', () => {
+      const result = manager.findByName('HD 172167 (Vega)');
       expect(result).not.toBeNull();
       expect(result.type).toBe('Star');
+      expect(result.name).toBe('Vega');
     });
 
-    test('finds star by HR number', () => {
-      const result = manager.findByName('HR 7001');
+    test('finds star by HR display name', () => {
+      const result = manager.findByName('HR 7001 (Vega)');
       expect(result).not.toBeNull();
       expect(result.type).toBe('Star');
+      expect(result.name).toBe('Vega');
     });
   });
 
@@ -252,7 +256,7 @@ describe('SearchManager', () => {
       manager.buildIndex({planets: testPlanets});
     });
 
-    test('finds planet by French name', () => {
+    test('finds planet by Spanish name', () => {
       const result = manager.findByName('Marte');
       expect(result).not.toBeNull();
       expect(result.type).toBe('Planet');
@@ -618,6 +622,7 @@ describe('SearchManager', () => {
       const result = manager.findByName('HIP 11767 (Polaris)');
       expect(result).not.toBeNull();
       expect(result.type).toBe('Star');
+      expect(result.name).toBe('Polaris');
       expect(result.displayName).toBe('HIP 11767 (Polaris)');
     });
 
@@ -676,12 +681,12 @@ describe('getPlanetName', () => {
     expect(getPlanetName('Jupiter', 'zh')).toBe('木星');
   });
 
-  test('returns English name for unknown language', () => {
-    expect(getPlanetName('Mars', 'xx')).toBe('Mars');
+  test('returns null for unknown language', () => {
+    expect(getPlanetName('Mars', 'xx')).toBeNull();
   });
 
-  test('returns English name for unknown planet', () => {
-    expect(getPlanetName('Pluto', 'fr')).toBe('Pluto');
+  test('returns null for unknown planet', () => {
+    expect(getPlanetName('Pluto', 'fr')).toBeNull();
   });
 
   test('returns English name by default', () => {

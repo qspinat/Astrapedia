@@ -6,6 +6,7 @@
 /**
  * DSO common name translations indexed by English name, then by language code.
  * English omitted since it matches the key and is used as-is.
+ * Latin omitted since DSO common names have no established Latin forms.
  * Covers ~21 of the most notable deep sky objects.
  * @const {!Object<string, !Object<string, string>>}
  */

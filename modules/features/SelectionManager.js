@@ -10,6 +10,22 @@ import {descriptionGenerator} from '../data/DescriptionGenerator.js';
 import {getConstellationStory} from '../data/ConstellationStories.js';
 
 /**
+ * Resolve a search result into a canonical object by flattening raw data.
+ * Search results are thin wrappers with only name/internalName/type/ra/dec/mag/data.
+ * This merges the raw data (messier, common_names, size_major, etc.) into the
+ * top-level object and normalizes `name` to the canonical internal key.
+ * Safe to call on already-canonical objects (no-op if no `internalName`).
+ * @param {?Object} obj - Search result or raw object
+ * @returns {?Object} Canonical object with all fields accessible at top level
+ */
+export function resolveCanonicalObject(obj) {
+  if (obj?.data && obj.internalName !== undefined) {
+    return {...obj.data, ...obj, name: obj.internalName};
+  }
+  return obj;
+}
+
+/**
  * SelectionManager handles object selection and info display.
  */
 export class SelectionManager {
@@ -63,14 +79,7 @@ export class SelectionManager {
    * @param {?Object} obj - Object to select, or null to deselect
    */
   selectObject(obj) {
-    // When selecting from search results, flatten raw data into the object
-    // so that downstream code can access DSO fields (messier, common_names,
-    // size_major, etc.) directly. Preserve search-specific fields like
-    // internalName on top.
-    if (obj?.data && obj.internalName !== undefined) {
-      obj = {...obj.data, ...obj, name: obj.internalName};
-    }
-
+    obj = resolveCanonicalObject(obj);
     this.selectedObject_ = obj;
 
     // Abort any pending fetch requests from previous selection

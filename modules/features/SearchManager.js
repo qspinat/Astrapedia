@@ -518,7 +518,7 @@ export class SearchManager {
 
     aliases.forEach((alias) => {
       this.index_.push({
-        name: alias,
+        name: properName,
         displayName: `${alias} (${properName})`,
         type: 'Star',
         ra: star.ra,
