@@ -369,6 +369,7 @@ export class SkyMapApp {
    */
   initSearchManager_() {
     this.searchManager_ = new SearchManager();
+    this.searchManager_.setLanguage(this.constellationLanguage);
   }
 
   /**
@@ -1351,6 +1352,9 @@ export class SkyMapApp {
     this.constellationLanguage = lang;
     console.log(`Constellation language set to: ${lang}`);
 
+    // Update search filter to show only relevant language results
+    this.searchManager_?.setLanguage(lang);
+
     // Update game controller language so game questions use the selected language
     this.gameController_?.setLanguage(lang);
 
@@ -1423,6 +1427,9 @@ export class SkyMapApp {
   }
 
   animateCameraTo(ra, dec) {
+    // Stop any ongoing inertia so it doesn't fight the animation
+    this.inputController_?.stopInertia();
+
     // Get the object position in celestial (local) coordinates
     const localPos = raDecToCartesian(ra, dec, 100);
 

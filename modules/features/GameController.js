@@ -5,7 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {domCache} from '../ui/DOMCache.js';
-import {angularDistance} from '../core/CoordinateUtils.js';
+import {angularDistance, constellationCenter} from '../core/CoordinateUtils.js';
 import {getAbbrevFromInternalKey, getConstellationName} from '../data/ConstellationNames.js';
 
 /**
@@ -438,6 +438,8 @@ export class GameController {
 
     this.passedQuestions_.push(this.currentQuestion_);
 
+    this.updateUI_();
+
     const questionData = this.currentQuestion_.data;
     const questionName = this.currentQuestion_.name;
     const displayName = this.currentQuestion_.displayName || questionName;
@@ -603,55 +605,10 @@ export class GameController {
    * @private
    */
   getConstellationCenter_(constData) {
-    // If constellation data already has ra/dec, use those
-    if (constData?.ra !== undefined && constData?.dec !== undefined) {
-      return {ra: constData.ra, dec: constData.dec};
-    }
-
-    if (!constData?.lines || constData.lines.length === 0) {
-      return {ra: 0, dec: 0};
-    }
-
-    // Collect unique star IDs from the lines
-    const starIds = new Set();
-    constData.lines.forEach((line) => {
-      if (Array.isArray(line)) {
-        line.forEach((id) => starIds.add(id));
-      }
-    });
-
-    if (starIds.size === 0) {
-      return {ra: 0, dec: 0};
-    }
-
-    // Calculate average position using circular mean for RA
-    const DEG_TO_RAD = Math.PI / 180;
-    const RAD_TO_DEG = 180 / Math.PI;
-    let sumX = 0;
-    let sumY = 0;
-    let sumDec = 0;
-    let count = 0;
-
-    starIds.forEach((id) => {
-      const star = this.stars_.find((s) => s.hip === id || s.id === id);
-      if (star && star.ra !== undefined && star.dec !== undefined) {
-        const raRad = star.ra * DEG_TO_RAD;
-        sumX += Math.cos(raRad);
-        sumY += Math.sin(raRad);
-        sumDec += star.dec;
-        count++;
-      }
-    });
-
-    if (count === 0) {
-      return {ra: 0, dec: 0};
-    }
-
-    // Circular mean using atan2, normalized to [0, 360)
-    let meanRa = Math.atan2(sumY / count, sumX / count) * RAD_TO_DEG;
-    if (meanRa < 0) meanRa += 360;
-
-    return {ra: meanRa, dec: sumDec / count};
+    return constellationCenter(
+      constData,
+      (id) => this.stars_.find((s) => s.hip === id || s.id === id)
+    );
   }
 
   /**

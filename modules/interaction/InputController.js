@@ -475,14 +475,22 @@ export class InputController {
   }
 
   /**
+   * Stop any running inertia animation.
+   */
+  stopInertia() {
+    if (this.inertiaAnimationId_) {
+      cancelAnimationFrame(this.inertiaAnimationId_);
+      this.inertiaAnimationId_ = null;
+      this.velocity_ = {x: 0, y: 0};
+    }
+  }
+
+  /**
    * Dispose of event listeners.
    */
   dispose() {
     // Stop inertia animation
-    if (this.inertiaAnimationId_) {
-      cancelAnimationFrame(this.inertiaAnimationId_);
-      this.inertiaAnimationId_ = null;
-    }
+    this.stopInertia();
 
     this.canvas_.removeEventListener('mousedown', this.onMouseDown_);
     this.canvas_.removeEventListener('mousemove', this.onMouseMove_);
