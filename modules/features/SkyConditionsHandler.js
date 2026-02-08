@@ -295,7 +295,7 @@ export class SkyConditionsHandler {
    */
   saveToStorage_() {
     try {
-      localStorage.setItem('skymap_light_pollution', this.lightPollution_);
+      localStorage.setItem('astrapedia_light_pollution', this.lightPollution_);
     } catch (e) {
       // Ignore storage errors
     }
@@ -307,7 +307,7 @@ export class SkyConditionsHandler {
    */
   loadFromStorage_() {
     try {
-      const saved = localStorage.getItem('skymap_light_pollution');
+      const saved = localStorage.getItem('astrapedia_light_pollution');
       if (saved && this.baseMagnitudes_[saved]) {
         this.lightPollution_ = saved;
       }

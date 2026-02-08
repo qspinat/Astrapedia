@@ -1,6 +1,6 @@
 /**
  * @fileoverview Stateless coordinate conversion functions.
- * Extracted from skymap.js for reusability and testing.
+ * Extracted for reusability and testing.
  *
  * Note: Uses global THREE object loaded by app.html
  */

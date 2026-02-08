@@ -1,7 +1,7 @@
 /**
  * @fileoverview Application orchestration layer.
  *
- * This module serves as the central orchestration point for the SkyMap application.
+ * This module serves as the central orchestration point for the Astrapedia application.
  * It imports all modules, initializes dependencies, and wires EventBus connections.
  *
  * Module Architecture:
@@ -88,7 +88,7 @@ import {
 } from './modules/data/ConstellationNames.js';
 
 // Main application class (to be slimmed down)
-import {SkyMapApp} from './skymap.js';
+import {AstrapediaApp} from './skymap.js';
 
 // Update loading indicator
 {
@@ -98,7 +98,7 @@ import {SkyMapApp} from './skymap.js';
 
 /**
  * Application instance.
- * @type {?SkyMapApp}
+ * @type {?AstrapediaApp}
  */
 let app = null;
 
@@ -153,7 +153,7 @@ let skyConditionsHandler = null;
 
 /**
  * Initialize the UI controller with dependencies from the app.
- * @param {!SkyMapApp} appInstance - The application instance
+ * @param {!AstrapediaApp} appInstance - The application instance
  * @private
  */
 function initializeUI_(appInstance) {
@@ -310,7 +310,7 @@ async function initializeApp() {
     setupEventBusWiring_();
 
     // Create main application instance
-    app = new SkyMapApp();
+    app = new AstrapediaApp();
 
     // Expose to window for debugging and legacy compatibility
     window.app = app;

@@ -143,7 +143,7 @@ describe('LocationManager', () => {
     test('saves to localStorage', () => {
       manager.setLocation(40, -74);
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        'skymap_observer_location',
+        'astrapedia_observer_location',
         expect.any(String)
       );
     });
@@ -373,7 +373,7 @@ describe('LocationManager', () => {
 
     test('removes from localStorage', () => {
       manager.resetToDefault();
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('skymap_observer_location');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('astrapedia_observer_location');
     });
 
     test('emits LOCATION_CHANGED with reset source', () => {

@@ -1,10 +1,10 @@
-# Interactive Sky Map
+# Astrapedia
 
 An interactive 3D celestial sphere application for learning astronomical coordinates and finding celestial objects. Built with Three.js and real astronomical data.
 
 ## Features
 
-- **3D Spherical Sky Map**: Navigate inside a celestial sphere with proper astronomical coordinates (RA/Dec)
+- **3D Celestial Sphere**: Navigate inside a celestial sphere with proper astronomical coordinates (RA/Dec)
 - **Real Astronomical Data**:
   - 117,931 stars from the HYG Database
   - 1,701 deep sky objects from OpenNGC
@@ -100,7 +100,7 @@ skymap/
 │   ├── ui/                     # UI controllers and panel management
 │   └── data/                   # Curated images, constellation names, descriptions
 ├── data/                       # Generated astronomical data (JSON)
-├── skymap/                     # Python package for data processing
+├── astrapedia/                 # Python package for data processing
 ├── data_pipeline.py            # Download and process catalogs
 ├── create_optimized_data.py    # Create magnitude-filtered star files
 └── coordinate_transform.py     # Observer-specific coordinate transformation

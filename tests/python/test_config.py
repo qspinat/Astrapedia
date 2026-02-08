@@ -1,12 +1,12 @@
 """
-Tests for skymap.config module.
+Tests for astrapedia.config module.
 """
 
 from pathlib import Path
 import warnings
 import pytest
 
-from skymap.config import (
+from astrapedia.config import (
     Config,
     MagnitudeLevel,
     CatalogSource,

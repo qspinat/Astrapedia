@@ -2,7 +2,7 @@
 
 ## Summary
 
-The sky map has been transformed from a basic viewer into a comprehensive astronomy application inspired by Stellarium and Star Walk 2. The codebase has been fully modularized using an EventBus architecture for decoupled communication between components.
+Astrapedia has been transformed from a basic viewer into a comprehensive astronomy application inspired by Stellarium and Star Walk 2. The codebase has been fully modularized using an EventBus architecture for decoupled communication between components.
 
 **Architecture:**
 - `skymap.js`: ~2,048 lines - Main application class (Three.js scene, orchestration)

@@ -4,7 +4,7 @@ Tests for data_pipeline.py supplementary Messier object injection.
 
 import pytest
 
-from skymap.astronomy import inject_supplementary_objects
+from astrapedia.astronomy import inject_supplementary_objects
 
 
 class TestInjectSupplementaryObjects:

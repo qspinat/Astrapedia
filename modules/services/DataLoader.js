@@ -190,7 +190,7 @@ export class DataLoader {
    * @param {string=} starFile - Star file to use (default: 'stars_medium.json')
    * @returns {!Promise<!Object>} Object with stars, constellations, dsos, namedObjects
    */
-  async loadSkyMapData(starFile = 'stars_medium.json') {
+  async loadAppData(starFile = 'stars_medium.json') {
     globalEventBus.emit(Events.DATA_LOADED, {status: 'loading'});
 
     try {

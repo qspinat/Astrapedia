@@ -11,7 +11,7 @@ This script creates magnitude-filtered star files for different use cases:
 import json
 import os
 
-from skymap.config import Config
+from astrapedia.config import Config
 
 
 def create_optimized_stars():

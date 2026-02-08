@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Sky Map Data Pipeline
-Downloads and processes astronomical catalogs for the sky map app.
+Astrapedia Data Pipeline
+Downloads and processes astronomical catalogs for the Astrapedia app.
 
-Refactored to use shared modules from skymap package.
+Refactored to use shared modules from astrapedia package.
 """
 
 import json
@@ -18,9 +18,9 @@ logging.basicConfig(
     format="%(message)s",
 )
 
-from skymap.config import Config, DSO_TYPE_NAMES
-from skymap.io import download_file, write_json
-from skymap.astronomy import (
+from astrapedia.config import Config, DSO_TYPE_NAMES
+from astrapedia.io import download_file, write_json
+from astrapedia.astronomy import (
     filter_by_magnitude,
     inject_supplementary_objects,
     parse_ra_string,
@@ -342,7 +342,7 @@ def create_optimized_files(stars: list[dict]) -> None:
 def main():
     """Main pipeline execution."""
     print("=" * 60)
-    print("Sky Map Data Pipeline")
+    print("Astrapedia Data Pipeline")
     print("=" * 60)
 
     # Ensure data directory exists

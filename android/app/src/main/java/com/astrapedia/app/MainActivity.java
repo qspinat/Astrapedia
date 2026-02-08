@@ -1,4 +1,4 @@
-package com.skymap.app;
+package com.astrapedia.app;
 
 import android.os.Bundle;
 import android.util.Log;
@@ -9,7 +9,7 @@ import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-    private static final String TAG = "SkyMapActivity";
+    private static final String TAG = "AstrapediaActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

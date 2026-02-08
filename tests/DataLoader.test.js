@@ -210,7 +210,7 @@ describe('DataLoader', () => {
     });
   });
 
-  describe('loadSkyMapData', () => {
+  describe('loadAppData', () => {
     test('loads all standard data files', async () => {
       const mockStars = [{id: 1}];
       const mockConstellations = {Orion: {}};
@@ -223,7 +223,7 @@ describe('DataLoader', () => {
         .mockResolvedValueOnce({ok: true, json: () => Promise.resolve(mockDsos)})
         .mockResolvedValueOnce({ok: true, json: () => Promise.resolve(mockNamedObjects)});
 
-      const data = await loader.loadSkyMapData();
+      const data = await loader.loadAppData();
 
       expect(data.stars).toEqual(mockStars);
       expect(data.constellations).toEqual(mockConstellations);
@@ -237,7 +237,7 @@ describe('DataLoader', () => {
         json: () => Promise.resolve([]),
       });
 
-      await loader.loadSkyMapData('stars_bright.json');
+      await loader.loadAppData('stars_bright.json');
 
       expect(global.fetch).toHaveBeenCalledWith(
         'data/stars_bright.json',
@@ -258,7 +258,7 @@ describe('DataLoader', () => {
         json: () => Promise.resolve([]),
       });
 
-      await loader.loadSkyMapData();
+      await loader.loadAppData();
 
       expect(loadingCallback).toHaveBeenCalled();
       expect(successCallback).toHaveBeenCalled();
@@ -271,7 +271,7 @@ describe('DataLoader', () => {
       const loaderWithNoRetry = new DataLoader({retries: 0});
       global.fetch.mockRejectedValue(new Error('Network error'));
 
-      await expect(loaderWithNoRetry.loadSkyMapData()).rejects.toThrow();
+      await expect(loaderWithNoRetry.loadAppData()).rejects.toThrow();
       expect(errorCallback).toHaveBeenCalled();
     });
   });

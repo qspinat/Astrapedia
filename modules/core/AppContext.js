@@ -6,13 +6,13 @@
 import {STARS} from './Constants.js';
 
 /**
- * AppContext provides a facade for accessing SkyMapApp functionality.
+ * AppContext provides a facade for accessing AstrapediaApp functionality.
  * Modules should use this for decoupled access to app methods.
  */
 export class AppContext {
   /**
    * Creates a new AppContext instance.
-   * @param {!Object} app - The SkyMapApp instance
+   * @param {!Object} app - The AstrapediaApp instance
    */
   constructor(app) {
     /** @private @const */
@@ -388,7 +388,7 @@ export let appContext = null;
 
 /**
  * Initialize the app context singleton.
- * @param {!Object} app - The SkyMapApp instance
+ * @param {!Object} app - The AstrapediaApp instance
  * @returns {!AppContext} Initialized context
  */
 export function initializeAppContext(app) {

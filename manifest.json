@@ -1,6 +1,6 @@
 {
-  "name": "Interactive Sky Map",
-  "short_name": "Sky Map",
+  "name": "Astrapedia",
+  "short_name": "Astrapedia",
   "description": "Explore the night sky with an interactive 3D celestial sphere. Learn constellations, find planets, and discover deep sky objects.",
   "start_url": "./app.html",
   "display": "standalone",

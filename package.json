@@ -1,13 +1,13 @@
 {
-  "name": "skymap",
+  "name": "astrapedia",
   "version": "0.1.1-alpha",
   "description": "An interactive 3D celestial sphere application for learning astronomical coordinates and finding celestial objects. Built with Three.js and real astronomical data.",
   "main": "skymap.js",
   "scripts": {
     "clean": "rm -rf www",
     "build:web": "mkdir -p www && cp app.html www/index.html && cp skymap.js main.js debug.js styles.css sw.js manifest.json favicon.svg icon-192.png icon-512.png www/ && cp -r modules www/ && cp -r data www/",
-    "build:android": "npm run build:web && npx cap sync android && cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew assembleDebug",
-    "build:android:release": "npm run build:web && npx cap sync android && cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew assembleRelease",
+    "build:android": "npm run build:web && npx cap sync android && cd android && ./gradlew assembleDebug",
+    "build:android:release": "npm run build:web && npx cap sync android && cd android && ./gradlew assembleRelease",
     "dev": "python3 -m http.server 8000",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
@@ -17,9 +17,9 @@
     "type": "git",
     "url": "git+https://github.com/qspinat/SkyMap.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["astronomy", "celestial-sphere", "3d", "three.js", "star-map", "constellations", "education"],
+  "author": "Quentin Spinat",
+  "license": "MIT",
   "type": "module",
   "bugs": {
     "url": "https://github.com/qspinat/SkyMap/issues"

@@ -148,6 +148,7 @@ android/capacitor.settings.gradle
 # Signing
 *.jks
 *.keystore
+keystore.properties
 google-services.json
 
 # ====================

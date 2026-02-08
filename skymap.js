@@ -1,5 +1,5 @@
 /**
- * @fileoverview Interactive Sky Map Application.
+ * @fileoverview Astrapedia - Interactive Celestial Sphere Application.
  *
  * A Three.js-based celestial sphere visualization for learning astronomical
  * coordinates and finding celestial objects.
@@ -77,20 +77,20 @@ import {astronomyCalculator} from './modules/core/AstronomyCalculator.js';
 import {clamp} from './modules/core/Utils.js';
 
 /* ==========================================================================
-   2. SKYMAP APPLICATION CLASS
+   2. ASTRAPEDIA APPLICATION CLASS
    ========================================================================== */
 
 /**
- * Main Sky Map Application class.
+ * Main Astrapedia Application class.
  * Manages the 3D celestial sphere visualization, star rendering,
  * user interactions, and astronomical calculations.
  */
-export class SkyMapApp {
+export class AstrapediaApp {
   /* ======================================================================
      CONSTRUCTOR & STATE VARIABLES
      ====================================================================== */
 
-  /** Creates a new SkyMapApp instance. */
+  /** Creates a new AstrapediaApp instance. */
   constructor() {
     // Three.js core components
     this.scene = null;
@@ -710,16 +710,16 @@ export class SkyMapApp {
 
     // Tour commands - delegate directly to TourController
     globalEventBus.on(Events.CMD_START_TOUR, (data) => {
-      console.log('[SkyMap] CMD_START_TOUR received:', data?.tourName);
+      console.log('[Astrapedia] CMD_START_TOUR received:', data?.tourName);
       if (data?.tourName) {
         this.tourController_.start(data.tourName);
       } else {
-        console.warn('[SkyMap] CMD_START_TOUR received with no tourName');
+        console.warn('[Astrapedia] CMD_START_TOUR received with no tourName');
       }
     });
 
     globalEventBus.on(Events.CMD_NEXT_TOUR_STEP, () => {
-      console.log('[SkyMap] CMD_NEXT_TOUR_STEP received');
+      console.log('[Astrapedia] CMD_NEXT_TOUR_STEP received');
       this.tourController_.next();
     });
 
@@ -912,7 +912,7 @@ export class SkyMapApp {
   async loadData() {
     try {
       console.log('Starting data load...');
-      const data = await dataLoader.loadSkyMapData('stars_medium.json');
+      const data = await dataLoader.loadAppData('stars_medium.json');
 
       this.stars = data.stars;
       this.constellations = data.constellations;
@@ -1646,7 +1646,7 @@ export class SkyMapApp {
    * @param {number=} angularSizeArcmin - Object's angular size in arcminutes
    */
   showTourHighlight(ra, dec, angularSizeArcmin = 10) {
-    console.log('[SkyMap] showTourHighlight called, module exists:', !!this.tourHighlightModule_);
+    console.log('[Astrapedia] showTourHighlight called, module exists:', !!this.tourHighlightModule_);
     this.tourHighlightModule_?.show(ra, dec, angularSizeArcmin);
   }
 

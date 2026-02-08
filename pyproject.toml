@@ -1,12 +1,12 @@
 [project]
-name = "skymap"
+name = "astrapedia"
 version = "0.1.0"
 description = "Interactive 3D celestial sphere application for learning astronomical coordinates"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
-    { name = "Skymap Contributors" }
+    { name = "Astrapedia Contributors" }
 ]
 keywords = ["astronomy", "celestial", "visualization", "three.js", "astropy"]
 classifiers = [
@@ -28,13 +28,13 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/skymap"
-Repository = "https://github.com/yourusername/skymap"
+Homepage = "https://github.com/qspinat/SkyMap"
+Repository = "https://github.com/qspinat/SkyMap"
 
 [project.scripts]
-skymap-pipeline = "data_pipeline:main"
-skymap-transform = "coordinate_transform:main"
-skymap-optimize = "create_optimized_data:main"
+astrapedia-pipeline = "data_pipeline:main"
+astrapedia-transform = "coordinate_transform:main"
+astrapedia-optimize = "create_optimized_data:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -1,5 +1,5 @@
 """
-Astronomy utilities for SkyMap data pipeline.
+Astronomy utilities for Astrapedia data pipeline.
 Contains coordinate conversions, magnitude filtering, and data transformations.
 """
 

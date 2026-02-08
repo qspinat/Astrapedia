@@ -1,5 +1,5 @@
 """
-Static mapping dictionaries for SkyMap data pipeline.
+Static mapping dictionaries for Astrapedia data pipeline.
 Contains DSO type names and constellation abbreviations.
 """
 

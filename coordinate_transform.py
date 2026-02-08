@@ -4,7 +4,7 @@ Coordinate Transformation Script
 Converts celestial coordinates (RA/Dec) to observer-based coordinates (Alt/Az)
 for real-time sky map updates.
 
-Refactored to use shared modules from skymap package.
+Refactored to use shared modules from astrapedia package.
 """
 
 import argparse
@@ -22,9 +22,9 @@ logging.basicConfig(
     format="%(message)s",
 )
 
-from skymap.config import Config
-from skymap.io import read_json, write_json
-from skymap.astronomy import filter_by_magnitude
+from astrapedia.config import Config
+from astrapedia.io import read_json, write_json
+from astrapedia.astronomy import filter_by_magnitude
 
 
 def load_celestial_objects(data_dir: Path = Config.DATA_DIR) -> tuple:

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Security utility functions for the SkyMap application.
+ * @fileoverview Security utility functions for the Astrapedia application.
  * Provides XSS prevention and input sanitization.
  */
 
@@ -28,8 +28,8 @@ export const escapeHtml = (str) => {
 export const fetchWikipedia = (url, signal = null) => {
   const options = {
     headers: {
-      'Api-User-Agent': 'SkyMap/1.0 (https://github.com/qspinat/SkyMap; ' +
-                        'contact@skymap.app) fetch/1.0',
+      'Api-User-Agent': 'Astrapedia/1.0 (https://github.com/qspinat/SkyMap; ' +
+                        'contact@astrapedia.app) fetch/1.0',
     },
   };
   if (signal) {

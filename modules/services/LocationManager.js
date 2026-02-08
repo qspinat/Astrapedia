@@ -20,7 +20,7 @@ let ObserverLocation;
  * Local storage key for saved location.
  * @const {string}
  */
-const STORAGE_KEY = 'skymap_observer_location';
+const STORAGE_KEY = 'astrapedia_observer_location';
 
 /**
  * LocationManager handles observer location management.
@@ -416,7 +416,7 @@ export class LocationManager {
       <div class="location-prompt-content">
         <div class="location-prompt-icon">📍</div>
         <h3>Enable Location?</h3>
-        <p>SkyMap can show you the exact sky visible from your location right now.</p>
+        <p>Astrapedia can show you the exact sky visible from your location right now.</p>
         <div class="location-prompt-buttons">
           <button class="location-prompt-btn location-prompt-btn--secondary" id="location-skip">
             Not now
