@@ -706,6 +706,26 @@ select:focus {
     margin-top: auto;
 }
 
+.panel-footer {
+    text-align: center;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.footer-link {
+    color: var(--text-secondary);
+    font-size: 10px;
+    text-decoration: none;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.footer-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
 /* Action Buttons - 2x2 grid */
 .action-buttons {
     display: grid;

@@ -17,6 +17,8 @@
 # Keep line number information for debugging stack traces
 -keepattributes SourceFile,LineNumberTable
 
-# AndroidX
--keep class androidx.** { *; }
--keep interface androidx.** { *; }
+# AndroidX - keep only what Capacitor needs
+-keep class androidx.core.** { *; }
+-keep class androidx.appcompat.** { *; }
+-keep class androidx.webkit.** { *; }
+-keep class androidx.coordinatorlayout.** { *; }

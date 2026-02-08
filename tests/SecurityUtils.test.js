@@ -113,6 +113,6 @@ describe('fetchWikipedia', () => {
     // Wikipedia requires: AppName/Version (URL; contact) library/version
     expect(userAgent).toMatch(/^\w+\/[\d.]+\s+\(/);
     expect(userAgent).toContain('https://');
-    expect(userAgent).toContain('@');
+    expect(userAgent).toContain('github.com');
   });
 });

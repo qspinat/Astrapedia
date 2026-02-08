@@ -29,7 +29,7 @@ export const fetchWikipedia = (url, signal = null) => {
   const options = {
     headers: {
       'Api-User-Agent': 'Astrapedia/1.0 (https://github.com/qspinat/Astrapedia; ' +
-                        'contact@astrapedia.app) fetch/1.0',
+                        'https://github.com/qspinat/Astrapedia/issues) fetch/1.0',
     },
   };
   if (signal) {
