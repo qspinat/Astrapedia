@@ -1,5 +1,5 @@
 /**
- * @fileoverview Three.js scene management for the sky map.
+ * @fileoverview Three.js scene management for the celestial sphere.
  * Handles scene setup, camera control, and rendering.
  */
 

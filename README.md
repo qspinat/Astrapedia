@@ -86,7 +86,7 @@ Then open http://localhost:8000/app.html
 ## Project Structure
 
 ```
-skymap/
+astrapedia/
 ├── app.html                    # Main application HTML
 ├── main.js                     # Application entry point
 ├── skymap.js                   # Main application class (Three.js scene, rendering)

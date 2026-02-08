@@ -186,7 +186,7 @@ export class DataLoader {
   }
 
   /**
-   * Load all standard sky map data files.
+   * Load all standard application data files.
    * @param {string=} starFile - Star file to use (default: 'stars_medium.json')
    * @returns {!Promise<!Object>} Object with stars, constellations, dsos, namedObjects
    */

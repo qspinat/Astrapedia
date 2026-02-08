@@ -1,5 +1,5 @@
 /**
- * @fileoverview Centralized constants for the Sky Map application.
+ * @fileoverview Centralized constants for the Astrapedia application.
  * All magic numbers and configuration values are defined here for
  * better maintainability and consistency.
  */

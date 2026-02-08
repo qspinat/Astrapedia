@@ -1,6 +1,6 @@
 /**
  * @fileoverview Compass mode controller for device orientation.
- * Uses device magnetometer and gyroscope to orient the sky map.
+ * Uses device magnetometer and gyroscope to orient the celestial sphere.
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';

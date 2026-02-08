@@ -2,7 +2,7 @@
 """
 Coordinate Transformation Script
 Converts celestial coordinates (RA/Dec) to observer-based coordinates (Alt/Az)
-for real-time sky map updates.
+for real-time celestial coordinate updates.
 
 Refactored to use shared modules from astrapedia package.
 """

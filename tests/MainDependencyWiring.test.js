@@ -150,7 +150,7 @@ describe('TourUI to TourController Integration', () => {
     const handler = jest.fn();
     globalEventBus.on(Events.CMD_START_TOUR, handler);
 
-    // This simulates the chain: TourUI -> deps.startTour -> EventBus -> SkyMapApp
+    // This simulates the chain: TourUI -> deps.startTour -> EventBus -> AstrapediaApp
     const mockStartTour = (name) => globalEventBus.emit(Events.CMD_START_TOUR, {tourName: name});
 
     // Simulate button click in TourUI

@@ -28,8 +28,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/qspinat/SkyMap"
-Repository = "https://github.com/qspinat/SkyMap"
+Homepage = "https://github.com/qspinat/Astrapedia"
+Repository = "https://github.com/qspinat/Astrapedia"
 
 [project.scripts]
 astrapedia-pipeline = "data_pipeline:main"

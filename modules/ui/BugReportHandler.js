@@ -1,5 +1,5 @@
 /**
- * @fileoverview Bug report handler for Sky Map Application.
+ * @fileoverview Bug report handler for Astrapedia.
  * Handles bug report form submission to Formspree with validation.
  */
 

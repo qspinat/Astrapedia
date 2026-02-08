@@ -15,16 +15,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/qspinat/SkyMap.git"
+    "url": "git+https://github.com/qspinat/Astrapedia.git"
   },
   "keywords": ["astronomy", "celestial-sphere", "3d", "three.js", "star-map", "constellations", "education"],
   "author": "Quentin Spinat",
   "license": "MIT",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/qspinat/SkyMap/issues"
+    "url": "https://github.com/qspinat/Astrapedia/issues"
   },
-  "homepage": "https://github.com/qspinat/SkyMap#readme",
+  "homepage": "https://github.com/qspinat/Astrapedia#readme",
   "dependencies": {
     "@capacitor/android": "^8.0.1",
     "@capacitor/app": "^8.0.0",

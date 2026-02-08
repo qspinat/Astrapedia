@@ -28,7 +28,7 @@ export const escapeHtml = (str) => {
 export const fetchWikipedia = (url, signal = null) => {
   const options = {
     headers: {
-      'Api-User-Agent': 'Astrapedia/1.0 (https://github.com/qspinat/SkyMap; ' +
+      'Api-User-Agent': 'Astrapedia/1.0 (https://github.com/qspinat/Astrapedia; ' +
                         'contact@astrapedia.app) fetch/1.0',
     },
   };

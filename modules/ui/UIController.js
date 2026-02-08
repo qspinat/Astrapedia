@@ -1,5 +1,5 @@
 /**
- * @fileoverview UI Controller for Sky Map Application.
+ * @fileoverview UI Controller for Astrapedia.
  * Uses dependency injection and EventBus for decoupled communication.
  *
  * Feature-specific UI handlers have been extracted to their respective modules:
