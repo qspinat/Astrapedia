@@ -175,6 +175,9 @@ function initializeUI_(appInstance) {
       appInstance.targetFov = fov;
       appInstance.requestRender?.();
     },
+    getCurrentFOV: () => appInstance.targetFov || appInstance.camera?.fov,
+    getCurrentMagnitude: () => appInstance.currentMagnitude,
+    setMagnitudeLimit: (mag) => appInstance.setMagnitudeLimit?.(mag),
     getSkyLimitingMagnitude: () => skyConditionsHandler?.getNakedEyeLimit(),
     lockZoom: () => {
       appInstance.telescopeModeActive = true;

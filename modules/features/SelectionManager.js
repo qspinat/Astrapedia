@@ -10,6 +10,28 @@ import {descriptionGenerator} from '../data/DescriptionGenerator.js';
 import {getConstellationStory} from '../data/ConstellationStories.js';
 
 /**
+ * Resolve a search result into a canonical object by flattening raw data.
+ * Search results are thin wrappers with only name/internalName/type/ra/dec/mag/data.
+ * This merges the raw data (messier, common_names, size_major, etc.) into the
+ * top-level object and normalizes `name` to the canonical internal key.
+ * Safe to call on already-canonical objects (no-op if no `internalName`).
+ *
+ * Spread order: raw data first, then search entry fields win for overlaps.
+ * This is intentional — `type` in search entries is the category string for
+ * Stars/Planets/Constellations, and the raw DSO abbreviation (e.g., 'G', 'PN')
+ * for deep sky objects. Both match what downstream consumers expect.
+ *
+ * @param {?Object} obj - Search result or raw object
+ * @returns {?Object} Canonical object with all fields accessible at top level
+ */
+export function resolveCanonicalObject(obj) {
+  if (obj?.data && obj.internalName !== undefined) {
+    return {...obj.data, ...obj, name: obj.internalName};
+  }
+  return obj;
+}
+
+/**
  * SelectionManager handles object selection and info display.
  */
 export class SelectionManager {
@@ -63,6 +85,7 @@ export class SelectionManager {
    * @param {?Object} obj - Object to select, or null to deselect
    */
   selectObject(obj) {
+    obj = resolveCanonicalObject(obj);
     this.selectedObject_ = obj;
 
     // Abort any pending fetch requests from previous selection
@@ -96,9 +119,10 @@ export class SelectionManager {
 
     // Handle constellations specially
     if (obj.type === 'Constellation') {
+      const constellationKey = obj.internalName || obj.name;
       this.deps_.hideHighlight?.();
-      this.deps_.highlightConstellation?.(obj.name);
-      this.showConstellationInfo_(obj.name);
+      this.deps_.highlightConstellation?.(constellationKey);
+      this.showConstellationInfo_(constellationKey);
       this.deps_.openPanel?.('info-panel');
 
       globalEventBus.emit(Events.OBJECT_SELECTED, {
@@ -249,9 +273,10 @@ export class SelectionManager {
       html += `<p><strong>Messier:</strong> M${obj.messier}</p>`;
     }
 
-    // Wikipedia link
+    // Wikipedia link - use internal/English name for en.wikipedia lookup
+    const wikiName = obj.internalName || displayName;
     html += `<div class="wiki-link-container">`;
-    html += `<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(displayName)}" `;
+    html += `<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(wikiName)}" `;
     html += `target="_blank" rel="noopener noreferrer" class="wiki-link">`;
     html += `Learn more on Wikipedia</a>`;
     html += `</div>`;
@@ -431,9 +456,13 @@ export class SelectionManager {
     // Show loading state
     container.innerHTML = '<div class="image-loading">Loading best available image...</div>';
 
-    // Get object identifier
-    const objectName = obj.messier ? `M${Math.floor(obj.messier)}` :
-      (obj.name?.match(/^(NGC|IC)\s*\d+/)?.[0]?.replace(/\s+/g, '') || obj.name);
+    // Get object identifier - prefer catalog names from raw data or internalName
+    // to avoid using localized display names (e.g., 'Galaxie du Sombrero')
+    const raw = obj.data || obj;
+    const objectName = raw.messier ? `M${Math.floor(raw.messier)}` :
+      (raw.ngc ? `NGC${raw.ngc}` :
+        (raw.ic ? `IC${raw.ic}` :
+          (obj.internalName || obj.name)));
 
     // Use unified image fetcher to get the best available image
     // Pass forPanel=true to enable DSS fallback for stars

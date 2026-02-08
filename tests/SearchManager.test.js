@@ -5,35 +5,40 @@
 import {jest} from '@jest/globals';
 import {SearchManager, searchManager} from '../modules/features/SearchManager.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
+import {getPlanetName} from '../modules/data/PlanetNames.js';
+import {getDsoName} from '../modules/data/DsoNames.js';
 
 describe('SearchManager', () => {
   let manager;
 
   // Sample test data
   const testStars = [
-    {id: 1, hip: 11767, proper: 'Polaris', ra: 37.95, dec: 89.26, mag: 1.98},
-    {id: 2, hip: 91262, proper: 'Vega', ra: 279.23, dec: 38.78, mag: 0.03},
+    {id: 1, hip: 11767, proper: 'Polaris', ra: 37.95, dec: 89.26, mag: 1.98, hd: 8890, hr: 424},
+    {id: 2, hip: 91262, proper: 'Vega', ra: 279.23, dec: 38.78, mag: 0.03, hd: 172167, hr: 7001},
     {id: 3, hip: 24436, proper: 'Rigel', ra: 78.63, dec: -8.20, mag: 0.12},
     {id: 4, hip: 27989, proper: 'Betelgeuse', ra: 88.79, dec: 7.41, mag: 0.50},
   ];
 
   const testDSOs = [
-    {name: 'Andromeda Galaxy', messier: 31, ngc: 224, ra: 10.68, dec: 41.27, mag: 3.4, type: 'G'},
-    {name: 'Orion Nebula', messier: 42, ngc: 1976, ra: 83.82, dec: -5.39, mag: 4.0, type: 'Neb'},
+    {name: 'Andromeda Galaxy', messier: 31, ngc: 224, ra: 10.68, dec: 41.27, mag: 3.4, type: 'G',
+      common_names: ['Andromeda Galaxy']},
+    {name: 'Orion Nebula', messier: 42, ngc: 1976, ra: 83.82, dec: -5.39, mag: 4.0, type: 'Neb',
+      common_names: ['Orion Nebula']},
     {ngc: 7293, common_names: ['Helix Nebula'], ra: 337.41, dec: -20.84, mag: 7.6, type: 'PN'},
   ];
 
   const testConstellations = {
     'Orion': {ra: 85, dec: 0},
-    'Ursa Major': {ra: 165, dec: 55},
+    'UrsaMajor': {ra: 165, dec: 55},
     'Scorpius': {ra: 255, dec: -30},
   };
 
+  // Real format: namedObjects values are objects with {id, hip, ra, dec, mag}
   const testNamedObjects = {
-    'Polaris': 11767,
-    'Vega': 91262,
-    'Rigel': 24436,
-    'Betelgeuse': 27989,
+    'Polaris': {id: 1, hip: 11767, ra: 37.95, dec: 89.26, mag: 1.98},
+    'Vega': {id: 2, hip: 91262, ra: 279.23, dec: 38.78, mag: 0.03},
+    'Rigel': {id: 3, hip: 24436, ra: 78.63, dec: -8.20, mag: 0.12},
+    'Betelgeuse': {id: 4, hip: 27989, ra: 88.79, dec: 7.41, mag: 0.50},
   };
 
   const testPlanets = [
@@ -60,8 +65,20 @@ describe('SearchManager', () => {
       expect(manager.getSize()).toBeGreaterThan(0);
     });
 
-    test('indexes named stars', () => {
+    test('indexes named stars with object-format namedObjects', () => {
       manager.buildIndex({stars: testStars, namedObjects: testNamedObjects});
+      const polaris = manager.findByName('Polaris');
+      expect(polaris).not.toBeNull();
+      expect(polaris.type).toBe('Star');
+      expect(polaris.ra).toBe(37.95);
+    });
+
+    test('indexes named stars with scalar namedObjects (legacy format)', () => {
+      const legacyNamedObjects = {
+        'Polaris': 11767,
+        'Vega': 91262,
+      };
+      manager.buildIndex({stars: testStars, namedObjects: legacyNamedObjects});
       const polaris = manager.findByName('Polaris');
       expect(polaris).not.toBeNull();
       expect(polaris.type).toBe('Star');
@@ -150,6 +167,230 @@ describe('SearchManager', () => {
       manager.buildIndex({});
       expect(manager.isBuilt()).toBe(true);
       expect(manager.getSize()).toBe(0);
+    });
+  });
+
+  describe('constellation language search', () => {
+    beforeEach(() => {
+      manager.buildIndex({constellations: testConstellations});
+    });
+
+    test('finds constellation by French name', () => {
+      const result = manager.findByName('Grande Ourse');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Constellation');
+      expect(result.name).toBe('UrsaMajor');
+    });
+
+    test('finds constellation by Chinese name', () => {
+      const result = manager.findByName('猎户座');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Constellation');
+      expect(result.name).toBe('Orion');
+    });
+
+    test('finds constellation by IAU abbreviation', () => {
+      const result = manager.findByName('UMa');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Constellation');
+      expect(result.name).toBe('UrsaMajor');
+    });
+
+    test('search returns internalName for constellation', () => {
+      manager.setLanguage('fr');
+      const results = manager.search('Grande Ourse');
+      expect(results.length).toBeGreaterThan(0);
+      const match = results[0];
+      expect(match.name).toBe('Grande Ourse');
+      expect(match.internalName).toBe('UrsaMajor');
+    });
+
+    test('finds constellation by German name', () => {
+      const result = manager.findByName('Skorpion');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Constellation');
+    });
+
+    test('finds constellation by Japanese name', () => {
+      const result = manager.findByName('オリオン座');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Constellation');
+    });
+  });
+
+  describe('star catalog ID search', () => {
+    beforeEach(() => {
+      manager.buildIndex({stars: testStars, namedObjects: testNamedObjects});
+    });
+
+    test('finds star by HIP display name', () => {
+      const result = manager.findByName('HIP 11767 (Polaris)');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Star');
+      expect(result.name).toBe('Polaris');
+    });
+
+    test('search for HIP shows display name with proper name', () => {
+      const results = manager.search('HIP 11767');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].name).toBe('HIP 11767 (Polaris)');
+      expect(results[0].internalName).toBe('Polaris');
+    });
+
+    test('finds star by HD display name', () => {
+      const result = manager.findByName('HD 172167 (Vega)');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Star');
+      expect(result.name).toBe('Vega');
+    });
+
+    test('finds star by HR display name', () => {
+      const result = manager.findByName('HR 7001 (Vega)');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Star');
+      expect(result.name).toBe('Vega');
+    });
+  });
+
+  describe('planet language search', () => {
+    beforeEach(() => {
+      manager.buildIndex({planets: testPlanets});
+    });
+
+    test('finds planet by Spanish name', () => {
+      const result = manager.findByName('Marte');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Planet');
+      expect(result.name).toBe('Mars');
+    });
+
+    test('finds planet by Chinese name', () => {
+      const result = manager.findByName('火星');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Planet');
+    });
+
+    test('finds planet by Arabic name', () => {
+      const result = manager.findByName('المشتري');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Planet');
+    });
+
+    test('search for planet in Spanish returns localized display name', () => {
+      manager.setLanguage('es');
+      const results = manager.search('Júpiter');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].name).toBe('Júpiter');
+      expect(results[0].internalName).toBe('Jupiter');
+    });
+  });
+
+  describe('DSO language search', () => {
+    beforeEach(() => {
+      manager.buildIndex({deepSkyObjects: testDSOs});
+    });
+
+    test('finds DSO by French name', () => {
+      const result = manager.findByName("Nébuleuse d'Orion");
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Neb');
+    });
+
+    test('finds DSO by Chinese name', () => {
+      const result = manager.findByName('仙女座星系');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('G');
+    });
+
+    test('finds DSO by German name', () => {
+      const result = manager.findByName('Helixnebel');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('PN');
+    });
+
+    test('search for DSO in French returns translated display name', () => {
+      manager.setLanguage('fr');
+      const results = manager.search("Nébuleuse d'Orion");
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].name).toBe("Nébuleuse d'Orion");
+      expect(results[0].internalName).toBe('M42');
+    });
+  });
+
+  describe('displayName field', () => {
+    test('search results include displayName for localized entries', () => {
+      manager.buildIndex({planets: testPlanets});
+      manager.setLanguage('fr');
+      const results = manager.search('Saturne');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].name).toBe('Saturne');
+      expect(results[0].internalName).toBe('Saturn');
+    });
+
+    test('search results use internal name when no displayName', () => {
+      manager.buildIndex({planets: testPlanets});
+      const results = manager.search('Mars');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].name).toBe('Mars');
+      expect(results[0].internalName).toBe('Mars');
+    });
+  });
+
+  describe('language filtering in search', () => {
+    beforeEach(() => {
+      manager.buildIndex({
+        planets: testPlanets,
+        constellations: testConstellations,
+        deepSkyObjects: testDSOs,
+      });
+    });
+
+    test('filters out non-active language results', () => {
+      manager.setLanguage('en');
+      const results = manager.search('Saturne');
+      // 'Saturne' is French — should not appear when language is 'en'
+      expect(results.length).toBe(0);
+    });
+
+    test('shows results in current language', () => {
+      manager.setLanguage('fr');
+      const results = manager.search('Saturne');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].name).toBe('Saturne');
+    });
+
+    test('always shows English results regardless of current language', () => {
+      manager.setLanguage('zh');
+      const results = manager.search('Orion Nebula');
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    test('always shows Latin planet names regardless of current language', () => {
+      manager.setLanguage('zh');
+      // 'Saturnus' is the Latin name for Saturn — should always be visible
+      const results = manager.search('Saturnus');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].internalName).toBe('Saturn');
+    });
+
+    test('always shows Latin/English constellation names regardless of current language', () => {
+      manager.setLanguage('zh');
+      // 'Scorpius' is the internal key and shared en/la name
+      const results = manager.search('Scorpius');
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    test('always shows scientific catalog names regardless of language', () => {
+      manager.setLanguage('ja');
+      const results = manager.search('M31');
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    test('findByName still works for any language (unfiltered)', () => {
+      manager.setLanguage('en');
+      // findByName is not filtered — it always searches all languages
+      const result = manager.findByName('Saturne');
+      expect(result).not.toBeNull();
     });
   });
 
@@ -266,7 +507,7 @@ describe('SearchManager', () => {
 
     test('finds all entries of type', () => {
       const planets = manager.findByType('Planet');
-      expect(planets).toHaveLength(3);
+      expect(planets.length).toBeGreaterThanOrEqual(3);
       planets.forEach((p) => {
         expect(p.type).toBe('Planet');
       });
@@ -389,12 +630,20 @@ describe('SearchManager', () => {
       expect(jupiter).toBeNull();
     });
 
-    test('removes old planets', () => {
-      const originalSize = manager.findByType('Planet').length;
-      expect(originalSize).toBe(3);
+    test('removes old planets including language aliases', () => {
+      const planetsBefore = manager.findByType('Planet').length;
+      expect(planetsBefore).toBeGreaterThanOrEqual(3);
 
       manager.updatePlanets([{name: 'Mars', ra: 0, dec: 0, mag: 0}]);
-      expect(manager.findByType('Planet').length).toBe(1);
+      // Should have 1 primary + language aliases for Mars only
+      const planetsAfter = manager.findByType('Planet');
+      expect(planetsAfter.every((p) => p.name === 'Mars')).toBe(true);
+    });
+
+    test('preserves language aliases after update', () => {
+      manager.updatePlanets([{name: 'Mars', ra: 0, dec: 0, mag: 0}]);
+      const marte = manager.findByName('Marte');
+      expect(marte).not.toBeNull();
     });
   });
 
@@ -412,6 +661,142 @@ describe('SearchManager', () => {
       const notNear = manager.findNear(0, 0, 5);
       expect(notNear.some((r) => r.name === 'B')).toBe(false);
     });
+  });
+
+  describe('findByName with displayName', () => {
+    beforeEach(() => {
+      manager.buildIndex({
+        stars: testStars,
+        namedObjects: testNamedObjects,
+        constellations: testConstellations,
+        planets: testPlanets,
+      });
+    });
+
+    test('finds entry by displayName and returns raw entry with internal name', () => {
+      const result = manager.findByName('Grande Ourse');
+      expect(result).not.toBeNull();
+      expect(result.name).toBe('UrsaMajor');
+      expect(result.displayName).toBe('Grande Ourse');
+    });
+
+    test('finds catalog alias by displayName', () => {
+      const result = manager.findByName('HIP 11767 (Polaris)');
+      expect(result).not.toBeNull();
+      expect(result.type).toBe('Star');
+      expect(result.name).toBe('Polaris');
+      expect(result.displayName).toBe('HIP 11767 (Polaris)');
+    });
+
+    test('prefers displayName match over name match', () => {
+      // 'UMa' is a displayName (abbreviation alias for UrsaMajor)
+      const result = manager.findByName('UMa');
+      expect(result).not.toBeNull();
+      expect(result.name).toBe('UrsaMajor');
+    });
+  });
+
+  describe('search fallback path', () => {
+    test('matches internal name via displayName entries when searching CamelCase key', () => {
+      manager.buildIndex({constellations: testConstellations});
+      // 'UrsaMajor' is hidden from search (no displayName on primary entry),
+      // but 'Ursa Major' (the English displayName) should still be findable
+      const results = manager.search('Ursa Major');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results.some((r) => r.internalName === 'UrsaMajor')).toBe(true);
+    });
+
+    test('never displays CamelCase constellation keys in search results', () => {
+      manager.buildIndex({constellations: testConstellations});
+      // Searching 'UrsaMajor' may match via internal name fallback,
+      // but displayed names should never be the raw CamelCase key
+      const results = manager.search('UrsaMajor');
+      results.forEach((r) => {
+        expect(r.name).not.toBe('UrsaMajor');
+      });
+    });
+  });
+
+  describe('constellation deduplication', () => {
+    test('does not create duplicate displayName entries for identical names across languages', () => {
+      manager.buildIndex({constellations: testConstellations});
+      // 'Orion' matches the internalKey, so it should never appear as a displayName
+      const orionDisplayEntries = manager.findByType('Constellation')
+        .filter((e) => e.displayName === 'Orion');
+      expect(orionDisplayEntries.length).toBe(0);
+    });
+
+    test('deduplicates identical localized names across languages', () => {
+      manager.buildIndex({constellations: testConstellations});
+      // UrsaMajor has unique names per language, each should appear once
+      const umaEntries = manager.findByType('Constellation')
+        .filter((e) => e.name === 'UrsaMajor');
+      const displayNames = umaEntries
+        .map((e) => e.displayName)
+        .filter(Boolean);
+      // No duplicates in displayNames
+      expect(displayNames.length).toBe(new Set(displayNames).size);
+    });
+  });
+});
+
+describe('getPlanetName', () => {
+  test('returns English name for en language', () => {
+    expect(getPlanetName('Mars', 'en')).toBe('Mars');
+  });
+
+  test('returns French translation', () => {
+    expect(getPlanetName('Sun', 'fr')).toBe('Soleil');
+  });
+
+  test('returns Chinese translation', () => {
+    expect(getPlanetName('Jupiter', 'zh')).toBe('木星');
+  });
+
+  test('returns null for unknown language', () => {
+    expect(getPlanetName('Mars', 'xx')).toBeNull();
+  });
+
+  test('returns null for unknown planet', () => {
+    expect(getPlanetName('Pluto', 'fr')).toBeNull();
+  });
+
+  test('returns null for unknown planet even with en', () => {
+    expect(getPlanetName('Pluto', 'en')).toBeNull();
+  });
+
+  test('returns English name by default', () => {
+    expect(getPlanetName('Neptune')).toBe('Neptune');
+  });
+});
+
+describe('getDsoName', () => {
+  test('returns English name for en language', () => {
+    expect(getDsoName('Orion Nebula', 'en')).toBe('Orion Nebula');
+  });
+
+  test('returns French translation', () => {
+    expect(getDsoName('Orion Nebula', 'fr')).toBe("Nébuleuse d'Orion");
+  });
+
+  test('returns Chinese translation', () => {
+    expect(getDsoName('Andromeda Galaxy', 'zh')).toBe('仙女座星系');
+  });
+
+  test('returns null for unknown DSO', () => {
+    expect(getDsoName('Nonexistent Nebula', 'fr')).toBeNull();
+  });
+
+  test('returns null for unknown DSO even with en', () => {
+    expect(getDsoName('Nonexistent Nebula', 'en')).toBeNull();
+  });
+
+  test('returns null for unknown language on known DSO', () => {
+    expect(getDsoName('Orion Nebula', 'xx')).toBeNull();
+  });
+
+  test('returns English name by default', () => {
+    expect(getDsoName('Pleiades')).toBe('Pleiades');
   });
 });
 
