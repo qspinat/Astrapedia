@@ -1768,17 +1768,27 @@ select:focus-visible {
 }
 
 .icon-btn--location {
-    font-size: 18px;
     color: var(--text-primary);
+}
+
+.icon-btn--location svg {
+    width: 20px;
+    height: 20px;
+    display: block;
 }
 
 /* Compass button */
 .icon-btn--compass {
-    font-size: 18px;
     color: var(--text-primary);
     background: var(--bg-secondary);
     border-color: var(--border);
     animation: none;
+}
+
+.icon-btn--compass svg {
+    width: 20px;
+    height: 20px;
+    display: block;
 }
 
 .icon-btn--compass.active {
@@ -1825,6 +1835,12 @@ select:focus-visible {
 }
 
 /* Telescope quick toggle button */
+.icon-btn--telescope svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+}
+
 .icon-btn--telescope.active {
     background: var(--accent) !important;
     border-color: var(--accent) !important;
