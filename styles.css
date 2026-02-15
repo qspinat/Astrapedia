@@ -1772,8 +1772,8 @@ select:focus-visible {
 }
 
 .icon-btn--location svg {
-    width: 20px;
-    height: 20px;
+    width: 32px;
+    height: 32px;
     display: block;
 }
 
@@ -1786,8 +1786,8 @@ select:focus-visible {
 }
 
 .icon-btn--compass svg {
-    width: 20px;
-    height: 20px;
+    width: 32px;
+    height: 32px;
     display: block;
 }
 
@@ -1836,8 +1836,8 @@ select:focus-visible {
 
 /* Telescope quick toggle button */
 .icon-btn--telescope svg {
-    width: 20px;
-    height: 20px;
+    width: 32px;
+    height: 32px;
     display: block;
 }
 
