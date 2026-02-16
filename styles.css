@@ -168,7 +168,11 @@ canvas:active {
 }
 
 .icon-btn svg {
+    width: 100%;
+    height: 100%;
+    padding: 5px;
     stroke: currentColor;
+    box-sizing: border-box;
 }
 
 /* Only apply hover on devices that support it (not touch) */
@@ -1300,8 +1304,10 @@ body.night-mode .game-select-content {
 /* Time button SVG icons */
 .time-btn svg {
     display: block;
-    width: 24px;
-    height: 24px;
+    width: 100%;
+    height: 100%;
+    padding: 6px;
+    box-sizing: border-box;
     fill: currentColor;
     stroke: currentColor;
 }
@@ -1771,24 +1777,12 @@ select:focus-visible {
     color: var(--text-primary);
 }
 
-.icon-btn--location svg {
-    width: 32px;
-    height: 32px;
-    display: block;
-}
-
 /* Compass button */
 .icon-btn--compass {
     color: var(--text-primary);
     background: var(--bg-secondary);
     border-color: var(--border);
     animation: none;
-}
-
-.icon-btn--compass svg {
-    width: 32px;
-    height: 32px;
-    display: block;
 }
 
 .icon-btn--compass.active {
@@ -1835,12 +1829,6 @@ select:focus-visible {
 }
 
 /* Telescope quick toggle button */
-.icon-btn--telescope svg {
-    width: 32px;
-    height: 32px;
-    display: block;
-}
-
 .icon-btn--telescope.active {
     background: var(--accent) !important;
     border-color: var(--accent) !important;
