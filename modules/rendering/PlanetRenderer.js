@@ -181,9 +181,13 @@ export class PlanetRenderer {
     sprite.position.copy(pos);
 
     // Store planet data
+    let type = 'Planet';
+    if (planet.name === 'Sun') type = 'Star';
+    else if (planet.name === 'Moon') type = 'Moon';
+
     sprite.userData = {
       planet: planet,
-      type: planet.name === 'Sun' ? 'Star' : (planet.name === 'Moon' ? 'Moon' : 'Planet'),
+      type,
       name: planet.name,
       ra: planet.ra,
       dec: planet.dec,
@@ -207,7 +211,8 @@ export class PlanetRenderer {
    * @private
    */
   drawSun_(ctx, size) {
-    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    const half = size / 2;
+    const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
     gradient.addColorStop(0, '#FFFFFF');
     gradient.addColorStop(0.3, '#FFFDE7');
     gradient.addColorStop(0.7, '#FFD54F');
@@ -215,7 +220,7 @@ export class PlanetRenderer {
     gradient.addColorStop(1, 'rgba(255, 143, 0, 0)');
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.arc(half, half, half, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -254,14 +259,12 @@ export class PlanetRenderer {
       ctx.fillStyle = 'rgba(10, 15, 28, 0.95)';
       ctx.beginPath();
 
-      const illumination = phase;
-
-      if (illumination < 0.5) {
-        const terminatorX = cx + r * (1 - illumination * 4);
+      if (phase < 0.5) {
+        const terminatorX = cx + r * (1 - phase * 4);
         ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
         ctx.quadraticCurveTo(terminatorX, cy, cx, cy - r);
       } else {
-        const terminatorX = cx - r * ((1 - illumination) * 4);
+        const terminatorX = cx - r * ((1 - phase) * 4);
         ctx.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2, false);
         ctx.quadraticCurveTo(terminatorX, cy, cx, cy - r);
       }
@@ -277,13 +280,17 @@ export class PlanetRenderer {
    * @private
    */
   drawPlanet_(ctx, size, color) {
-    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    gradient.addColorStop(0, `rgba(${Math.floor(color.r * 255)}, ${Math.floor(color.g * 255)}, ${Math.floor(color.b * 255)}, 1)`);
-    gradient.addColorStop(0.7, `rgba(${Math.floor(color.r * 255)}, ${Math.floor(color.g * 255)}, ${Math.floor(color.b * 255)}, 0.9)`);
-    gradient.addColorStop(1, `rgba(${Math.floor(color.r * 255)}, ${Math.floor(color.g * 255)}, ${Math.floor(color.b * 255)}, 0)`);
+    const r = Math.floor(color.r * 255);
+    const g = Math.floor(color.g * 255);
+    const b = Math.floor(color.b * 255);
+    const half = size / 2;
+    const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 1)`);
+    gradient.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.9)`);
+    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.arc(half, half, half, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -383,7 +390,7 @@ export class PlanetRenderer {
   /**
    * Load real planet image texture with fallback support.
    * @param {!THREE.Sprite} sprite - Sprite to update
-   * @param {string} imageUrl - Primary image URL (unused, we use centralized URLs)
+   * @param {string} imageUrl - Fallback image URL if no centralized URL exists
    * @private
    */
   loadPlanetImage_(sprite, imageUrl) {

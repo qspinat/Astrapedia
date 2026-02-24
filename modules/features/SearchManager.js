@@ -111,12 +111,11 @@ export class SearchManager {
     // Add named stars
     if (stars && namedObjects) {
       Object.entries(namedObjects).forEach(([name, starId]) => {
-        // Handle both scalar IDs and object format {id, hip, ra, dec, mag}
-        const hipId = typeof starId === 'object' ? starId.hip : starId;
-        const idNum = typeof starId === 'object' ? starId.id : starId;
+        const hipId = starId.hip;
+        const idNum = starId.id;
         const star = (hipId && this.starByHip_.get(hipId)) ||
                      (idNum && this.starById_.get(idNum)) ||
-                     (typeof starId === 'object' ? starId : null);
+                     starId;
         if (star) {
           const entry = {
             name,

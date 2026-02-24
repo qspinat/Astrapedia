@@ -73,17 +73,6 @@ describe('SearchManager', () => {
       expect(polaris.ra).toBe(37.95);
     });
 
-    test('indexes named stars with scalar namedObjects (legacy format)', () => {
-      const legacyNamedObjects = {
-        'Polaris': 11767,
-        'Vega': 91262,
-      };
-      manager.buildIndex({stars: testStars, namedObjects: legacyNamedObjects});
-      const polaris = manager.findByName('Polaris');
-      expect(polaris).not.toBeNull();
-      expect(polaris.type).toBe('Star');
-    });
-
     test('indexes Messier objects with M prefix', () => {
       manager.buildIndex({deepSkyObjects: testDSOs});
       const m31 = manager.findByName('M31');

@@ -103,33 +103,13 @@ import {AstrapediaApp} from './skymap.js';
 let app = null;
 
 /**
- * Module instances for advanced usage.
- * @type {!Object}
- */
-const modules = {
-  renderers: {},
-  features: {},
-  services: {},
-};
-
-/**
  * Setup EventBus subscriptions for inter-module communication.
  * This wires up the publish/subscribe connections between modules.
  * @private
  */
 function setupEventBusWiring_() {
-  // Location changes trigger celestial rotation update
-  globalEventBus.on(Events.LOCATION_UPDATED, ({latitude, longitude}) => {
-    if (app) {
-      app.updateCelestialRotation();
-    }
-  });
-
-  // Time changes trigger sky updates
-  globalEventBus.on(Events.TIME_CHANGED, ({time}) => {
-    if (app) {
-      app.requestRender();
-    }
+  globalEventBus.on(Events.TIME_CHANGED, () => {
+    app?.requestRender();
   });
 }
 
@@ -312,9 +292,6 @@ async function initializeApp() {
     // Create main application instance
     app = new AstrapediaApp();
 
-    // Expose to window for debugging and legacy compatibility
-    window.app = app;
-
     // Initialize UI controller with app dependencies
     initializeUI_(app);
 
@@ -359,7 +336,6 @@ window.addEventListener('beforeunload', () => {
 export {
   // Application
   app,
-  modules,
   uiController,
 
   // Core
