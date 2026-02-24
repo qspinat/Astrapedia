@@ -6,6 +6,9 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {SPHERE, CAMERA} from '../core/Constants.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('TourController');
 
 /**
  * @typedef {{
@@ -214,16 +217,16 @@ export class TourController {
    * @param {string} tourName - Name of tour to start
    */
   start(tourName) {
-    console.log('[TourController] start() called with tourName:', tourName);
+    logger.debug('start() called with tourName:', tourName);
     const tours = this.getAvailableTours();
     const tour = tours[tourName];
 
     if (!tour) {
-      console.warn(`Tour not found: ${tourName}`);
+      logger.warn(`Tour not found: ${tourName}`);
       return;
     }
 
-    console.log('[TourController] Tour found:', tour.name, 'with', tour.steps?.length, 'steps');
+    logger.debug('Tour found:', tour.name, 'with', tour.steps?.length, 'steps');
     this.currentTour_ = tour;
 
     this.tourStep_ = 0;
@@ -256,18 +259,18 @@ export class TourController {
    * Advance to next step.
    */
   next() {
-    console.log('[TourController] next() called, currentStep:', this.tourStep_);
+    logger.debug('next() called, currentStep:', this.tourStep_);
     if (!this.currentTour_) {
-      console.log('[TourController] next() - no current tour, returning');
+      logger.debug('next() - no current tour, returning');
       return;
     }
 
     this.unhighlightConstellation_?.();
     this.tourStep_++;
-    console.log('[TourController] next() - advanced to step:', this.tourStep_, 'of', this.currentTour_.steps.length);
+    logger.debug('next() - advanced to step:', this.tourStep_, 'of', this.currentTour_.steps.length);
 
     if (this.tourStep_ >= this.currentTour_.steps.length) {
-      console.log('[TourController] next() - reached end, stopping tour');
+      logger.debug('next() - reached end, stopping tour');
       this.stop();
       return;
     }
@@ -304,15 +307,15 @@ export class TourController {
    * @private
    */
   showStep_() {
-    console.log('[TourController] showStep_() called, step:', this.tourStep_);
+    logger.debug('showStep_() called, step:', this.tourStep_);
     if (!this.currentTour_ || this.tourStep_ >= this.currentTour_.steps.length) {
-      console.log('[TourController] showStep_() - invalid state, stopping');
+      logger.debug('showStep_() - invalid state, stopping');
       this.stop();
       return;
     }
 
     const step = this.currentTour_.steps[this.tourStep_];
-    console.log('[TourController] showStep_() - showing:', step?.name);
+    logger.debug('showStep_() - showing:', step?.name);
 
     // Determine required FOV based on tour type
     let requiredFov = this.calculateRequiredFOV_(step);

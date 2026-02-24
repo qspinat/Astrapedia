@@ -75,6 +75,9 @@ import {domCache} from './modules/ui/DOMCache.js';
 import {dataLoader} from './modules/services/DataLoader.js';
 import {astronomyCalculator} from './modules/core/AstronomyCalculator.js';
 import {clamp} from './modules/core/Utils.js';
+import {createLogger} from './modules/core/Logger.js';
+
+const logger = createLogger('Astrapedia');
 
 /* ==========================================================================
    2. ASTRAPEDIA APPLICATION CLASS
@@ -710,16 +713,16 @@ export class AstrapediaApp {
 
     // Tour commands - delegate directly to TourController
     globalEventBus.on(Events.CMD_START_TOUR, (data) => {
-      console.log('[Astrapedia] CMD_START_TOUR received:', data?.tourName);
+      logger.debug('CMD_START_TOUR received:', data?.tourName);
       if (data?.tourName) {
         this.tourController_.start(data.tourName);
       } else {
-        console.warn('[Astrapedia] CMD_START_TOUR received with no tourName');
+        logger.warn('CMD_START_TOUR received with no tourName');
       }
     });
 
     globalEventBus.on(Events.CMD_NEXT_TOUR_STEP, () => {
-      console.log('[Astrapedia] CMD_NEXT_TOUR_STEP received');
+      logger.debug('CMD_NEXT_TOUR_STEP received');
       this.tourController_.next();
     });
 
@@ -757,7 +760,7 @@ export class AstrapediaApp {
         this.horizonRenderer_?.updateForLocation?.(this.observerLocation.lat);
         // Request a re-render
         this.requestRender();
-        console.log(`Location updated: ${this.observerLocation.lat.toFixed(2)}°, ${this.observerLocation.lon.toFixed(2)}°`);
+        logger.info(`Location updated: ${this.observerLocation.lat.toFixed(2)}°, ${this.observerLocation.lon.toFixed(2)}°`);
       }
     });
 
@@ -777,7 +780,7 @@ export class AstrapediaApp {
   async init() {
     const loadingText = document.querySelector('.loading-text');
     const updateStatus = (msg) => {
-      console.log(msg);
+      logger.info(msg);
       if (loadingText) loadingText.textContent = msg;
     };
 
@@ -890,7 +893,7 @@ export class AstrapediaApp {
       domCache.loading?.classList.add('hidden');
 
     } catch (error) {
-      console.error('Initialization error:', error);
+      logger.error('Initialization error:', error);
       const loadingEl = document.getElementById('loading');
       if (loadingEl) {
         loadingEl.innerHTML = `
@@ -911,7 +914,7 @@ export class AstrapediaApp {
 
   async loadData() {
     try {
-      console.log('Starting data load...');
+      logger.info('Starting data load...');
       const data = await dataLoader.loadAppData('stars_medium.json');
 
       this.stars = data.stars;
@@ -919,13 +922,13 @@ export class AstrapediaApp {
       this.deepSkyObjects = data.deepSkyObjects;
       this.namedObjects = data.namedObjects;
 
-      console.log(`✓ Loaded ${this.stars.length} stars`);
-      console.log(`✓ Loaded ${Object.keys(this.constellations).length} constellations`);
-      console.log(`✓ Loaded ${this.deepSkyObjects.length} DSOs`);
-      console.log(`✓ Loaded ${Object.keys(this.namedObjects).length} named objects`);
-      console.log('All data loaded successfully!');
+      logger.info(`Loaded ${this.stars.length} stars`);
+      logger.info(`Loaded ${Object.keys(this.constellations).length} constellations`);
+      logger.info(`Loaded ${this.deepSkyObjects.length} DSOs`);
+      logger.info(`Loaded ${Object.keys(this.namedObjects).length} named objects`);
+      logger.info('All data loaded successfully!');
     } catch (error) {
-      console.error('Error loading data:', error);
+      logger.error('Error loading data:', error);
       const loadingText = domCache.get('loading')?.querySelector('.loading-text');
       if (loadingText) loadingText.textContent = 'Error loading data. Check console for details.';
       throw error;
@@ -1350,7 +1353,7 @@ export class AstrapediaApp {
    */
   setConstellationLanguage(lang) {
     this.constellationLanguage = lang;
-    console.log(`Constellation language set to: ${lang}`);
+    logger.info(`Constellation language set to: ${lang}`);
 
     // Update search filter to show only relevant language results
     this.searchManager_?.setLanguage(lang);
@@ -1572,7 +1575,7 @@ export class AstrapediaApp {
       btn.textContent = this.forceNightMode ? '🌙 Night Mode: ON' : '☀️ Day/Night: AUTO';
     }
 
-    console.log(`Night mode: ${this.forceNightMode ? 'ON (forced)' : 'OFF (automatic)'}`);
+    logger.info(`Night mode: ${this.forceNightMode ? 'ON (forced)' : 'OFF (automatic)'}`);
   }
 
   /* ======================================================================
@@ -1646,7 +1649,7 @@ export class AstrapediaApp {
    * @param {number=} angularSizeArcmin - Object's angular size in arcminutes
    */
   showTourHighlight(ra, dec, angularSizeArcmin = 10) {
-    console.log('[Astrapedia] showTourHighlight called, module exists:', !!this.tourHighlightModule_);
+    logger.debug('showTourHighlight called, module exists:', !!this.tourHighlightModule_);
     this.tourHighlightModule_?.show(ra, dec, angularSizeArcmin);
   }
 

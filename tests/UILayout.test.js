@@ -335,7 +335,7 @@ describe('UI Controller event wiring', () => {
     });
 
     test('logs initialization status', () => {
-      expect(uiControllerContent).toContain('UI Controller initialized');
+      expect(uiControllerContent).toContain("logger.info('Initialized')");
     });
   });
 });

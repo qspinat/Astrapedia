@@ -6,6 +6,9 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {panelManager} from '../ui/PanelManager.js';
 import {addMobileButtonListener} from '../core/Utils.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('TourUI');
 
 /**
  * TourUI handles the tour selection buttons and navigation.
@@ -93,12 +96,12 @@ export class TourUI {
     const btn = document.getElementById(buttonId);
     if (btn) {
       addMobileButtonListener(btn, () => {
-        console.log('[TourUI] Tour button clicked:', tourName);
+        logger.debug('Tour button clicked:', tourName);
         this.deps_.startTour?.(tourName);
         this.panelManager_?.closeAll?.();
       });
     } else {
-      console.warn('[TourUI] Button not found:', buttonId);
+      logger.warn('Button not found:', buttonId);
     }
   }
 
@@ -109,21 +112,21 @@ export class TourUI {
   setupEventBusListeners_() {
     this.subscriptions_.push(
       globalEventBus.on(Events.TOUR_STARTED, (data) => {
-        console.log('[TourUI] TOUR_STARTED received:', data.tourName);
+        logger.debug('TOUR_STARTED received:', data.tourName);
         this.isActive_ = true;
         this.currentTour_ = data.tourName;
         this.showTourUI_();
       }),
 
       globalEventBus.on(Events.TOUR_ENDED, () => {
-        console.log('[TourUI] TOUR_ENDED received');
+        logger.debug('TOUR_ENDED received');
         this.isActive_ = false;
         this.currentTour_ = null;
         this.hideTourUI_();
       }),
 
       globalEventBus.on(Events.TOUR_STEP_CHANGED, (data) => {
-        console.log('[TourUI] TOUR_STEP_CHANGED received:', data.stepIndex, 'of', data.totalSteps);
+        logger.debug('TOUR_STEP_CHANGED received:', data.stepIndex, 'of', data.totalSteps);
         // Build the full tour panel with navigation buttons
         this.buildTourPanel({
           tourName: data.tour?.name || this.currentTour_,
@@ -194,10 +197,10 @@ export class TourUI {
    * @param {function(): void} tourData.onEnd - End tour callback
    */
   buildTourPanel(tourData) {
-    console.log('[TourUI] buildTourPanel() called, step:', tourData.stepIndex + 1, 'of', tourData.totalSteps, '-', tourData.stepName);
+    logger.debug('buildTourPanel() called, step:', tourData.stepIndex + 1, 'of', tourData.totalSteps, '-', tourData.stepName);
     const tourPanel = document.getElementById('tour-panel');
     if (!tourPanel) {
-      console.warn('[TourUI] tour-panel not found');
+      logger.warn('tour-panel not found');
       return;
     }
 
@@ -239,7 +242,7 @@ export class TourUI {
     const nextBtn = document.createElement('button');
     nextBtn.textContent = 'Next →';
     addMobileButtonListener(nextBtn, () => {
-      console.log('[TourUI] Next button clicked');
+      logger.debug('Next button clicked');
       tourData.onNext?.();
     });
     btnContainer.appendChild(nextBtn);
@@ -303,7 +306,7 @@ export function resetTourUI() {
  */
 export function initializeTourUI(dependencies) {
   if (tourUI) {
-    console.warn('TourUI already initialized, returning existing instance');
+    logger.warn('TourUI already initialized, returning existing instance');
     return tourUI;
   }
   tourUI = new TourUI(dependencies);

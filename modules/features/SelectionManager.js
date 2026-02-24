@@ -8,6 +8,9 @@ import {escapeHtml, fetchWikipedia} from '../core/SecurityUtils.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
 import {descriptionGenerator} from '../data/DescriptionGenerator.js';
 import {getConstellationStory} from '../data/ConstellationStories.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('SelectionManager');
 
 /**
  * Resolve a search result into a canonical object by flattening raw data.
@@ -415,7 +418,7 @@ export class SelectionManager {
         if (e.name === 'AbortError') {
           return;
         }
-        console.warn(`Wikipedia fetch failed for ${term}:`, e);
+        logger.warn(`Wikipedia fetch failed for ${term}:`, e);
       }
     }
 
@@ -503,7 +506,7 @@ export class SelectionManager {
           const headResponse = await fetch(result.url, {method: 'HEAD', signal});
           const contentLength = parseInt(headResponse.headers.get('content-length') || '0', 10);
           if (contentLength > maxSize) {
-            console.log(`⚠️ Skipping panel image: ${(contentLength / 1024 / 1024).toFixed(2)}MB exceeds 1MB limit`);
+            logger.debug(`Skipping panel image: ${(contentLength / 1024 / 1024).toFixed(2)}MB exceeds 1MB limit`);
             skipDueToSize = true;
           }
         } catch (e) {
@@ -520,7 +523,7 @@ export class SelectionManager {
 
       if (skipDueToSize) {
         // Try DSS fallback instead of showing nothing
-        console.log(`⬇️ Trying DSS fallback for ${objectName}`);
+        logger.debug(`Trying DSS fallback for ${objectName}`);
         const dssUrl = this.deps_.getSkyViewImageUrl?.(obj.ra, obj.dec, obj.type);
         if (dssUrl) {
           this.displayImage_(container, obj, dssUrl, 'DSS', 'tier-vintage',
@@ -576,7 +579,7 @@ export class SelectionManager {
     img.onerror = () => {
       // Try DSS fallback if not already DSS and we have coordinates
       if (source !== 'DSS' && obj.ra !== undefined && obj.dec !== undefined) {
-        console.log(`🔄 Image failed for ${obj.name}, trying DSS fallback`);
+        logger.debug(`Image failed for ${obj.name}, trying DSS fallback`);
         const dssUrl = this.deps_.getSkyViewImageUrl?.(obj.ra, obj.dec, obj.type);
         if (dssUrl) {
           this.displayImage_(container, obj, dssUrl, 'DSS', 'tier-vintage',
@@ -670,7 +673,7 @@ export class SelectionManager {
       if (error.name === 'AbortError') {
         return;
       }
-      console.warn('Failed to fetch constellation description:', error);
+      logger.warn('Failed to fetch constellation description:', error);
       descContainer.textContent = '';
     }
   }

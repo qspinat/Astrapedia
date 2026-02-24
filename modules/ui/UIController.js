@@ -11,6 +11,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {STARS} from '../core/Constants.js';
+import {createLogger} from '../core/Logger.js';
 import {PanelManager, panelManager} from './PanelManager.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {addMobileButtonListener} from '../core/Utils.js';
@@ -18,6 +19,8 @@ import {GameUI} from '../features/GameUI.js';
 import {TourUI} from '../features/TourUI.js';
 import {TimeUI} from '../features/TimeUI.js';
 import {TelescopeUI} from '../features/TelescopeUI.js';
+
+const logger = createLogger('UIController');
 
 /**
  * Search Controller - handles search input and results.
@@ -618,7 +621,7 @@ export class UIController {
     // Setup panel-specific buttons
     this.setupPanelButtons_();
 
-    console.log('UI Controller initialized');
+    logger.info('Initialized');
   }
 
   /**
@@ -726,7 +729,7 @@ export function resetUIController() {
  */
 export function initializeUIController(dependencies) {
   if (uiController) {
-    console.warn('UIController already initialized, returning existing instance');
+    logger.warn('Already initialized, returning existing instance');
     return uiController;
   }
   uiController = new UIController(dependencies);

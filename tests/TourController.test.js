@@ -153,7 +153,7 @@ describe('TourController', () => {
     test('logs warning for invalid tour name', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
       controller.start('invalid-tour-name');
-      expect(warnSpy).toHaveBeenCalledWith('Tour not found: invalid-tour-name');
+      expect(warnSpy).toHaveBeenCalledWith('[TourController]', 'Tour not found: invalid-tour-name');
       expect(controller.isActive()).toBe(false);
     });
 

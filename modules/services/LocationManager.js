@@ -6,6 +6,9 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {DEFAULT_LOCATION} from '../core/Constants.js';
 import {dateToJulianDate} from '../core/CoordinateUtils.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('LocationManager');
 
 /**
  * @typedef {{
@@ -101,14 +104,14 @@ export class LocationManager {
     // Validate latitude
     const safeLat = Math.max(-90, Math.min(90, parseFloat(lat)));
     if (isNaN(safeLat)) {
-      console.error('Invalid latitude:', lat);
+      logger.error('Invalid latitude:', lat);
       return;
     }
 
     // Validate longitude
     let safeLon = parseFloat(lon);
     if (isNaN(safeLon)) {
-      console.error('Invalid longitude:', lon);
+      logger.error('Invalid longitude:', lon);
       return;
     }
     // Normalize longitude to -180 to 180
@@ -118,7 +121,7 @@ export class LocationManager {
     // Validate height
     const safeHeight = parseFloat(height);
     if (isNaN(safeHeight)) {
-      console.error('Invalid height:', height);
+      logger.error('Invalid height:', height);
       return;
     }
 
@@ -301,7 +304,7 @@ export class LocationManager {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.location_));
     } catch (error) {
-      console.warn('Failed to save location:', error);
+      logger.warn('Failed to save location:', error);
     }
   }
 
@@ -325,7 +328,7 @@ export class LocationManager {
         }
       }
     } catch (error) {
-      console.warn('Failed to load saved location:', error);
+      logger.warn('Failed to load saved location:', error);
     }
     return null;
   }
@@ -385,7 +388,7 @@ export class LocationManager {
           this.showLocationPrompt_();
         } else if (permission.state === 'denied') {
           // Previously denied - show how to enable
-          console.log('Location permission was previously denied');
+          logger.info('Location permission was previously denied');
         }
 
         // Listen for permission changes
@@ -554,7 +557,7 @@ export class LocationManager {
         };
         this.saveLocation_();
 
-        console.log(`✓ Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
+        logger.info(`Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
 
         globalEventBus.emit(Events.LOCATION_CHANGED, {
           location: this.getLocation(),
@@ -566,7 +569,7 @@ export class LocationManager {
         }
       },
       (error) => {
-        console.warn('Could not get location:', error.message);
+        logger.warn('Could not get location:', error.message);
       },
       {
         enableHighAccuracy: false,
@@ -596,7 +599,7 @@ export class LocationManager {
         };
         this.saveLocation_();
 
-        console.log(`✓ Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
+        logger.info(`Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
 
         globalEventBus.emit(Events.LOCATION_CHANGED, {
           location: this.getLocation(),
@@ -611,7 +614,7 @@ export class LocationManager {
         if (btn) btn.innerHTML = originalContent;
       },
       (error) => {
-        console.warn('Location access denied:', error);
+        logger.warn('Location access denied:', error);
         if (btn) btn.innerHTML = originalContent;
 
         if (error.code === error.PERMISSION_DENIED) {

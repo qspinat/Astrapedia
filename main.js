@@ -89,6 +89,9 @@ import {
 
 // Main application class (to be slimmed down)
 import {AstrapediaApp} from './skymap.js';
+import {createLogger} from './modules/core/Logger.js';
+
+const logger = createLogger('Main');
 
 // Update loading indicator
 {
@@ -261,9 +264,9 @@ function initializeUI_(appInstance) {
 function registerServiceWorker_() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
-      .then((reg) => console.log('SW registered:', reg.scope))
+      .then((reg) => logger.info('SW registered:', reg.scope))
       .catch((err) => {
-        console.warn('Service worker registration failed:', err);
+        logger.warn('Service worker registration failed:', err);
         globalEventBus.emit(Events.SERVICE_WORKER_ERROR, {
           error: err.message,
           timestamp: Date.now(),
@@ -299,7 +302,7 @@ async function initializeApp() {
     registerServiceWorker_();
 
   } catch (error) {
-    console.error('Initialization failed:', error);
+    logger.error('Initialization failed:', error);
     handleError(error, 'Application initialization failed', ErrorSeverity.CRITICAL);
 
     // Show error on loading screen

@@ -6,6 +6,9 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {domCache} from '../ui/DOMCache.js';
 import {clamp, addMobileButtonListener} from '../core/Utils.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('GameUI');
 
 /**
  * GameUI handles the game control buttons and display.
@@ -276,7 +279,7 @@ export function resetGameUI() {
  */
 export function initializeGameUI(dependencies) {
   if (gameUI) {
-    console.warn('GameUI already initialized, returning existing instance');
+    logger.warn('GameUI already initialized, returning existing instance');
     return gameUI;
   }
   gameUI = new GameUI(dependencies);

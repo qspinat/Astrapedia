@@ -106,7 +106,7 @@ describe('Singleton Enforcement', () => {
       initializeGameUI(deps);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        'GameUI already initialized, returning existing instance'
+        '[GameUI]', 'GameUI already initialized, returning existing instance'
       );
 
       consoleSpy.mockRestore();
@@ -144,7 +144,7 @@ describe('Singleton Enforcement', () => {
       initializeTourUI(deps);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        'TourUI already initialized, returning existing instance'
+        '[TourUI]', 'TourUI already initialized, returning existing instance'
       );
 
       consoleSpy.mockRestore();
@@ -182,7 +182,7 @@ describe('Singleton Enforcement', () => {
       initializeTimeUI(deps);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        'TimeUI already initialized, returning existing instance'
+        '[TimeUI]', 'TimeUI already initialized, returning existing instance'
       );
 
       consoleSpy.mockRestore();

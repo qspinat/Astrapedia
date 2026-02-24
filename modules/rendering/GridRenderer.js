@@ -5,6 +5,9 @@
  */
 
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('GridRenderer');
 
 /**
  * Grid configuration constants.
@@ -150,7 +153,7 @@ export class GridRenderer {
     this.cleanup_();
     this.createGridGeometry_();
     this.createEquatorLine_();
-    console.log('GridRenderer: Created RA/Dec grid');
+    logger.info('Created RA/Dec grid');
   }
 
   /**

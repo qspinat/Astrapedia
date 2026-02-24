@@ -4,7 +4,10 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {createLogger} from '../core/Logger.js';
 import {addMobileButtonListener} from '../core/Utils.js';
+
+const logger = createLogger('PanelManager');
 
 /**
  * All panel IDs managed by PanelManager.
@@ -196,7 +199,7 @@ export class PanelManager {
 
     const panel = document.getElementById(panelId);
     if (!panel) {
-      console.warn(`Panel not found: ${panelId}`);
+      logger.warn(`Panel not found: ${panelId}`);
       return;
     }
 

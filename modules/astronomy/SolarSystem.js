@@ -5,7 +5,10 @@
 
 import {dateToJulianDate} from '../core/CoordinateUtils.js';
 import {ASTRONOMY} from '../core/Constants.js';
+import {createLogger} from '../core/Logger.js';
 import {getPlanetImageUrl} from '../data/PlanetImages.js';
+
+const logger = createLogger('SolarSystem');
 
 /** @const {number} */
 const J2000 = ASTRONOMY.J2000;
@@ -192,7 +195,7 @@ const PLANET_ORBITAL_ELEMENTS = {
 export function calculatePlanetPosition(planetName, date, observer = null) {
   // Check if astronomy-engine library is loaded
   if (typeof Astronomy === 'undefined') {
-    console.warn('Astronomy library not loaded, using fallback');
+    logger.warn('Astronomy library not loaded, using fallback');
     return calculatePlanetPositionFallback(planetName, date);
   }
 
@@ -230,7 +233,7 @@ export function calculatePlanetPosition(planetName, date, observer = null) {
       dec: equator.dec,
     };
   } catch (error) {
-    console.warn(`Error calculating position for ${planetName}:`, error);
+    logger.warn(`Error calculating position for ${planetName}:`, error);
     return calculatePlanetPositionFallback(planetName, date);
   }
 }

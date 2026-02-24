@@ -3,6 +3,10 @@
  * Handles page visibility, idle detection, and animation loop control.
  */
 
+import {createLogger} from './Logger.js';
+
+const logger = createLogger('PowerManager');
+
 /**
  * PowerManager handles power-saving features for the application.
  * Uses render-on-demand pattern to minimize battery usage.
@@ -52,10 +56,10 @@ export class PowerManager {
     document.addEventListener('visibilitychange', () => {
       this.isPageVisible_ = !document.hidden;
       if (this.isPageVisible_) {
-        console.log('Page visible - resuming rendering');
+        logger.info('Page visible - resuming rendering');
         this.startAnimating();
       } else {
-        console.log('Page hidden - pausing rendering');
+        logger.info('Page hidden - pausing rendering');
         this.stopAnimating();
       }
     });

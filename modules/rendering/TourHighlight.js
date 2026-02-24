@@ -6,6 +6,9 @@
 /* global THREE */
 import {clamp} from '../core/Utils.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('TourHighlight');
 
 /**
  * TourHighlight handles the animated pulsing rings that highlight
@@ -31,7 +34,7 @@ export class TourHighlight {
    * @param {number=} angularSizeArcmin - Object's angular size in arcminutes
    */
   show(ra, dec, angularSizeArcmin = 10) {
-    console.log('[TourHighlight] show() called at ra:', ra, 'dec:', dec, 'size:', angularSizeArcmin);
+    logger.debug('show() called at ra:', ra, 'dec:', dec, 'size:', angularSizeArcmin);
 
     // Remove existing highlight if any
     this.hide();

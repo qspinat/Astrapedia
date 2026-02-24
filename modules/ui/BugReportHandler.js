@@ -3,6 +3,10 @@
  * Handles bug report form submission to Formspree with validation.
  */
 
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('BugReportHandler');
+
 /**
  * Formspree endpoint for bug reports.
  * @const {string}
@@ -151,7 +155,7 @@ export class BugReportHandler {
         this.showNotification_('Failed to submit. Please try again.');
       }
     } catch (error) {
-      console.error('Bug report submission failed:', error);
+      logger.error('Submission failed:', error);
       this.showNotification_('Network error. Please try again.');
     } finally {
       this.submitting_ = false;

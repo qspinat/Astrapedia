@@ -5,6 +5,9 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {DYNAMIC_DATA, API_ENDPOINTS} from '../core/Constants.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('DynamicDataLoader');
 
 /**
  * @typedef {{
@@ -156,7 +159,7 @@ export class DynamicDataLoader {
         waitMs = 60000; // Wait up to a minute
         // Only log occasionally to avoid spam
         if (!this._lastRateLimitLog || now - this._lastRateLimitLog > 10000) {
-          console.warn('Rate limit: Too many requests per minute (throttling)');
+          logger.info('Too many requests per minute (throttling)');
           this._lastRateLimitLog = now;
         }
       }
@@ -174,7 +177,7 @@ export class DynamicDataLoader {
       if (now - lastFailureTime < backoffMs) {
         reason = 'backoff';
         waitMs = backoffMs - (now - lastFailureTime);
-        console.warn(`Rate limit: Backoff for ${backoffMs}ms after failures`);
+        logger.info(`Backoff for ${backoffMs}ms after failures`);
       }
     }
 
@@ -233,7 +236,7 @@ export class DynamicDataLoader {
     if (isNaN(safeRa) || isNaN(safeDec) || isNaN(safeRadius) || isNaN(safeMag) ||
         safeRa < 0 || safeRa > 360 || safeDec < -90 || safeDec > 90 ||
         safeRadius <= 0 || safeRadius > 180) {
-      console.warn('Invalid query parameters');
+      logger.warn('Invalid query parameters');
       return null;
     }
 
@@ -329,7 +332,7 @@ export class DynamicDataLoader {
 
       return stars;
     } catch (error) {
-      console.warn('Star query error:', error.message);
+      logger.warn('Star query error:', error.message);
       return [];
     } finally {
       this.isQueryingStars_ = false;
@@ -349,7 +352,7 @@ export class DynamicDataLoader {
   async queryTycho_(ra, dec, fov, magLimit) {
     // Check rate limit before querying
     if (this.shouldRateLimit_('vizier')) {
-      console.log('Tycho-2 query rate limited');
+      logger.debug('Tycho-2 query rate limited');
       return [];
     }
 
@@ -378,11 +381,11 @@ export class DynamicDataLoader {
       this.recordRequest_('vizier');
       const text = await response.text();
       const stars = this.parseVOTableStars_(text);
-      console.log(`✓ Loaded ${stars.length} stars from Tycho-2`);
+      logger.debug(`Loaded ${stars.length} stars from Tycho-2`);
       return stars;
     } catch (error) {
       this.recordFailure_();
-      console.warn('Tycho-2 query error:', error.message);
+      logger.warn('Tycho-2 query error:', error.message);
       return [];
     }
   }
@@ -399,7 +402,7 @@ export class DynamicDataLoader {
   async queryUCAC4_(ra, dec, fov, magLimit) {
     // Check rate limit before querying
     if (this.shouldRateLimit_('vizier')) {
-      console.log('UCAC4 query rate limited');
+      logger.debug('UCAC4 query rate limited');
       return [];
     }
 
@@ -428,7 +431,7 @@ export class DynamicDataLoader {
       this.recordRequest_('vizier');
       const text = await response.text();
       const stars = this.parseVOTableStars_(text);
-      console.log(`✓ Loaded ${stars.length} stars from UCAC4`);
+      logger.debug(`Loaded ${stars.length} stars from UCAC4`);
       return stars;
     } catch (error) {
       this.recordFailure_();
@@ -448,7 +451,7 @@ export class DynamicDataLoader {
   async querySimbadStars_(ra, dec, fov, magLimit) {
     // Check rate limit before querying
     if (this.shouldRateLimit_('simbad')) {
-      console.log('SIMBAD query rate limited');
+      logger.debug('SIMBAD query rate limited');
       return [];
     }
 
@@ -502,7 +505,7 @@ export class DynamicDataLoader {
         ci: 0.6, // Default color index
       })).filter((s) => !isNaN(s.ra) && !isNaN(s.dec) && !isNaN(s.mag));
 
-      console.log(`✓ Loaded ${stars.length} stars from SIMBAD`);
+      logger.debug(`Loaded ${stars.length} stars from SIMBAD`);
       return stars;
     } catch (error) {
       this.recordFailure_();
@@ -524,7 +527,7 @@ export class DynamicDataLoader {
 
     // Check rate limit before querying
     if (this.shouldRateLimit_('vizier')) {
-      console.log('DSO query rate limited');
+      logger.debug('DSO query rate limited');
       return [];
     }
 
@@ -560,7 +563,7 @@ export class DynamicDataLoader {
       // Add to collection and enforce limits
       this.addDSOs_(dsos);
 
-      console.log(`✓ Loaded ${dsos.length} DSOs from VizieR`);
+      logger.debug(`Loaded ${dsos.length} DSOs from VizieR`);
 
       globalEventBus.emit(Events.DYNAMIC_DSOS_LOADED, {
         count: dsos.length,
@@ -570,7 +573,7 @@ export class DynamicDataLoader {
       return dsos;
     } catch (error) {
       this.recordFailure_();
-      console.warn('DSO query error:', error.message);
+      logger.warn('DSO query error:', error.message);
       return [];
     } finally {
       this.isQueryingDSOs_ = false;
@@ -609,7 +612,7 @@ export class DynamicDataLoader {
         }
       }
     } catch (error) {
-      console.warn('VOTable parse error:', error);
+      logger.warn('VOTable parse error:', error);
     }
     return stars;
   }
@@ -697,7 +700,7 @@ export class DynamicDataLoader {
       this.dynamicStars_.sort((a, b) => a.mag - b.mag);
       const excess = this.dynamicStars_.length - this.maxStars_;
       this.dynamicStars_ = this.dynamicStars_.slice(0, this.maxStars_);
-      console.log(`Dynamic stars trimmed: removed ${excess} faintest`);
+      logger.debug(`Dynamic stars trimmed: removed ${excess} faintest`);
     }
   }
 
@@ -725,7 +728,7 @@ export class DynamicDataLoader {
       });
       const excess = this.dynamicDSOs_.length - this.maxDSOs_;
       this.dynamicDSOs_ = this.dynamicDSOs_.slice(0, this.maxDSOs_);
-      console.log(`Dynamic DSOs trimmed: removed ${excess} smallest/faintest`);
+      logger.debug(`Dynamic DSOs trimmed: removed ${excess} smallest/faintest`);
     }
   }
 
@@ -757,7 +760,7 @@ export class DynamicDataLoader {
 
     const removed = initialCount - this.dynamicStars_.length;
     if (removed > 0) {
-      console.log(`Filtered ${removed} dynamic stars outside FOV`);
+      logger.debug(`Filtered ${removed} dynamic stars outside FOV`);
     }
   }
 

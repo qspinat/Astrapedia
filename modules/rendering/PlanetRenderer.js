@@ -14,6 +14,9 @@ import {
   PLANET_DEFAULTS,
 } from '../astronomy/SolarSystem.js';
 import {getPlanetImageUrl, getPlanetFallbackUrl} from '../data/PlanetImages.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('PlanetRenderer');
 
 /**
  * PlanetRenderer manages planet sprite visualization.
@@ -423,7 +426,7 @@ export class PlanetRenderer {
       },
       undefined,
       (error) => {
-        console.warn(`Failed to load primary image for ${data.name}, trying fallback...`);
+        logger.warn(`Failed to load primary image for ${data.name}, trying fallback...`);
         if (fallbackUrl) {
           this.textureLoader_.load(
             fallbackUrl,
@@ -432,7 +435,7 @@ export class PlanetRenderer {
             },
             undefined,
             (fallbackError) => {
-              console.warn(`Failed to load fallback image for ${data.name}:`, fallbackError);
+              logger.warn(`Failed to load fallback image for ${data.name}:`, fallbackError);
               data.imageLoading = false;
               data.imageFailed = true;
             }

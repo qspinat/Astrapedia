@@ -442,7 +442,7 @@ describe('UIController Module', () => {
       initializeUIController({panelManager: mockPanelManagerInstance});
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        'UIController already initialized, returning existing instance'
+        '[UIController]', 'Already initialized, returning existing instance'
       );
 
       consoleSpy.mockRestore();

@@ -8,6 +8,9 @@ import {angularDistance, constellationCenter} from '../core/CoordinateUtils.js';
 import {CONSTELLATION_NAMES, getAbbrevFromInternalKey} from '../data/ConstellationNames.js';
 import {PLANET_NAMES} from '../data/PlanetNames.js';
 import {DSO_NAMES} from '../data/DsoNames.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('SearchManager');
 
 /**
  * @typedef {{
@@ -296,7 +299,7 @@ export class SearchManager {
 
     this.rebuildNameIndex_();
     this.built_ = true;
-    console.log(`✓ Built search index with ${this.index_.length} entries`);
+    logger.info(`Built search index with ${this.index_.length} entries`);
   }
 
   /**

@@ -4,6 +4,9 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('DataLoader');
 
 /**
  * Default configuration for data loading.
@@ -137,7 +140,7 @@ export class DataLoader {
         return await response.json();
       } catch (error) {
         lastError = error;
-        console.warn(
+        logger.warn(
           `Fetch attempt ${attempt + 1}/${retries + 1} failed for ${url}:`,
           error.message
         );
@@ -176,7 +179,7 @@ export class DataLoader {
       try {
         results[filename] = await this.loadDataFile(filename, options);
       } catch (error) {
-        console.error(`Failed to load ${filename}:`, error);
+        logger.error(`Failed to load ${filename}:`, error);
         results[filename] = null;
       }
     });
