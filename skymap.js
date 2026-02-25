@@ -935,6 +935,8 @@ export class AstrapediaApp {
     }
   }
 
+  // TODO: Extract scene setup, camera, and renderer into a SceneManager module
+  // to reduce skymap.js size and improve modularity.
   setupScene() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000);  // Pure black night sky
@@ -1963,6 +1965,8 @@ export class AstrapediaApp {
      Animation loop and visual updates
      ====================================================================== */
 
+  // TODO: Extract animation loop into a RenderLoop module
+  // to decouple frame scheduling from application logic.
   /**
    * Main animation loop - called every frame
    * Optimized to skip unnecessary updates using dirty flags and throttling
