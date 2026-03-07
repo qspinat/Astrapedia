@@ -864,6 +864,72 @@ describe('TelescopeController - diffuse visibility', () => {
     });
   });
 
+  describe('compact object penalty', () => {
+    test('compact PN in small scope does not claim ring resolved', () => {
+      // M57-like: 1.4' PN, mag 8.8 — should NOT say "ring resolved" at 60mm
+      const m57 = {mag: 8.8, size_major: 1.4, size_minor: 1.0, name: 'M57', type: 'PN'};
+      const results = controller.computeVisibilityForDiameters(m57, [60]);
+      expect(results[0].description).not.toMatch(/ring|color/i);
+    });
+
+    test('compact PN in large scope shows resolved detail', () => {
+      // M57-like in 250mm should show good detail
+      const m57 = {mag: 8.8, size_major: 1.4, size_minor: 1.0, name: 'M57', type: 'PN'};
+      const results = controller.computeVisibilityForDiameters(m57, [250]);
+      expect(results[0].description).toMatch(/ring|disk|shape/i);
+    });
+
+    test('compact penalty increases description quality with aperture', () => {
+      const m57 = {mag: 8.8, size_major: 1.4, size_minor: 1.0, name: 'M57', type: 'PN'};
+      const results = controller.computeVisibilityForDiameters(m57, [60, 114, 200, 250]);
+      // All should be detected (high SB)
+      results.forEach((r) => expect(r.isVisible).toBe(true));
+      // Small scope description should be simpler than large scope
+      const descOrder = results.map((r) => r.description);
+      // 60mm should not match the 250mm description
+      expect(descOrder[0]).not.toBe(descOrder[3]);
+    });
+
+    test('objects larger than 5 arcmin are unaffected by compact penalty', () => {
+      const large = {mag: 8.0, size_major: 10, name: 'LargeNeb', type: 'EmN'};
+      const res60 = controller.computeVisibilityForDiameters(large, [60]);
+      const res250 = controller.computeVisibilityForDiameters(large, [250]);
+      // Both should have descriptions purely based on SB margin
+      expect(res60[0].description).toBeDefined();
+      expect(res250[0].description).toBeDefined();
+    });
+  });
+
+  describe('concentration boost', () => {
+    test('M42-like bright nebula at 60mm does not say faint haze', () => {
+      // M42: mag 4.0, 85x60', EmN — should show decent description even at 60mm
+      const m42 = {mag: 4.0, size_major: 85, size_minor: 60, name: 'M42', type: 'EmN'};
+      const results = controller.computeVisibilityForDiameters(m42, [60]);
+      expect(results[0].description).not.toMatch(/faint/i);
+    });
+
+    test('M31-like bright galaxy gets core description even in small scopes', () => {
+      const m31 = {mag: 3.4, size_major: 178, size_minor: 63, name: 'M31', type: 'G'};
+      const results = controller.computeVisibilityForDiameters(m31, [114]);
+      expect(results[0].description).toMatch(/core|halo/i);
+    });
+
+    test('objects fainter than mag 6 are unaffected by boost', () => {
+      const dim = {mag: 8.0, size_major: 30, name: 'DimNeb', type: 'EmN'};
+      const results = controller.computeVisibilityForDiameters(dim, [200]);
+      // Should produce a description based purely on SB margin
+      expect(results[0].description).toBeDefined();
+    });
+
+    test('small bright objects do not get concentration boost', () => {
+      // size <= 10 arcmin → no boost, even if mag is bright
+      const obj = {mag: 4.0, size_major: 5, name: 'SmallBright', type: 'PN'};
+      const results = controller.computeVisibilityForDiameters(obj, [60]);
+      // compact penalty applies but concentration boost does not
+      expect(results[0].isVisible).toBe(true);
+    });
+  });
+
   describe('center detection', () => {
     test('starts and stops with telescope mode', () => {
       jest.useFakeTimers();

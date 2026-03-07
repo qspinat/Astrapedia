@@ -2257,6 +2257,13 @@ select:focus-visible {
     margin-bottom: 8px;
 }
 
+.telescope-visibility__advice {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    font-style: italic;
+}
+
 .telescope-visibility__table {
     width: 100%;
     border-collapse: collapse;

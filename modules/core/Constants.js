@@ -402,7 +402,15 @@ export const TELESCOPE = {
     {min: 0, label: 'Very high magnification'},
   ],
   /** Common telescope diameters (mm) for the quick-reference visibility table. */
-  REFERENCE_DIAMETERS: [114, 130, 150, 200, 250],
+  REFERENCE_DIAMETERS: [80, 114, 130, 150, 200, 250],
+  /** Objects smaller than this (arcmin) get a detail-resolution penalty. */
+  COMPACT_SIZE_THRESHOLD: 5,
+  /** Maximum description margin penalty for very compact objects. */
+  COMPACT_PENALTY_MAX: 5,
+  /** Reference aperture (mm) at which compact penalty reaches zero. */
+  COMPACT_PENALTY_REF_DIAMETER: 300,
+  /** Multiplier for concentration boost on bright, large objects. */
+  CONCENTRATION_BOOST_FACTOR: 1.0,
 };
 
 /**

@@ -56,15 +56,53 @@ let TelescopePreset;
 
 /**
  * Classify visibility margin into a label, boolean, and description.
+ * The description accounts for two physical corrections:
+ * 1. Compact penalty — small objects need large aperture to resolve detail.
+ * 2. Concentration boost — very bright large objects have cores much brighter
+ *    than their average SB (e.g. M42, M31).
  * @param {number} margin - SB limit minus object SB (positive = visible)
  * @param {string=} dsoType - DSO catalogue type (G, PN, GCl, OCl, EmN, etc.)
+ * @param {number=} sizeMajor - Major axis in arcmin (for compact penalty)
+ * @param {number=} diameter - Telescope aperture in mm (for compact penalty)
+ * @param {number=} integratedMag - Object integrated magnitude (for concentration boost)
  * @returns {{visibilityLabel: string, isVisible: boolean, description: string}}
  */
-function classifyVisibility(margin, dsoType) {
+function classifyVisibility(margin, dsoType, sizeMajor, diameter, integratedMag) {
   if (margin <= -1) {
     return {visibilityLabel: 'Not visible', isVisible: false, description: 'Not visible'};
   }
-  const desc = describeVisibility_(margin, dsoType || '');
+
+  let descMargin = margin;
+
+  // Compact-object penalty: small objects need more aperture to resolve detail.
+  // A 1.4' PN in a 60mm scope looks stellar, not ring-shaped.
+  if (sizeMajor != null && diameter != null &&
+      sizeMajor < TELESCOPE.COMPACT_SIZE_THRESHOLD) {
+    const sizeFactor = (TELESCOPE.COMPACT_SIZE_THRESHOLD - sizeMajor) /
+      TELESCOPE.COMPACT_SIZE_THRESHOLD;
+    const apertureFactor = Math.max(0,
+      1 - diameter / TELESCOPE.COMPACT_PENALTY_REF_DIAMETER);
+    descMargin -= sizeFactor * TELESCOPE.COMPACT_PENALTY_MAX * apertureFactor;
+  }
+
+  // Concentration boost: very bright large objects (mag < 6, size > 10')
+  // have cores 3-5 mag brighter than average SB. This corrects for the
+  // systematic underestimate of showpiece objects like M42 and M31.
+  if (integratedMag != null && sizeMajor != null &&
+      integratedMag < 6 && sizeMajor > 10) {
+    const brightnessFactor = 6 - integratedMag;
+    const sizeFactor = Math.min(1, Math.log10(sizeMajor / 10));
+    descMargin += brightnessFactor * sizeFactor *
+      TELESCOPE.CONCENTRATION_BOOST_FACTOR;
+  }
+
+  // Don't let description be worse than the lowest visible tier when the
+  // object IS detectable (margin > -1).
+  if (margin > -1 && descMargin < 0) {
+    descMargin = 0;
+  }
+
+  const desc = describeVisibility_(descMargin, dsoType || '');
   if (margin > 2) return {visibilityLabel: 'Easily visible', isVisible: true, description: desc};
   if (margin > 0.5) return {visibilityLabel: 'Visible', isVisible: true, description: desc};
   return {visibilityLabel: 'Barely visible', isVisible: true, description: desc};
@@ -342,7 +380,9 @@ export class TelescopeController {
 
     return diameters.map((diameter) => {
       const margin = computeSbLimit(diameter, skySB) - objectSB;
-      return {diameter, ...classifyVisibility(margin, obj.type)};
+      return {diameter, ...classifyVisibility(
+        margin, obj.type, obj.size_major, diameter, obj.mag
+      )};
     });
   }
 
@@ -373,7 +413,7 @@ export class TelescopeController {
 
     return {
       objectSB,
-      ...classifyVisibility(margin, obj.type),
+      ...classifyVisibility(margin, obj.type, obj.size_major, diameter, obj.mag),
       recommendedExitPupil,
       suggestedEyepieceFl: Math.round(recommendedExitPupil * focalRatio),
       surfaceBrightnessPct: this.computedProperties_?.surfaceBrightnessPct ?? 0,

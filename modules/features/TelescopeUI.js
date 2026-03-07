@@ -359,6 +359,11 @@ export class TelescopeUI {
       sbEl.textContent = `SB: ${visibility.objectSB.toFixed(1)} mag/arcsec²`;
     }
 
+    const eyepieceEl = domCache.get('reticle-dso-eyepiece');
+    if (eyepieceEl) {
+      eyepieceEl.textContent = `Eyepiece: ${visibility.suggestedEyepieceFl}mm`;
+    }
+
     hudEl.classList.add('visible');
   }
 
@@ -402,6 +407,14 @@ export class TelescopeUI {
     }
 
     html += '</table>';
+
+    // Show advised exit pupil (from current telescope config)
+    const visibility = this.deps_.computeDiffuseVisibility?.(obj);
+    if (visibility) {
+      html += `<div class="telescope-visibility__advice">` +
+        `Advised exit pupil: ${visibility.recommendedExitPupil}mm</div>`;
+    }
+
     section.innerHTML = html;
     content.appendChild(section);
   }
