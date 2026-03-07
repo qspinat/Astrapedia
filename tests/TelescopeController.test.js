@@ -788,6 +788,29 @@ describe('TelescopeController - diffuse visibility', () => {
       const order = ['Not visible', 'Barely visible', 'Visible', 'Easily visible'];
       expect(order.indexOf(largeLabel)).toBeGreaterThanOrEqual(order.indexOf(smallLabel));
     });
+
+    test('includes description based on object type', () => {
+      const galaxy = {mag: 3.4, size_major: 178, size_minor: 63, name: 'M31', type: 'G'};
+      const results = controller.computeVisibilityForDiameters(galaxy, [200]);
+      expect(results[0].description).toBeDefined();
+      expect(results[0].description).not.toBe('');
+      // Galaxy should mention core/halo
+      expect(results[0].description).toMatch(/core|halo|glow/i);
+    });
+
+    test('galaxy description differs from globular description', () => {
+      const galaxy = {mag: 8.0, size_major: 10, name: 'G1', type: 'G'};
+      const globular = {mag: 8.0, size_major: 10, name: 'GC1', type: 'GCl'};
+      const gRes = controller.computeVisibilityForDiameters(galaxy, [200]);
+      const gcRes = controller.computeVisibilityForDiameters(globular, [200]);
+      expect(gRes[0].description).not.toBe(gcRes[0].description);
+    });
+
+    test('not visible objects get "Not visible" description', () => {
+      const obj = {mag: 22.0, size_major: 0.1, size_minor: 0.1, name: 'F', type: 'G'};
+      const results = controller.computeVisibilityForDiameters(obj, [60]);
+      expect(results[0].description).toBe('Not visible');
+    });
   });
 
   describe('computeDiffuseVisibility', () => {
@@ -831,6 +854,13 @@ describe('TelescopeController - diffuse visibility', () => {
       const obj = {mag: 8.0, size_major: 10, name: 'M57'};
       const result = controller.computeDiffuseVisibility(obj);
       expect(result.surfaceBrightnessPct).toBeGreaterThan(0);
+    });
+
+    test('includes description field', () => {
+      const obj = {mag: 8.0, size_major: 10, name: 'M57', type: 'PN'};
+      const result = controller.computeDiffuseVisibility(obj);
+      expect(result.description).toBeDefined();
+      expect(typeof result.description).toBe('string');
     });
   });
 

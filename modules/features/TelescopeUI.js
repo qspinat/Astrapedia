@@ -350,7 +350,7 @@ export class TelescopeUI {
     if (nameEl) nameEl.textContent = visibility.name;
 
     if (statusEl) {
-      statusEl.textContent = visibility.visibilityLabel;
+      statusEl.textContent = visibility.description;
       statusEl.className = 'reticle-dso-status';
       statusEl.classList.add(`reticle-dso-status--${visibilityStatusClass_(visibility.visibilityLabel)}`);
     }
@@ -391,13 +391,13 @@ export class TelescopeUI {
     html += `<div class="telescope-visibility__sb">Surface brightness: ${objectSB.toFixed(1)} mag/arcsec²</div>`;
 
     html += '<table class="telescope-visibility__table">';
-    html += '<tr><th>Telescope</th><th>Visible?</th></tr>';
+    html += '<tr><th>Telescope</th><th>What you\'ll see</th></tr>';
 
     for (const r of results) {
       const cls = visibilityStatusClass_(r.visibilityLabel);
       html += `<tr>`;
       html += `<td>${r.diameter}mm</td>`;
-      html += `<td class="telescope-visibility__status--${cls}">${escapeHtml(r.visibilityLabel)}</td>`;
+      html += `<td class="telescope-visibility__status--${cls}">${escapeHtml(r.description)}</td>`;
       html += `</tr>`;
     }
 

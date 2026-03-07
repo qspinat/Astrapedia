@@ -55,15 +55,82 @@ let OpticalProperties;
 let TelescopePreset;
 
 /**
- * Classify visibility margin into a label and boolean.
+ * Classify visibility margin into a label, boolean, and description.
  * @param {number} margin - SB limit minus object SB (positive = visible)
- * @returns {{visibilityLabel: string, isVisible: boolean}}
+ * @param {string=} dsoType - DSO catalogue type (G, PN, GCl, OCl, EmN, etc.)
+ * @returns {{visibilityLabel: string, isVisible: boolean, description: string}}
  */
-function classifyVisibility(margin) {
-  if (margin > 2) return {visibilityLabel: 'Easily visible', isVisible: true};
-  if (margin > 0.5) return {visibilityLabel: 'Visible', isVisible: true};
-  if (margin > -0.5) return {visibilityLabel: 'Barely visible', isVisible: true};
-  return {visibilityLabel: 'Not visible', isVisible: false};
+function classifyVisibility(margin, dsoType) {
+  if (margin <= -1) {
+    return {visibilityLabel: 'Not visible', isVisible: false, description: 'Not visible'};
+  }
+  const desc = describeVisibility_(margin, dsoType || '');
+  if (margin > 2) return {visibilityLabel: 'Easily visible', isVisible: true, description: desc};
+  if (margin > 0.5) return {visibilityLabel: 'Visible', isVisible: true, description: desc};
+  return {visibilityLabel: 'Barely visible', isVisible: true, description: desc};
+}
+
+/**
+ * Describe what an observer would see based on margin and object type.
+ * @param {number} margin - SB detection margin
+ * @param {string} type - DSO catalogue type
+ * @returns {string} Short visual description
+ * @private
+ */
+function describeVisibility_(margin, type) {
+  switch (type) {
+    case 'G':
+      if (margin > 4) return 'Core, halo, dust lanes';
+      if (margin > 2.5) return 'Core and halo, hints of arms';
+      if (margin > 1.5) return 'Bright core, faint halo';
+      if (margin > 0.5) return 'Faint oval glow';
+      return 'Faint smudge, averted vision';
+
+    case 'PN':
+      if (margin > 4) return 'Disk/ring resolved, color possible';
+      if (margin > 2.5) return 'Disk visible, shape clear';
+      if (margin > 1.5) return 'Small fuzzy disk';
+      if (margin > 0.5) return 'Stellar, hard to distinguish';
+      return 'Faint, averted vision';
+
+    case 'GCl':
+      if (margin > 4) return 'Resolved, many stars visible';
+      if (margin > 2.5) return 'Granular, outer stars resolved';
+      if (margin > 1.5) return 'Bright fuzzy ball';
+      if (margin > 0.5) return 'Faint fuzzy patch';
+      return 'Faint glow, averted vision';
+
+    case 'OCl':
+    case 'Cl+N':
+      if (margin > 3) return 'Stars resolved, rich field';
+      if (margin > 1.5) return 'Partially resolved';
+      if (margin > 0.5) return 'Hazy patch of stars';
+      return 'Faint, averted vision';
+
+    case 'EmN':
+    case 'HII':
+    case 'RfN':
+    case 'Neb':
+      if (margin > 4) return 'Bright, structure and dark lanes';
+      if (margin > 2.5) return 'Shape and extent clear';
+      if (margin > 1.5) return 'Nebulosity visible';
+      if (margin > 0.5) return 'Faint haze';
+      return 'Faint, averted vision';
+
+    case 'SNR':
+      if (margin > 4) return 'Visible, ragged edges';
+      if (margin > 2.5) return 'Faint nebulous patch';
+      if (margin > 1.5) return 'Faint smudge';
+      if (margin > 0.5) return 'Very faint, needs attention';
+      return 'Faint, averted vision';
+
+    default:
+      if (margin > 4) return 'Bright, detail visible';
+      if (margin > 2.5) return 'Shape clear';
+      if (margin > 1.5) return 'Visible';
+      if (margin > 0.5) return 'Faint';
+      return 'Faint, averted vision';
+  }
 }
 
 /**
@@ -73,7 +140,10 @@ function classifyVisibility(margin) {
  * @returns {number} SB detection limit in mag/arcsec²
  */
 function computeSbLimit(diameter, skySB) {
-  const gain = 5 * Math.log10(diameter / TELESCOPE.EYE_PUPIL_DIAMETER);
+  // Extended object gain is ~half point-source gain: the telescope magnifies
+  // both object and sky background equally, so contrast improves less than
+  // for stars. 2.5× matches empirical visual reports for diffuse objects.
+  const gain = 2.5 * Math.log10(diameter / TELESCOPE.EYE_PUPIL_DIAMETER);
   return skySB - TELESCOPE.DIFFUSE_CONTRAST_THRESHOLD + gain;
 }
 
@@ -272,7 +342,7 @@ export class TelescopeController {
 
     return diameters.map((diameter) => {
       const margin = computeSbLimit(diameter, skySB) - objectSB;
-      return {diameter, ...classifyVisibility(margin)};
+      return {diameter, ...classifyVisibility(margin, obj.type)};
     });
   }
 
@@ -303,7 +373,7 @@ export class TelescopeController {
 
     return {
       objectSB,
-      ...classifyVisibility(margin),
+      ...classifyVisibility(margin, obj.type),
       recommendedExitPupil,
       suggestedEyepieceFl: Math.round(recommendedExitPupil * focalRatio),
       surfaceBrightnessPct: this.computedProperties_?.surfaceBrightnessPct ?? 0,
