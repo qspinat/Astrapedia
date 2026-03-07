@@ -599,11 +599,305 @@ describe('Events constants', () => {
     expect(Events.TELESCOPE_COMPUTED).toBeDefined();
     expect(Events.TELESCOPE_MODE_ACTIVATED).toBeDefined();
     expect(Events.TELESCOPE_MODE_DEACTIVATED).toBeDefined();
+    expect(Events.TELESCOPE_DSO_CENTERED).toBeDefined();
   });
 
   test('telescope events follow naming convention', () => {
     expect(Events.TELESCOPE_COMPUTED).toMatch(/^telescope:/);
     expect(Events.TELESCOPE_MODE_ACTIVATED).toMatch(/^telescope:/);
     expect(Events.TELESCOPE_MODE_DEACTIVATED).toMatch(/^telescope:/);
+    expect(Events.TELESCOPE_DSO_CENTERED).toMatch(/^telescope:/);
+  });
+});
+
+describe('TelescopeController - diffuse visibility', () => {
+  let controller;
+  let mockDeps;
+
+  beforeEach(() => {
+    localStorageMock.clear();
+    jest.clearAllMocks();
+    globalEventBus.clear();
+
+    mockDeps = {
+      setFOV: jest.fn(),
+      setMagnitudeLimit: jest.fn(),
+      getCurrentFOV: jest.fn().mockReturnValue(60),
+      getCurrentMagnitude: jest.fn().mockReturnValue(8.0),
+      getSkyLimitingMagnitude: jest.fn().mockReturnValue(6.0),
+      lockZoom: jest.fn(),
+      unlockZoom: jest.fn(),
+      getViewCenterRaDec: jest.fn(() => ({ra: 10.68, dec: 41.27})),
+      getDSOs: jest.fn(() => []),
+    };
+    controller = new TelescopeController(mockDeps);
+    controller.initialize();
+  });
+
+  afterEach(() => {
+    controller.deactivateTelescopeMode();
+  });
+
+  describe('surfaceBrightnessPct', () => {
+    test('computes correctly for default settings', () => {
+      // Default: 200mm, 25mm EP -> exit pupil = 5mm
+      // SB% = min(100, (5/7)^2 * 100) ≈ 51%
+      const props = controller.getComputedProperties();
+      expect(props.surfaceBrightnessPct).toBeCloseTo(51.02, 0);
+    });
+
+    test('caps at 100% when exit pupil >= 7mm', () => {
+      controller.setEyepiece({focalLength: 40, apparentFov: 68});
+      // Magnification = 25x, exit pupil = 8mm
+      const props = controller.getComputedProperties();
+      expect(props.surfaceBrightnessPct).toBe(100);
+    });
+
+    test('is low at high magnification', () => {
+      controller.setEyepiece({focalLength: 5, apparentFov: 52});
+      // Magnification = 200x, exit pupil = 1mm -> SB% ≈ 2%
+      const props = controller.getComputedProperties();
+      expect(props.surfaceBrightnessPct).toBeLessThan(5);
+    });
+  });
+
+  describe('exitPupilCategory', () => {
+    test('returns correct label for default settings', () => {
+      // Default exit pupil = 5mm
+      const props = controller.getComputedProperties();
+      expect(props.exitPupilCategory).toBe('Bright, comfortable');
+    });
+
+    test('returns Maximum brightness for large exit pupil', () => {
+      controller.setEyepiece({focalLength: 40, apparentFov: 68});
+      const props = controller.getComputedProperties();
+      expect(props.exitPupilCategory).toBe('Maximum brightness');
+    });
+
+    test('returns High magnification for small exit pupil', () => {
+      controller.setEyepiece({focalLength: 5, apparentFov: 52});
+      // exit pupil = 1mm
+      const props = controller.getComputedProperties();
+      expect(props.exitPupilCategory).toBe('High magnification');
+    });
+  });
+
+  describe('getExitPupilCategory static', () => {
+    test.each([
+      [7, 'Maximum brightness'],
+      [5, 'Bright, comfortable'],
+      [3, 'Good for detail'],
+      [1.5, 'High magnification'],
+      [0.5, 'Very high magnification'],
+    ])('exit pupil %fmm -> %s', (pupil, expected) => {
+      expect(TelescopeController.getExitPupilCategory(pupil)).toBe(expected);
+    });
+  });
+
+  describe('computeObjectSurfaceBrightness', () => {
+    test('computes SB for elliptical object', () => {
+      // M31: mag ~3.4, size 178×63 arcmin
+      const sb = TelescopeController.computeObjectSurfaceBrightness(3.4, 178, 63);
+      expect(sb).toBeGreaterThan(20);
+      expect(sb).toBeLessThan(25);
+    });
+
+    test('defaults minor axis to major if not provided', () => {
+      const sb = TelescopeController.computeObjectSurfaceBrightness(8.0, 10);
+      const sbExplicit = TelescopeController.computeObjectSurfaceBrightness(8.0, 10, 10);
+      expect(sb).toBeCloseTo(sbExplicit, 5);
+    });
+
+    test('smaller objects have brighter SB at same mag', () => {
+      const sbLarge = TelescopeController.computeObjectSurfaceBrightness(8.0, 30);
+      const sbSmall = TelescopeController.computeObjectSurfaceBrightness(8.0, 5);
+      expect(sbSmall).toBeLessThan(sbLarge);
+    });
+  });
+
+  describe('computeVisibilityForDiameters', () => {
+    test('returns results for each diameter', () => {
+      const obj = {mag: 3.4, size_major: 178, size_minor: 63, name: 'M31'};
+      const results = controller.computeVisibilityForDiameters(obj, [114, 200, 250]);
+      expect(results).toHaveLength(3);
+      expect(results[0].diameter).toBe(114);
+      expect(results[2].diameter).toBe(250);
+    });
+
+    test('M31 is visible in all common scopes', () => {
+      const obj = {mag: 3.4, size_major: 178, size_minor: 63, name: 'M31'};
+      const results = controller.computeVisibilityForDiameters(obj, [114, 130, 150, 200, 250]);
+      results.forEach((r) => {
+        expect(r.isVisible).toBe(true);
+      });
+    });
+
+    test('returns empty for objects without size_major', () => {
+      const obj = {mag: 5.0, name: 'Star'};
+      expect(controller.computeVisibilityForDiameters(obj, [200])).toHaveLength(0);
+    });
+
+    test('returns empty for objects without mag', () => {
+      const obj = {size_major: 10, name: 'Test'};
+      expect(controller.computeVisibilityForDiameters(obj, [200])).toHaveLength(0);
+    });
+
+    test('very faint small galaxy is not visible in small scope', () => {
+      const obj = {mag: 22.0, size_major: 0.1, size_minor: 0.1, name: 'Faint Galaxy'};
+      const results = controller.computeVisibilityForDiameters(obj, [60]);
+      expect(results[0].isVisible).toBe(false);
+    });
+
+    test('larger scopes make objects easier to see', () => {
+      const obj = {mag: 12.0, size_major: 5, name: 'Dim DSO'};
+      const results = controller.computeVisibilityForDiameters(obj, [60, 250]);
+      // Larger scope should have better or equal visibility
+      const smallLabel = results[0].visibilityLabel;
+      const largeLabel = results[1].visibilityLabel;
+      const order = ['Not visible', 'Barely visible', 'Visible', 'Easily visible'];
+      expect(order.indexOf(largeLabel)).toBeGreaterThanOrEqual(order.indexOf(smallLabel));
+    });
+  });
+
+  describe('computeDiffuseVisibility', () => {
+    test('returns visibility info for M31', () => {
+      const obj = {mag: 3.4, size_major: 178, size_minor: 63, name: 'M31'};
+      const result = controller.computeDiffuseVisibility(obj);
+      expect(result).not.toBeNull();
+      expect(result.objectSB).toBeGreaterThan(20);
+      expect(result.isVisible).toBe(true);
+      expect(result.name).toBe('M31');
+    });
+
+    test('returns null for point sources', () => {
+      expect(controller.computeDiffuseVisibility({mag: 5.0, name: 'Star'})).toBeNull();
+    });
+
+    test('returns null for objects without mag', () => {
+      expect(controller.computeDiffuseVisibility({size_major: 10})).toBeNull();
+    });
+
+    test('recommends wide exit pupil for large objects', () => {
+      const obj = {mag: 3.4, size_major: 178, size_minor: 63, name: 'M31'};
+      const result = controller.computeDiffuseVisibility(obj);
+      expect(result.recommendedExitPupil).toBe(5);
+    });
+
+    test('recommends narrow exit pupil for small objects', () => {
+      const obj = {mag: 9.0, size_major: 2, name: 'Small Nebula'};
+      const result = controller.computeDiffuseVisibility(obj);
+      expect(result.recommendedExitPupil).toBeLessThanOrEqual(2);
+    });
+
+    test('suggests eyepiece FL based on focal ratio', () => {
+      // 200mm f/5 -> focal ratio = 5, 10' object: 10 > 3 so EP=2, 2*5=10
+      const obj = {mag: 8.0, size_major: 10, name: 'M57'};
+      const result = controller.computeDiffuseVisibility(obj);
+      expect(result.suggestedEyepieceFl).toBe(10); // 2 * 5
+    });
+
+    test('includes surfaceBrightnessPct', () => {
+      const obj = {mag: 8.0, size_major: 10, name: 'M57'};
+      const result = controller.computeDiffuseVisibility(obj);
+      expect(result.surfaceBrightnessPct).toBeGreaterThan(0);
+    });
+  });
+
+  describe('center detection', () => {
+    test('starts and stops with telescope mode', () => {
+      jest.useFakeTimers();
+      controller.activateTelescopeMode();
+      expect(controller.centerDetectionInterval_).not.toBeNull();
+
+      controller.deactivateTelescopeMode();
+      expect(controller.centerDetectionInterval_).toBeNull();
+      jest.useRealTimers();
+    });
+
+    test('emits TELESCOPE_DSO_CENTERED when DSO is at center', () => {
+      jest.useFakeTimers();
+      const handler = jest.fn();
+      globalEventBus.on(Events.TELESCOPE_DSO_CENTERED, handler);
+
+      mockDeps.getDSOs.mockReturnValue([
+        {name: 'M31', ra: 10.68, dec: 41.27, mag: 3.4, size_major: 178, size_minor: 63},
+      ]);
+
+      controller.activateTelescopeMode();
+      jest.advanceTimersByTime(500);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'M31',
+          isVisible: true,
+        })
+      );
+
+      controller.deactivateTelescopeMode();
+      jest.useRealTimers();
+    });
+
+    test('emits null when DSO moves out of view', () => {
+      jest.useFakeTimers();
+      const handler = jest.fn();
+      globalEventBus.on(Events.TELESCOPE_DSO_CENTERED, handler);
+
+      // First: DSO at center
+      mockDeps.getDSOs.mockReturnValue([
+        {name: 'M31', ra: 10.68, dec: 41.27, mag: 3.4, size_major: 178, size_minor: 63},
+      ]);
+      controller.activateTelescopeMode();
+      jest.advanceTimersByTime(500);
+      handler.mockClear();
+
+      // Move DSO far away
+      mockDeps.getDSOs.mockReturnValue([
+        {name: 'M31', ra: 100, dec: -50, mag: 3.4, size_major: 178, size_minor: 63},
+      ]);
+      jest.advanceTimersByTime(500);
+
+      expect(handler).toHaveBeenCalledWith(null);
+
+      controller.deactivateTelescopeMode();
+      jest.useRealTimers();
+    });
+
+    test('does not re-emit for same DSO', () => {
+      jest.useFakeTimers();
+      const handler = jest.fn();
+      globalEventBus.on(Events.TELESCOPE_DSO_CENTERED, handler);
+
+      mockDeps.getDSOs.mockReturnValue([
+        {name: 'M31', ra: 10.68, dec: 41.27, mag: 3.4, size_major: 178, size_minor: 63},
+      ]);
+
+      controller.activateTelescopeMode();
+      jest.advanceTimersByTime(500);
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      jest.advanceTimersByTime(500);
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      controller.deactivateTelescopeMode();
+      jest.useRealTimers();
+    });
+
+    test('ignores DSOs without size_major', () => {
+      jest.useFakeTimers();
+      const handler = jest.fn();
+      globalEventBus.on(Events.TELESCOPE_DSO_CENTERED, handler);
+
+      mockDeps.getDSOs.mockReturnValue([
+        {name: 'PointSource', ra: 10.68, dec: 41.27, mag: 5.0},
+      ]);
+
+      controller.activateTelescopeMode();
+      jest.advanceTimersByTime(500);
+
+      expect(handler).not.toHaveBeenCalled();
+
+      controller.deactivateTelescopeMode();
+      jest.useRealTimers();
+    });
   });
 });

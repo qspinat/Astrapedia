@@ -168,6 +168,8 @@ function initializeUI_(appInstance) {
     unlockZoom: () => {
       appInstance.telescopeModeActive = false;
     },
+    getViewCenterRaDec: () => appInstance.getViewCenterRaDec(),
+    getDSOs: () => appInstance.deepSkyObjects || [],
   });
   telescopeController.initialize();
 
@@ -250,6 +252,10 @@ function initializeUI_(appInstance) {
     deleteTelescopePreset: (name) => telescopeController?.deletePreset(name) || false,
     getTelescopePresetNames: () => telescopeController?.getPresetNames() || [],
     getTelescopeComputedProperties: () => telescopeController?.getComputedProperties() || null,
+    computeVisibilityForDiameters: (obj, diameters) =>
+      telescopeController?.computeVisibilityForDiameters(obj, diameters) || [],
+    computeDiffuseVisibility: (obj) =>
+      telescopeController?.computeDiffuseVisibility(obj) || null,
 
     // Info
     getFOV: () => appInstance.targetFov || CAMERA.DEFAULT_FOV,

@@ -1,10 +1,14 @@
 /**
  * @fileoverview Telescope simulation UI controls.
- * Handles telescope settings, presets, and computed properties display.
+ * Handles telescope settings, presets, computed properties display,
+ * diffuse object visibility table, and telescope HUD overlay.
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {TELESCOPE} from '../core/Constants.js';
 import {addMobileButtonListener} from '../core/Utils.js';
+import {escapeHtml} from '../core/SecurityUtils.js';
+import {TelescopeController} from './TelescopeController.js';
 
 /**
  * Maximum length for preset names.
@@ -49,6 +53,18 @@ export function validatePresetName(name) {
 }
 
 /**
+ * Get CSS class suffix for a visibility label.
+ * @param {string} label - Visibility label
+ * @returns {string} CSS modifier
+ * @private
+ */
+function visibilityStatusClass_(label) {
+  if (label === 'Easily visible' || label === 'Visible') return 'visible';
+  if (label === 'Barely visible') return 'barely';
+  return 'not-visible';
+}
+
+/**
  * TelescopeUI handles telescope simulation controls.
  */
 export class TelescopeUI {
@@ -66,6 +82,8 @@ export class TelescopeUI {
    * @param {function(string): boolean=} dependencies.deletePreset - Delete preset
    * @param {function(): !Array<string>=} dependencies.getPresetNames - Get preset names
    * @param {function(): ?Object=} dependencies.getComputedProperties - Get computed props
+   * @param {function(!Object, !Array<number>): !Array=} dependencies.computeVisibilityForDiameters
+   * @param {function(!Object): ?Object=} dependencies.computeDiffuseVisibility
    */
   constructor(dependencies) {
     /** @private @const */
@@ -73,6 +91,9 @@ export class TelescopeUI {
 
     /** @private {boolean} */
     this.isActive_ = false;
+
+    /** @private {?Object} */
+    this.selectedObject_ = null;
 
     /** @private {!Array<!Object>} EventBus subscriptions for cleanup */
     this.subscriptions_ = [];
@@ -107,7 +128,6 @@ export class TelescopeUI {
     if (quickToggle) {
       addMobileButtonListener(quickToggle, () => {
         this.deps_.toggleMode?.();
-        // Note: active class is handled by updateModeUI_ via event listener
       });
     }
 
@@ -286,12 +306,16 @@ export class TelescopeUI {
     const realFovEl = document.getElementById('computed-real-fov');
     const limitingMagEl = document.getElementById('computed-limiting-mag');
     const warningEl = document.getElementById('telescope-warning');
+    const sbPctEl = document.getElementById('computed-surface-brightness');
+    const exitPupilCatEl = document.getElementById('computed-exit-pupil-category');
 
     if (magEl) magEl.textContent = `${props.magnification.toFixed(0)}x`;
     if (maxMagEl) maxMagEl.textContent = `${props.maxUsefulMagnification.toFixed(0)}x`;
     if (exitPupilEl) exitPupilEl.textContent = `${props.exitPupil.toFixed(1)}mm`;
     if (realFovEl) realFovEl.textContent = `${props.realFieldOfView.toFixed(2)}°`;
     if (limitingMagEl) limitingMagEl.textContent = props.limitingMagnitude.toFixed(1);
+    if (sbPctEl) sbPctEl.textContent = `${props.surfaceBrightnessPct.toFixed(0)}%`;
+    if (exitPupilCatEl) exitPupilCatEl.textContent = props.exitPupilCategory;
 
     if (warningEl) {
       warningEl.classList.toggle('visible', props.isOverMagnified);
@@ -305,6 +329,173 @@ export class TelescopeUI {
   }
 
   /**
+   * Update the DSO HUD overlay.
+   * @param {?Object} visibility - Visibility info or null to hide
+   * @private
+   */
+  updateDsoHud_(visibility) {
+    const hudEl = document.getElementById('reticle-dso-info');
+    if (!hudEl) return;
+
+    if (!visibility) {
+      hudEl.classList.remove('visible');
+      return;
+    }
+
+    const nameEl = document.getElementById('reticle-dso-name');
+    const statusEl = document.getElementById('reticle-dso-status');
+    const sbEl = document.getElementById('reticle-dso-sb');
+
+    if (nameEl) nameEl.textContent = visibility.name;
+
+    if (statusEl) {
+      statusEl.textContent = visibility.visibilityLabel;
+      statusEl.className = 'reticle-dso-status';
+      statusEl.classList.add(`reticle-dso-status--${visibilityStatusClass_(visibility.visibilityLabel)}`);
+    }
+
+    if (sbEl) {
+      sbEl.textContent = `SB: ${visibility.objectSB.toFixed(1)} mag/arcsec²`;
+    }
+
+    hudEl.classList.add('visible');
+  }
+
+  /**
+   * Append telescope visibility table to info panel for a diffuse object.
+   * This is always shown regardless of telescope mode.
+   * @param {!Object} obj - Selected DSO
+   * @private
+   */
+  appendVisibilityTable_(obj) {
+    if (!obj.size_major || obj.mag === undefined || obj.mag === null) return;
+
+    const content = document.getElementById('info-content');
+    if (!content) return;
+
+    const results = this.deps_.computeVisibilityForDiameters?.(
+      obj, TELESCOPE.REFERENCE_DIAMETERS
+    );
+    if (!results || results.length === 0) return;
+
+    const objectSB = TelescopeController.computeObjectSurfaceBrightness(
+      obj.mag, obj.size_major, obj.size_minor
+    );
+
+    const section = document.createElement('div');
+    section.className = 'telescope-visibility';
+    section.id = 'telescope-visibility-table';
+
+    let html = '<div class="telescope-visibility__title">Visibility by Telescope</div>';
+    html += `<div class="telescope-visibility__sb">Surface brightness: ${objectSB.toFixed(1)} mag/arcsec²</div>`;
+
+    html += '<table class="telescope-visibility__table">';
+    html += '<tr><th>Telescope</th><th>Visible?</th></tr>';
+
+    for (const r of results) {
+      const cls = visibilityStatusClass_(r.visibilityLabel);
+      html += `<tr>`;
+      html += `<td>${r.diameter}mm</td>`;
+      html += `<td class="telescope-visibility__status--${cls}">${escapeHtml(r.visibilityLabel)}</td>`;
+      html += `</tr>`;
+    }
+
+    html += '</table>';
+    section.innerHTML = html;
+    content.appendChild(section);
+  }
+
+  /**
+   * Append detailed telescope visibility info (telescope mode only).
+   * @param {!Object} obj - Selected DSO
+   * @private
+   */
+  appendTelescopeDetail_(obj) {
+    if (!this.isActive_) return;
+    if (!obj.size_major || obj.mag === undefined || obj.mag === null) return;
+
+    const content = document.getElementById('info-content');
+    if (!content) return;
+
+    const visibility = this.deps_.computeDiffuseVisibility?.(obj);
+    if (!visibility) return;
+
+    const detail = document.createElement('div');
+    detail.className = 'telescope-visibility__detail';
+    detail.id = 'telescope-visibility-detail';
+
+    let html = '';
+    html += `<div class="telescope-visibility__row">`;
+    html += `<span class="telescope-visibility__row-label">Current SB%</span>`;
+    html += `<span class="telescope-visibility__row-value">${visibility.surfaceBrightnessPct.toFixed(0)}%</span>`;
+    html += `</div>`;
+    html += `<div class="telescope-visibility__row">`;
+    html += `<span class="telescope-visibility__row-label">Recommended exit pupil</span>`;
+    html += `<span class="telescope-visibility__row-value">${visibility.recommendedExitPupil}mm</span>`;
+    html += `</div>`;
+    html += `<div class="telescope-visibility__row">`;
+    html += `<span class="telescope-visibility__row-label">Suggested eyepiece</span>`;
+    html += `<span class="telescope-visibility__row-value">${visibility.suggestedEyepieceFl}mm</span>`;
+    html += `</div>`;
+
+    detail.innerHTML = html;
+
+    const table = document.getElementById('telescope-visibility-table');
+    if (table) {
+      table.appendChild(detail);
+    } else {
+      content.appendChild(detail);
+    }
+  }
+
+  /**
+   * Remove telescope-specific detail section.
+   * @private
+   */
+  removeTelescopeDetail_() {
+    const detail = document.getElementById('telescope-visibility-detail');
+    if (detail) detail.remove();
+  }
+
+  /**
+   * Handle object selection — add visibility table if it's a diffuse object.
+   * @param {!Object} data - Selection event data
+   * @private
+   */
+  handleObjectSelected_(data) {
+    const obj = data?.object;
+    if (!obj) {
+      this.selectedObject_ = null;
+      return;
+    }
+
+    this.selectedObject_ = obj;
+
+    // Wait a tick for SelectionManager to finish populating the info panel
+    setTimeout(() => {
+      this.appendVisibilityTable_(obj);
+      this.appendTelescopeDetail_(obj);
+    }, 0);
+  }
+
+  /**
+   * Refresh visibility sections if object is still selected.
+   * @private
+   */
+  refreshVisibilitySections_() {
+    if (!this.selectedObject_) return;
+
+    const table = document.getElementById('telescope-visibility-table');
+    if (table) table.remove();
+
+    const detail = document.getElementById('telescope-visibility-detail');
+    if (detail) detail.remove();
+
+    this.appendVisibilityTable_(this.selectedObject_);
+    this.appendTelescopeDetail_(this.selectedObject_);
+  }
+
+  /**
    * Set up EventBus listeners.
    * @private
    */
@@ -312,16 +503,32 @@ export class TelescopeUI {
     this.subscriptions_.push(
       globalEventBus.on(Events.TELESCOPE_COMPUTED, () => {
         this.updateComputedDisplay_();
+        this.refreshVisibilitySections_();
       }),
 
       globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, () => {
         this.isActive_ = true;
         this.updateModeUI_(true);
+        this.refreshVisibilitySections_();
       }),
 
       globalEventBus.on(Events.TELESCOPE_MODE_DEACTIVATED, () => {
         this.isActive_ = false;
         this.updateModeUI_(false);
+        this.updateDsoHud_(null);
+        this.removeTelescopeDetail_();
+      }),
+
+      globalEventBus.on(Events.TELESCOPE_DSO_CENTERED, (data) => {
+        this.updateDsoHud_(data);
+      }),
+
+      globalEventBus.on(Events.OBJECT_SELECTED, (data) => {
+        this.handleObjectSelected_(data);
+      }),
+
+      globalEventBus.on(Events.OBJECT_DESELECTED, () => {
+        this.selectedObject_ = null;
       })
     );
   }

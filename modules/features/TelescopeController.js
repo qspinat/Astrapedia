@@ -1,10 +1,12 @@
 /**
  * @fileoverview Telescope simulation controller.
- * Computes optical properties and manages telescope viewing mode.
+ * Computes optical properties, manages telescope viewing mode,
+ * and provides diffuse object visibility analysis.
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TELESCOPE} from '../core/Constants.js';
+import {angularDistance} from '../core/CoordinateUtils.js';
 import {createLogger} from '../core/Logger.js';
 
 const logger = createLogger('TelescopeController');
@@ -36,7 +38,9 @@ let EyepieceConfig;
  *   realFieldOfView: number,
  *   limitingMagnitude: number,
  *   theoreticalLimitingMag: number,
- *   isOverMagnified: boolean
+ *   isOverMagnified: boolean,
+ *   surfaceBrightnessPct: number,
+ *   exitPupilCategory: string
  * }}
  */
 let OpticalProperties;
@@ -64,6 +68,8 @@ export class TelescopeController {
    * @param {function(): number=} dependencies.getSkyLimitingMagnitude - Get sky NELM
    * @param {function(): void=} dependencies.lockZoom - Lock zoom when telescope active
    * @param {function(): void=} dependencies.unlockZoom - Unlock zoom when telescope inactive
+   * @param {function(): {ra: number, dec: number}=} dependencies.getViewCenterRaDec - Get camera center
+   * @param {function(): !Array=} dependencies.getDSOs - Get loaded DSO list
    */
   constructor(dependencies = {}) {
     /** @private @const */
@@ -95,6 +101,12 @@ export class TelescopeController {
 
     /** @private {!Object<string, !TelescopePreset>} */
     this.presets_ = {};
+
+    /** @private {?number} */
+    this.centerDetectionInterval_ = null;
+
+    /** @private {?string} */
+    this.lastCenteredDsoName_ = null;
 
     // Load saved settings
     this.loadFromStorage_();
@@ -154,6 +166,13 @@ export class TelescopeController {
     // Check if over-magnified
     const isOverMagnified = magnification > maxUsefulMagnification;
 
+    // Surface brightness percentage: how much of sky brightness is preserved
+    const eyePupil = TELESCOPE.EYE_PUPIL_DIAMETER;
+    const surfaceBrightnessPct = Math.min(100, (exitPupil / eyePupil) ** 2 * 100);
+
+    // Exit pupil category label
+    const exitPupilCategory = TelescopeController.getExitPupilCategory(exitPupil);
+
     this.computedProperties_ = {
       magnification,
       maxUsefulMagnification,
@@ -162,11 +181,231 @@ export class TelescopeController {
       limitingMagnitude,
       theoreticalLimitingMag,
       isOverMagnified,
+      surfaceBrightnessPct,
+      exitPupilCategory,
     };
 
     globalEventBus.emit(Events.TELESCOPE_COMPUTED, this.computedProperties_);
 
     return this.computedProperties_;
+  }
+
+  /**
+   * Get exit pupil category label from exit pupil value.
+   * @param {number} exitPupil - Exit pupil in mm
+   * @returns {string} Category label
+   */
+  static getExitPupilCategory(exitPupil) {
+    for (const cat of TELESCOPE.EXIT_PUPIL_CATEGORIES) {
+      if (exitPupil >= cat.min) return cat.label;
+    }
+    return 'Very high magnification';
+  }
+
+  /**
+   * Compute surface brightness for a diffuse object.
+   * @param {number} mag - Integrated magnitude
+   * @param {number} sizeMajor - Major axis in arcminutes
+   * @param {number=} sizeMinor - Minor axis in arcminutes (defaults to sizeMajor)
+   * @returns {number} Surface brightness in mag/arcsec²
+   */
+  static computeObjectSurfaceBrightness(mag, sizeMajor, sizeMinor) {
+    const a = sizeMajor;
+    const b = sizeMinor || sizeMajor;
+    // SB = m + 2.5 × log10(π × 900 × a × b)
+    // 900 converts arcmin² to arcsec² (30×30)
+    return mag + 2.5 * Math.log10(Math.PI * 900 * a * b);
+  }
+
+  /**
+   * Derive sky surface brightness from naked-eye limiting magnitude.
+   * @param {number=} nelm - Naked-eye limiting magnitude
+   * @returns {number} Sky SB in mag/arcsec²
+   * @private
+   */
+  deriveSkyBrightness_(nelm) {
+    if (nelm !== undefined && nelm !== null) {
+      return nelm + 14.7;
+    }
+    return TELESCOPE.DEFAULT_SKY_SB;
+  }
+
+  /**
+   * Compute diffuse object visibility for a list of telescope diameters.
+   * @param {!Object} obj - DSO with mag, size_major, size_minor
+   * @param {!Array<number>} diameters - Telescope diameters in mm
+   * @returns {!Array<{diameter: number, visibilityLabel: string, isVisible: boolean}>}
+   */
+  computeVisibilityForDiameters(obj, diameters) {
+    if (!obj.size_major || obj.mag === undefined || obj.mag === null) return [];
+
+    const objectSB = TelescopeController.computeObjectSurfaceBrightness(
+      obj.mag, obj.size_major, obj.size_minor
+    );
+    const skyNelm = this.deps_.getSkyLimitingMagnitude?.();
+    const skySB = this.deriveSkyBrightness_(skyNelm);
+    const threshold = TELESCOPE.DIFFUSE_CONTRAST_THRESHOLD;
+
+    return diameters.map((diameter) => {
+      const gain = 5 * Math.log10(diameter / TELESCOPE.EYE_PUPIL_DIAMETER);
+      const sbLimit = skySB - threshold + gain;
+      const margin = sbLimit - objectSB;
+
+      let visibilityLabel;
+      let isVisible;
+      if (margin > 2) {
+        visibilityLabel = 'Easily visible';
+        isVisible = true;
+      } else if (margin > 0.5) {
+        visibilityLabel = 'Visible';
+        isVisible = true;
+      } else if (margin > -0.5) {
+        visibilityLabel = 'Barely visible';
+        isVisible = true;
+      } else {
+        visibilityLabel = 'Not visible';
+        isVisible = false;
+      }
+
+      return {diameter, visibilityLabel, isVisible};
+    });
+  }
+
+  /**
+   * Compute diffuse object visibility for the current telescope configuration.
+   * @param {!Object} obj - DSO with mag, size_major, size_minor
+   * @returns {?Object} Visibility info or null if not a diffuse object
+   */
+  computeDiffuseVisibility(obj) {
+    if (!obj.size_major || obj.mag === undefined || obj.mag === null) return null;
+
+    const objectSB = TelescopeController.computeObjectSurfaceBrightness(
+      obj.mag, obj.size_major, obj.size_minor
+    );
+
+    const {diameter, focalLength} = this.telescope_;
+    const skyNelm = this.deps_.getSkyLimitingMagnitude?.();
+    const skySB = this.deriveSkyBrightness_(skyNelm);
+    const threshold = TELESCOPE.DIFFUSE_CONTRAST_THRESHOLD;
+
+    const gain = 5 * Math.log10(diameter / TELESCOPE.EYE_PUPIL_DIAMETER);
+    const sbLimit = skySB - threshold + gain;
+    const margin = sbLimit - objectSB;
+
+    let visibilityLabel;
+    let isVisible;
+    if (margin > 2) {
+      visibilityLabel = 'Easily visible';
+      isVisible = true;
+    } else if (margin > 0.5) {
+      visibilityLabel = 'Visible';
+      isVisible = true;
+    } else if (margin > -0.5) {
+      visibilityLabel = 'Barely visible';
+      isVisible = true;
+    } else {
+      visibilityLabel = 'Not visible';
+      isVisible = false;
+    }
+
+    // Recommended exit pupil based on object angular size
+    const objSizeArcmin = obj.size_major;
+    let recommendedExitPupil;
+    if (objSizeArcmin > 30) {
+      recommendedExitPupil = 5;
+    } else if (objSizeArcmin > 10) {
+      recommendedExitPupil = 3;
+    } else if (objSizeArcmin > 3) {
+      recommendedExitPupil = 2;
+    } else {
+      recommendedExitPupil = 1;
+    }
+
+    const focalRatio = focalLength / diameter;
+    const suggestedEyepieceFl = Math.round(recommendedExitPupil * focalRatio);
+    const surfaceBrightnessPct = this.computedProperties_?.surfaceBrightnessPct ?? 0;
+
+    return {
+      objectSB,
+      isVisible,
+      visibilityLabel,
+      recommendedExitPupil,
+      suggestedEyepieceFl,
+      surfaceBrightnessPct,
+      name: obj.name || obj.proper || 'Unknown',
+    };
+  }
+
+  /**
+   * Start periodic detection of DSO centered in telescope view.
+   * @private
+   */
+  startCenterDetection_() {
+    this.stopCenterDetection_();
+    this.lastCenteredDsoName_ = null;
+
+    this.centerDetectionInterval_ = setInterval(() => {
+      this.detectCenteredDso_();
+    }, TELESCOPE.CENTERED_DSO_CHECK_INTERVAL);
+  }
+
+  /**
+   * Stop center detection interval.
+   * @private
+   */
+  stopCenterDetection_() {
+    if (this.centerDetectionInterval_ !== null) {
+      clearInterval(this.centerDetectionInterval_);
+      this.centerDetectionInterval_ = null;
+    }
+    this.lastCenteredDsoName_ = null;
+  }
+
+  /**
+   * Detect if a DSO is centered in the telescope FOV.
+   * @private
+   */
+  detectCenteredDso_() {
+    const center = this.deps_.getViewCenterRaDec?.();
+    const dsos = this.deps_.getDSOs?.() || [];
+    if (!center || !this.computedProperties_) {
+      if (this.lastCenteredDsoName_ !== null) {
+        this.lastCenteredDsoName_ = null;
+        globalEventBus.emit(Events.TELESCOPE_DSO_CENTERED, null);
+      }
+      return;
+    }
+
+    const fov = this.computedProperties_.realFieldOfView;
+    const halfFov = fov / 2;
+
+    let nearest = null;
+    let nearestDist = Infinity;
+
+    for (const dso of dsos) {
+      if (!dso.size_major || dso.size_major <= 0) continue;
+      if (dso.mag === undefined || dso.mag === null) continue;
+
+      const dist = angularDistance(center.ra, center.dec, dso.ra, dso.dec);
+      if (dist < halfFov && dist < nearestDist) {
+        nearestDist = dist;
+        nearest = dso;
+      }
+    }
+
+    if (nearest) {
+      const dsoName = nearest.name || nearest.proper || 'Unknown';
+      if (dsoName === this.lastCenteredDsoName_) return;
+      this.lastCenteredDsoName_ = dsoName;
+
+      const visibility = this.computeDiffuseVisibility(nearest);
+      globalEventBus.emit(Events.TELESCOPE_DSO_CENTERED, visibility);
+    } else {
+      if (this.lastCenteredDsoName_ !== null) {
+        this.lastCenteredDsoName_ = null;
+        globalEventBus.emit(Events.TELESCOPE_DSO_CENTERED, null);
+      }
+    }
   }
 
   /**
@@ -249,6 +488,9 @@ export class TelescopeController {
 
     this.isActive_ = true;
 
+    // Start center detection for DSO HUD
+    this.startCenterDetection_();
+
     // Emit event for UI layer to handle DOM changes (reticle, vignette)
     globalEventBus.emit(Events.TELESCOPE_MODE_ACTIVATED, {
       fov,
@@ -262,6 +504,9 @@ export class TelescopeController {
    */
   deactivateTelescopeMode() {
     if (!this.isActive_) return;
+
+    // Stop center detection
+    this.stopCenterDetection_();
 
     // Restore previous settings
     if (this.previousFOV_ !== null) {

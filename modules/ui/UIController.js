@@ -609,6 +609,8 @@ export class UIController {
       deletePreset: this.deps_.deleteTelescopePreset,
       getPresetNames: this.deps_.getTelescopePresetNames,
       getComputedProperties: this.deps_.getTelescopeComputedProperties,
+      computeVisibilityForDiameters: this.deps_.computeVisibilityForDiameters,
+      computeDiffuseVisibility: this.deps_.computeDiffuseVisibility,
     });
     this.telescopeUI_.initialize();
 

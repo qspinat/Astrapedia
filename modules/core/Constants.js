@@ -385,6 +385,24 @@ export const TELESCOPE = {
   MAX_MAG_MULTIPLIER: 2,
   /** localStorage key for telescope settings. */
   STORAGE_KEY: 'astrapedia_telescope_settings',
+  /** Dark-adapted human eye pupil diameter in mm. */
+  EYE_PUPIL_DIAMETER: 7,
+  /** Default sky surface brightness (mag/arcsec², typical dark sky). */
+  DEFAULT_SKY_SB: 21.5,
+  /** Contrast threshold for diffuse object detection (mag). */
+  DIFFUSE_CONTRAST_THRESHOLD: 0.5,
+  /** Interval (ms) for checking which DSO is centered in telescope view. */
+  CENTERED_DSO_CHECK_INTERVAL: 500,
+  /** Exit pupil categories for descriptive labels. */
+  EXIT_PUPIL_CATEGORIES: [
+    {min: 6, label: 'Maximum brightness'},
+    {min: 4, label: 'Bright, comfortable'},
+    {min: 2, label: 'Good for detail'},
+    {min: 1, label: 'High magnification'},
+    {min: 0, label: 'Very high magnification'},
+  ],
+  /** Common telescope diameters (mm) for the quick-reference visibility table. */
+  REFERENCE_DIAMETERS: [114, 130, 150, 200, 250],
 };
 
 /**
