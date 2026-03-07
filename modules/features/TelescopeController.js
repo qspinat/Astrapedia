@@ -55,6 +55,38 @@ let OpticalProperties;
 let TelescopePreset;
 
 /**
+ * Classify visibility margin into a label and boolean.
+ * @param {number} margin - SB limit minus object SB (positive = visible)
+ * @returns {{visibilityLabel: string, isVisible: boolean}}
+ */
+function classifyVisibility(margin) {
+  if (margin > 2) return {visibilityLabel: 'Easily visible', isVisible: true};
+  if (margin > 0.5) return {visibilityLabel: 'Visible', isVisible: true};
+  if (margin > -0.5) return {visibilityLabel: 'Barely visible', isVisible: true};
+  return {visibilityLabel: 'Not visible', isVisible: false};
+}
+
+/**
+ * Compute the surface brightness detection limit for a given aperture.
+ * @param {number} diameter - Telescope aperture in mm
+ * @param {number} skySB - Sky surface brightness in mag/arcsec²
+ * @returns {number} SB detection limit in mag/arcsec²
+ */
+function computeSbLimit(diameter, skySB) {
+  const gain = 5 * Math.log10(diameter / TELESCOPE.EYE_PUPIL_DIAMETER);
+  return skySB - TELESCOPE.DIFFUSE_CONTRAST_THRESHOLD + gain;
+}
+
+/**
+ * Check whether a DSO has valid diffuse object data (magnitude and angular size).
+ * @param {!Object} obj - DSO object
+ * @returns {boolean} True if the object has size and magnitude data
+ */
+function isDiffuseObject(obj) {
+  return !!obj.size_major && obj.mag != null;
+}
+
+/**
  * TelescopeController manages telescope simulation mode.
  */
 export class TelescopeController {
@@ -152,12 +184,10 @@ export class TelescopeController {
     // This is the telescope's optical limit under perfect conditions
     const theoreticalLimitingMag = 2.7 + 5 * Math.log10(diameter);
 
-    // Calculate sky-limited magnitude if sky conditions are available
-    // Telescope gain = 5 × log10(aperture / 7mm pupil)
-    // Effective limit = min(theoretical, sky NELM + telescope gain)
+    // Sky-limited magnitude: min(theoretical, sky NELM + telescope gain)
     let limitingMagnitude = theoreticalLimitingMag;
     const skyNelm = this.deps_.getSkyLimitingMagnitude?.();
-    if (skyNelm !== undefined && skyNelm !== null) {
+    if (skyNelm != null) {
       const telescopeGain = 5 * Math.log10(diameter / 7);
       const skyLimitedMag = skyNelm + telescopeGain;
       limitingMagnitude = Math.min(theoreticalLimitingMag, skyLimitedMag);
@@ -210,11 +240,10 @@ export class TelescopeController {
    * @returns {number} Surface brightness in mag/arcsec²
    */
   static computeObjectSurfaceBrightness(mag, sizeMajor, sizeMinor) {
-    const a = sizeMajor;
-    const b = sizeMinor || sizeMajor;
     // SB = m + 2.5 × log10(π × 900 × a × b)
     // 900 converts arcmin² to arcsec² (30×30)
-    return mag + 2.5 * Math.log10(Math.PI * 900 * a * b);
+    const minor = sizeMinor || sizeMajor;
+    return mag + 2.5 * Math.log10(Math.PI * 900 * sizeMajor * minor);
   }
 
   /**
@@ -224,10 +253,7 @@ export class TelescopeController {
    * @private
    */
   deriveSkyBrightness_(nelm) {
-    if (nelm !== undefined && nelm !== null) {
-      return nelm + 14.7;
-    }
-    return TELESCOPE.DEFAULT_SKY_SB;
+    return nelm != null ? nelm + 14.7 : TELESCOPE.DEFAULT_SKY_SB;
   }
 
   /**
@@ -237,37 +263,16 @@ export class TelescopeController {
    * @returns {!Array<{diameter: number, visibilityLabel: string, isVisible: boolean}>}
    */
   computeVisibilityForDiameters(obj, diameters) {
-    if (!obj.size_major || obj.mag === undefined || obj.mag === null) return [];
+    if (!isDiffuseObject(obj)) return [];
 
     const objectSB = TelescopeController.computeObjectSurfaceBrightness(
       obj.mag, obj.size_major, obj.size_minor
     );
-    const skyNelm = this.deps_.getSkyLimitingMagnitude?.();
-    const skySB = this.deriveSkyBrightness_(skyNelm);
-    const threshold = TELESCOPE.DIFFUSE_CONTRAST_THRESHOLD;
+    const skySB = this.deriveSkyBrightness_(this.deps_.getSkyLimitingMagnitude?.());
 
     return diameters.map((diameter) => {
-      const gain = 5 * Math.log10(diameter / TELESCOPE.EYE_PUPIL_DIAMETER);
-      const sbLimit = skySB - threshold + gain;
-      const margin = sbLimit - objectSB;
-
-      let visibilityLabel;
-      let isVisible;
-      if (margin > 2) {
-        visibilityLabel = 'Easily visible';
-        isVisible = true;
-      } else if (margin > 0.5) {
-        visibilityLabel = 'Visible';
-        isVisible = true;
-      } else if (margin > -0.5) {
-        visibilityLabel = 'Barely visible';
-        isVisible = true;
-      } else {
-        visibilityLabel = 'Not visible';
-        isVisible = false;
-      }
-
-      return {diameter, visibilityLabel, isVisible};
+      const margin = computeSbLimit(diameter, skySB) - objectSB;
+      return {diameter, ...classifyVisibility(margin)};
     });
   }
 
@@ -277,61 +282,30 @@ export class TelescopeController {
    * @returns {?Object} Visibility info or null if not a diffuse object
    */
   computeDiffuseVisibility(obj) {
-    if (!obj.size_major || obj.mag === undefined || obj.mag === null) return null;
+    if (!isDiffuseObject(obj)) return null;
 
     const objectSB = TelescopeController.computeObjectSurfaceBrightness(
       obj.mag, obj.size_major, obj.size_minor
     );
 
     const {diameter, focalLength} = this.telescope_;
-    const skyNelm = this.deps_.getSkyLimitingMagnitude?.();
-    const skySB = this.deriveSkyBrightness_(skyNelm);
-    const threshold = TELESCOPE.DIFFUSE_CONTRAST_THRESHOLD;
-
-    const gain = 5 * Math.log10(diameter / TELESCOPE.EYE_PUPIL_DIAMETER);
-    const sbLimit = skySB - threshold + gain;
-    const margin = sbLimit - objectSB;
-
-    let visibilityLabel;
-    let isVisible;
-    if (margin > 2) {
-      visibilityLabel = 'Easily visible';
-      isVisible = true;
-    } else if (margin > 0.5) {
-      visibilityLabel = 'Visible';
-      isVisible = true;
-    } else if (margin > -0.5) {
-      visibilityLabel = 'Barely visible';
-      isVisible = true;
-    } else {
-      visibilityLabel = 'Not visible';
-      isVisible = false;
-    }
+    const skySB = this.deriveSkyBrightness_(this.deps_.getSkyLimitingMagnitude?.());
+    const margin = computeSbLimit(diameter, skySB) - objectSB;
 
     // Recommended exit pupil based on object angular size
-    const objSizeArcmin = obj.size_major;
-    let recommendedExitPupil;
-    if (objSizeArcmin > 30) {
-      recommendedExitPupil = 5;
-    } else if (objSizeArcmin > 10) {
-      recommendedExitPupil = 3;
-    } else if (objSizeArcmin > 3) {
-      recommendedExitPupil = 2;
-    } else {
-      recommendedExitPupil = 1;
-    }
+    const recommendedExitPupil =
+      obj.size_major > 30 ? 5 :
+      obj.size_major > 10 ? 3 :
+      obj.size_major > 3 ? 2 : 1;
 
     const focalRatio = focalLength / diameter;
-    const suggestedEyepieceFl = Math.round(recommendedExitPupil * focalRatio);
-    const surfaceBrightnessPct = this.computedProperties_?.surfaceBrightnessPct ?? 0;
 
     return {
       objectSB,
-      isVisible,
-      visibilityLabel,
+      ...classifyVisibility(margin),
       recommendedExitPupil,
-      suggestedEyepieceFl,
-      surfaceBrightnessPct,
+      suggestedEyepieceFl: Math.round(recommendedExitPupil * focalRatio),
+      surfaceBrightnessPct: this.computedProperties_?.surfaceBrightnessPct ?? 0,
       name: obj.name || obj.proper || 'Unknown',
     };
   }
@@ -383,8 +357,7 @@ export class TelescopeController {
     let nearestDist = Infinity;
 
     for (const dso of dsos) {
-      if (!dso.size_major || dso.size_major <= 0) continue;
-      if (dso.mag === undefined || dso.mag === null) continue;
+      if (!isDiffuseObject(dso) || dso.size_major <= 0) continue;
 
       const dist = angularDistance(center.ra, center.dec, dso.ra, dso.dec);
       if (dist < halfFov && dist < nearestDist) {

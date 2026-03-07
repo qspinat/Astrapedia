@@ -2277,10 +2277,6 @@ select:focus-visible {
     border-bottom: 1px solid rgba(255,255,255,0.03);
 }
 
-.telescope-visibility__status--easy {
-    color: #5cb85c;
-}
-
 .telescope-visibility__status--visible {
     color: #5cb85c;
 }

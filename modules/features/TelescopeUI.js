@@ -368,7 +368,7 @@ export class TelescopeUI {
    * @private
    */
   appendVisibilityTable_(obj) {
-    if (!obj.size_major || obj.mag === undefined || obj.mag === null) return;
+    if (!obj.size_major || obj.mag == null) return;
 
     const content = document.getElementById('info-content');
     if (!content) return;
@@ -412,7 +412,7 @@ export class TelescopeUI {
    */
   appendTelescopeDetail_(obj) {
     if (!this.isActive_) return;
-    if (!obj.size_major || obj.mag === undefined || obj.mag === null) return;
+    if (!obj.size_major || obj.mag == null) return;
 
     const content = document.getElementById('info-content');
     if (!content) return;
@@ -424,19 +424,17 @@ export class TelescopeUI {
     detail.className = 'telescope-visibility__detail';
     detail.id = 'telescope-visibility-detail';
 
-    let html = '';
-    html += `<div class="telescope-visibility__row">`;
-    html += `<span class="telescope-visibility__row-label">Current SB%</span>`;
-    html += `<span class="telescope-visibility__row-value">${visibility.surfaceBrightnessPct.toFixed(0)}%</span>`;
-    html += `</div>`;
-    html += `<div class="telescope-visibility__row">`;
-    html += `<span class="telescope-visibility__row-label">Recommended exit pupil</span>`;
-    html += `<span class="telescope-visibility__row-value">${visibility.recommendedExitPupil}mm</span>`;
-    html += `</div>`;
-    html += `<div class="telescope-visibility__row">`;
-    html += `<span class="telescope-visibility__row-label">Suggested eyepiece</span>`;
-    html += `<span class="telescope-visibility__row-value">${visibility.suggestedEyepieceFl}mm</span>`;
-    html += `</div>`;
+    const rows = [
+      ['Current SB%', `${visibility.surfaceBrightnessPct.toFixed(0)}%`],
+      ['Recommended exit pupil', `${visibility.recommendedExitPupil}mm`],
+      ['Suggested eyepiece', `${visibility.suggestedEyepieceFl}mm`],
+    ];
+    const html = rows.map(([label, value]) =>
+      `<div class="telescope-visibility__row">` +
+      `<span class="telescope-visibility__row-label">${label}</span>` +
+      `<span class="telescope-visibility__row-value">${value}</span>` +
+      `</div>`
+    ).join('');
 
     detail.innerHTML = html;
 
@@ -453,8 +451,7 @@ export class TelescopeUI {
    * @private
    */
   removeTelescopeDetail_() {
-    const detail = document.getElementById('telescope-visibility-detail');
-    if (detail) detail.remove();
+    document.getElementById('telescope-visibility-detail')?.remove();
   }
 
   /**
@@ -485,11 +482,8 @@ export class TelescopeUI {
   refreshVisibilitySections_() {
     if (!this.selectedObject_) return;
 
-    const table = document.getElementById('telescope-visibility-table');
-    if (table) table.remove();
-
-    const detail = document.getElementById('telescope-visibility-detail');
-    if (detail) detail.remove();
+    document.getElementById('telescope-visibility-table')?.remove();
+    document.getElementById('telescope-visibility-detail')?.remove();
 
     this.appendVisibilityTable_(this.selectedObject_);
     this.appendTelescopeDetail_(this.selectedObject_);
