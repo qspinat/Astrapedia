@@ -6,6 +6,7 @@ import {jest} from '@jest/globals';
 import {
   TelescopeController,
   initializeTelescopeController,
+  isDiffuseObject,
 } from '../modules/features/TelescopeController.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
 import {TELESCOPE} from '../modules/core/Constants.js';
@@ -679,6 +680,36 @@ describe('TelescopeController - diffuse visibility', () => {
       // exit pupil = 1mm
       const props = controller.getComputedProperties();
       expect(props.exitPupilCategory).toBe('High magnification');
+    });
+  });
+
+  describe('isDiffuseObject', () => {
+    test('returns true for object with size and mag', () => {
+      expect(isDiffuseObject({mag: 8.0, size_major: 10})).toBe(true);
+    });
+
+    test('returns false for point source (no size)', () => {
+      expect(isDiffuseObject({mag: 5.0, name: 'Star'})).toBe(false);
+    });
+
+    test('returns false for object without mag', () => {
+      expect(isDiffuseObject({size_major: 10})).toBe(false);
+    });
+
+    test('returns false for mag=null', () => {
+      expect(isDiffuseObject({mag: null, size_major: 10})).toBe(false);
+    });
+  });
+
+  describe('dispose', () => {
+    test('cleans up center detection interval', () => {
+      jest.useFakeTimers();
+      controller.activateTelescopeMode();
+      expect(controller.centerDetectionInterval_).not.toBeNull();
+
+      controller.dispose();
+      expect(controller.centerDetectionInterval_).toBeNull();
+      jest.useRealTimers();
     });
   });
 

@@ -8,7 +8,8 @@ import {globalEventBus, Events} from '../core/EventBus.js';
 import {TELESCOPE} from '../core/Constants.js';
 import {addMobileButtonListener} from '../core/Utils.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
-import {TelescopeController} from './TelescopeController.js';
+import {domCache} from '../ui/DOMCache.js';
+import {TelescopeController, isDiffuseObject} from './TelescopeController.js';
 
 /**
  * Maximum length for preset names.
@@ -334,7 +335,7 @@ export class TelescopeUI {
    * @private
    */
   updateDsoHud_(visibility) {
-    const hudEl = document.getElementById('reticle-dso-info');
+    const hudEl = domCache.get('reticle-dso-info');
     if (!hudEl) return;
 
     if (!visibility) {
@@ -342,9 +343,9 @@ export class TelescopeUI {
       return;
     }
 
-    const nameEl = document.getElementById('reticle-dso-name');
-    const statusEl = document.getElementById('reticle-dso-status');
-    const sbEl = document.getElementById('reticle-dso-sb');
+    const nameEl = domCache.get('reticle-dso-name');
+    const statusEl = domCache.get('reticle-dso-status');
+    const sbEl = domCache.get('reticle-dso-sb');
 
     if (nameEl) nameEl.textContent = visibility.name;
 
@@ -368,9 +369,9 @@ export class TelescopeUI {
    * @private
    */
   appendVisibilityTable_(obj) {
-    if (!obj.size_major || obj.mag == null) return;
+    if (!isDiffuseObject(obj)) return;
 
-    const content = document.getElementById('info-content');
+    const content = domCache.get('info-content');
     if (!content) return;
 
     const results = this.deps_.computeVisibilityForDiameters?.(
@@ -412,9 +413,9 @@ export class TelescopeUI {
    */
   appendTelescopeDetail_(obj) {
     if (!this.isActive_) return;
-    if (!obj.size_major || obj.mag == null) return;
+    if (!isDiffuseObject(obj)) return;
 
-    const content = document.getElementById('info-content');
+    const content = domCache.get('info-content');
     if (!content) return;
 
     const visibility = this.deps_.computeDiffuseVisibility?.(obj);
@@ -468,11 +469,14 @@ export class TelescopeUI {
 
     this.selectedObject_ = obj;
 
-    // Wait a tick for SelectionManager to finish populating the info panel
-    setTimeout(() => {
+    // Wait for SelectionManager to finish populating the info panel.
+    // Using rAF ensures DOM updates from synchronous event handlers are complete.
+    requestAnimationFrame(() => {
+      // Guard against object changing between scheduling and execution
+      if (this.selectedObject_ !== obj) return;
       this.appendVisibilityTable_(obj);
       this.appendTelescopeDetail_(obj);
-    }, 0);
+    });
   }
 
   /**
@@ -523,6 +527,8 @@ export class TelescopeUI {
 
       globalEventBus.on(Events.OBJECT_DESELECTED, () => {
         this.selectedObject_ = null;
+        document.getElementById('telescope-visibility-table')?.remove();
+        document.getElementById('telescope-visibility-detail')?.remove();
       })
     );
   }

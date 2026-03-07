@@ -82,7 +82,7 @@ function computeSbLimit(diameter, skySB) {
  * @param {!Object} obj - DSO object
  * @returns {boolean} True if the object has size and magnitude data
  */
-function isDiffuseObject(obj) {
+export function isDiffuseObject(obj) {
   return !!obj.size_major && obj.mag != null;
 }
 
@@ -292,7 +292,8 @@ export class TelescopeController {
     const skySB = this.deriveSkyBrightness_(this.deps_.getSkyLimitingMagnitude?.());
     const margin = computeSbLimit(diameter, skySB) - objectSB;
 
-    // Recommended exit pupil based on object angular size
+    // Recommended exit pupil based on object angular size (arcmin)
+    // Boundaries are exclusive: 10' gets EP=2, 11' gets EP=3
     const recommendedExitPupil =
       obj.size_major > 30 ? 5 :
       obj.size_major > 10 ? 3 :
@@ -560,6 +561,13 @@ export class TelescopeController {
    */
   getPresetNames() {
     return Object.keys(this.presets_);
+  }
+
+  /**
+   * Dispose of resources and clean up intervals.
+   */
+  dispose() {
+    this.stopCenterDetection_();
   }
 
   /**
