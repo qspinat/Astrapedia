@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skymap-v4';
+const CACHE_NAME = 'astrapedia-v4';
 const CACHE_VERSION = 4;
 
 // Cache TTL in milliseconds (24 hours for external resources)
@@ -32,7 +32,7 @@ const EXTERNAL_CACHE_PATTERNS = [
 ];
 
 // IndexedDB configuration for cache metadata
-const IDB_NAME = 'skymap-cache-db';
+const IDB_NAME = 'astrapedia-cache-db';
 const IDB_VERSION = 1;
 const IDB_STORE = 'cache-metadata';
 
@@ -279,7 +279,7 @@ self.addEventListener('activate', event => {
             const cacheNames = await caches.keys();
             await Promise.all(
                 cacheNames
-                    .filter(name => name.startsWith('skymap-') && name !== CACHE_NAME)
+                    .filter(name => (name.startsWith('astrapedia-') || name.startsWith('skymap-')) && name !== CACHE_NAME)
                     .map(name => caches.delete(name))
             );
 

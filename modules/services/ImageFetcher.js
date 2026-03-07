@@ -7,6 +7,9 @@ import {globalEventBus, Events} from '../core/EventBus.js';
 import {IMAGES, API_ENDPOINTS} from '../core/Constants.js';
 import {getCuratedImage} from '../data/CuratedImages.js';
 import {getPlanetImageInfo} from '../data/PlanetImages.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('ImageFetcher');
 
 /**
  * @typedef {{
@@ -328,7 +331,7 @@ export class ImageFetcher {
       return null;
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.warn(`NASA API failed for ${objectName}:`, error.message);
+        logger.warn(`NASA API failed for ${objectName}:`, error.message);
       }
       return null;
     }
@@ -429,7 +432,7 @@ export class ImageFetcher {
       return null;
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.warn(`Wikimedia API failed for ${objectName}:`, error.message);
+        logger.warn(`Wikimedia API failed for ${objectName}:`, error.message);
       }
       return null;
     }

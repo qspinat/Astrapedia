@@ -8,6 +8,9 @@ import {angularDistance, constellationCenter} from '../core/CoordinateUtils.js';
 import {CONSTELLATION_NAMES, getAbbrevFromInternalKey} from '../data/ConstellationNames.js';
 import {PLANET_NAMES} from '../data/PlanetNames.js';
 import {DSO_NAMES} from '../data/DsoNames.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('SearchManager');
 
 /**
  * @typedef {{
@@ -111,12 +114,11 @@ export class SearchManager {
     // Add named stars
     if (stars && namedObjects) {
       Object.entries(namedObjects).forEach(([name, starId]) => {
-        // Handle both scalar IDs and object format {id, hip, ra, dec, mag}
-        const hipId = typeof starId === 'object' ? starId.hip : starId;
-        const idNum = typeof starId === 'object' ? starId.id : starId;
+        const hipId = starId.hip;
+        const idNum = starId.id;
         const star = (hipId && this.starByHip_.get(hipId)) ||
                      (idNum && this.starById_.get(idNum)) ||
-                     (typeof starId === 'object' ? starId : null);
+                     starId;
         if (star) {
           const entry = {
             name,
@@ -297,7 +299,7 @@ export class SearchManager {
 
     this.rebuildNameIndex_();
     this.built_ = true;
-    console.log(`✓ Built search index with ${this.index_.length} entries`);
+    logger.info(`Built search index with ${this.index_.length} entries`);
   }
 
   /**

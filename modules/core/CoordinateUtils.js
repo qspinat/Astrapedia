@@ -1,9 +1,13 @@
 /**
  * @fileoverview Stateless coordinate conversion functions.
- * Extracted from skymap.js for reusability and testing.
+ * Extracted for reusability and testing.
  *
  * Note: Uses global THREE object loaded by app.html
  */
+
+import {createLogger} from './Logger.js';
+
+const logger = createLogger('CoordinateUtils');
 
 /**
  * Convert Right Ascension and Declination to 3D Cartesian coordinates.
@@ -225,7 +229,7 @@ export const constellationCenter = (constData, getStarById) => {
   }
 
   if (!constData?.lines || constData.lines.length === 0) {
-    console.warn('constellationCenter: no line data, falling back to (0, 0)');
+    logger.warn('constellationCenter: no line data, falling back to (0, 0)');
     return {ra: 0, dec: 0};
   }
 
@@ -253,7 +257,7 @@ export const constellationCenter = (constData, getStarById) => {
   }
 
   if (count === 0) {
-    console.warn('constellationCenter: no matching stars found, falling back to (0, 0)');
+    logger.warn('constellationCenter: no matching stars found, falling back to (0, 0)');
     return {ra: 0, dec: 0};
   }
 

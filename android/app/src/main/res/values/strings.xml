@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">SkyMap</string>
-    <string name="title_activity_main">SkyMap</string>
-    <string name="package_name">com.skymap.app</string>
-    <string name="custom_url_scheme">com.skymap.app</string>
+    <string name="app_name">Astrapedia</string>
+    <string name="title_activity_main">Astrapedia</string>
+    <string name="package_name">com.astrapedia.app</string>
+    <string name="custom_url_scheme">com.astrapedia.app</string>
 </resources>

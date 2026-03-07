@@ -1,6 +1,6 @@
 {
-  "appId": "com.skymap.app",
-  "appName": "SkyMap",
+  "appId": "com.astrapedia.app",
+  "appName": "Astrapedia",
   "webDir": "www",
   "server": {
     "androidScheme": "https"

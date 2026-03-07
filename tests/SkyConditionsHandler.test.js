@@ -29,7 +29,7 @@ describe('SkyConditionsHandler', () => {
 
     test('loads saved light pollution from localStorage', () => {
       // Set a value in localStorage before creating handler
-      localStorage.setItem('skymap_light_pollution', 'city');
+      localStorage.setItem('astrapedia_light_pollution', 'city');
       const newHandler = new SkyConditionsHandler();
       expect(newHandler.getLightPollution()).toBe('city');
       newHandler.dispose();
@@ -37,7 +37,7 @@ describe('SkyConditionsHandler', () => {
 
     test('ignores invalid localStorage values', () => {
       // Set an invalid value in localStorage
-      localStorage.setItem('skymap_light_pollution', 'invalid_value');
+      localStorage.setItem('astrapedia_light_pollution', 'invalid_value');
       const newHandler = new SkyConditionsHandler();
       expect(newHandler.getLightPollution()).toBe('rural'); // Default
       newHandler.dispose();

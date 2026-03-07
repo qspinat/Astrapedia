@@ -1,5 +1,5 @@
 /**
- * @fileoverview Utility functions for the Sky Map application.
+ * @fileoverview Utility functions for the Astrapedia application.
  */
 
 /**

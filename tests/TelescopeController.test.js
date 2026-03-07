@@ -590,7 +590,7 @@ describe('TELESCOPE constants', () => {
   });
 
   test('has storage key defined', () => {
-    expect(TELESCOPE.STORAGE_KEY).toBe('skymap_telescope_settings');
+    expect(TELESCOPE.STORAGE_KEY).toBe('astrapedia_telescope_settings');
   });
 });
 

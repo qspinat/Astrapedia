@@ -5,6 +5,9 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TELESCOPE} from '../core/Constants.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('TelescopeController');
 
 /**
  * Telescope configuration.
@@ -356,7 +359,7 @@ export class TelescopeController {
       };
       localStorage.setItem(TELESCOPE.STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.warn('Failed to save telescope settings:', e);
+      logger.warn('Failed to save telescope settings:', e);
     }
   }
 
@@ -384,7 +387,7 @@ export class TelescopeController {
         this.presets_ = data.presets;
       }
     } catch (e) {
-      console.warn('Failed to load telescope settings:', e);
+      logger.warn('Failed to load telescope settings:', e);
     }
   }
 }

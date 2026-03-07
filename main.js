@@ -1,7 +1,7 @@
 /**
  * @fileoverview Application orchestration layer.
  *
- * This module serves as the central orchestration point for the SkyMap application.
+ * This module serves as the central orchestration point for the Astrapedia application.
  * It imports all modules, initializes dependencies, and wires EventBus connections.
  *
  * Module Architecture:
@@ -88,7 +88,10 @@ import {
 } from './modules/data/ConstellationNames.js';
 
 // Main application class (to be slimmed down)
-import {SkyMapApp} from './skymap.js';
+import {AstrapediaApp} from './skymap.js';
+import {createLogger} from './modules/core/Logger.js';
+
+const logger = createLogger('Main');
 
 // Update loading indicator
 {
@@ -98,19 +101,9 @@ import {SkyMapApp} from './skymap.js';
 
 /**
  * Application instance.
- * @type {?SkyMapApp}
+ * @type {?AstrapediaApp}
  */
 let app = null;
-
-/**
- * Module instances for advanced usage.
- * @type {!Object}
- */
-const modules = {
-  renderers: {},
-  features: {},
-  services: {},
-};
 
 /**
  * Setup EventBus subscriptions for inter-module communication.
@@ -118,18 +111,8 @@ const modules = {
  * @private
  */
 function setupEventBusWiring_() {
-  // Location changes trigger celestial rotation update
-  globalEventBus.on(Events.LOCATION_UPDATED, ({latitude, longitude}) => {
-    if (app) {
-      app.updateCelestialRotation();
-    }
-  });
-
-  // Time changes trigger sky updates
-  globalEventBus.on(Events.TIME_CHANGED, ({time}) => {
-    if (app) {
-      app.requestRender();
-    }
+  globalEventBus.on(Events.TIME_CHANGED, () => {
+    app?.requestRender();
   });
 }
 
@@ -153,7 +136,7 @@ let skyConditionsHandler = null;
 
 /**
  * Initialize the UI controller with dependencies from the app.
- * @param {!SkyMapApp} appInstance - The application instance
+ * @param {!AstrapediaApp} appInstance - The application instance
  * @private
  */
 function initializeUI_(appInstance) {
@@ -281,9 +264,9 @@ function initializeUI_(appInstance) {
 function registerServiceWorker_() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
-      .then((reg) => console.log('SW registered:', reg.scope))
+      .then((reg) => logger.info('SW registered:', reg.scope))
       .catch((err) => {
-        console.warn('Service worker registration failed:', err);
+        logger.warn('Service worker registration failed:', err);
         globalEventBus.emit(Events.SERVICE_WORKER_ERROR, {
           error: err.message,
           timestamp: Date.now(),
@@ -310,10 +293,7 @@ async function initializeApp() {
     setupEventBusWiring_();
 
     // Create main application instance
-    app = new SkyMapApp();
-
-    // Expose to window for debugging and legacy compatibility
-    window.app = app;
+    app = new AstrapediaApp();
 
     // Initialize UI controller with app dependencies
     initializeUI_(app);
@@ -322,7 +302,7 @@ async function initializeApp() {
     registerServiceWorker_();
 
   } catch (error) {
-    console.error('Initialization failed:', error);
+    logger.error('Initialization failed:', error);
     handleError(error, 'Application initialization failed', ErrorSeverity.CRITICAL);
 
     // Show error on loading screen
@@ -359,7 +339,6 @@ window.addEventListener('beforeunload', () => {
 export {
   // Application
   app,
-  modules,
   uiController,
 
   // Core

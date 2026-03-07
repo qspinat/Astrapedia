@@ -1,5 +1,5 @@
 /**
- * @fileoverview Centralized constants for the Sky Map application.
+ * @fileoverview Centralized constants for the Astrapedia application.
  * All magic numbers and configuration values are defined here for
  * better maintainability and consistency.
  */
@@ -384,7 +384,7 @@ export const TELESCOPE = {
   /** Maximum useful magnification multiplier (times aperture in mm). */
   MAX_MAG_MULTIPLIER: 2,
   /** localStorage key for telescope settings. */
-  STORAGE_KEY: 'skymap_telescope_settings',
+  STORAGE_KEY: 'astrapedia_telescope_settings',
 };
 
 /**

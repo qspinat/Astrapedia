@@ -1,5 +1,5 @@
 """
-I/O utilities for SkyMap data pipeline.
+I/O utilities for Astrapedia data pipeline.
 Handles file downloads, JSON reading/writing, and data validation.
 """
 
@@ -41,7 +41,7 @@ def download_file(
             logger.info("Downloading %s...", url)
 
         request = urllib.request.Request(
-            url, headers={"User-Agent": "SkyMap Data Pipeline/1.0"}
+            url, headers={"User-Agent": "Astrapedia Data Pipeline/1.0"}
         )
 
         with urllib.request.urlopen(request, timeout=timeout) as response:

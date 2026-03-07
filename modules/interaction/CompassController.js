@@ -1,9 +1,12 @@
 /**
  * @fileoverview Compass mode controller for device orientation.
- * Uses device magnetometer and gyroscope to orient the sky map.
+ * Uses device magnetometer and gyroscope to orient the celestial sphere.
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('CompassController');
 
 /**
  * CompassController manages device orientation for AR sky viewing.
@@ -112,7 +115,7 @@ export class CompassController {
           return false;
         }
       } catch (err) {
-        console.error('Error requesting device orientation permission:', err);
+        logger.error('Error requesting device orientation permission:', err);
         alert('Could not enable compass mode. Please try again.');
         return false;
       }
@@ -147,7 +150,7 @@ export class CompassController {
     // Start timeout to detect if orientation events stop firing
     this.startOrientationTimeout_();
 
-    console.log('Compass mode enabled');
+    logger.info('Compass mode enabled');
     globalEventBus.emit(Events.COMPASS_MODE_CHANGED, {enabled: true});
     this.requestRender_();
 
@@ -180,7 +183,7 @@ export class CompassController {
     // Update button visual state
     this.updateButtonState_(false);
 
-    console.log('Compass mode disabled');
+    logger.info('Compass mode disabled');
     globalEventBus.emit(Events.COMPASS_MODE_CHANGED, {enabled: false});
   }
 
@@ -217,7 +220,7 @@ export class CompassController {
       }
       const elapsed = performance.now() - this.lastOrientationTime_;
       if (elapsed > this.STALE_TIMEOUT_MS_) {
-        console.warn('No orientation data received for 3s, disabling compass');
+        logger.warn('No orientation data received for 3s, disabling compass');
         this.disable();
       }
     }, this.CHECK_INTERVAL_MS_);

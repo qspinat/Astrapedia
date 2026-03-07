@@ -1,12 +1,12 @@
 """
-Tests for skymap.astronomy module.
+Tests for astrapedia.astronomy module.
 """
 
 import math
 import pytest
 import pandas as pd
 
-from skymap.astronomy import (
+from astrapedia.astronomy import (
     ra_hms_to_degrees,
     dec_dms_to_degrees,
     degrees_to_ra_hms,

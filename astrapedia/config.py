@@ -1,5 +1,5 @@
 """
-Configuration module for SkyMap data pipeline.
+Configuration module for Astrapedia data pipeline.
 Contains URLs, file paths, and processing parameters.
 """
 
@@ -28,7 +28,7 @@ class CatalogSource:
 
 
 class Config:
-    """Configuration constants for the SkyMap data pipeline."""
+    """Configuration constants for the Astrapedia data pipeline."""
 
     # Base directory (relative to script location)
     DATA_DIR = Path("data")
@@ -71,7 +71,7 @@ class Config:
     # CHECKSUM VERIFICATION:
     # - Checksums were last verified: January 2026
     # - Checksums may need updating when upstream catalogs are updated
-    # - To regenerate/verify checksums: uv run python -m skymap.config --checksums
+    # - To regenerate/verify checksums: uv run python -m astrapedia.config --checksums
     # - A checksum mismatch will emit a warning but not block processing (warn_only=True)
     # - For strict verification, use Config.verify_checksum(data, name, warn_only=False)
     CATALOG_SOURCES: dict[str, CatalogSource] = {
@@ -240,5 +240,5 @@ if __name__ == "__main__":
     if "--checksums" in sys.argv:
         print_checksums()
     else:
-        print("Usage: python -m skymap.config --checksums")
+        print("Usage: python -m astrapedia.config --checksums")
         print("  --checksums  Download catalogs and print SHA256 checksums")

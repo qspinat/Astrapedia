@@ -1,5 +1,5 @@
 """
-Tests for skymap.io module.
+Tests for astrapedia.io module.
 """
 
 import json
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from skymap.io import (
+from astrapedia.io import (
     read_json,
     write_json,
     validate_json_structure,

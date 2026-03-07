@@ -4,6 +4,9 @@
  */
 
 import {CAMERA} from '../core/Constants.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('HorizonRenderer');
 
 /**
  * Horizon configuration constants.
@@ -115,7 +118,7 @@ export class HorizonRenderer {
     this.horizonGroup_ = horizonGroup;
     this.scene_.add(this.horizonGroup_);
 
-    console.log('HorizonRenderer: Created local horizon line');
+    logger.info('Created local horizon line');
   }
 
   /**
@@ -140,7 +143,7 @@ export class HorizonRenderer {
       this.scene_.add(sprite);
     });
 
-    console.log('HorizonRenderer: Created cardinal direction labels');
+    logger.info('Created cardinal direction labels');
   }
 
   /**

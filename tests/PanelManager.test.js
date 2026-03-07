@@ -141,7 +141,7 @@ describe('PanelManager', () => {
     test('warns when panel not found', () => {
       const warnSpy = jest.spyOn(console, 'warn');
       panelManager.open('nonexistent-panel');
-      expect(warnSpy).toHaveBeenCalledWith('Panel not found: nonexistent-panel');
+      expect(warnSpy).toHaveBeenCalledWith('[PanelManager]', 'Panel not found: nonexistent-panel');
     });
   });
 

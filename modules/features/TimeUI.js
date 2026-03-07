@@ -6,6 +6,9 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TIME} from '../core/Constants.js';
 import {addMobileButtonListener} from '../core/Utils.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('TimeUI');
 
 /**
  * TimeUI handles time control buttons and display.
@@ -267,7 +270,7 @@ export function resetTimeUI() {
  */
 export function initializeTimeUI(dependencies) {
   if (timeUI) {
-    console.warn('TimeUI already initialized, returning existing instance');
+    logger.warn('TimeUI already initialized, returning existing instance');
     return timeUI;
   }
   timeUI = new TimeUI(dependencies);

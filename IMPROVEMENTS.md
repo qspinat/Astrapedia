@@ -1,6 +1,6 @@
-# Sky Map Improvements
+# Astrapedia Improvements
 
-Based on analysis of [Stellarium](https://stellarium.org/) and [Star Walk 2](https://vitotechnology.com/apps/star-walk-2), here are improvements for the sky map application.
+Based on analysis of [Stellarium](https://stellarium.org/) and [Star Walk 2](https://vitotechnology.com/apps/star-walk-2), here are improvements for the Astrapedia application.
 
 **Legend:** ✅ Implemented | 🚧 Partial | ❌ Not Started
 

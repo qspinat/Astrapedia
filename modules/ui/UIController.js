@@ -1,5 +1,5 @@
 /**
- * @fileoverview UI Controller for Sky Map Application.
+ * @fileoverview UI Controller for Astrapedia.
  * Uses dependency injection and EventBus for decoupled communication.
  *
  * Feature-specific UI handlers have been extracted to their respective modules:
@@ -11,6 +11,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {STARS} from '../core/Constants.js';
+import {createLogger} from '../core/Logger.js';
 import {PanelManager, panelManager} from './PanelManager.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {addMobileButtonListener} from '../core/Utils.js';
@@ -19,50 +20,7 @@ import {TourUI} from '../features/TourUI.js';
 import {TimeUI} from '../features/TimeUI.js';
 import {TelescopeUI} from '../features/TelescopeUI.js';
 
-/**
- * Maximum length for preset names.
- * @const {number}
- */
-const MAX_PRESET_NAME_LENGTH = 50;
-
-/**
- * Validates and sanitizes a preset name.
- * @param {string} name - The raw preset name from user input
- * @returns {{valid: boolean, sanitized: string, error: string}} Validation result
- */
-export function validatePresetName(name) {
-  if (!name) {
-    return {valid: false, sanitized: '', error: 'Preset name is required.'};
-  }
-
-  // Trim whitespace
-  let sanitized = name.trim();
-
-  if (!sanitized) {
-    return {valid: false, sanitized: '', error: 'Preset name cannot be empty.'};
-  }
-
-  // Check length
-  if (sanitized.length > MAX_PRESET_NAME_LENGTH) {
-    return {
-      valid: false,
-      sanitized: '',
-      error: `Preset name must be ${MAX_PRESET_NAME_LENGTH} characters or less.`,
-    };
-  }
-
-  // Only allow alphanumeric, spaces, hyphens, underscores
-  const validPattern = /^[\w\s-]+$/;
-  if (!validPattern.test(sanitized)) {
-    return {
-      valid: false,
-      sanitized: '',
-      error: 'Preset name can only contain letters, numbers, spaces, hyphens, and underscores.',
-    };
-  }
-
-  return {valid: true, sanitized, error: ''};
-}
+const logger = createLogger('UIController');
 
 /**
  * Search Controller - handles search input and results.
@@ -448,46 +406,7 @@ export class SettingsHandler {
     quickToggle.dataset.mode = mode;
   }
 
-  /**
-   * Update a setting value in the UI.
-   * @param {string} setting - Setting name
-   * @param {*} value - New value
-   */
-  updateSetting(setting, value) {
-    switch (setting) {
-      case 'nightMode': {
-        const toggle = document.getElementById('night-mode-toggle');
-        if (toggle) toggle.checked = value;
-        break;
-      }
-      case 'constellationLines': {
-        // Legacy boolean support
-        const mode = value ? 'all' : 'off';
-        this.syncConstellationQuickToggle_(mode);
-        break;
-      }
-      case 'constellationLinesMode': {
-        this.syncConstellationQuickToggle_(value);
-        break;
-      }
-      case 'magnitudeLimit': {
-        const slider = document.getElementById('magnitude-slider');
-        const display = document.getElementById('mag-value');
-        if (slider) slider.value = value;
-        if (display) display.textContent = value.toFixed(1);
-        break;
-      }
-    }
-  }
 }
-
-// TimeControlsHandler has been moved to modules/features/TimeUI.js
-
-// GameControlsHandler has been moved to modules/features/GameUI.js
-
-// TourButtonsHandler has been moved to modules/features/TourUI.js
-
-// TelescopeSettingsHandler has been moved to modules/features/TelescopeUI.js
 
 /**
  * Info Badge Updater - periodically updates the info badge display.
@@ -702,7 +621,7 @@ export class UIController {
     // Setup panel-specific buttons
     this.setupPanelButtons_();
 
-    console.log('UI Controller initialized');
+    logger.info('Initialized');
   }
 
   /**
@@ -810,7 +729,7 @@ export function resetUIController() {
  */
 export function initializeUIController(dependencies) {
   if (uiController) {
-    console.warn('UIController already initialized, returning existing instance');
+    logger.warn('Already initialized, returning existing instance');
     return uiController;
   }
   uiController = new UIController(dependencies);

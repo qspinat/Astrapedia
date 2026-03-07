@@ -1,1 +1,1 @@
-# Python tests for skymap package
+# Python tests for astrapedia package

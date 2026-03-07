@@ -7,6 +7,9 @@ import {globalEventBus, Events} from '../core/EventBus.js';
 import {domCache} from '../ui/DOMCache.js';
 import {angularDistance, constellationCenter} from '../core/CoordinateUtils.js';
 import {getAbbrevFromInternalKey, getConstellationName} from '../data/ConstellationNames.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('Game');
 
 /**
  * @typedef {{
@@ -159,7 +162,7 @@ export class GameController {
     this.deepSkyObjects_ = data.deepSkyObjects || [];
     this.namedObjects_ = data.namedObjects || {};
     this.stars_ = data.stars || [];
-    console.log(`[Game] setData called with ${Object.keys(this.constellations_).length} constellations`);
+    logger.debug(`setData called with ${Object.keys(this.constellations_).length} constellations`);
   }
 
   /**
@@ -264,10 +267,10 @@ export class GameController {
   start() {
     this.questionPool_ = this.buildQuestionPool_();
 
-    console.log(`[Game] Built question pool with ${this.questionPool_.length} questions for category: ${this.category_}`);
+    logger.debug(`Built question pool with ${this.questionPool_.length} questions for category: ${this.category_}`);
     if (this.category_ === 'known-constellations') {
-      console.log('[Game] Known constellations available:', 
-        Object.keys(this.constellations_).filter(k => 
+      logger.debug('Known constellations available:',
+        Object.keys(this.constellations_).filter(k =>
           ['Orion', 'UrsaMajor', 'UrsaMinor', 'Cassiopeia', 'Scorpius',
            'Cygnus', 'Leo', 'Gemini', 'Taurus', 'Aquila', 'Lyra', 'CanisMajor'].includes(k)
         ).join(', '));
@@ -317,8 +320,8 @@ export class GameController {
     if (this.isGameEnding_ || !this.active_) return;
     this.isGameEnding_ = true;
 
-    console.log(`[Game] Stopping: asked ${this.askedQuestions_.length} of ${this.questionPool_.length} questions`);
-    console.log('[Game] Asked questions:', this.askedQuestions_.map(q => q.name).join(', '));
+    logger.debug(`Stopping: asked ${this.askedQuestions_.length} of ${this.questionPool_.length} questions`);
+    logger.debug('Asked questions:', this.askedQuestions_.map(q => q.name).join(', '));
 
     this.active_ = false;
 
@@ -355,7 +358,7 @@ export class GameController {
       !this.askedQuestions_.some((asked) => asked.name === q.name)
     );
 
-    console.log(`[Game] nextQuestion: ${remaining.length} remaining, ${this.askedQuestions_.length} asked`);
+    logger.debug(`nextQuestion: ${remaining.length} remaining, ${this.askedQuestions_.length} asked`);
 
     if (remaining.length === 0) {
       // Guard against double alerts
@@ -458,11 +461,11 @@ export class GameController {
 
     // Show highlight ring
     const angularSize = questionData.size_major || questionData.angularSize || 30;
-    console.log('[Game] Showing highlight at', questionData.ra, questionData.dec, 'size:', angularSize);
+    logger.debug('Showing highlight at', questionData.ra, questionData.dec, 'size:', angularSize);
     if (this.onShowHighlightCallback_) {
       this.onShowHighlightCallback_(questionData.ra, questionData.dec, angularSize);
     } else {
-      console.warn('[Game] onShowHighlightCallback_ is not set!');
+      logger.warn('onShowHighlightCallback_ is not set!');
     }
 
     // Highlight constellation if applicable
@@ -618,8 +621,8 @@ export class GameController {
    * @private
    */
   addConstellationQuestions_(pool, names) {
-    console.log('[Game] addConstellationQuestions_ called with', names.length, 'names:', names.join(', '));
-    console.log('[Game] Available constellations in data:', Object.keys(this.constellations_).join(', '));
+    logger.debug('addConstellationQuestions_ called with', names.length, 'names:', names.join(', '));
+    logger.debug('Available constellations in data:', Object.keys(this.constellations_).join(', '));
     names.forEach((name) => {
       const constData = this.constellations_[name];
       if (constData) {
@@ -634,12 +637,12 @@ export class GameController {
             type: 'Constellation',
           },
         });
-        console.log(`[Game] Added question for: ${name}`);
+        logger.debug(`Added question for: ${name}`);
       } else {
-        console.log(`[Game] Missing constellation: ${name}`);
+        logger.debug(`Missing constellation: ${name}`);
       }
     });
-    console.log('[Game] Pool size after adding constellations:', pool.length);
+    logger.debug('Pool size after adding constellations:', pool.length);
   }
 
   /**

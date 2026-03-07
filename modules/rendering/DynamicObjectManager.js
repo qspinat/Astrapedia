@@ -21,6 +21,9 @@ import {clamp} from '../core/Utils.js';
 import {SHADERS, SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
 import {dynamicDataLoader} from '../services/DynamicDataLoader.js';
 import {domCache} from '../ui/DOMCache.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('DynamicObjectManager');
 
 /**
  * Manages dynamic loading of stars and DSOs from VizieR when zoomed in.
@@ -182,7 +185,7 @@ export class DynamicObjectManager {
     // Skip if already queried this region at this magnitude
     if (this.queriedRegions.has(regionKey)) return;
 
-    console.log(`🔭 Dynamic loading triggered: FOV=${camera.fov.toFixed(2)}°, RA=${raDec.ra.toFixed(1)}°, Dec=${raDec.dec.toFixed(1)}°`);
+    logger.debug(`Dynamic loading triggered: FOV=${camera.fov.toFixed(2)}°, RA=${raDec.ra.toFixed(1)}°, Dec=${raDec.dec.toFixed(1)}°`);
 
     // Query for stars and DSOs in this region
     const ra = raDec.ra, dec = raDec.dec, fov = camera.fov;
@@ -195,7 +198,7 @@ export class DynamicObjectManager {
       })
       .catch(err => {
         // Silently handle errors - DynamicDataLoader already logs and emits events
-        console.warn('Dynamic star query failed:', err?.message || err);
+        logger.warn('Dynamic star query failed:', err?.message || err);
       });
     if (fov <= 10) {
       dynamicDataLoader.queryDSOs(ra, dec, fov, magLimit)
@@ -203,7 +206,7 @@ export class DynamicObjectManager {
           if (dsos?.length > 0) this.addDynamicDSOs(dsos);
         })
         .catch(err => {
-          console.warn('Dynamic DSO query failed:', err?.message || err);
+          logger.warn('Dynamic DSO query failed:', err?.message || err);
         });
     }
     this.queriedRegions.add(regionKey);
@@ -318,7 +321,7 @@ export class DynamicObjectManager {
 
     const removed = initialCount - this.dynamicStars.length;
     if (removed > 0) {
-      console.log(`Filtered ${removed} dynamic stars outside FOV`);
+      logger.debug(`Filtered ${removed} dynamic stars outside FOV`);
       this.createDynamicStarField_();
     }
   }
@@ -361,7 +364,7 @@ export class DynamicObjectManager {
       this.dynamicStars.sort((a, b) => a.mag - b.mag);
       const excess = this.dynamicStars.length - this.maxDynamicStars;
       this.dynamicStars = this.dynamicStars.slice(0, this.maxDynamicStars);
-      console.log(`Dynamic stars trimmed: removed ${excess} faintest, keeping ${this.maxDynamicStars}`);
+      logger.debug(`Dynamic stars trimmed: removed ${excess} faintest, keeping ${this.maxDynamicStars}`);
     }
 
     // Limit queried regions cache
@@ -371,7 +374,7 @@ export class DynamicObjectManager {
       for (let i = 0; i < toRemove; i++) {
         this.queriedRegions.delete(regionsArray[i]);
       }
-      console.log(`Queried regions cache trimmed: removed ${toRemove} regions`);
+      logger.debug(`Queried regions cache trimmed: removed ${toRemove} regions`);
     }
 
     this.createDynamicStarField_();
@@ -448,7 +451,7 @@ export class DynamicObjectManager {
     const statusEl = domCache.dynamicStarsCount;
     if (statusEl) statusEl.textContent = String(this.dynamicStars.length);
 
-    console.log(`Dynamic star field: ${this.dynamicStars.length} stars`);
+    logger.debug(`Dynamic star field: ${this.dynamicStars.length} stars`);
   }
 
   /**
@@ -576,7 +579,7 @@ export class DynamicObjectManager {
       });
       const excess = this.dynamicDSOs.length - this.maxDynamicDSOs;
       this.dynamicDSOs = this.dynamicDSOs.slice(0, this.maxDynamicDSOs);
-      console.log(`Dynamic DSOs trimmed: removed ${excess}, keeping ${this.maxDynamicDSOs}`);
+      logger.debug(`Dynamic DSOs trimmed: removed ${excess}, keeping ${this.maxDynamicDSOs}`);
     }
 
     // Create sprites for new DSOs that are still in the list
@@ -588,7 +591,7 @@ export class DynamicObjectManager {
     });
 
     if (addedCount > 0) {
-      console.log(`Added ${addedCount} new DSO sprites`);
+      logger.debug(`Added ${addedCount} new DSO sprites`);
     }
   }
 

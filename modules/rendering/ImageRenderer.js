@@ -7,6 +7,9 @@ import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {CURATED_IMAGES, getCuratedImage, getCuratedImageKeys} from '../data/CuratedImages.js';
 import {PLANET_IMAGES, getPlanetImageInfo} from '../data/PlanetImages.js';
 import {clamp} from '../core/Utils.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('ImageRenderer');
 
 /**
  * Image source tiers for quality prioritization.
@@ -136,7 +139,7 @@ export class ImageRenderer {
     const messierKeys = Object.keys(curatedDb)
       .filter((k) => k.startsWith('M') && /^M\d+$/.test(k))
       .sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
-    console.log('📚 Curated Messier objects:', messierKeys.join(', '));
+    logger.debug('Curated Messier objects:', messierKeys.join(', '));
 
     const getImageUrl = (key) => {
       const entry = curatedDb[key];
@@ -230,14 +233,14 @@ export class ImageRenderer {
         this.celestialSphere_.add(sprite);
         this.imageSprites_.push(sprite);
 
-        console.log(
-          `✓ Loaded image for ${objectName} ` +
+        logger.debug(
+          `Loaded image for ${objectName} ` +
           `(size: ${angularSizeArcmin.toFixed(1)}', baseSize: ${baseSize.toFixed(3)})`
         );
       },
       undefined,
       () => {
-        console.warn(`Static image failed for ${objectName}, will try dynamic loading`);
+        logger.warn(`Static image failed for ${objectName}, will try dynamic loading`);
         this.createDynamicPlaceholder_(dso, objectName);
       }
     );
@@ -405,7 +408,7 @@ export class ImageRenderer {
     sprite.userData.dynamicLoadAttempted = true;
     this.dynamicLoadInProgress_ = true;
 
-    console.log(`🔍 Loading image for: ${objectName}`);
+    logger.debug(`Loading image for: ${objectName}`);
 
     const result = await this.fetchBestImage(
       objectName,
@@ -433,8 +436,8 @@ export class ImageRenderer {
         const headResponse = await fetch(result.url, {method: 'HEAD'});
         const contentLength = parseInt(headResponse.headers.get('content-length') || '0', 10);
         if (contentLength > maxSize) {
-          console.log(
-            `⚠️ Skipping image for ${objectName}: ` +
+          logger.debug(
+            `Skipping image for ${objectName}: ` +
             `${(contentLength / 1024 / 1024).toFixed(2)}MB exceeds 1MB limit`
           );
           sprite.userData.needsDynamicLoad = false;
@@ -462,25 +465,25 @@ export class ImageRenderer {
           sprite.userData.imageTier = result.tier;
           sprite.userData.aspectRatio = imgWidth / imgHeight;
 
-          console.log(
-            `✓ Loaded image for ${objectName} (aspect: ${sprite.userData.aspectRatio.toFixed(2)})`
+          logger.debug(
+            `Loaded image for ${objectName} (aspect: ${sprite.userData.aspectRatio.toFixed(2)})`
           );
         } else {
-          console.warn(`⚠️ Texture has no dimensions for ${objectName}`);
+          logger.warn(`Texture has no dimensions for ${objectName}`);
           sprite.userData.needsDynamicLoad = false;
         }
         this.dynamicLoadInProgress_ = false;
       },
       () => {},
       (error) => {
-        console.warn(
-          `❌ Failed to load texture for ${objectName}:`,
+        logger.warn(
+          `Failed to load texture for ${objectName}:`,
           error?.message || 'Unknown error'
         );
 
         // Try DSS fallback
         if (dso?.ra !== undefined && dso?.dec !== undefined && result.source !== 'DSS') {
-          console.log(`🔄 Trying DSS fallback for ${objectName}`);
+          logger.debug(`Trying DSS fallback for ${objectName}`);
           const dssUrl = this.getSkyViewImageUrl(dso.ra, dso.dec, dso.type, dso.size_major);
 
           this.textureLoader_.load(
@@ -497,14 +500,14 @@ export class ImageRenderer {
                 sprite.userData.imageSource = 'DSS';
                 sprite.userData.imageTier = 'vintage';
                 sprite.userData.aspectRatio = w / h;
-                console.log(`✓ Loaded DSS fallback for ${objectName}`);
+                logger.debug(`Loaded DSS fallback for ${objectName}`);
               }
               sprite.userData.needsDynamicLoad = false;
               this.dynamicLoadInProgress_ = false;
             },
             undefined,
             () => {
-              console.warn(`❌ DSS fallback also failed for ${objectName}`);
+              logger.warn(`DSS fallback also failed for ${objectName}`);
               sprite.userData.needsDynamicLoad = false;
               this.dynamicLoadInProgress_ = false;
             }
@@ -527,7 +530,7 @@ export class ImageRenderer {
    * @returns {!Promise<?{url: string, source: string, tier: string}>}
    */
   async fetchBestImage(objectName, ra, dec, type, angularSizeArcmin = null) {
-    console.log(
+    logger.debug(
       `fetchBestImage called: name=${objectName}, ra=${ra}, dec=${dec}, type=${type}`
     );
 
@@ -542,14 +545,14 @@ export class ImageRenderer {
     if (curatedImage) {
       const url = typeof curatedImage === 'string' ? curatedImage : curatedImage.url;
       if (url === null) {
-        console.log(`⊘ No curated image for ${normalizedName}, will try DSS fallback`);
+        logger.debug(`No curated image for ${normalizedName}, will try DSS fallback`);
         skipToFallback = true;
       } else {
         const source = typeof curatedImage === 'string' ? 'Curated' : (curatedImage.source || 'Curated');
         const tier = typeof curatedImage === 'string' ? 'high' : (curatedImage.tier || 'high');
         const result = {url, loading: false, source, tier};
         this.dynamicImageCache_.set(cacheKey, result);
-        console.log(`✓ Using curated image for ${normalizedName}`);
+        logger.debug(`Using curated image for ${normalizedName}`);
         return result;
       }
     }
@@ -558,7 +561,7 @@ export class ImageRenderer {
     if (this.dynamicImageCache_.has(cacheKey) && !skipToFallback) {
       const cached = this.dynamicImageCache_.get(cacheKey);
       if (!cached.loading) {
-        console.log(`Cache hit for ${cacheKey}: ${cached.source || 'no image'}`);
+        logger.debug(`Cache hit for ${cacheKey}: ${cached.source || 'no image'}`);
         return cached;
       }
       return null;
@@ -579,7 +582,7 @@ export class ImageRenderer {
     if (planetInfo) {
       const result = {url: planetInfo.url, loading: false, source: planetInfo.source, tier: planetInfo.tier};
       this.dynamicImageCache_.set(cacheKey, result);
-      console.log(`Using dedicated image for ${normalizedName}`);
+      logger.debug(`Using dedicated image for ${normalizedName}`);
       return result;
     }
 
@@ -601,8 +604,8 @@ export class ImageRenderer {
 
     // Log curated misses
     if (/^(M|NGC|IC)\d+$/i.test(normalizedName) && !skipToFallback) {
-      console.log(
-        `⚠️ No curated image for "${normalizedName}" (${getCuratedImageKeys().length} total curated images)`
+      logger.debug(
+        `No curated image for "${normalizedName}" (${getCuratedImageKeys().length} total curated images)`
       );
     }
 
@@ -628,14 +631,14 @@ export class ImageRenderer {
     const allowDssForStar = isStar && this.fetchingForPanel_;
     if (ra !== undefined && dec !== undefined && (!isStar || allowDssForStar)) {
       const dssUrl = this.getSkyViewImageUrl(ra, dec, type, angularSizeArcmin);
-      console.log(`📜 Using DSS fallback for ${objectName || 'coordinates'}`);
+      logger.debug(`Using DSS fallback for ${objectName || 'coordinates'}`);
       const result = {url: dssUrl, loading: false, source: 'DSS', tier: 'vintage'};
       this.dynamicImageCache_.set(cacheKey, result);
       return result;
     }
 
     // No image available
-    console.log(`No image available for ${objectName} (type=${type})`);
+    logger.debug(`No image available for ${objectName} (type=${type})`);
     const result = {url: null, loading: false, source: null, tier: null};
     this.dynamicImageCache_.set(cacheKey, result);
     return result;
@@ -706,7 +709,7 @@ export class ImageRenderer {
         const previewLink = item.links?.find((link) => link.rel === 'preview');
         if (previewLink?.href && (isWebb || isHubble)) {
           const tier = isWebb ? 'Webb' : 'Hubble';
-          console.log(`✨ Found ${tier} image for ${objectName}`);
+          logger.debug(`Found ${tier} image for ${objectName}`);
           return {url: previewLink.href, loading: false, source: `NASA/${tier}`, tier: 'iconic'};
         }
       }
@@ -721,7 +724,7 @@ export class ImageRenderer {
 
         const previewLink = item.links?.find((link) => link.rel === 'preview');
         if (previewLink?.href) {
-          console.log(`Found NASA image for ${objectName}`);
+          logger.debug(`Found NASA image for ${objectName}`);
           return {url: previewLink.href, loading: false, source: 'NASA', tier: 'high'};
         }
       }
@@ -731,12 +734,12 @@ export class ImageRenderer {
         const firstItem = data.collection.items[0];
         const previewLink = firstItem.links?.find((link) => link.rel === 'preview');
         if (previewLink?.href) {
-          console.log(`Found NASA image for ${objectName} (first result)`);
+          logger.debug(`Found NASA image for ${objectName} (first result)`);
           return {url: previewLink.href, loading: false, source: 'NASA', tier: 'high'};
         }
       }
     } catch (error) {
-      console.warn(`NASA API failed for ${objectName}:`, error.message);
+      logger.warn(`NASA API failed for ${objectName}:`, error.message);
     }
 
     return null;
@@ -825,7 +828,7 @@ export class ImageRenderer {
 
           if (isOfficial) {
             const source = isSubaru ? 'Wikimedia/Subaru' : 'Wikimedia/ESO';
-            console.log(`Found Wikimedia (official) image for ${objectName}`);
+            logger.debug(`Found Wikimedia (official) image for ${objectName}`);
             return {url: thumbUrl, loading: false, source, tier: 'high'};
           }
         }
@@ -842,12 +845,12 @@ export class ImageRenderer {
         if (originalSize > maxOriginalSize) continue;
 
         if (thumbUrl && !thumbUrl.includes('.svg') && !thumbUrl.includes('Map')) {
-          console.log(`Found Wikimedia image for ${objectName}`);
+          logger.debug(`Found Wikimedia image for ${objectName}`);
           return {url: thumbUrl, loading: false, source: 'Wikimedia', tier: 'medium'};
         }
       }
     } catch (error) {
-      console.warn(`Wikimedia API failed for ${objectName}:`, error.message);
+      logger.warn(`Wikimedia API failed for ${objectName}:`, error.message);
     }
 
     return null;

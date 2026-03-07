@@ -1,5 +1,5 @@
 /**
- * @fileoverview Interactive Sky Map Application.
+ * @fileoverview Astrapedia - Interactive Celestial Sphere Application.
  *
  * A Three.js-based celestial sphere visualization for learning astronomical
  * coordinates and finding celestial objects.
@@ -75,22 +75,25 @@ import {domCache} from './modules/ui/DOMCache.js';
 import {dataLoader} from './modules/services/DataLoader.js';
 import {astronomyCalculator} from './modules/core/AstronomyCalculator.js';
 import {clamp} from './modules/core/Utils.js';
+import {createLogger} from './modules/core/Logger.js';
+
+const logger = createLogger('Astrapedia');
 
 /* ==========================================================================
-   2. SKYMAP APPLICATION CLASS
+   2. ASTRAPEDIA APPLICATION CLASS
    ========================================================================== */
 
 /**
- * Main Sky Map Application class.
+ * Main Astrapedia Application class.
  * Manages the 3D celestial sphere visualization, star rendering,
  * user interactions, and astronomical calculations.
  */
-export class SkyMapApp {
+export class AstrapediaApp {
   /* ======================================================================
      CONSTRUCTOR & STATE VARIABLES
      ====================================================================== */
 
-  /** Creates a new SkyMapApp instance. */
+  /** Creates a new AstrapediaApp instance. */
   constructor() {
     // Three.js core components
     this.scene = null;
@@ -710,16 +713,16 @@ export class SkyMapApp {
 
     // Tour commands - delegate directly to TourController
     globalEventBus.on(Events.CMD_START_TOUR, (data) => {
-      console.log('[SkyMap] CMD_START_TOUR received:', data?.tourName);
+      logger.debug('CMD_START_TOUR received:', data?.tourName);
       if (data?.tourName) {
         this.tourController_.start(data.tourName);
       } else {
-        console.warn('[SkyMap] CMD_START_TOUR received with no tourName');
+        logger.warn('CMD_START_TOUR received with no tourName');
       }
     });
 
     globalEventBus.on(Events.CMD_NEXT_TOUR_STEP, () => {
-      console.log('[SkyMap] CMD_NEXT_TOUR_STEP received');
+      logger.debug('CMD_NEXT_TOUR_STEP received');
       this.tourController_.next();
     });
 
@@ -757,7 +760,7 @@ export class SkyMapApp {
         this.horizonRenderer_?.updateForLocation?.(this.observerLocation.lat);
         // Request a re-render
         this.requestRender();
-        console.log(`Location updated: ${this.observerLocation.lat.toFixed(2)}°, ${this.observerLocation.lon.toFixed(2)}°`);
+        logger.info(`Location updated: ${this.observerLocation.lat.toFixed(2)}°, ${this.observerLocation.lon.toFixed(2)}°`);
       }
     });
 
@@ -777,7 +780,7 @@ export class SkyMapApp {
   async init() {
     const loadingText = document.querySelector('.loading-text');
     const updateStatus = (msg) => {
-      console.log(msg);
+      logger.info(msg);
       if (loadingText) loadingText.textContent = msg;
     };
 
@@ -890,7 +893,7 @@ export class SkyMapApp {
       domCache.loading?.classList.add('hidden');
 
     } catch (error) {
-      console.error('Initialization error:', error);
+      logger.error('Initialization error:', error);
       const loadingEl = document.getElementById('loading');
       if (loadingEl) {
         loadingEl.innerHTML = `
@@ -911,27 +914,29 @@ export class SkyMapApp {
 
   async loadData() {
     try {
-      console.log('Starting data load...');
-      const data = await dataLoader.loadSkyMapData('stars_medium.json');
+      logger.info('Starting data load...');
+      const data = await dataLoader.loadAppData('stars_medium.json');
 
       this.stars = data.stars;
       this.constellations = data.constellations;
       this.deepSkyObjects = data.deepSkyObjects;
       this.namedObjects = data.namedObjects;
 
-      console.log(`✓ Loaded ${this.stars.length} stars`);
-      console.log(`✓ Loaded ${Object.keys(this.constellations).length} constellations`);
-      console.log(`✓ Loaded ${this.deepSkyObjects.length} DSOs`);
-      console.log(`✓ Loaded ${Object.keys(this.namedObjects).length} named objects`);
-      console.log('All data loaded successfully!');
+      logger.info(`Loaded ${this.stars.length} stars`);
+      logger.info(`Loaded ${Object.keys(this.constellations).length} constellations`);
+      logger.info(`Loaded ${this.deepSkyObjects.length} DSOs`);
+      logger.info(`Loaded ${Object.keys(this.namedObjects).length} named objects`);
+      logger.info('All data loaded successfully!');
     } catch (error) {
-      console.error('Error loading data:', error);
+      logger.error('Error loading data:', error);
       const loadingText = domCache.get('loading')?.querySelector('.loading-text');
       if (loadingText) loadingText.textContent = 'Error loading data. Check console for details.';
       throw error;
     }
   }
 
+  // TODO: Extract scene setup, camera, and renderer into a SceneManager module
+  // to reduce skymap.js size and improve modularity.
   setupScene() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000);  // Pure black night sky
@@ -1350,7 +1355,7 @@ export class SkyMapApp {
    */
   setConstellationLanguage(lang) {
     this.constellationLanguage = lang;
-    console.log(`Constellation language set to: ${lang}`);
+    logger.info(`Constellation language set to: ${lang}`);
 
     // Update search filter to show only relevant language results
     this.searchManager_?.setLanguage(lang);
@@ -1572,7 +1577,7 @@ export class SkyMapApp {
       btn.textContent = this.forceNightMode ? '🌙 Night Mode: ON' : '☀️ Day/Night: AUTO';
     }
 
-    console.log(`Night mode: ${this.forceNightMode ? 'ON (forced)' : 'OFF (automatic)'}`);
+    logger.info(`Night mode: ${this.forceNightMode ? 'ON (forced)' : 'OFF (automatic)'}`);
   }
 
   /* ======================================================================
@@ -1646,7 +1651,7 @@ export class SkyMapApp {
    * @param {number=} angularSizeArcmin - Object's angular size in arcminutes
    */
   showTourHighlight(ra, dec, angularSizeArcmin = 10) {
-    console.log('[SkyMap] showTourHighlight called, module exists:', !!this.tourHighlightModule_);
+    logger.debug('showTourHighlight called, module exists:', !!this.tourHighlightModule_);
     this.tourHighlightModule_?.show(ra, dec, angularSizeArcmin);
   }
 
@@ -1960,6 +1965,8 @@ export class SkyMapApp {
      Animation loop and visual updates
      ====================================================================== */
 
+  // TODO: Extract animation loop into a RenderLoop module
+  // to decouple frame scheduling from application logic.
   /**
    * Main animation loop - called every frame
    * Optimized to skip unnecessary updates using dirty flags and throttling

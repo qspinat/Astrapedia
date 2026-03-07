@@ -1,7 +1,11 @@
 /**
- * @fileoverview Bug report handler for Sky Map Application.
+ * @fileoverview Bug report handler for Astrapedia.
  * Handles bug report form submission to Formspree with validation.
  */
+
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('BugReportHandler');
 
 /**
  * Formspree endpoint for bug reports.
@@ -151,7 +155,7 @@ export class BugReportHandler {
         this.showNotification_('Failed to submit. Please try again.');
       }
     } catch (error) {
-      console.error('Bug report submission failed:', error);
+      logger.error('Submission failed:', error);
       this.showNotification_('Network error. Please try again.');
     } finally {
       this.submitting_ = false;

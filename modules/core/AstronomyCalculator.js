@@ -4,6 +4,9 @@
  */
 
 import {ASTRONOMY} from './Constants.js';
+import {createLogger} from './Logger.js';
+
+const logger = createLogger('AstronomyCalculator');
 import {
   dateToJulianDate as coordDateToJulianDate,
   julianDateToDate as coordJulianDateToDate,
@@ -275,7 +278,7 @@ export class AstronomyCalculator {
         dec: equator.dec,
       };
     } catch (error) {
-      console.warn(`Error calculating position for ${planetName}:`, error);
+      logger.warn(`Error calculating position for ${planetName}:`, error);
       return this.calculatePlanetPositionKeplerian_(planetName, date);
     }
   }

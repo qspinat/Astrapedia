@@ -3,6 +3,10 @@
  * Allows modules to communicate without direct dependencies.
  */
 
+import {createLogger} from './Logger.js';
+
+const logger = createLogger('EventBus');
+
 /**
  * Subscription handle returned when subscribing to events.
  * @typedef {{
@@ -142,7 +146,7 @@ export class EventBus {
       try {
         listener.callback(data);
       } catch (error) {
-        console.error(`Error in event listener for "${eventName}":`, error);
+        logger.error(`Error in event listener for "${eventName}":`, error);
       }
 
       // Remove once listeners after calling

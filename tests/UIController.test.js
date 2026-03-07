@@ -167,7 +167,6 @@ jest.unstable_mockModule('../modules/features/TelescopeUI.js', () => ({
 
 // Dynamic imports after mocks
 const {
-  validatePresetName,
   SearchController,
   SettingsHandler,
   InfoBadgeUpdater,
@@ -190,74 +189,6 @@ describe('UIController Module', () => {
 
   afterEach(() => {
     resetUIController();
-  });
-
-  describe('validatePresetName', () => {
-    test('returns valid for normal preset name', () => {
-      const result = validatePresetName('My Preset');
-      expect(result.valid).toBe(true);
-      expect(result.sanitized).toBe('My Preset');
-      expect(result.error).toBe('');
-    });
-
-    test('trims whitespace from preset name', () => {
-      const result = validatePresetName('  Preset Name  ');
-      expect(result.valid).toBe(true);
-      expect(result.sanitized).toBe('Preset Name');
-    });
-
-    test('allows hyphens and underscores', () => {
-      const result = validatePresetName('my-preset_v2');
-      expect(result.valid).toBe(true);
-      expect(result.sanitized).toBe('my-preset_v2');
-    });
-
-    test('allows numbers', () => {
-      const result = validatePresetName('Preset123');
-      expect(result.valid).toBe(true);
-    });
-
-    test('rejects empty string', () => {
-      const result = validatePresetName('');
-      expect(result.valid).toBe(false);
-      expect(result.error).toBe('Preset name is required.');
-    });
-
-    test('rejects whitespace-only string', () => {
-      const result = validatePresetName('   ');
-      expect(result.valid).toBe(false);
-      expect(result.error).toBe('Preset name cannot be empty.');
-    });
-
-    test('rejects null', () => {
-      const result = validatePresetName(null);
-      expect(result.valid).toBe(false);
-      expect(result.error).toBe('Preset name is required.');
-    });
-
-    test('rejects name exceeding 50 characters', () => {
-      const longName = 'a'.repeat(51);
-      const result = validatePresetName(longName);
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('50 characters or less');
-    });
-
-    test('accepts name with exactly 50 characters', () => {
-      const exactName = 'a'.repeat(50);
-      const result = validatePresetName(exactName);
-      expect(result.valid).toBe(true);
-    });
-
-    test('rejects special characters', () => {
-      const result = validatePresetName('preset<script>');
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('letters, numbers, spaces, hyphens');
-    });
-
-    test('rejects emoji', () => {
-      const result = validatePresetName('preset🌟');
-      expect(result.valid).toBe(false);
-    });
   });
 
   describe('SearchController', () => {
@@ -511,7 +442,7 @@ describe('UIController Module', () => {
       initializeUIController({panelManager: mockPanelManagerInstance});
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        'UIController already initialized, returning existing instance'
+        '[UIController]', 'Already initialized, returning existing instance'
       );
 
       consoleSpy.mockRestore();

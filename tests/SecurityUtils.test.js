@@ -97,7 +97,7 @@ describe('fetchWikipedia', () => {
       'https://en.wikipedia.org/api/rest_v1/page/summary/Test',
       expect.objectContaining({
         headers: expect.objectContaining({
-          'Api-User-Agent': expect.stringContaining('SkyMap/1.0'),
+          'Api-User-Agent': expect.stringContaining('Astrapedia/1.0'),
         }),
       })
     );
@@ -113,6 +113,6 @@ describe('fetchWikipedia', () => {
     // Wikipedia requires: AppName/Version (URL; contact) library/version
     expect(userAgent).toMatch(/^\w+\/[\d.]+\s+\(/);
     expect(userAgent).toContain('https://');
-    expect(userAgent).toContain('@');
+    expect(userAgent).toContain('github.com');
   });
 });
