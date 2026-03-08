@@ -193,8 +193,11 @@ def process_deep_sky_objects() -> dict | None:
     # Filter out failed conversions
     df = df[pd.notna(df["ra_deg"]) & pd.notna(df["dec_deg"])].copy()
 
+    # Use V-Mag where available, fall back to B-Mag for objects missing V-Mag
+    df["mag"] = df["V-Mag"].fillna(df["B-Mag"])
+
     # Filter by magnitude
-    df = df[pd.notna(df["V-Mag"]) & (df["V-Mag"] <= Config.MAX_MAGNITUDE_LIMIT)].copy()
+    df = df[pd.notna(df["mag"]) & (df["mag"] <= Config.MAX_MAGNITUDE_LIMIT)].copy()
 
     # Create deep sky objects list
     dso_list = []
@@ -204,7 +207,7 @@ def process_deep_sky_objects() -> dict | None:
             "type": row["Type"] if pd.notna(row["Type"]) else "Unknown",
             "ra": float(row["ra_deg"]),
             "dec": float(row["dec_deg"]),
-            "mag": float(row["V-Mag"]) if pd.notna(row["V-Mag"]) else None,
+            "mag": float(row["mag"]) if pd.notna(row["mag"]) else None,
             "size_major": float(row["MajAx"]) if pd.notna(row["MajAx"]) else None,
             "size_minor": float(row["MinAx"]) if pd.notna(row["MinAx"]) else None,
             "pos_angle": float(row["PosAng"]) if pd.notna(row["PosAng"]) else None,
