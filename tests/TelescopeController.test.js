@@ -930,6 +930,22 @@ describe('TelescopeController - diffuse visibility', () => {
     });
   });
 
+  describe('descMargin clamping', () => {
+    test('compact penalty does not push visible object to negative description', () => {
+      // Tiny PN barely detectable (margin just above -1) in small scope
+      // Compact penalty could push descMargin negative, but it should clamp to 0
+      const obj = {mag: 12.0, size_major: 0.5, size_minor: 0.5, name: 'TinyPN', type: 'PN'};
+      const results = controller.computeVisibilityForDiameters(obj, [80]);
+      if (results[0].isVisible) {
+        // If visible, description should be a valid string, not undefined
+        expect(results[0].description).toBeDefined();
+        expect(results[0].description.length).toBeGreaterThan(0);
+        // Should be the baseline description (margin clamped to 0)
+        expect(results[0].description).toBe('Faint, averted vision');
+      }
+    });
+  });
+
   describe('center detection', () => {
     test('starts and stops with telescope mode', () => {
       jest.useFakeTimers();

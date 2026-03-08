@@ -384,9 +384,11 @@ export class TelescopeUI {
     );
     if (!results || results.length === 0) return;
 
-    const objectSB = TelescopeController.computeObjectSurfaceBrightness(
-      obj.mag, obj.size_major, obj.size_minor
-    );
+    const visibility = this.deps_.computeDiffuseVisibility?.(obj);
+    const objectSB = visibility?.objectSB ??
+      TelescopeController.computeObjectSurfaceBrightness(
+        obj.mag, obj.size_major, obj.size_minor
+      );
 
     const section = document.createElement('div');
     section.className = 'telescope-visibility';
@@ -409,7 +411,6 @@ export class TelescopeUI {
     html += '</table>';
 
     // Show advised exit pupil (from current telescope config)
-    const visibility = this.deps_.computeDiffuseVisibility?.(obj);
     if (visibility) {
       html += `<div class="telescope-visibility__advice">` +
         `Advised exit pupil: ${visibility.recommendedExitPupil}mm</div>`;

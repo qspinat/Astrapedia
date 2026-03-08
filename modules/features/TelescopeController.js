@@ -134,7 +134,8 @@ function describeVisibility_(margin, type) {
       if (margin > 4) return 'Disk/ring resolved, color possible';
       if (margin > 3.5) return 'Disk visible, shape and structure clear';
       if (margin > 3) return 'Disk visible, shape clear';
-      if (margin > 2) return 'Small disk, some structure';
+      if (margin > 2.5) return 'Small disk, some structure';
+      if (margin > 2) return 'Small disk, hints of structure';
       if (margin > 1.5) return 'Small fuzzy disk';
       if (margin > 1) return 'Fuzzy, slightly non-stellar';
       if (margin > 0.5) return 'Stellar, hard to distinguish';
@@ -493,8 +494,11 @@ export class TelescopeController {
     let nearest = null;
     let nearestDist = Infinity;
 
+    const magLimit = this.computedProperties_.limitingMagnitude;
+
     for (const dso of dsos) {
       if (!isDiffuseObject(dso) || dso.size_major <= 0) continue;
+      if (dso.mag > magLimit) continue;
 
       const dist = angularDistance(center.ra, center.dec, dso.ra, dso.dec);
       if (dist < halfFov && dist < nearestDist) {
