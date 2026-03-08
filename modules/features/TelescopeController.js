@@ -118,30 +118,46 @@ function classifyVisibility(margin, dsoType, sizeMajor, diameter, integratedMag)
 function describeVisibility_(margin, type) {
   switch (type) {
     case 'G':
+      if (margin > 5) return 'Core, halo, dust lanes, star-forming regions';
       if (margin > 4) return 'Core, halo, dust lanes';
+      if (margin > 3.5) return 'Core and halo, arms traceable';
+      if (margin > 3) return 'Core and halo, hints of structure';
       if (margin > 2.5) return 'Core and halo, hints of arms';
+      if (margin > 2) return 'Bright core, extended halo';
       if (margin > 1.5) return 'Bright core, faint halo';
+      if (margin > 1) return 'Faint oval glow, core visible';
       if (margin > 0.5) return 'Faint oval glow';
       return 'Faint smudge, averted vision';
 
     case 'PN':
+      if (margin > 5) return 'Ring/disk well defined, color, central star';
       if (margin > 4) return 'Disk/ring resolved, color possible';
-      if (margin > 2.5) return 'Disk visible, shape clear';
+      if (margin > 3.5) return 'Disk visible, shape and structure clear';
+      if (margin > 3) return 'Disk visible, shape clear';
+      if (margin > 2) return 'Small disk, some structure';
       if (margin > 1.5) return 'Small fuzzy disk';
+      if (margin > 1) return 'Fuzzy, slightly non-stellar';
       if (margin > 0.5) return 'Stellar, hard to distinguish';
       return 'Faint, averted vision';
 
     case 'GCl':
+      if (margin > 5) return 'Fully resolved to center, rich star field';
       if (margin > 4) return 'Resolved, many stars visible';
-      if (margin > 2.5) return 'Granular, outer stars resolved';
+      if (margin > 3.5) return 'Granular, stars resolved across face';
+      if (margin > 3) return 'Granular, outer stars resolved';
+      if (margin > 2.5) return 'Bright core, granular edges';
+      if (margin > 2) return 'Bright fuzzy ball, hints of resolution';
       if (margin > 1.5) return 'Bright fuzzy ball';
+      if (margin > 1) return 'Fuzzy patch, brighter center';
       if (margin > 0.5) return 'Faint fuzzy patch';
       return 'Faint glow, averted vision';
 
     case 'OCl':
     case 'Cl+N':
+      if (margin > 4) return 'Stars fully resolved, rich field';
       if (margin > 3) return 'Stars resolved, rich field';
-      if (margin > 1.5) return 'Partially resolved';
+      if (margin > 2) return 'Partially resolved, some stars';
+      if (margin > 1) return 'Hazy patch with a few stars';
       if (margin > 0.5) return 'Hazy patch of stars';
       return 'Faint, averted vision';
 
@@ -149,23 +165,33 @@ function describeVisibility_(margin, type) {
     case 'HII':
     case 'RfN':
     case 'Neb':
+      if (margin > 5) return 'Bright, filaments and dark lanes';
       if (margin > 4) return 'Bright, structure and dark lanes';
-      if (margin > 2.5) return 'Shape and extent clear';
+      if (margin > 3.5) return 'Shape and extent clear, some structure';
+      if (margin > 3) return 'Shape and extent clear';
+      if (margin > 2.5) return 'Shape visible, edges defined';
+      if (margin > 2) return 'Nebulosity visible, shape emerging';
       if (margin > 1.5) return 'Nebulosity visible';
+      if (margin > 1) return 'Faint nebulosity';
       if (margin > 0.5) return 'Faint haze';
       return 'Faint, averted vision';
 
     case 'SNR':
+      if (margin > 5) return 'Filamentary structure visible';
       if (margin > 4) return 'Visible, ragged edges';
-      if (margin > 2.5) return 'Faint nebulous patch';
+      if (margin > 3) return 'Faint nebulous patch, some structure';
+      if (margin > 2) return 'Faint nebulous patch';
       if (margin > 1.5) return 'Faint smudge';
+      if (margin > 1) return 'Very faint smudge';
       if (margin > 0.5) return 'Very faint, needs attention';
       return 'Faint, averted vision';
 
     default:
-      if (margin > 4) return 'Bright, detail visible';
-      if (margin > 2.5) return 'Shape clear';
-      if (margin > 1.5) return 'Visible';
+      if (margin > 5) return 'Bright, detail visible';
+      if (margin > 4) return 'Bright, shape clear';
+      if (margin > 3) return 'Shape clear';
+      if (margin > 2) return 'Visible, some shape';
+      if (margin > 1) return 'Faint but visible';
       if (margin > 0.5) return 'Faint';
       return 'Faint, averted vision';
   }
