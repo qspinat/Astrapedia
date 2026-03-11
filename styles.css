@@ -2184,6 +2184,141 @@ select:focus-visible {
     white-space: nowrap;
 }
 
+/* Telescope DSO HUD overlay */
+.reticle-dso-info {
+    position: absolute;
+    top: 10px;
+    right: -10px;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 11px;
+    color: rgba(180, 80, 80, 0.7);
+    white-space: nowrap;
+    text-align: right;
+}
+
+.reticle-dso-info.visible {
+    display: flex;
+}
+
+.reticle-dso-name {
+    font-weight: 600;
+    font-size: 12px;
+    color: rgba(180, 80, 80, 0.8);
+}
+
+.reticle-dso-status--visible {
+    color: rgba(80, 180, 80, 0.8);
+}
+
+.reticle-dso-status--barely {
+    color: rgba(200, 160, 60, 0.8);
+}
+
+.reticle-dso-status--not-visible {
+    color: rgba(200, 80, 80, 0.8);
+}
+
+.reticle-dso-sb {
+    font-size: 10px;
+    color: rgba(180, 80, 80, 0.5);
+}
+
+/* Computed grid sublabel */
+.computed-sublabel {
+    font-size: 10px;
+    font-style: italic;
+    color: var(--text-secondary);
+    margin-top: 1px;
+}
+
+/* Telescope visibility table in info panel */
+.telescope-visibility {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.telescope-visibility__title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.telescope-visibility__sb {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.telescope-visibility__advice {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    font-style: italic;
+}
+
+.telescope-visibility__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.telescope-visibility__table th {
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding: 2px 6px 4px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.telescope-visibility__table td {
+    padding: 3px 6px 3px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.telescope-visibility__status--visible {
+    color: #5cb85c;
+}
+
+.telescope-visibility__status--barely {
+    color: #d4a84b;
+}
+
+.telescope-visibility__status--not-visible {
+    color: #8B3030;
+}
+
+/* Telescope detail section (telescope mode only) */
+.telescope-visibility__detail {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+}
+
+.telescope-visibility__row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+}
+
+.telescope-visibility__row-label {
+    color: var(--text-secondary);
+}
+
+.telescope-visibility__row-value {
+    color: var(--accent-blue);
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
 /* Telescope mode vignette effect */
 body.telescope-mode::after {
     content: '';
@@ -2232,6 +2367,14 @@ body.night-mode .reticle-label.active {
 
 body.night-mode .reticle-info {
     color: rgba(200, 100, 100, 0.7);
+}
+
+body.night-mode .reticle-dso-info {
+    color: rgba(200, 100, 100, 0.7);
+}
+
+body.night-mode .reticle-dso-name {
+    color: rgba(200, 100, 100, 0.8);
 }
 
 /* ==========================================================================

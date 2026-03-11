@@ -297,6 +297,7 @@ export const Events = {
   TELESCOPE_COMPUTED: 'telescope:computed',
   TELESCOPE_MODE_ACTIVATED: 'telescope:mode:activated',
   TELESCOPE_MODE_DEACTIVATED: 'telescope:mode:deactivated',
+  TELESCOPE_DSO_CENTERED: 'telescope:dso:centered',
 
   // Command events (requests from UI to app)
   CMD_SELECT_OBJECT: 'cmd:select:object',

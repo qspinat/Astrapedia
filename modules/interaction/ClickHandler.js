@@ -67,11 +67,13 @@ export class ClickHandler {
     this.raycaster_.params.Points.threshold = 5 * (camera.fov / CAMERA.DEFAULT_FOV);
     this.raycaster_.setFromCamera(this.mouse_, camera);
 
-    // Try click detection in priority order
+    // Try click detection in priority order.
+    // DSOs (extended objects) are checked before stars so that clicking
+    // within a nebula selects the nebula, not a field star inside it.
     if (this.detectPlanetClick_(camera, renderer)) return;
+    if (this.detectDSOClick_(camera, renderer)) return;
     if (this.detectStarClick_()) return;
     if (this.detectDynamicStarClick_()) return;
-    if (this.detectDSOClick_(camera, renderer)) return;
     if (this.detectConstellationClick_(camera)) return;
 
     // Empty space click - deselect any selected object/constellation
