@@ -408,7 +408,7 @@ export class TelescopeController {
     return diameters.map((diameter) => {
       const margin = computeSbLimit(diameter, skySB) - objectSB;
       return {diameter, ...classifyVisibility(
-        margin, obj.type, obj.size_major, diameter, obj.mag
+        margin, obj.subtype || obj.type, obj.size_major, diameter, obj.mag
       )};
     });
   }
@@ -440,7 +440,7 @@ export class TelescopeController {
 
     return {
       objectSB,
-      ...classifyVisibility(margin, obj.type, obj.size_major, diameter, obj.mag),
+      ...classifyVisibility(margin, obj.subtype || obj.type, obj.size_major, diameter, obj.mag),
       recommendedExitPupil,
       suggestedEyepieceFl: Math.round(recommendedExitPupil * focalRatio),
       surfaceBrightnessPct: this.computedProperties_?.surfaceBrightnessPct ?? 0,
