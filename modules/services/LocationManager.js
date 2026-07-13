@@ -5,7 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {DEFAULT_LOCATION} from '../core/Constants.js';
-import {dateToJulianDate} from '../core/CoordinateUtils.js';
+import {calculateLST as computeLST} from '../core/CoordinateUtils.js';
 import {createLogger} from '../core/Logger.js';
 
 const logger = createLogger('LocationManager');
@@ -108,15 +108,18 @@ export class LocationManager {
       return;
     }
 
-    // Validate longitude
+    // Validate longitude (Number.isFinite also rejects Infinity, which would
+    // spin the old while-loop normalization forever)
     let safeLon = parseFloat(lon);
-    if (isNaN(safeLon)) {
+    if (!Number.isFinite(safeLon)) {
       logger.error('Invalid longitude:', lon);
       return;
     }
-    // Normalize longitude to -180 to 180
-    while (safeLon > 180) safeLon -= 360;
-    while (safeLon < -180) safeLon += 360;
+    // Normalize longitude to -180..180. Only touch out-of-range values, so
+    // in-range values stay exact; modulo (not a loop) keeps huge inputs O(1).
+    if (safeLon < -180 || safeLon > 180) {
+      safeLon = ((safeLon % 360) + 540) % 360 - 180;
+    }
 
     // Validate height
     const safeHeight = parseFloat(height);
@@ -248,20 +251,9 @@ export class LocationManager {
    * @returns {number} LST in degrees (0-360)
    */
   calculateLST(date) {
-    const jd = dateToJulianDate(date);
-    const T = (jd - 2451545.0) / 36525;
-
-    // Greenwich Mean Sidereal Time
-    const gmstRaw = 280.46061837 + 360.98564736629 * (jd - 2451545.0) +
-                    0.000387933 * T * T - T * T * T / 38710000;
-
-    const gmstMod = gmstRaw % 360;
-    const gmst = gmstMod < 0 ? gmstMod + 360 : gmstMod;
-
-    // Local Sidereal Time
-    const lstRaw = gmst + this.location_.lon;
-    const lstMod = lstRaw % 360;
-    return lstMod < 0 ? lstMod + 360 : lstMod;
+    // Delegate to the canonical implementation (CoordinateUtils) so the
+    // sidereal-time formula lives in exactly one place.
+    return computeLST(date, this.location_.lon);
   }
 
   /**
@@ -318,12 +310,17 @@ export class LocationManager {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const location = JSON.parse(saved);
-        if (typeof location.lat === 'number' &&
-            typeof location.lon === 'number') {
+        if (Number.isFinite(location.lat) && Number.isFinite(location.lon)) {
+          // Sanitize: clamp latitude and normalize longitude, matching
+          // setLocation, so tampered/out-of-range storage can't leak through.
+          let lon = location.lon;
+          if (lon < -180 || lon > 180) {
+            lon = ((lon % 360) + 540) % 360 - 180;
+          }
           return {
-            lat: location.lat,
-            lon: location.lon,
-            height: location.height || 0,
+            lat: Math.max(-90, Math.min(90, location.lat)),
+            lon,
+            height: Number.isFinite(location.height) ? location.height : 0,
           };
         }
       }
