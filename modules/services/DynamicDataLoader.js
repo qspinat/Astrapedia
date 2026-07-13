@@ -68,12 +68,6 @@ export class DynamicDataLoader {
     /** @private @const {number} */
     this.queryTimeout_ = config.timeout || 30000;
 
-    /** @private {!Array<!StarData>} */
-    this.dynamicStars_ = [];
-
-    /** @private {!Array<!DSOData>} */
-    this.dynamicDSOs_ = [];
-
     /** @private {!Set<string>} */
     this.queriedRegions_ = new Set();
 
@@ -322,12 +316,8 @@ export class DynamicDataLoader {
         stars.push(...simbadStars);
       }
 
-      // Add to collection and enforce limits
-      this.addStars_(stars);
-
       globalEventBus.emit(Events.DYNAMIC_STARS_LOADED, {
         count: stars.length,
-        total: this.dynamicStars_.length,
       });
 
       return stars;
@@ -560,14 +550,10 @@ export class DynamicDataLoader {
       const text = await response.text();
       const dsos = this.parseVOTableDSOs_(text);
 
-      // Add to collection and enforce limits
-      this.addDSOs_(dsos);
-
       logger.debug(`Loaded ${dsos.length} DSOs from VizieR`);
 
       globalEventBus.emit(Events.DYNAMIC_DSOS_LOADED, {
         count: dsos.length,
-        total: this.dynamicDSOs_.length,
       });
 
       return dsos;
@@ -681,95 +667,9 @@ export class DynamicDataLoader {
   }
 
   /**
-   * Add stars to collection with deduplication and limit enforcement.
-   * @param {!Array<!StarData>} newStars - Stars to add
-   * @private
-   */
-  addStars_(newStars) {
-    // Deduplicate
-    const uniqueStars = newStars.filter((star) => {
-      return !this.dynamicStars_.some((s) =>
-        Math.abs(s.ra - star.ra) < 0.001 && Math.abs(s.dec - star.dec) < 0.001
-      );
-    });
-
-    this.dynamicStars_.push(...uniqueStars);
-
-    // Enforce limit - keep brightest stars
-    if (this.dynamicStars_.length > this.maxStars_) {
-      this.dynamicStars_.sort((a, b) => a.mag - b.mag);
-      const excess = this.dynamicStars_.length - this.maxStars_;
-      this.dynamicStars_ = this.dynamicStars_.slice(0, this.maxStars_);
-      logger.debug(`Dynamic stars trimmed: removed ${excess} faintest`);
-    }
-  }
-
-  /**
-   * Add DSOs to collection with deduplication and limit enforcement.
-   * @param {!Array<!DSOData>} newDSOs - DSOs to add
-   * @private
-   */
-  addDSOs_(newDSOs) {
-    // Deduplicate
-    const uniqueDSOs = newDSOs.filter((dso) => {
-      return !this.dynamicDSOs_.some((d) =>
-        Math.abs(d.ra - dso.ra) < 0.01 && Math.abs(d.dec - dso.dec) < 0.01
-      );
-    });
-
-    this.dynamicDSOs_.push(...uniqueDSOs);
-
-    // Enforce limit - prioritize by size then brightness
-    if (this.dynamicDSOs_.length > this.maxDSOs_) {
-      this.dynamicDSOs_.sort((a, b) => {
-        const sizeDiff = (b.size_major || 1) - (a.size_major || 1);
-        if (Math.abs(sizeDiff) > 0.5) return sizeDiff;
-        return (a.mag || 15) - (b.mag || 15);
-      });
-      const excess = this.dynamicDSOs_.length - this.maxDSOs_;
-      this.dynamicDSOs_ = this.dynamicDSOs_.slice(0, this.maxDSOs_);
-      logger.debug(`Dynamic DSOs trimmed: removed ${excess} smallest/faintest`);
-    }
-  }
-
-  /**
-   * Filter stars outside a given view.
-   * @param {number} ra - View center RA
-   * @param {number} dec - View center Dec
-   * @param {number} fov - Field of view
-   */
-  filterStarsByView(ra, dec, fov) {
-    if (this.dynamicStars_.length === 0) return;
-
-    const filterRadius = Math.max(fov * 1.5, fov + 2);
-    const filterRadiusRad = filterRadius * Math.PI / 180;
-    const cosFilterRadius = Math.cos(filterRadiusRad);
-    const viewRaRad = ra * Math.PI / 180;
-    const viewDecRad = dec * Math.PI / 180;
-
-    const initialCount = this.dynamicStars_.length;
-
-    this.dynamicStars_ = this.dynamicStars_.filter((star) => {
-      const starRaRad = star.ra * Math.PI / 180;
-      const starDecRad = star.dec * Math.PI / 180;
-      const cosDist = Math.sin(viewDecRad) * Math.sin(starDecRad) +
-                      Math.cos(viewDecRad) * Math.cos(starDecRad) *
-                      Math.cos(starRaRad - viewRaRad);
-      return cosDist >= cosFilterRadius;
-    });
-
-    const removed = initialCount - this.dynamicStars_.length;
-    if (removed > 0) {
-      logger.debug(`Filtered ${removed} dynamic stars outside FOV`);
-    }
-  }
-
-  /**
    * Clear all dynamic data (called when zoomed out).
    */
   clearAll() {
-    this.dynamicStars_ = [];
-    this.dynamicDSOs_ = [];
     this.queriedRegions_.clear();
   }
 
@@ -786,39 +686,11 @@ export class DynamicDataLoader {
   }
 
   /**
-   * Get current dynamic stars.
-   * @returns {!Array<!StarData>} Dynamic stars array
-   */
-  getStars() {
-    return this.dynamicStars_;
-  }
-
-  /**
-   * Get current dynamic DSOs.
-   * @returns {!Array<!DSOData>} Dynamic DSOs array
-   */
-  getDSOs() {
-    return this.dynamicDSOs_;
-  }
-
-  /**
    * Check if currently querying.
    * @returns {boolean} True if querying
    */
   isQuerying() {
     return this.isQueryingStars_ || this.isQueryingDSOs_;
-  }
-
-  /**
-   * Get statistics.
-   * @returns {{stars: number, dsos: number, regions: number}} Stats
-   */
-  getStats() {
-    return {
-      stars: this.dynamicStars_.length,
-      dsos: this.dynamicDSOs_.length,
-      regions: this.queriedRegions_.size,
-    };
   }
 
   /**

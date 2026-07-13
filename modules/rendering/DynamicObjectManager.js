@@ -341,6 +341,10 @@ export class DynamicObjectManager {
    */
   addDynamicStars(starData, isSimbad = false) {
     const newStars = [];
+    // O(1) dedup via quantized ra/dec buckets (~0.001 deg) instead of an
+    // O(n*m) scan of the whole accumulated list on every batch.
+    const key = (ra, dec) => `${Math.round(ra * 1000)}:${Math.round(dec * 1000)}`;
+    const seen = new Set(this.dynamicStars.map((s) => key(s.ra, s.dec)));
 
     starData.forEach(row => {
       const ra = parseFloat(row[0]);
@@ -350,11 +354,9 @@ export class DynamicObjectManager {
 
       if (isNaN(ra) || isNaN(dec) || isNaN(mag)) return;
 
-      // Check for duplicates
-      const isDuplicate = this.dynamicStars.some(s =>
-        Math.abs(s.ra - ra) < 0.001 && Math.abs(s.dec - dec) < 0.001
-      );
-      if (isDuplicate) return;
+      const k = key(ra, dec);
+      if (seen.has(k)) return;
+      seen.add(k);
 
       newStars.push({ ra, dec, mag, ci: colorIndex });
     });
@@ -544,6 +546,10 @@ export class DynamicObjectManager {
 
     // Parse all DSOs first
     const newDSOs = [];
+    // O(1) dedup via quantized ra/dec buckets (~0.01 deg) instead of scanning
+    // the whole accumulated list for each incoming DSO.
+    const key = (ra, dec) => `${Math.round(ra * 100)}:${Math.round(dec * 100)}`;
+    const seen = new Set(this.dynamicDSOs.map((d) => key(d.ra, d.dec)));
     dsoData.forEach(row => {
       const ra = parseFloat(row[0]);
       const dec = parseFloat(row[1]);
@@ -557,11 +563,9 @@ export class DynamicObjectManager {
 
       if (isNaN(ra) || isNaN(dec)) return;
 
-      // Check for duplicates
-      const isDuplicate = this.dynamicDSOs.some(d =>
-        Math.abs(d.ra - ra) < 0.01 && Math.abs(d.dec - dec) < 0.01
-      );
-      if (isDuplicate) return;
+      const k = key(ra, dec);
+      if (seen.has(k)) return;
+      seen.add(k);
 
       newDSOs.push({
         ra, dec, mag,
@@ -590,9 +594,10 @@ export class DynamicObjectManager {
       logger.debug(`Dynamic DSOs trimmed: removed ${excess}, keeping ${this.maxDynamicDSOs}`);
     }
 
-    // Create sprites for new DSOs that are still in the list
+    // Create sprites for new DSOs that survived the trim (O(1) membership).
+    const survivors = new Set(this.dynamicDSOs);
     newDSOs.forEach(dso => {
-      if (this.dynamicDSOs.includes(dso)) {
+      if (survivors.has(dso)) {
         this.createDynamicDSOSprite_(dso, radius, celestialSphere);
         addedCount++;
       }
