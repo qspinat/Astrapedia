@@ -268,7 +268,7 @@ describe('UI Controller event wiring', () => {
 
   describe('SettingsHandler', () => {
     test('retrieves equator-line-toggle element', () => {
-      expect(uiControllerContent).toContain('getElementById(\'equator-line-toggle\')');
+      expect(uiControllerContent).toContain('domCache.get(\'equator-line-toggle\')');
     });
 
     test('adds change event listener to equator toggle', () => {
@@ -283,7 +283,7 @@ describe('UI Controller event wiring', () => {
     });
 
     test('retrieves magnitude-slider element', () => {
-      expect(uiControllerContent).toContain('getElementById(\'magnitude-slider\')');
+      expect(uiControllerContent).toContain('domCache.get(\'magnitude-slider\')');
     });
   });
 

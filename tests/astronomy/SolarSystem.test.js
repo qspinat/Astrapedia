@@ -99,8 +99,14 @@ describe('SolarSystem', () => {
       planets.forEach((name) => {
         const pos = calculatePlanetPositionFallback(name, date);
         expect(pos).not.toBeNull();
-        expect(pos.ra).toBeDefined();
-        expect(pos.dec).toBeDefined();
+        // Assert finite, in-range coordinates (not merely "defined", which
+        // would also pass for NaN or out-of-range values).
+        expect(Number.isFinite(pos.ra)).toBe(true);
+        expect(pos.ra).toBeGreaterThanOrEqual(0);
+        expect(pos.ra).toBeLessThan(360);
+        expect(Number.isFinite(pos.dec)).toBe(true);
+        expect(pos.dec).toBeGreaterThanOrEqual(-90);
+        expect(pos.dec).toBeLessThanOrEqual(90);
       });
     });
 
