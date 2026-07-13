@@ -226,14 +226,6 @@ export function getConstellationAbbrev(name, lang = 'en') {
 }
 
 /**
- * Get all constellation abbreviations.
- * @returns {!Array<string>} Array of IAU abbreviations
- */
-export function getAllConstellationAbbrevs() {
-  return Object.keys(CONSTELLATION_NAMES['en']);
-}
-
-/**
  * Get all available language codes.
  * @returns {!Array<string>} Array of language codes
  */
