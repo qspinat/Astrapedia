@@ -112,12 +112,18 @@ export class ConstellationRenderer {
    * Create constellation lines from star data.
    */
   createLines() {
-    // Remove old lines if they exist
+    // Remove old lines if they exist, disposing each line's geometry and its
+    // cloned material (each line uses lineMaterial.clone()), not just the
+    // tracked base materials below.
     if (this.linesGroup_) {
+      this.linesGroup_.children.forEach((line) => {
+        if (line.geometry) line.geometry.dispose();
+        if (line.material) line.material.dispose();
+      });
       this.celestialSphere_.remove(this.linesGroup_);
     }
 
-    // Dispose old line materials
+    // Dispose old (base) line materials
     this.lineMaterials_.forEach((mat) => mat.dispose());
     this.lineMaterials_ = [];
 

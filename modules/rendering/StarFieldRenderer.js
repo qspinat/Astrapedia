@@ -140,10 +140,12 @@ export class StarFieldRenderer {
       depthWrite: false,
     });
 
-    // Remove old star field if exists
+    // Remove old star field if exists (dispose the old material via the old
+    // Points, since this.material_ was already reassigned above).
     if (this.starField_) {
       this.celestialSphere_.remove(this.starField_);
       this.starField_.geometry.dispose();
+      this.starField_.material.dispose();
     }
 
     this.starField_ = new THREE.Points(geometry, this.material_);

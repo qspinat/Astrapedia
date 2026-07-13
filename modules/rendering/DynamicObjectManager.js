@@ -305,16 +305,20 @@ export class DynamicObjectManager {
 
     const initialCount = this.dynamicStars.length;
 
+    // Hoist view-center trig out of the per-star loop (loop-invariant).
+    const viewRaRad = THREE.MathUtils.degToRad(viewRaDec.ra);
+    const viewDecRad = THREE.MathUtils.degToRad(viewRaDec.dec);
+    const sinViewDec = Math.sin(viewDecRad);
+    const cosViewDec = Math.cos(viewDecRad);
+
     // Filter stars within angular distance of view center
     this.dynamicStars = this.dynamicStars.filter(star => {
       const starRaRad = THREE.MathUtils.degToRad(star.ra);
       const starDecRad = THREE.MathUtils.degToRad(star.dec);
-      const viewRaRad = THREE.MathUtils.degToRad(viewRaDec.ra);
-      const viewDecRad = THREE.MathUtils.degToRad(viewRaDec.dec);
 
       // Spherical law of cosines for angular distance
-      const cosDist = Math.sin(viewDecRad) * Math.sin(starDecRad) +
-               Math.cos(viewDecRad) * Math.cos(starDecRad) * Math.cos(starRaRad - viewRaRad);
+      const cosDist = sinViewDec * Math.sin(starDecRad) +
+               cosViewDec * Math.cos(starDecRad) * Math.cos(starRaRad - viewRaRad);
 
       return cosDist >= cosFilterRadius;
     });
@@ -578,7 +582,11 @@ export class DynamicObjectManager {
         return (a.mag || 15) - (b.mag || 15);
       });
       const excess = this.dynamicDSOs.length - this.maxDynamicDSOs;
+      const removed = this.dynamicDSOs.slice(this.maxDynamicDSOs);
       this.dynamicDSOs = this.dynamicDSOs.slice(0, this.maxDynamicDSOs);
+      // Dispose sprites of trimmed DSOs so the rendered set matches the list
+      // (otherwise earlier-added sprites are orphaned until the next clearAll_).
+      this.removeDSOSprites_(removed);
       logger.debug(`Dynamic DSOs trimmed: removed ${excess}, keeping ${this.maxDynamicDSOs}`);
     }
 
@@ -593,6 +601,30 @@ export class DynamicObjectManager {
     if (addedCount > 0) {
       logger.debug(`Added ${addedCount} new DSO sprites`);
     }
+  }
+
+  /**
+   * Remove and dispose the sprites belonging to the given DSOs.
+   * @param {!Array<!Object>} dsos - DSOs whose sprites should be removed.
+   * @private
+   */
+  removeDSOSprites_(dsos) {
+    if (!dsos.length) return;
+    const getSprites = this.callbacks_.getExtendedObjectSprites;
+    const removeSprite = this.callbacks_.removeExtendedSprite;
+    if (!getSprites || !removeSprite) return;
+    const celestialSphere = this.callbacks_.getCelestialSphere();
+    const removedSet = new Set(dsos);
+    getSprites()
+      .filter((s) => s.userData?.isDynamic && removedSet.has(s.userData.dso))
+      .forEach((sprite) => {
+        if (sprite.material) {
+          if (sprite.material.map) sprite.material.map.dispose();
+          sprite.material.dispose();
+        }
+        celestialSphere?.remove(sprite);
+        removeSprite(sprite);
+      });
   }
 
   /**
