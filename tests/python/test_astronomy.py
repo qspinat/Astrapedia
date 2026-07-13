@@ -16,6 +16,7 @@ from astrapedia.astronomy import (
     dataframe_to_star_dicts,
     angular_distance,
     parse_coordinate_string,
+    parse_dec_string,
     normalize_ra,
     normalize_dec,
     calculate_star_count_by_magnitude,
@@ -302,6 +303,27 @@ class TestParseCoordinateString:
     def test_none_input(self):
         result = parse_coordinate_string(None)
         assert result is None
+
+
+class TestParseDecString:
+    """Tests for declination string parsing."""
+
+    def test_decimal_string(self):
+        assert parse_dec_string("-0.0133") == pytest.approx(-0.0133)
+
+    def test_positive_dms(self):
+        # +12:30:00 = 12.5
+        assert parse_dec_string("+12:30:00") == pytest.approx(12.5)
+
+    def test_negative_dms(self):
+        assert parse_dec_string("-45:30:00") == pytest.approx(-45.5)
+
+    def test_small_negative_dec_keeps_sign(self):
+        # Regression: float("-00") is -0.0, so "-00:30:00" must NOT flip north.
+        assert parse_dec_string("-00:30:00") == pytest.approx(-0.5)
+
+    def test_none_input(self):
+        assert parse_dec_string(None) is None
 
 
 class TestNormalizeRa:

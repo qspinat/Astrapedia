@@ -23,11 +23,11 @@ class TestInjectSupplementaryObjects:
             {'name': 'NGC5866', 'messier': 102, 'common_names': ['Spindle Galaxy']},
         ]
 
-        result, added_count = inject_supplementary_objects(
+        result, added = inject_supplementary_objects(
             existing, supplementary, key='messier'
         )
 
-        assert added_count == 3
+        assert len(added) == 3
         assert len(result) == 5
 
         messier_numbers = {obj.get('messier') for obj in result}
@@ -48,11 +48,11 @@ class TestInjectSupplementaryObjects:
             {'name': 'WNC4', 'messier': 40, 'common_names': ['Winnecke 4']},
         ]
 
-        result, added_count = inject_supplementary_objects(
+        result, added = inject_supplementary_objects(
             existing, supplementary, key='messier'
         )
 
-        assert added_count == 1
+        assert len(added) == 1
         assert len(result) == 2
 
         # Verify M45 wasn't duplicated
@@ -67,11 +67,11 @@ class TestInjectSupplementaryObjects:
             {'name': 'WNC4', 'messier': 40},
         ]
 
-        result, added_count = inject_supplementary_objects(
+        result, added = inject_supplementary_objects(
             existing, supplementary, key='messier'
         )
 
-        assert added_count == 2
+        assert len(added) == 2
         assert len(result) == 2
 
     def test_handles_empty_supplementary_list(self):
@@ -79,11 +79,11 @@ class TestInjectSupplementaryObjects:
         existing = [{'name': 'NGC224', 'messier': 31}]
         supplementary = []
 
-        result, added_count = inject_supplementary_objects(
+        result, added = inject_supplementary_objects(
             existing, supplementary, key='messier'
         )
 
-        assert added_count == 0
+        assert len(added) == 0
         assert len(result) == 1
 
     def test_skips_objects_with_null_key(self):
@@ -97,11 +97,11 @@ class TestInjectSupplementaryObjects:
             {'name': 'Mel22', 'messier': 45},
         ]
 
-        result, added_count = inject_supplementary_objects(
+        result, added = inject_supplementary_objects(
             existing, supplementary, key='messier'
         )
 
-        assert added_count == 1
+        assert len(added) == 1
         assert len(result) == 3
 
     def test_custom_key(self):
@@ -112,11 +112,11 @@ class TestInjectSupplementaryObjects:
             {'name': 'Star3', 'hip': 12345},  # Duplicate
         ]
 
-        result, added_count = inject_supplementary_objects(
+        result, added = inject_supplementary_objects(
             existing, supplementary, key='hip'
         )
 
-        assert added_count == 1
+        assert len(added) == 1
         assert len(result) == 2
 
     def test_preserves_original_list_order(self):

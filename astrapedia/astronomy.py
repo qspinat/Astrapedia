@@ -321,7 +321,11 @@ def parse_dec_string(dec_str: str | None) -> float | None:
         return None
 
     try:
-        dec_str = str(dec_str).strip().replace("+", "")
+        raw = str(dec_str).strip()
+        # Capture the sign before parsing: float("-00") is -0.0, and
+        # -0.0 < 0 is False, which would flip a small southern dec positive.
+        negative = raw.startswith("-")
+        dec_str = raw.replace("+", "")
 
         # Try decimal first
         try:
@@ -337,8 +341,8 @@ def parse_dec_string(dec_str: str | None) -> float | None:
                     degrees = float(parts[0])
                     minutes = float(parts[1]) if len(parts) > 1 else 0
                     seconds = float(parts[2]) if len(parts) > 2 else 0
-                    sign = -1 if degrees < 0 else 1
-                    return degrees + sign * (minutes / 60 + seconds / 3600)
+                    sign = -1 if (degrees < 0 or negative) else 1
+                    return sign * (abs(degrees) + minutes / 60 + seconds / 3600)
                 except (ValueError, IndexError):
                     continue
 
@@ -390,7 +394,7 @@ def inject_supplementary_objects(
     objects: list[dict[str, Any]],
     supplementary: list[dict[str, Any]],
     key: str = "messier",
-) -> tuple[list[dict[str, Any]], int]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Inject supplementary objects into a list if not already present.
 
@@ -402,7 +406,7 @@ def inject_supplementary_objects(
         key: dictionary key to check for duplicates
 
     Returns:
-        tuple of (combined list, count of objects added)
+        tuple of (combined list, list of objects that were added)
     """
     existing_keys = {obj[key] for obj in objects if obj.get(key) is not None}
     added = []
@@ -411,4 +415,4 @@ def inject_supplementary_objects(
         if supp.get(key) is not None and supp[key] not in existing_keys:
             added.append(supp)
 
-    return objects + added, len(added)
+    return objects + added, added
