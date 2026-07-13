@@ -19,6 +19,7 @@ import {GameUI} from '../features/GameUI.js';
 import {TourUI} from '../features/TourUI.js';
 import {TimeUI} from '../features/TimeUI.js';
 import {TelescopeUI} from '../features/TelescopeUI.js';
+import {domCache} from './DOMCache.js';
 
 const logger = createLogger('UIController');
 
@@ -40,10 +41,10 @@ export class SearchController {
     this.selectObject_ = dependencies.selectObject;
 
     /** @private {?Element} */
-    this.searchInput_ = document.getElementById('search-input');
+    this.searchInput_ = domCache.get('search-input');
 
     /** @private {?Element} */
-    this.searchResults_ = document.getElementById('search-results');
+    this.searchResults_ = domCache.get('search-results');
 
     /** @private {!Array<!Object>} */
     this.currentResults_ = [];
@@ -251,7 +252,7 @@ export class SettingsHandler {
   setupTelescopeModeListeners_() {
     globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, () => {
       this.telescopeModeActive_ = true;
-      const magSlider = document.getElementById('magnitude-slider');
+      const magSlider = domCache.get('magnitude-slider');
       if (magSlider) {
         this.savedMagnitude_ = parseFloat(magSlider.value);
         magSlider.disabled = true;
@@ -260,7 +261,7 @@ export class SettingsHandler {
 
     globalEventBus.on(Events.TELESCOPE_MODE_DEACTIVATED, () => {
       this.telescopeModeActive_ = false;
-      const magSlider = document.getElementById('magnitude-slider');
+      const magSlider = domCache.get('magnitude-slider');
       if (magSlider) {
         magSlider.disabled = false;
         magSlider.value = this.savedMagnitude_;
@@ -275,7 +276,7 @@ export class SettingsHandler {
    */
   setupEventListeners_() {
     // Equator line toggle
-    const equatorToggle = document.getElementById('equator-line-toggle');
+    const equatorToggle = domCache.get('equator-line-toggle');
     if (equatorToggle) {
       equatorToggle.addEventListener('change', (e) => {
         this.deps_.setEquatorLineVisible?.(e.target.checked);
@@ -283,7 +284,7 @@ export class SettingsHandler {
     }
 
     // Coordinate grid toggle
-    const gridToggle = document.getElementById('grid-toggle');
+    const gridToggle = domCache.get('grid-toggle');
     if (gridToggle) {
       gridToggle.addEventListener('change', (e) => {
         this.deps_.setGridVisible?.(e.target.checked);
@@ -291,7 +292,7 @@ export class SettingsHandler {
     }
 
     // Language selector
-    const languageSelect = document.getElementById('constellation-language');
+    const languageSelect = domCache.get('constellation-language');
     if (languageSelect) {
       languageSelect.addEventListener('change', (e) => {
         this.deps_.setLanguage?.(e.target.value);
@@ -304,8 +305,8 @@ export class SettingsHandler {
     }
 
     // Magnitude slider
-    const magSlider = document.getElementById('magnitude-slider');
-    const magValue = document.getElementById('mag-value');
+    const magSlider = domCache.get('magnitude-slider');
+    const magValue = domCache.get('mag-value');
     if (magSlider && magValue) {
       // Initialize from constant
       magSlider.value = STARS.DEFAULT_MAGNITUDE;
@@ -324,7 +325,7 @@ export class SettingsHandler {
     }
 
     // Set location button
-    const setLocationBtn = document.getElementById('set-location-btn');
+    const setLocationBtn = domCache.get('set-location-btn');
     if (setLocationBtn) {
       addMobileButtonListener(setLocationBtn, () => {
         this.deps_.showLocationDialog?.();
@@ -332,7 +333,7 @@ export class SettingsHandler {
     }
 
     // Auto location button
-    const autoLocationBtn = document.getElementById('auto-location-btn');
+    const autoLocationBtn = domCache.get('auto-location-btn');
     if (autoLocationBtn) {
       addMobileButtonListener(autoLocationBtn, () => {
         this.deps_.requestGeolocation?.();
@@ -340,7 +341,7 @@ export class SettingsHandler {
     }
 
     // Reset view button
-    const resetViewBtn = document.getElementById('reset-view-btn');
+    const resetViewBtn = domCache.get('reset-view-btn');
     if (resetViewBtn) {
       addMobileButtonListener(resetViewBtn, () => {
         this.deps_.resetCamera?.();
@@ -348,7 +349,7 @@ export class SettingsHandler {
     }
 
     // Upcoming events button
-    const eventsBtn = document.getElementById('events-btn');
+    const eventsBtn = domCache.get('events-btn');
     if (eventsBtn) {
       addMobileButtonListener(eventsBtn, () => {
         this.deps_.showEventsCalendar?.();
@@ -356,8 +357,8 @@ export class SettingsHandler {
     }
 
     // Max dynamic stars slider
-    const maxDynamicSlider = document.getElementById('max-dynamic-stars');
-    const maxDynamicValue = document.getElementById('max-dynamic-stars-value');
+    const maxDynamicSlider = domCache.get('max-dynamic-stars');
+    const maxDynamicValue = domCache.get('max-dynamic-stars-value');
     if (maxDynamicSlider && maxDynamicValue) {
       maxDynamicSlider.addEventListener('input', (e) => {
         const val = parseInt(e.target.value, 10);
@@ -373,7 +374,7 @@ export class SettingsHandler {
     }
 
     // Constellation quick toggle - cycles: all → focus → off → all
-    const quickToggle = document.getElementById('constellations-quick-toggle');
+    const quickToggle = domCache.get('constellations-quick-toggle');
     if (quickToggle) {
       this.syncConstellationQuickToggle_('all');
       addMobileButtonListener(quickToggle, () => {
@@ -399,7 +400,7 @@ export class SettingsHandler {
    * @private
    */
   syncConstellationQuickToggle_(mode) {
-    const quickToggle = document.getElementById('constellations-quick-toggle');
+    const quickToggle = domCache.get('constellations-quick-toggle');
     if (!quickToggle) return;
 
     quickToggle.classList.toggle('active', mode === 'all');
@@ -473,17 +474,17 @@ export class InfoBadgeUpdater {
    * @private
    */
   updateBadges_() {
-    const fovBadge = document.getElementById('fov-badge');
-    const coordsBadge = document.getElementById('coords-badge');
+    const fovBadge = domCache.get('fov-badge');
+    const coordsBadge = domCache.get('coords-badge');
 
     if (fovBadge) {
       fovBadge.textContent =
-        document.getElementById('fov-display')?.textContent || '60°';
+        domCache.get('fov-display')?.textContent || '60°';
     }
 
     if (coordsBadge) {
-      const ra = document.getElementById('ra-display')?.textContent || '0°';
-      const dec = document.getElementById('dec-display')?.textContent || '0°';
+      const ra = domCache.get('ra-display')?.textContent || '0°';
+      const dec = domCache.get('dec-display')?.textContent || '0°';
       coordsBadge.textContent = `RA ${ra} Dec ${dec}`;
     }
   }
@@ -494,8 +495,8 @@ export class InfoBadgeUpdater {
    * @private
    */
   updateFOVDisplay_(fov) {
-    const fovBadge = document.getElementById('fov-badge');
-    const fovDisplay = document.getElementById('fov-display');
+    const fovBadge = domCache.get('fov-badge');
+    const fovDisplay = domCache.get('fov-display');
 
     if (fovDisplay) {
       fovDisplay.textContent = `${fov.toFixed(1)}°`;
@@ -632,7 +633,7 @@ export class UIController {
    */
   setupPanelButtons_() {
     // Settings toggle
-    const settingsToggle = document.getElementById('settings-toggle');
+    const settingsToggle = domCache.get('settings-toggle');
     if (settingsToggle) {
       addMobileButtonListener(settingsToggle, () => {
         this.panelManager_.toggle('settings-panel');
@@ -640,7 +641,7 @@ export class UIController {
     }
 
     // Compass toggle
-    const compassToggle = document.getElementById('compass-toggle');
+    const compassToggle = domCache.get('compass-toggle');
     if (compassToggle) {
       addMobileButtonListener(compassToggle, () => {
         this.deps_.toggleCompassMode?.();
@@ -653,7 +654,7 @@ export class UIController {
     this.panelManager_.setupCloseButton('events-close-btn');
 
     // Info panel close button
-    const infoCloseBtn = document.getElementById('info-close-btn');
+    const infoCloseBtn = domCache.get('info-close-btn');
     if (infoCloseBtn) {
       addMobileButtonListener(infoCloseBtn, () => {
         this.deps_.selectObject?.(null);
