@@ -611,14 +611,16 @@ export class TourController {
     );
     if (obj) return {...obj, type: 'Star'};
 
-    // Check by coordinates
+    // Check by coordinates (wrap RA delta across the 0h/360h meridian)
     obj = dsos.find((d) =>
-      Math.abs(d.ra - ra) < 0.5 && Math.abs(d.dec - dec) < 0.5
+      Math.abs(((d.ra - ra + 540) % 360) - 180) < 0.5 &&
+      Math.abs(d.dec - dec) < 0.5
     );
     if (obj) return obj;
 
     obj = stars.find((s) =>
-      Math.abs(s.ra - ra) < 0.5 && Math.abs(s.dec - dec) < 0.5
+      Math.abs(((s.ra - ra + 540) % 360) - 180) < 0.5 &&
+      Math.abs(s.dec - dec) < 0.5
     );
     if (obj) return {...obj, type: 'Star'};
 

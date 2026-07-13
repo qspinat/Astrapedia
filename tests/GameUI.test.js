@@ -86,12 +86,12 @@ describe('GameUI', () => {
       expect(gameUI.isPlaying()).toBe(true);
     });
 
-    test('handles GAME_ENDED event', () => {
+    test('handles GAME_STOPPED event', () => {
       gameUI.initialize();
       globalEventBus.emit(Events.GAME_STARTED, {});
       expect(gameUI.isPlaying()).toBe(true);
 
-      globalEventBus.emit(Events.GAME_ENDED, {});
+      globalEventBus.emit(Events.GAME_STOPPED, {});
       expect(gameUI.isPlaying()).toBe(false);
     });
 
@@ -117,10 +117,10 @@ describe('GameUI', () => {
       expect(questionEl.textContent).toBe('Ursa Major');
     });
 
-    test('handles GAME_SCORE event', () => {
+    test('handles GAME_SCORE_UPDATED event', () => {
       gameUI.initialize();
 
-      globalEventBus.emit(Events.GAME_SCORE, {score: 5, total: 10});
+      globalEventBus.emit(Events.GAME_SCORE_UPDATED, {score: 5, total: 10});
 
       const scoreEl = document.getElementById('game-score');
       expect(scoreEl.textContent).toBe('Score: 5/10');
@@ -141,7 +141,7 @@ describe('GameUI', () => {
       const panel = document.getElementById('game-panel');
 
       globalEventBus.emit(Events.GAME_STARTED, {});
-      globalEventBus.emit(Events.GAME_ENDED, {});
+      globalEventBus.emit(Events.GAME_STOPPED, {});
       expect(panel.classList.contains('active')).toBe(false);
     });
   });

@@ -157,53 +157,56 @@ export class EventsCalendar {
   getFallbackEvents() {
     const now = new Date();
     const year = now.getFullYear();
-    const nextYear = year + 1;
 
-    // Build events array with annual recurring events
-    const events = [
-      // ===== METEOR SHOWERS =====
-      {name: 'Quadrantids Meteor Shower', date: new Date(year, 0, 3), type: 'meteor',
-       description: 'Up to 120 meteors/hour. Best viewed from Northern Hemisphere.'},
-      {name: 'Lyrids Meteor Shower', date: new Date(year, 3, 22), type: 'meteor',
-       description: 'Up to 20 meteors/hour. Active April 16-25.'},
-      {name: 'Eta Aquarids Meteor Shower', date: new Date(year, 4, 6), type: 'meteor',
-       description: 'Up to 60 meteors/hour. Debris from Halley\'s Comet.'},
-      {name: 'Delta Aquarids Meteor Shower', date: new Date(year, 6, 30), type: 'meteor',
-       description: 'Up to 20 meteors/hour. Best from Southern Hemisphere.'},
-      {name: 'Perseids Meteor Shower', date: new Date(year, 7, 12), type: 'meteor',
-       description: 'Up to 100 meteors/hour. One of the best annual showers.'},
-      {name: 'Orionids Meteor Shower', date: new Date(year, 9, 21), type: 'meteor',
-       description: 'Up to 20 meteors/hour. Debris from Halley\'s Comet.'},
-      {name: 'Leonids Meteor Shower', date: new Date(year, 10, 17), type: 'meteor',
-       description: 'Up to 15 meteors/hour. Produces meteor storms every 33 years.'},
-      {name: 'Geminids Meteor Shower', date: new Date(year, 11, 14), type: 'meteor',
-       description: 'Up to 150 meteors/hour. Best meteor shower of the year.'},
-      {name: 'Ursids Meteor Shower', date: new Date(year, 11, 22), type: 'meteor',
-       description: 'Up to 10 meteors/hour. Often overlooked due to holidays.'},
-
-      // ===== SOLSTICES AND EQUINOXES =====
-      {name: 'Vernal Equinox', date: new Date(year, 2, 20), type: 'equinox',
-       description: 'Spring begins in Northern Hemisphere.'},
-      {name: 'Summer Solstice', date: new Date(year, 5, 21), type: 'solstice',
-       description: 'Longest day of the year in Northern Hemisphere.'},
-      {name: 'Autumnal Equinox', date: new Date(year, 8, 22), type: 'equinox',
-       description: 'Fall begins in Northern Hemisphere.'},
-      {name: 'Winter Solstice', date: new Date(year, 11, 21), type: 'solstice',
-       description: 'Shortest day of the year in Northern Hemisphere.'},
-
-      // Next year recurring
-      {name: 'Quadrantids Meteor Shower', date: new Date(nextYear, 0, 3), type: 'meteor',
-       description: 'Up to 120 meteors/hour.'},
-      {name: 'Vernal Equinox', date: new Date(nextYear, 2, 20), type: 'equinox',
-       description: 'Spring begins in Northern Hemisphere.'},
-    ];
-
-    // Add year-specific events (eclipses, planetary events) for 4 years
+    // Recurring (showers/solstices/equinoxes) + year-specific events for 4 years
+    const events = [];
     for (let y = year; y <= year + 3; y++) {
+      events.push(...this.getRecurringEvents_(y));
       events.push(...this.getYearSpecificEvents_(y));
     }
 
     return events;
+  }
+
+  /**
+   * Returns the annually recurring meteor showers, solstices, and equinoxes
+   * for a given year.
+   * @param {number} y - Calendar year.
+   * @returns {!Array<!Object>} Recurring events for that year.
+   * @private
+   */
+  getRecurringEvents_(y) {
+    return [
+      // ===== METEOR SHOWERS =====
+      {name: 'Quadrantids Meteor Shower', date: new Date(y, 0, 3), type: 'meteor',
+       description: 'Up to 120 meteors/hour. Best viewed from Northern Hemisphere.'},
+      {name: 'Lyrids Meteor Shower', date: new Date(y, 3, 22), type: 'meteor',
+       description: 'Up to 20 meteors/hour. Active April 16-25.'},
+      {name: 'Eta Aquarids Meteor Shower', date: new Date(y, 4, 6), type: 'meteor',
+       description: 'Up to 60 meteors/hour. Debris from Halley\'s Comet.'},
+      {name: 'Delta Aquarids Meteor Shower', date: new Date(y, 6, 30), type: 'meteor',
+       description: 'Up to 20 meteors/hour. Best from Southern Hemisphere.'},
+      {name: 'Perseids Meteor Shower', date: new Date(y, 7, 12), type: 'meteor',
+       description: 'Up to 100 meteors/hour. One of the best annual showers.'},
+      {name: 'Orionids Meteor Shower', date: new Date(y, 9, 21), type: 'meteor',
+       description: 'Up to 20 meteors/hour. Debris from Halley\'s Comet.'},
+      {name: 'Leonids Meteor Shower', date: new Date(y, 10, 17), type: 'meteor',
+       description: 'Up to 15 meteors/hour. Produces meteor storms every 33 years.'},
+      {name: 'Geminids Meteor Shower', date: new Date(y, 11, 14), type: 'meteor',
+       description: 'Up to 150 meteors/hour. Best meteor shower of the year.'},
+      {name: 'Ursids Meteor Shower', date: new Date(y, 11, 22), type: 'meteor',
+       description: 'Up to 10 meteors/hour. Often overlooked due to holidays.'},
+
+      // ===== SOLSTICES AND EQUINOXES =====
+      {name: 'Vernal Equinox', date: new Date(y, 2, 20), type: 'equinox',
+       description: 'Spring begins in Northern Hemisphere.'},
+      {name: 'Summer Solstice', date: new Date(y, 5, 21), type: 'solstice',
+       description: 'Longest day of the year in Northern Hemisphere.'},
+      {name: 'Autumnal Equinox', date: new Date(y, 8, 22), type: 'equinox',
+       description: 'Fall begins in Northern Hemisphere.'},
+      {name: 'Winter Solstice', date: new Date(y, 11, 21), type: 'solstice',
+       description: 'Shortest day of the year in Northern Hemisphere.'},
+    ];
   }
 
   /**

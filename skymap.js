@@ -1538,6 +1538,14 @@ export class AstrapediaApp {
     this.requestRender();
   }
 
+  /**
+   * Returns the current simulation time (falls back to the real clock).
+   * @return {!Date} The simulated time.
+   */
+  getSimulationTime() {
+    return this.timeController_?.getTime() ?? new Date();
+  }
+
   // Feature 9: Atmosphere Rendering (simplified)
   updateAtmosphere() {
     // If force night mode is enabled, always show night sky
@@ -1907,7 +1915,11 @@ export class AstrapediaApp {
    * @param {string} constellationName - Name of the constellation to highlight
    */
   highlightConstellation(constellationName) {
-    this.constellationRenderer_?.highlight(constellationName);
+    // Normalize spaced/display names (e.g. "Ursa Major") to the internal
+    // CamelCase key the renderer matches on. An existing key passes through
+    // unchanged, so this is safe for the already-normalized click path.
+    const key = this.getConstellationFullName(constellationName);
+    this.constellationRenderer_?.highlight(key);
   }
 
   /**
