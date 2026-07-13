@@ -39,21 +39,9 @@ describe('PowerManager', () => {
     test('initializes not animating', () => {
       expect(powerManager.isAnimating()).toBe(false);
     });
-
-    test('initializes needs render true', () => {
-      expect(powerManager.needsRender()).toBe(true);
-    });
   });
 
   describe('requestRender', () => {
-    test('sets needsRender flag', () => {
-      powerManager.clearNeedsRender();
-      expect(powerManager.needsRender()).toBe(false);
-
-      powerManager.requestRender();
-      expect(powerManager.needsRender()).toBe(true);
-    });
-
     test('starts animating if not already', () => {
       expect(powerManager.isAnimating()).toBe(false);
 
@@ -116,12 +104,6 @@ describe('PowerManager', () => {
       expect(mockDeps.onStartAnimating).toHaveBeenCalled();
     });
 
-    test('sets needsRender flag', () => {
-      powerManager.clearNeedsRender();
-      powerManager.startAnimating();
-      expect(powerManager.needsRender()).toBe(true);
-    });
-
     test('does not call callback twice if already animating', () => {
       powerManager.startAnimating();
       powerManager.startAnimating();
@@ -162,17 +144,6 @@ describe('PowerManager', () => {
       expect(mockDeps.onStopAnimating).toHaveBeenCalled();
     });
 
-    test('respects custom idle timeout', () => {
-      powerManager.setIdleTimeout(5000);
-      powerManager.startAnimating();
-
-      jest.advanceTimersByTime(3000);
-      expect(powerManager.isAnimating()).toBe(true);
-
-      jest.advanceTimersByTime(2000);
-      expect(powerManager.isAnimating()).toBe(false);
-    });
-
     test('keeps animating if shouldKeepAnimating returns true', () => {
       mockDeps.shouldKeepAnimating.mockReturnValue(true);
       powerManager.startAnimating();
@@ -180,16 +151,6 @@ describe('PowerManager', () => {
       jest.advanceTimersByTime(5000);
 
       expect(powerManager.isAnimating()).toBe(true);
-    });
-  });
-
-  describe('clearNeedsRender', () => {
-    test('clears needsRender flag', () => {
-      powerManager.requestRender();
-      expect(powerManager.needsRender()).toBe(true);
-
-      powerManager.clearNeedsRender();
-      expect(powerManager.needsRender()).toBe(false);
     });
   });
 

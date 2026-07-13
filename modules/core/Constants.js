@@ -240,8 +240,6 @@ export const THROTTLE = {
   DYNAMIC_CHECK: 500,
   /** Interval for info badge updates (ms). */
   INFO_BADGE: 2000,
-  /** Idle timeout before stopping animation (ms). */
-  IDLE_TIMEOUT: 30000,
 };
 
 /**
@@ -249,8 +247,8 @@ export const THROTTLE = {
  * @const {!Object}
  */
 export const POWER_SAVING = {
-  /** Time after interaction to consider idle (ms). */
-  IDLE_THRESHOLD: 30000,
+  /** Time after the last interaction before animation stops (ms). */
+  IDLE_THRESHOLD: 3000,
   /** Whether to reduce framerate when idle. */
   REDUCE_FRAMERATE_WHEN_IDLE: true,
   /** Target framerate when idle. */
