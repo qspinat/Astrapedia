@@ -943,10 +943,21 @@ export class AstrapediaApp {
     // Fog removed - was creating dark shadow in center
   }
 
+  /**
+   * Computes the FOV for a given camera distance, matching the zoom mapping.
+   * @param {number} distance Camera distance in scene units.
+   * @return {number} Field of view in degrees.
+   * @private
+   */
+  computeFovForDistance_(distance) {
+    const normalizedDistance = Math.log(distance / this.minDistance) /
+        Math.log(this.maxDistance / this.minDistance);
+    return 5 + normalizedDistance * 115;
+  }
+
   setupCamera() {
     // Calculate initial FOV based on camera distance (using same formula as zoom)
-    const normalizedDistance = Math.log(this.cameraDistance / this.minDistance) / Math.log(this.maxDistance / this.minDistance);
-    const initialFov = 5 + normalizedDistance * 115;
+    const initialFov = this.computeFovForDistance_(this.cameraDistance);
 
     this.camera = new THREE.PerspectiveCamera(
       initialFov,
@@ -1908,8 +1919,15 @@ export class AstrapediaApp {
   }
 
   resetView() {
-    this.cameraRotation = { theta: 0, phi: Math.PI / 2 };
-    this.cameraDistance = 5;
+    this.cameraRotation = {theta: CAMERA.DEFAULT_THETA, phi: CAMERA.DEFAULT_PHI};
+    this.cameraDistance = CAMERA.INITIAL_DISTANCE;
+    // Sync smooth-zoom targets and FOV so updateSmoothZoom() converges to the
+    // reset state instead of lerping the camera back to the pre-reset view.
+    this.targetTheta = CAMERA.DEFAULT_THETA;
+    this.targetPhi = CAMERA.DEFAULT_PHI;
+    this.targetFov = this.computeFovForDistance_(this.cameraDistance);
+    this.camera.fov = this.targetFov;
+    this.camera.updateProjectionMatrix();
     this.updateCameraPosition();
     this.requestRender();
   }
