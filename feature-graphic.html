@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 1024px; height: 500px; overflow: hidden; }
+  .container {
+    width: 1024px;
+    height: 500px;
+    background: linear-gradient(135deg, #050810 0%, #0e1424 40%, #0a0f1a 70%, #050810 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Stars */
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: white;
+  }
+  .content {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    z-index: 1;
+  }
+  .logo { width: 200px; height: 200px; }
+  .text { color: white; }
+  .title {
+    font-family: 'Georgia', serif;
+    font-size: 72px;
+    font-weight: normal;
+    letter-spacing: 4px;
+    color: #e8d5a3;
+    margin-bottom: 12px;
+  }
+  .tagline {
+    font-family: -apple-system, sans-serif;
+    font-size: 22px;
+    color: #8899bb;
+    letter-spacing: 1px;
+    font-weight: 300;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Scattered stars -->
+  <div class="star" style="width:3px;height:3px;top:45px;left:80px;opacity:0.7"></div>
+  <div class="star" style="width:2px;height:2px;top:120px;left:200px;opacity:0.4"></div>
+  <div class="star" style="width:4px;height:4px;top:60px;left:350px;opacity:0.6"></div>
+  <div class="star" style="width:2px;height:2px;top:180px;left:500px;opacity:0.3"></div>
+  <div class="star" style="width:3px;height:3px;top:30px;left:650px;opacity:0.5"></div>
+  <div class="star" style="width:2px;height:2px;top:100px;left:800px;opacity:0.4"></div>
+  <div class="star" style="width:3px;height:3px;top:200px;left:900px;opacity:0.6"></div>
+  <div class="star" style="width:2px;height:2px;top:350px;left:100px;opacity:0.3"></div>
+  <div class="star" style="width:4px;height:4px;top:400px;left:250px;opacity:0.5"></div>
+  <div class="star" style="width:2px;height:2px;top:420px;left:450px;opacity:0.4"></div>
+  <div class="star" style="width:3px;height:3px;top:380px;left:700px;opacity:0.6"></div>
+  <div class="star" style="width:2px;height:2px;top:450px;left:850px;opacity:0.3"></div>
+  <div class="star" style="width:2px;height:2px;top:280px;left:50px;opacity:0.35"></div>
+  <div class="star" style="width:3px;height:3px;top:150px;left:950px;opacity:0.5"></div>
+  <div class="star" style="width:2px;height:2px;top:320px;left:550px;opacity:0.25"></div>
+  <div class="star" style="width:3px;height:3px;top:70px;left:530px;opacity:0.45"></div>
+  <div class="star" style="width:2px;height:2px;top:470px;left:620px;opacity:0.3"></div>
+  <div class="star" style="width:2px;height:2px;top:250px;left:780px;opacity:0.35"></div>
+
+  <div class="content">
+    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="bg" cx="50%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#0e1424"/>
+          <stop offset="100%" stop-color="#050810"/>
+        </radialGradient>
+        <radialGradient id="starglow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#d4a84b" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#d4a84b" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="256" cy="256" r="230" fill="none" stroke="#9a7a3a" stroke-width="5" opacity="0.4"/>
+      <ellipse cx="256" cy="256" rx="170" ry="52" fill="none" stroke="#d4a84b" stroke-width="5" opacity="0.5" transform="rotate(-28, 256, 256)"/>
+      <ellipse cx="256" cy="256" rx="170" ry="52" fill="none" stroke="#d4a84b" stroke-width="5" opacity="0.45" transform="rotate(28, 256, 256)"/>
+      <ellipse cx="256" cy="256" rx="52" ry="170" fill="none" stroke="#9a7a3a" stroke-width="4" opacity="0.3"/>
+      <circle cx="256" cy="234" r="65" fill="url(#starglow)"/>
+      <path d="M256,180 L268,222 L312,234 L268,246 L256,288 L244,246 L200,234 L244,222 Z" fill="#d4a84b"/>
+      <circle cx="148" cy="148" r="5" fill="#a8b4c0" opacity="0.7"/>
+      <circle cx="370" cy="158" r="4" fill="#a8b4c0" opacity="0.6"/>
+      <circle cx="152" cy="360" r="4" fill="#a8b4c0" opacity="0.5"/>
+      <circle cx="368" cy="368" r="4.5" fill="#a8b4c0" opacity="0.5"/>
+      <circle cx="115" cy="248" r="3" fill="#fff" opacity="0.35"/>
+      <circle cx="398" cy="255" r="3" fill="#fff" opacity="0.3"/>
+    </svg>
+    <div class="text">
+      <div class="title">Astrapedia</div>
+      <div class="tagline">Explore the night sky</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
