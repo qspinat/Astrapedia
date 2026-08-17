@@ -523,7 +523,8 @@ export class AstrapediaApp {
       onStopAnimating: () => {
         this._isAnimating = false;
       },
-      shouldKeepAnimating: () => this.timeController_.isPlaying() || !!this._targetFov,
+      shouldKeepAnimating: () =>
+        this.timeController_.isPlaying() || this.isCameraConverging_(),
     });
     this.powerManager_.initialize();
   }
@@ -1242,17 +1243,66 @@ export class AstrapediaApp {
     if (domCache.fovDisplay) domCache.fovDisplay.textContent = formatAngle(this.camera.fov);
   }
 
+  /**
+   * Shortest signed distance from the current theta to the target, taking the
+   * 2*PI wraparound into account.
+   * @return {number} Difference in radians, in [-PI, PI].
+   * @private
+   */
+  thetaDiffToTarget_() {
+    let diff = this.targetTheta - this.cameraRotation.theta;
+    if (diff > Math.PI) diff -= 2 * Math.PI;
+    if (diff < -Math.PI) diff += 2 * Math.PI;
+    return diff;
+  }
+
+  /**
+   * Whether the FOV lerp has yet to settle.
+   * Uses a proportional threshold so deep zooms (FOV far below 1 degree) still
+   * converge rather than stopping at a fixed absolute epsilon.
+   * @return {boolean}
+   * @private
+   */
+  isFovConverging_() {
+    if (this.targetFov === null) return false;
+    const threshold = Math.min(0.001, this.camera.fov * 0.001);
+    return Math.abs(this.targetFov - this.camera.fov) > threshold;
+  }
+
+  /**
+   * Whether the camera rotation lerp has yet to settle.
+   * @return {boolean}
+   * @private
+   */
+  isRotationConverging_() {
+    return Math.abs(this.thetaDiffToTarget_()) > 0.0001 ||
+           Math.abs(this.targetPhi - this.cameraRotation.phi) > 0.0001;
+  }
+
+  /**
+   * Whether the camera is still animating toward a target.
+   *
+   * PowerManager consults this to decide whether it may stop the render loop
+   * when the user goes idle. It shares its thresholds with updateSmoothZoom so
+   * the two cannot disagree — if the gate were laxer than the lerp, the loop
+   * would stop mid-animation and freeze the camera partway; if it were
+   * stricter, the loop would never idle and drain the battery.
+   * @return {boolean}
+   * @private
+   */
+  isCameraConverging_() {
+    if (this.targetFov === null) return false;
+    return this.isFovConverging_() || this.isRotationConverging_();
+  }
+
   updateSmoothZoom() {
     if (this.targetFov === null) return false;
 
     let changed = false;
 
     // Smoothly interpolate FOV
-    const fovDiff = this.targetFov - this.camera.fov;
-    // Use proportional threshold for deep zoom (0.1% of current FOV or 0.001, whichever is smaller)
-    const fovThreshold = Math.min(0.001, this.camera.fov * 0.001);
-    if (Math.abs(fovDiff) > fovThreshold) {
-      this.camera.fov += fovDiff * this.zoomLerpSpeed;
+    if (this.isFovConverging_()) {
+      this.camera.fov += (this.targetFov - this.camera.fov) * this.zoomLerpSpeed;
       this.camera.updateProjectionMatrix();
       changed = true;
 
@@ -1261,16 +1311,10 @@ export class AstrapediaApp {
     }
 
     // Smoothly interpolate rotation
-    let thetaDiff = this.targetTheta - this.cameraRotation.theta;
-    // Handle wraparound
-    if (thetaDiff > Math.PI) thetaDiff -= 2 * Math.PI;
-    if (thetaDiff < -Math.PI) thetaDiff += 2 * Math.PI;
-
-    const phiDiff = this.targetPhi - this.cameraRotation.phi;
-
-    if (Math.abs(thetaDiff) > 0.0001 || Math.abs(phiDiff) > 0.0001) {
-      this.cameraRotation.theta += thetaDiff * this.zoomLerpSpeed;
-      this.cameraRotation.phi += phiDiff * this.zoomLerpSpeed;
+    if (this.isRotationConverging_()) {
+      this.cameraRotation.theta += this.thetaDiffToTarget_() * this.zoomLerpSpeed;
+      this.cameraRotation.phi +=
+          (this.targetPhi - this.cameraRotation.phi) * this.zoomLerpSpeed;
 
       // Clamp phi
       this.cameraRotation.phi = clamp(this.cameraRotation.phi, 0.1, Math.PI - 0.1);
