@@ -58,6 +58,14 @@ export class PlanetRenderer {
     /** @private {?THREE.TextureLoader} */
     this.textureLoader_ = null;
 
+    /**
+     * Incremented by create(). A texture load stamps the generation it
+     * started in, so one that resolves after a rebuild can be discarded
+     * instead of being applied to a disposed sprite.
+     * @private {number}
+     */
+    this.generation_ = 0;
+
     /** @private {number} */
     this.radius_ = SPHERE.GRID_RADIUS;
   }
@@ -100,6 +108,10 @@ export class PlanetRenderer {
       this.celestialSphere_.remove(sprite);
     });
     this.sprites_ = [];
+
+    // Invalidate any texture load still in flight against the sprites just
+    // disposed, so it cannot resolve onto an orphan. See applyTexture_.
+    this.generation_++;
 
     // Initialize texture loader
     if (!this.textureLoader_) {
@@ -206,6 +218,8 @@ export class PlanetRenderer {
       imageUrl: planet.imageUrl,
       imageLoaded: false,
       imageLoading: false,
+      // Checked by applyTexture_ to discard loads that outlive their sprite.
+      generation: this.generation_,
     };
 
     sprite.scale.set(1, 1, 1);
@@ -462,6 +476,16 @@ export class PlanetRenderer {
    */
   applyTexture_(sprite, texture) {
     const data = sprite.userData;
+
+    // A load started before the last create() targets a sprite that has since
+    // been disposed and removed from the scene. Applying it would
+    // double-dispose the material, strand the new texture on an orphan, and
+    // set imageLoaded on dead userData — leaving the live sprite to request
+    // the same image again on the next frame.
+    if (data.generation !== this.generation_) {
+      texture.dispose();
+      return;
+    }
 
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;

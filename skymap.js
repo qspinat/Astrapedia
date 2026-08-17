@@ -415,7 +415,10 @@ export class AstrapediaApp {
    */
   initTimeController_() {
     this.timeController_ = new TimeController({
-      updatePlanets: () => this.createPlanets(),
+      // Reposition rather than rebuild. createPlanets() disposes and recreates
+      // all nine sprites, which at 1000x speed ran every ~3.6 real seconds and
+      // re-fetched every planet photo from the CDN each time.
+      updatePlanets: () => this.updatePlanetPositions(),
       rotateCelestialSphere: (angle) => {
         if (this.celestialSphere) {
           this.celestialSphere.rotation.y += angle;

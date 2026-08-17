@@ -343,6 +343,16 @@ class CanvasTexture extends Texture {
 class TextureLoader {
   constructor() {
     this.requests = [];
+    this.crossOrigin = 'anonymous';
+    this.path = '';
+  }
+  setCrossOrigin(value) {
+    this.crossOrigin = value;
+    return this;
+  }
+  setPath(value) {
+    this.path = value;
+    return this;
   }
   load(url, onLoad, onProgress, onError) {
     const texture = new Texture({src: url});
