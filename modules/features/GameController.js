@@ -117,6 +117,15 @@ export class GameController {
     /** @private {?number} */
     this.timerInterval_ = null;
 
+    /**
+     * Handle for the delay between answering a question and advancing to the
+     * next one. Tracked so stop() can cancel it — otherwise it fires into a
+     * subsequently started game. Only one is ever pending, since it always
+     * ends in nextQuestion().
+     * @private {?number}
+     */
+    this.advanceTimeout_ = null;
+
     // Data references (set by app)
     /** @private {!Object} */
     this.constellations_ = {};
@@ -281,6 +290,10 @@ export class GameController {
       return;
     }
 
+    // A pending advance from a previous game would otherwise fire into this
+    // one and skip its first question.
+    this.clearAdvanceTimeout_();
+
     this.active_ = true;
     this.score_ = 0;
     this.correct_ = 0;
@@ -313,6 +326,17 @@ export class GameController {
   }
 
   /**
+   * Cancel a pending advance-to-next-question delay, if any.
+   * @private
+   */
+  clearAdvanceTimeout_() {
+    if (this.advanceTimeout_ !== null) {
+      clearTimeout(this.advanceTimeout_);
+      this.advanceTimeout_ = null;
+    }
+  }
+
+  /**
    * Stop the game.
    */
   stop() {
@@ -330,6 +354,8 @@ export class GameController {
       clearInterval(this.timerInterval_);
       this.timerInterval_ = null;
     }
+
+    this.clearAdvanceTimeout_();
 
     // Hide game panel
     const gamePanel = domCache.gamePanel;
@@ -478,7 +504,8 @@ export class GameController {
     });
 
     // Wait then continue
-    setTimeout(() => {
+    this.advanceTimeout_ = setTimeout(() => {
+      this.advanceTimeout_ = null;
       // Reset the pass flag before moving to next question
       this.isShowingPassedAnswer_ = false;
 
@@ -532,7 +559,8 @@ export class GameController {
     });
 
     // Wait then continue
-    setTimeout(() => {
+    this.advanceTimeout_ = setTimeout(() => {
+      this.advanceTimeout_ = null;
       if (questionEl) {
         questionEl.style.color = '#60A5FA';
       }

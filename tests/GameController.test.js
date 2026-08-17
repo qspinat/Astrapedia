@@ -661,3 +661,82 @@ describe('gameController singleton', () => {
     expect(gameController).toBeInstanceOf(GameController);
   });
 });
+
+describe('GameController pending-advance cleanup', () => {
+  let controller;
+
+  const constellations = {
+    'Orion': {ra: 85, dec: 0},
+    'UrsaMajor': {ra: 165, dec: 55},
+    'Cassiopeia': {ra: 15, dec: 60},
+    'Scorpius': {ra: 255, dec: -30},
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    controller = new GameController();
+    controller.setData({
+      constellations,
+      deepSkyObjects: [],
+      stars: [],
+      namedObjects: {},
+    });
+    controller.setCategory('known-constellations');
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('passing a question schedules an advance', () => {
+    controller.start();
+    controller.passQuestion();
+
+    expect(controller.advanceTimeout_).not.toBeNull();
+  });
+
+  test('stop cancels a pending advance', () => {
+    controller.start();
+    controller.passQuestion();
+    controller.stop();
+
+    expect(controller.advanceTimeout_).toBeNull();
+  });
+
+  // Before this was tracked, answering and then stopping within the delay left
+  // a live timer that fired into the next game: it called nextQuestion(),
+  // silently replacing that game's first question with its second while the
+  // progress counter read 2 of N.
+  test('a stopped game does not advance the game started after it', () => {
+    controller.start();
+    controller.passQuestion();
+    controller.stop();
+
+    controller.start();
+    const firstQuestion = controller.getCurrentQuestion();
+    jest.advanceTimersByTime(5000);
+
+    expect(controller.getCurrentQuestion()).toBe(firstQuestion);
+    expect(controller.askedQuestions_).toHaveLength(1);
+  });
+
+  test('starting again clears an advance left pending by the previous game',
+      () => {
+        controller.start();
+        controller.passQuestion();
+        // Restart without an intervening stop().
+        controller.active_ = false;
+        controller.start();
+
+        expect(controller.advanceTimeout_).toBeNull();
+      });
+
+  test('an uninterrupted pass still advances', () => {
+    controller.start();
+    const firstQuestion = controller.getCurrentQuestion();
+    controller.passQuestion();
+    jest.advanceTimersByTime(3000);
+
+    expect(controller.getCurrentQuestion()).not.toBe(firstQuestion);
+  });
+});
