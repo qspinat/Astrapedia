@@ -173,6 +173,11 @@ function initializeUI_(appInstance) {
   });
   telescopeController.initialize();
 
+  // Let resetView() leave telescope mode instead of stranding the user with a
+  // reset FOV, a locked zoom and the reticle still showing.
+  appInstance.exitTelescopeMode = () =>
+    telescopeController.deactivateTelescopeMode();
+
   // Initialize bug report handler
   initializeBugReportHandler({
     closePanel: () => panelManager.closeAll(),

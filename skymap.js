@@ -155,6 +155,13 @@ export class AstrapediaApp {
       : 'en';
     this.forceNightMode = true;  // Force night mode by default
     this.telescopeModeActive = false;  // Telescope simulation mode blocks zoom
+    /**
+     * Leaves telescope mode. Assigned by main.js, which owns
+     * TelescopeController, alongside the lockZoom/unlockZoom wiring that sets
+     * telescopeModeActive.
+     * @type {?function(): void}
+     */
+    this.exitTelescopeMode = null;
 
     // Time simulation (state managed by TimeController)
 
@@ -1975,6 +1982,15 @@ export class AstrapediaApp {
   }
 
   resetView() {
+    // Telescope mode locks zoom (InputController.isZoomLocked), so resetting
+    // the FOV underneath it would leave the user at ~106 degrees with the
+    // reticle still up, the magnitude slider still disabled, and no way to
+    // zoom back in. Leave the telescope first — "reset view" plainly means
+    // "give me the default sky back".
+    if (this.telescopeModeActive) {
+      this.exitTelescopeMode?.();
+    }
+
     this.cameraRotation = {theta: CAMERA.DEFAULT_THETA, phi: CAMERA.DEFAULT_PHI};
     this.cameraDistance = CAMERA.INITIAL_DISTANCE;
     // Sync smooth-zoom targets and FOV so updateSmoothZoom() converges to the

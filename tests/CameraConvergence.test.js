@@ -7,6 +7,7 @@
  * it is stricter, the loop never idles and drains the battery.
  */
 
+import {jest} from '@jest/globals';
 import {installThreeMock} from './helpers/threeMock.js';
 
 installThreeMock();
@@ -152,6 +153,68 @@ describe('camera convergence', () => {
       }
 
       expect(app.camera.fov).toBeCloseTo(0.0001, 5);
+    });
+  });
+
+  describe('resetView', () => {
+    /**
+     * @param {!Object=} overrides
+     * @return {!AstrapediaApp}
+     */
+    function resettableApp(overrides = {}) {
+      return cameraState({
+        camera: {fov: 1.3, updateProjectionMatrix: () => {}},
+        cameraDistance: 50,
+        computeFovForDistance_: () => 106,
+        requestRender: () => {},
+        ...overrides,
+      });
+    }
+
+    test('restores the default camera targets', () => {
+      const app = resettableApp();
+
+      app.resetView();
+
+      expect(app.camera.fov).toBe(106);
+      expect(app.targetFov).toBe(106);
+      expect(app.isCameraConverging_()).toBe(false);
+    });
+
+    // Telescope mode locks zoom, so resetting the FOV without leaving the mode
+    // strands the user at ~106 degrees with no way back in.
+    test('leaves telescope mode before resetting', () => {
+      const exitTelescopeMode = jest.fn();
+      const app = resettableApp({
+        telescopeModeActive: true,
+        exitTelescopeMode,
+      });
+
+      app.resetView();
+
+      expect(exitTelescopeMode).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not touch telescope mode when it is not active', () => {
+      const exitTelescopeMode = jest.fn();
+      const app = resettableApp({
+        telescopeModeActive: false,
+        exitTelescopeMode,
+      });
+
+      app.resetView();
+
+      expect(exitTelescopeMode).not.toHaveBeenCalled();
+    });
+
+    test('still resets when no telescope wiring is present', () => {
+      const app = resettableApp({
+        telescopeModeActive: true,
+        exitTelescopeMode: null,
+      });
+
+      expect(() => app.resetView()).not.toThrow();
+      expect(app.targetFov).toBe(106);
     });
   });
 });
