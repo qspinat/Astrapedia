@@ -559,11 +559,15 @@ export class ImageRenderer {
     // Check cache
     if (this.dynamicImageCache_.has(cacheKey) && !skipToFallback) {
       const cached = this.dynamicImageCache_.get(cacheKey);
-      if (!cached.loading) {
-        logger.debug(`Cache hit for ${cacheKey}: ${cached.source || 'no image'}`);
-        return cached;
+      // An entry holding a promise is a fetch already in flight for this key.
+      // Join it instead of bailing out — the previous sentinel returned null,
+      // which the sprite path read as "no image" and recorded permanently.
+      if (cached.promise) {
+        logger.debug(`Joining in-flight fetch for ${cacheKey}`);
+        return cached.promise;
       }
-      return null;
+      logger.debug(`Cache hit for ${cacheKey}: ${cached.source || 'no image'}`);
+      return cached;
     } else if (skipToFallback && this.dynamicImageCache_.has(cacheKey)) {
       this.dynamicImageCache_.delete(cacheKey);
     }
@@ -574,8 +578,46 @@ export class ImageRenderer {
       keysToRemove.forEach((key) => this.dynamicImageCache_.delete(key));
     }
 
-    this.dynamicImageCache_.set(cacheKey, {url: null, loading: true, source: null});
+    // Store the in-flight promise, not a sentinel value. Two callers race
+    // for the same object — the info panel via SelectionManager and the
+    // in-sky sprite via triggerDynamicLoad_ — and the second one used to
+    // receive null and give up permanently.
+    const promise = this.resolveBestImage_(
+        objectName, normalizedName, cacheKey, ra, dec, type,
+        angularSizeArcmin, skipToFallback);
+    this.dynamicImageCache_.set(cacheKey, {promise});
 
+    try {
+      const result = await promise;
+      // resolveBestImage_ caches its own result on most paths; replace the
+      // in-flight marker on any that did not.
+      if (this.dynamicImageCache_.get(cacheKey)?.promise) {
+        this.dynamicImageCache_.set(cacheKey, result);
+      }
+      return result;
+    } catch (error) {
+      // Never leave a rejected promise cached, or every later caller for
+      // this object would inherit the failure forever.
+      this.dynamicImageCache_.delete(cacheKey);
+      throw error;
+    }
+  }
+
+  /**
+   * Resolve the best available image, ignoring the cache.
+   * @param {string} objectName
+   * @param {string|undefined} normalizedName
+   * @param {string} cacheKey
+   * @param {number|undefined} ra
+   * @param {number|undefined} dec
+   * @param {string|undefined} type
+   * @param {?number} angularSizeArcmin
+   * @param {boolean} skipToFallback
+   * @returns {!Promise<?{url: ?string, source: ?string, tier: ?string}>}
+   * @private
+   */
+  async resolveBestImage_(objectName, normalizedName, cacheKey, ra, dec,
+      type, angularSizeArcmin, skipToFallback) {
     // Check special objects (planets) - use centralized PLANET_IMAGES
     const planetInfo = normalizedName ? getPlanetImageInfo(normalizedName) : null;
     if (planetInfo) {
