@@ -238,6 +238,10 @@ export class HorizonRenderer {
    */
   cleanupHorizon_() {
     if (this.horizonGroup_) {
+      this.horizonGroup_.children.forEach((child) => {
+        child.geometry?.dispose();
+        child.material?.dispose();
+      });
       this.scene_.remove(this.horizonGroup_);
       this.horizonGroup_ = null;
     }
@@ -248,7 +252,11 @@ export class HorizonRenderer {
    * @private
    */
   cleanupCardinals_() {
-    this.cardinalLabels_.forEach((label) => this.scene_.remove(label));
+    this.cardinalLabels_.forEach((label) => {
+      label.material?.map?.dispose();
+      label.material?.dispose();
+      this.scene_.remove(label);
+    });
     this.cardinalLabels_ = [];
   }
 

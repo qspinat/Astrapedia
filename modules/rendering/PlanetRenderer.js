@@ -91,8 +91,14 @@ export class PlanetRenderer {
    * Create planet sprites.
    */
   create() {
-    // Remove old planet sprites
-    this.sprites_.forEach((sprite) => this.celestialSphere_.remove(sprite));
+    // Remove old planet sprites and free their GPU resources (scene removal
+    // alone does not dispose materials/textures). create() reruns on location
+    // changes and during time playback, so skipping this leaks steadily.
+    this.sprites_.forEach((sprite) => {
+      if (sprite.material.map) sprite.material.map.dispose();
+      sprite.material.dispose();
+      this.celestialSphere_.remove(sprite);
+    });
     this.sprites_ = [];
 
     // Initialize texture loader

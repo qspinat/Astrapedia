@@ -305,16 +305,20 @@ export class DynamicObjectManager {
 
     const initialCount = this.dynamicStars.length;
 
+    // Hoist view-center trig out of the per-star loop (loop-invariant).
+    const viewRaRad = THREE.MathUtils.degToRad(viewRaDec.ra);
+    const viewDecRad = THREE.MathUtils.degToRad(viewRaDec.dec);
+    const sinViewDec = Math.sin(viewDecRad);
+    const cosViewDec = Math.cos(viewDecRad);
+
     // Filter stars within angular distance of view center
     this.dynamicStars = this.dynamicStars.filter(star => {
       const starRaRad = THREE.MathUtils.degToRad(star.ra);
       const starDecRad = THREE.MathUtils.degToRad(star.dec);
-      const viewRaRad = THREE.MathUtils.degToRad(viewRaDec.ra);
-      const viewDecRad = THREE.MathUtils.degToRad(viewRaDec.dec);
 
       // Spherical law of cosines for angular distance
-      const cosDist = Math.sin(viewDecRad) * Math.sin(starDecRad) +
-               Math.cos(viewDecRad) * Math.cos(starDecRad) * Math.cos(starRaRad - viewRaRad);
+      const cosDist = sinViewDec * Math.sin(starDecRad) +
+               cosViewDec * Math.cos(starDecRad) * Math.cos(starRaRad - viewRaRad);
 
       return cosDist >= cosFilterRadius;
     });
@@ -337,6 +341,10 @@ export class DynamicObjectManager {
    */
   addDynamicStars(starData, isSimbad = false) {
     const newStars = [];
+    // O(1) dedup via quantized ra/dec buckets (~0.001 deg) instead of an
+    // O(n*m) scan of the whole accumulated list on every batch.
+    const key = (ra, dec) => `${Math.round(ra * 1000)}:${Math.round(dec * 1000)}`;
+    const seen = new Set(this.dynamicStars.map((s) => key(s.ra, s.dec)));
 
     starData.forEach(row => {
       const ra = parseFloat(row[0]);
@@ -346,11 +354,9 @@ export class DynamicObjectManager {
 
       if (isNaN(ra) || isNaN(dec) || isNaN(mag)) return;
 
-      // Check for duplicates
-      const isDuplicate = this.dynamicStars.some(s =>
-        Math.abs(s.ra - ra) < 0.001 && Math.abs(s.dec - dec) < 0.001
-      );
-      if (isDuplicate) return;
+      const k = key(ra, dec);
+      if (seen.has(k)) return;
+      seen.add(k);
 
       newStars.push({ ra, dec, mag, ci: colorIndex });
     });
@@ -540,6 +546,10 @@ export class DynamicObjectManager {
 
     // Parse all DSOs first
     const newDSOs = [];
+    // O(1) dedup via quantized ra/dec buckets (~0.01 deg) instead of scanning
+    // the whole accumulated list for each incoming DSO.
+    const key = (ra, dec) => `${Math.round(ra * 100)}:${Math.round(dec * 100)}`;
+    const seen = new Set(this.dynamicDSOs.map((d) => key(d.ra, d.dec)));
     dsoData.forEach(row => {
       const ra = parseFloat(row[0]);
       const dec = parseFloat(row[1]);
@@ -553,11 +563,9 @@ export class DynamicObjectManager {
 
       if (isNaN(ra) || isNaN(dec)) return;
 
-      // Check for duplicates
-      const isDuplicate = this.dynamicDSOs.some(d =>
-        Math.abs(d.ra - ra) < 0.01 && Math.abs(d.dec - dec) < 0.01
-      );
-      if (isDuplicate) return;
+      const k = key(ra, dec);
+      if (seen.has(k)) return;
+      seen.add(k);
 
       newDSOs.push({
         ra, dec, mag,
@@ -578,13 +586,18 @@ export class DynamicObjectManager {
         return (a.mag || 15) - (b.mag || 15);
       });
       const excess = this.dynamicDSOs.length - this.maxDynamicDSOs;
+      const removed = this.dynamicDSOs.slice(this.maxDynamicDSOs);
       this.dynamicDSOs = this.dynamicDSOs.slice(0, this.maxDynamicDSOs);
+      // Dispose sprites of trimmed DSOs so the rendered set matches the list
+      // (otherwise earlier-added sprites are orphaned until the next clearAll_).
+      this.removeDSOSprites_(removed);
       logger.debug(`Dynamic DSOs trimmed: removed ${excess}, keeping ${this.maxDynamicDSOs}`);
     }
 
-    // Create sprites for new DSOs that are still in the list
+    // Create sprites for new DSOs that survived the trim (O(1) membership).
+    const survivors = new Set(this.dynamicDSOs);
     newDSOs.forEach(dso => {
-      if (this.dynamicDSOs.includes(dso)) {
+      if (survivors.has(dso)) {
         this.createDynamicDSOSprite_(dso, radius, celestialSphere);
         addedCount++;
       }
@@ -593,6 +606,30 @@ export class DynamicObjectManager {
     if (addedCount > 0) {
       logger.debug(`Added ${addedCount} new DSO sprites`);
     }
+  }
+
+  /**
+   * Remove and dispose the sprites belonging to the given DSOs.
+   * @param {!Array<!Object>} dsos - DSOs whose sprites should be removed.
+   * @private
+   */
+  removeDSOSprites_(dsos) {
+    if (!dsos.length) return;
+    const getSprites = this.callbacks_.getExtendedObjectSprites;
+    const removeSprite = this.callbacks_.removeExtendedSprite;
+    if (!getSprites || !removeSprite) return;
+    const celestialSphere = this.callbacks_.getCelestialSphere();
+    const removedSet = new Set(dsos);
+    getSprites()
+      .filter((s) => s.userData?.isDynamic && removedSet.has(s.userData.dso))
+      .forEach((sprite) => {
+        if (sprite.material) {
+          if (sprite.material.map) sprite.material.map.dispose();
+          sprite.material.dispose();
+        }
+        celestialSphere?.remove(sprite);
+        removeSprite(sprite);
+      });
   }
 
   /**

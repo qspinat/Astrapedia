@@ -224,7 +224,7 @@ function initializeUI_(appInstance) {
       globalEventBus.emit(Events.CMD_TOGGLE_PLAYBACK);
     },
     jumpToTime: (date) => appInstance.jumpToTime?.(date),
-    getSimulationTime: () => appInstance.simulationTime || new Date(),
+    getSimulationTime: () => appInstance.getSimulationTime?.() ?? new Date(),
 
     // Game
     startGame: () => globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT),

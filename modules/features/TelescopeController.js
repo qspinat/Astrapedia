@@ -537,6 +537,7 @@ export class TelescopeController {
   setTelescope(config) {
     this.telescope_ = {...this.telescope_, ...config};
     this.computeProperties_();
+    if (this.isActive_) this.applyTelescopeView_();
     this.saveToStorage_();
   }
 
@@ -555,7 +556,21 @@ export class TelescopeController {
   setEyepiece(config) {
     this.eyepiece_ = {...this.eyepiece_, ...config};
     this.computeProperties_();
+    if (this.isActive_) this.applyTelescopeView_();
     this.saveToStorage_();
+  }
+
+  /**
+   * Applies the computed FOV (clamped) and magnitude limit to the live view.
+   * @return {number} The applied field of view in degrees.
+   * @private
+   */
+  applyTelescopeView_() {
+    const {realFieldOfView, limitingMagnitude} = this.computedProperties_;
+    const fov = Math.max(realFieldOfView, TELESCOPE.MIN_TELESCOPE_FOV);
+    this.deps_.setFOV?.(fov);
+    this.deps_.setMagnitudeLimit?.(limitingMagnitude);
+    return fov;
   }
 
   /**
@@ -589,13 +604,9 @@ export class TelescopeController {
       this.computeProperties_();
     }
 
-    // Apply telescope settings
-    const {realFieldOfView, limitingMagnitude} = this.computedProperties_;
-
-    // Clamp FOV to minimum
-    const fov = Math.max(realFieldOfView, TELESCOPE.MIN_TELESCOPE_FOV);
-    this.deps_.setFOV?.(fov);
-    this.deps_.setMagnitudeLimit?.(limitingMagnitude);
+    // Apply telescope settings to the live view
+    const fov = this.applyTelescopeView_();
+    const {limitingMagnitude} = this.computedProperties_;
 
     // Lock zoom to prevent user from changing FOV
     this.deps_.lockZoom?.();

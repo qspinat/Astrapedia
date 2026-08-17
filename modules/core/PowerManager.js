@@ -3,6 +3,7 @@
  * Handles page visibility, idle detection, and animation loop control.
  */
 
+import {POWER_SAVING} from './Constants.js';
 import {createLogger} from './Logger.js';
 
 const logger = createLogger('PowerManager');
@@ -33,9 +34,6 @@ export class PowerManager {
     this.isPageVisible_ = true;
 
     /** @private {boolean} */
-    this.needsRender_ = true;
-
-    /** @private {boolean} */
     this.isAnimating_ = false;
 
     /** @private {?number} */
@@ -45,7 +43,13 @@ export class PowerManager {
     this.lastInteractionTime_ = 0;
 
     /** @private {number} - Idle timeout in milliseconds */
-    this.idleTimeoutMs_ = 3000;
+    this.idleTimeoutMs_ = POWER_SAVING.IDLE_THRESHOLD;
+
+    /** @private {?function(): void} */
+    this.onVisibilityChange_ = null;
+
+    /** @private {?function(): void} */
+    this.onFocus_ = null;
   }
 
   /**
@@ -53,7 +57,7 @@ export class PowerManager {
    */
   initialize() {
     // Page Visibility API - pause when tab/app is hidden
-    document.addEventListener('visibilitychange', () => {
+    this.onVisibilityChange_ = () => {
       this.isPageVisible_ = !document.hidden;
       if (this.isPageVisible_) {
         logger.info('Page visible - resuming rendering');
@@ -62,14 +66,16 @@ export class PowerManager {
         logger.info('Page hidden - pausing rendering');
         this.stopAnimating();
       }
-    });
+    };
+    document.addEventListener('visibilitychange', this.onVisibilityChange_);
 
     // Handle window focus for better mobile support
-    window.addEventListener('focus', () => {
+    this.onFocus_ = () => {
       if (this.isPageVisible_ && !this.isAnimating_) {
         this.startAnimating();
       }
-    });
+    };
+    window.addEventListener('focus', this.onFocus_);
   }
 
   /**
@@ -89,26 +95,10 @@ export class PowerManager {
   }
 
   /**
-   * Check if a render is needed.
-   * @returns {boolean} True if render needed
-   */
-  needsRender() {
-    return this.needsRender_;
-  }
-
-  /**
-   * Clear the needs render flag.
-   */
-  clearNeedsRender() {
-    this.needsRender_ = false;
-  }
-
-  /**
    * Request a render - call this when something changes.
    * Restarts animation if stopped and page is visible.
    */
   requestRender() {
-    this.needsRender_ = true;
     this.lastInteractionTime_ = performance.now();
 
     // Restart animation if stopped
@@ -143,7 +133,6 @@ export class PowerManager {
     if (this.isAnimating_) return;
 
     this.isAnimating_ = true;
-    this.needsRender_ = true;
     this.resetIdleTimeout();
     this.onStartAnimating_?.();
   }
@@ -161,14 +150,6 @@ export class PowerManager {
   }
 
   /**
-   * Set the idle timeout duration.
-   * @param {number} ms - Timeout in milliseconds
-   */
-  setIdleTimeout(ms) {
-    this.idleTimeoutMs_ = ms;
-  }
-
-  /**
    * Get time since last interaction.
    * @returns {number} Time in milliseconds
    */
@@ -183,6 +164,14 @@ export class PowerManager {
     if (this.idleTimeout_) {
       clearTimeout(this.idleTimeout_);
       this.idleTimeout_ = null;
+    }
+    if (this.onVisibilityChange_) {
+      document.removeEventListener('visibilitychange', this.onVisibilityChange_);
+      this.onVisibilityChange_ = null;
+    }
+    if (this.onFocus_) {
+      window.removeEventListener('focus', this.onFocus_);
+      this.onFocus_ = null;
     }
   }
 }

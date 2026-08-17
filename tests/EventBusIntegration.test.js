@@ -60,7 +60,7 @@ describe('EventBus Integration', () => {
       expect(gameUI.isPlaying()).toBe(true);
 
       // End game
-      globalEventBus.emit(Events.GAME_ENDED, {
+      globalEventBus.emit(Events.GAME_STOPPED, {
         score: 8,
         total: 10,
         correct: 8,
@@ -102,7 +102,7 @@ describe('EventBus Integration', () => {
       const gameUI = initializeGameUI({});
 
       // Emit score event with expected shape
-      globalEventBus.emit(Events.GAME_SCORE, {
+      globalEventBus.emit(Events.GAME_SCORE_UPDATED, {
         score: 5,
         total: 10,
         streak: 3,
@@ -269,7 +269,7 @@ describe('EventBus Integration', () => {
       expect(tourUI.isActive()).toBe(false);
 
       // End game, start tour
-      globalEventBus.emit(Events.GAME_ENDED, {score: 10, total: 10});
+      globalEventBus.emit(Events.GAME_STOPPED, {score: 10, total: 10});
       globalEventBus.emit(Events.TOUR_STARTED, {tourName: 'planets'});
       expect(gameUI.isPlaying()).toBe(false);
       expect(timeUI.isPlaying()).toBe(true);
@@ -350,7 +350,7 @@ describe('EventBus Integration', () => {
 
       const gameUI = initializeGameUI({});
 
-      globalEventBus.emit(Events.GAME_SCORE, {
+      globalEventBus.emit(Events.GAME_SCORE_UPDATED, {
         score: 0,
         total: 0,
       });

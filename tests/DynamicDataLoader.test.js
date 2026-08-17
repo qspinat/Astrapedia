@@ -322,14 +322,6 @@ describe('DynamicDataLoader', () => {
   });
 
   describe('state management', () => {
-    test('tracks dynamic stars', () => {
-      expect(loader.dynamicStars_).toEqual([]);
-    });
-
-    test('tracks dynamic DSOs', () => {
-      expect(loader.dynamicDSOs_).toEqual([]);
-    });
-
     test('tracks queried regions', () => {
       expect(loader.queriedRegions_.size).toBe(0);
     });

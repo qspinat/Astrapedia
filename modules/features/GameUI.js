@@ -187,14 +187,14 @@ export class GameUI {
         this.isPlaying_ = true;
         this.updateUI_(true);
       }),
-      globalEventBus.on(Events.GAME_ENDED, () => {
+      globalEventBus.on(Events.GAME_STOPPED, () => {
         this.isPlaying_ = false;
         this.updateUI_(false);
       }),
       globalEventBus.on(Events.GAME_QUESTION, (data) => {
         this.updateQuestion_(data);
       }),
-      globalEventBus.on(Events.GAME_SCORE, (data) => {
+      globalEventBus.on(Events.GAME_SCORE_UPDATED, (data) => {
         this.updateScore_(data);
       })
     );

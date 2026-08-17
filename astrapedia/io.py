@@ -3,6 +3,7 @@ I/O utilities for Astrapedia data pipeline.
 Handles file downloads, JSON reading/writing, and data validation.
 """
 
+import http.client
 import json
 import logging
 import sys
@@ -36,6 +37,9 @@ def download_file(
     Returns:
         True if download succeeded, False otherwise
     """
+    # Download to a temp file and only move it into place once complete, so a
+    # truncated/failed download never leaves a corrupt file a later run reuses.
+    tmp_path = dest_path.with_name(dest_path.name + ".tmp")
     try:
         if show_progress:
             logger.info("Downloading %s...", url)
@@ -49,7 +53,7 @@ def download_file(
             total_size = int(total_size) if total_size else None
 
             downloaded = 0
-            with open(dest_path, "wb") as f:
+            with open(tmp_path, "wb") as f:
                 while True:
                     chunk = response.read(chunk_size)
                     if not chunk:
@@ -66,6 +70,8 @@ def download_file(
                 sys.stdout.write("\n")
                 sys.stdout.flush()
 
+        tmp_path.replace(dest_path)
+
         if show_progress:
             size_mb = dest_path.stat().st_size / (1024 * 1024)
             logger.info("Downloaded: %.2f MB", size_mb)
@@ -74,13 +80,17 @@ def download_file(
 
     except urllib.error.HTTPError as e:
         logger.error("HTTP Error downloading %s: %d %s", url, e.code, e.reason)
-        return False
     except urllib.error.URLError as e:
         logger.error("URL Error downloading %s: %s", url, e.reason)
-        return False
     except TimeoutError:
         logger.error("Timeout downloading %s", url)
-        return False
+    except (OSError, http.client.HTTPException) as e:
+        # Covers mid-stream failures (IncompleteRead, connection reset, disk).
+        logger.error("Error downloading %s: %s", url, e)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    return False
 
 
 def read_json(

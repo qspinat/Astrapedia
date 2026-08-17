@@ -136,9 +136,9 @@ export class ClickHandler {
       const planetData = sprite.userData;
       if (!planetData || !planetData.ra) continue;
 
-      // Calculate angular distance
-      const dRa = (planetData.ra - clickRaDec.ra) *
-        Math.cos(THREE.MathUtils.degToRad(planetData.dec));
+      // Calculate angular distance (wrap RA delta across the 0h/360h meridian)
+      const dRaDeg = ((planetData.ra - clickRaDec.ra + 540) % 360) - 180;
+      const dRa = dRaDeg * Math.cos(THREE.MathUtils.degToRad(planetData.dec));
       const dDec = planetData.dec - clickRaDec.dec;
       const angularDist = Math.sqrt(dRa * dRa + dDec * dDec);
 
@@ -222,7 +222,8 @@ export class ClickHandler {
           continue;
         }
         clickedObject = {
-          name: star.proper || star.bf || `HIP ${star.hip}` || 'Unknown Star',
+          name: star.proper || star.bf ||
+            (star.hip ? `HIP ${star.hip}` : 'Unknown Star'),
           type: 'Star',
           subtype: star.spect ? `Spectral type ${star.spect}` : null,
           ra: star.ra,
@@ -367,8 +368,9 @@ export class ClickHandler {
       // Skip DSOs beyond the fade range (completely invisible)
       if (dsoData.mag !== undefined && dsoData.mag > effectiveLimit) continue;
 
-      const dRa = (dsoData.ra - clickRaDec.ra) *
-        Math.cos(THREE.MathUtils.degToRad(dsoData.dec));
+      // Wrap RA delta across the 0h/360h meridian
+      const dRaDeg = ((dsoData.ra - clickRaDec.ra + 540) % 360) - 180;
+      const dRa = dRaDeg * Math.cos(THREE.MathUtils.degToRad(dsoData.dec));
       const dDec = dsoData.dec - clickRaDec.dec;
       const angularDist = Math.sqrt(dRa * dRa + dDec * dDec);
 

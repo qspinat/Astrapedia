@@ -298,6 +298,17 @@ export class ImageRenderer {
     const canvasHeight = this.renderer_.domElement.height;
     const pixelsPerDeg = canvasHeight / fov;
 
+    // Loop-invariants: depend only on fov / device / window, not the sprite.
+    const margin = Math.min(5, fov);
+    const cosFovThreshold = Math.cos(THREE.MathUtils.degToRad(fov / 2 + margin));
+    const screenSize = Math.min(window.innerWidth, window.innerHeight);
+    // Mobile: appear later (more zoomed in), disappear later (stay longer)
+    const showThreshold = this.isMobile_ ? 1.5 : 0.65;
+    const fullOpacityThreshold = this.isMobile_ ? 2.0 : 0.85;
+    const fadeOutStartThreshold = this.isMobile_ ? 4.0 : 1.2;
+    const fadeOutEndThreshold = this.isMobile_ ? 6.0 : 1.8;
+    const minPixelsToShow = screenSize * showThreshold;
+
     this.bestCandidateSprite_ = null;
     this.bestCandidateSize_ = 0;
 
@@ -318,10 +329,6 @@ export class ImageRenderer {
             (toSpriteY / len) * this.tempVec3B_.y +
             (toSpriteZ / len) * this.tempVec3B_.z;
 
-      const margin = Math.min(5, fov);
-      const fovHalfRad = THREE.MathUtils.degToRad(fov / 2 + margin);
-      const cosFovThreshold = Math.cos(fovHalfRad);
-
       if (dot < cosFovThreshold) {
         sprite.material.opacity = 0;
         sprite.visible = false;
@@ -332,14 +339,6 @@ export class ImageRenderer {
       const angularSizeDeg = angularSizeArcmin / 60;
       const realSizePixels = angularSizeDeg * pixelsPerDeg;
 
-      const screenSize = Math.min(window.innerWidth, window.innerHeight);
-      // Mobile: appear later (more zoomed in), disappear later (stay visible longer)
-      const showThreshold = this.isMobile_ ? 1.5 : 0.65;
-      const fullOpacityThreshold = this.isMobile_ ? 2.0 : 0.85;
-      const fadeOutStartThreshold = this.isMobile_ ? 4.0 : 1.2;
-      const fadeOutEndThreshold = this.isMobile_ ? 6.0 : 1.8;
-
-      const minPixelsToShow = screenSize * showThreshold;
       const showImage = realSizePixels >= minPixelsToShow;
 
       if (showImage) {

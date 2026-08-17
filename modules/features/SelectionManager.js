@@ -9,6 +9,7 @@ import {getDsoTypeName} from '../core/TypeMappings.js';
 import {descriptionGenerator} from '../data/DescriptionGenerator.js';
 import {getConstellationStory} from '../data/ConstellationStories.js';
 import {createLogger} from '../core/Logger.js';
+import {domCache} from '../ui/DOMCache.js';
 
 const logger = createLogger('SelectionManager');
 
@@ -213,14 +214,14 @@ export class SelectionManager {
    * @private
    */
   showObjectInfo_(obj) {
-    const content = document.getElementById('info-content');
+    const content = domCache.infoContent;
     if (!content) return;
 
     // Get display name with fallbacks
     const displayName = obj.name || obj.proper || 'Unknown Object';
 
     // Update panel header title
-    const titleEl = document.getElementById('object-title');
+    const titleEl = domCache.objectTitle;
     if (titleEl) titleEl.textContent = displayName;
 
     let html = '';
@@ -296,7 +297,7 @@ export class SelectionManager {
    * @private
    */
   addExtraObjectInfo_(obj) {
-    const content = document.getElementById('info-content');
+    const content = domCache.infoContent;
     if (!content) return;
 
     // Add Moon phase info
@@ -683,7 +684,7 @@ export class SelectionManager {
    * @param {string} constName - Constellation name (full name or abbreviation)
    */
   showConstellationInfo_(constName) {
-    const content = document.getElementById('info-content');
+    const content = domCache.infoContent;
     if (!content) return;
 
     // Convert full name to abbreviation if needed
@@ -696,7 +697,7 @@ export class SelectionManager {
     const englishName = this.deps_.getEnglishConstellationName?.(abbrev) || constName;
 
     // Update panel header title
-    const titleEl = document.getElementById('object-title');
+    const titleEl = domCache.objectTitle;
     if (titleEl) titleEl.textContent = fullName;
 
     let html = `<h2>${escapeHtml(fullName)}</h2>`;

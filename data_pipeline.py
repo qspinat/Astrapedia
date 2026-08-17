@@ -28,17 +28,30 @@ from astrapedia.astronomy import (
 )
 
 
-def download_catalog(url: str, filename: str) -> Path | None:
-    """Download a catalog file if it doesn't exist."""
+def download_catalog(
+    url: str, filename: str, catalog_name: str | None = None
+) -> Path | None:
+    """Download a catalog file if it doesn't exist, then verify its checksum.
+
+    Args:
+        url: URL to download from.
+        filename: Local filename under the data directory.
+        catalog_name: Key in Config.CATALOG_SOURCES for checksum verification.
+            When omitted (or no checksum configured), verification is skipped.
+    """
     filepath = Config.get_data_path(filename)
 
     if filepath.exists():
         print(f"  {filename} already exists")
-        return filepath
+    elif not download_file(url, filepath, show_progress=True):
+        return None
 
-    if download_file(url, filepath, show_progress=True):
-        return filepath
-    return None
+    # Verify integrity: warns on mismatch, no-op when no checksum is configured.
+    # Runs on the reused file too, so a previously corrupted catalog is caught.
+    if catalog_name:
+        Config.verify_checksum(filepath.read_bytes(), catalog_name)
+
+    return filepath
 
 
 def process_hyg_stars(
@@ -48,7 +61,7 @@ def process_hyg_stars(
     print("\n=== Processing HYG Star Database ===")
 
     # Download HYG database
-    hyg_file = download_catalog(Config.HYG_URL, "hygdata_v41.csv")
+    hyg_file = download_catalog(Config.HYG_URL, "hygdata_v41.csv", "hyg")
     if not hyg_file:
         print("Failed to download HYG database")
         return None
@@ -174,7 +187,7 @@ def process_deep_sky_objects() -> dict | None:
     print("\n=== Processing Deep Sky Objects ===")
 
     # Download OpenNGC database
-    ngc_file = download_catalog(Config.OPENNGC_URL, "NGC.csv")
+    ngc_file = download_catalog(Config.OPENNGC_URL, "NGC.csv", "openngc")
     if not ngc_file:
         print("Failed to download OpenNGC database")
         return None
@@ -262,21 +275,15 @@ def process_deep_sky_objects() -> dict | None:
     ]
 
     # Inject supplementary Messier objects
-    dso_list, added_count = inject_supplementary_objects(
+    dso_list, added = inject_supplementary_objects(
         dso_list, supplementary_messier, key="messier"
     )
 
-    # Log which objects were added
-    existing_messiers = (
-        {dso["messier"] for dso in dso_list[:-added_count] if dso.get("messier")}
-        if added_count > 0
-        else set()
-    )
-    for supp in supplementary_messier:
-        if supp["messier"] not in existing_messiers:
-            print(f"  Added M{supp['messier']} ({supp['common_names'][0]})")
+    # Log exactly which objects were added
+    for supp in added:
+        print(f"  Added M{supp['messier']} ({supp['common_names'][0]})")
 
-    print(f"  Total: {len(dso_list)} deep sky objects ({added_count} supplementary)")
+    print(f"  Total: {len(dso_list)} deep sky objects ({len(added)} supplementary)")
 
     # Group by type for statistics
     dso_by_type = {}
@@ -308,16 +315,17 @@ def create_named_objects_index(stars: list[dict]) -> dict:
     # Sort by magnitude (brightest first)
     named_stars_sorted = sorted(named_stars, key=lambda x: x["mag"])
 
-    # Create index
+    # Create index. Sorted brightest-first, so setdefault keeps the brightest
+    # star when two share a proper name (e.g. 'p Eridani').
     index = {}
     for star in named_stars_sorted:
-        index[star["proper"]] = {
+        index.setdefault(star["proper"], {
             "id": star["id"],
             "hip": star["hip"],
             "ra": star["ra"],
             "dec": star["dec"],
             "mag": star["mag"],
-        }
+        })
 
     # Save to JSON
     output_file = Config.get_data_path("named_objects.json")
