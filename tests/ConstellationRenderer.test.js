@@ -5,6 +5,11 @@
 import {jest} from '@jest/globals';
 import {ConstellationRenderer} from '../modules/rendering/ConstellationRenderer.js';
 import {CONSTELLATIONS} from '../modules/core/Constants.js';
+import {
+  installThreeMock,
+  resetThreeStats,
+  spyOnThreeConstructors,
+} from './helpers/threeMock.js';
 
 // Helper to create a mock line with material
 function createMockLine(constName) {
@@ -34,50 +39,13 @@ function createMockLine(constName) {
   };
 }
 
-// Mock THREE.js classes needed by ConstellationRenderer
-const mockLines = [];
-global.THREE = {
-  ...global.THREE,
-  Group: jest.fn(() => ({
-    children: mockLines,
-    visible: true,
-    add: jest.fn((line) => mockLines.push(line)),
-    remove: jest.fn(),
-  })),
-  LineBasicMaterial: jest.fn(() => ({
-    opacity: 0.35,
-    color: {setHex: jest.fn(), getHex: jest.fn(() => 0x3366AA)},
-    linewidth: 1,
-    clone: jest.fn(() => ({
-      opacity: 0.35,
-      color: {setHex: jest.fn(), getHex: jest.fn(() => 0x3366AA)},
-      linewidth: 1,
-      dispose: jest.fn(),
-    })),
-    dispose: jest.fn(),
-  })),
-  BufferGeometry: jest.fn(() => ({
-    setFromPoints: jest.fn().mockReturnThis(),
-    computeBoundingSphere: jest.fn(),
-    dispose: jest.fn(),
-    clone: jest.fn(function() { return {dispose: jest.fn()}; }),
-  })),
-  Line: jest.fn((geometry, material) => {
-    const line = {
-      geometry,
-      material,
-      userData: {},
-      visible: true,
-      parent: null,
-    };
-    return line;
-  }),
-  Vector3: jest.fn((x, y, z) => ({x: x || 0, y: y || 0, z: z || 0})),
-  MathUtils: {
-    degToRad: (deg) => deg * Math.PI / 180,
-    radToDeg: (rad) => rad * 180 / Math.PI,
-  },
-};
+installThreeMock();
+const three = spyOnThreeConstructors([
+  'Group',
+  'LineBasicMaterial',
+  'BufferGeometry',
+  'Line',
+]);
 
 // Sample star data: two constellations at known positions
 const STARS = [
@@ -103,7 +71,7 @@ describe('ConstellationRenderer focus mode', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockLines.length = 0;
+    resetThreeStats();
 
     mockCelestialSphere = {
       add: jest.fn(),
@@ -160,7 +128,6 @@ describe('ConstellationRenderer focus mode', () => {
         requestRender: mockRequestRender,
       });
 
-      mockLines.length = 0;
       rendererNoStars.createLines();
 
       expect(rendererNoStars.constellationCenters_.size).toBe(0);
