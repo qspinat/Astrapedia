@@ -1854,30 +1854,30 @@ export class AstrapediaApp {
   }
 
   setObserverLocation() {
-    // Prompt for location
+    // Cancelling either prompt aborts; note the explicit null checks — the
+    // previous `if (lat && lon)` also rejected "0", so nobody on the equator
+    // or the prime meridian could set their location.
     const lat = prompt('Enter latitude (degrees, -90 to 90):', '48.8566');
+    if (lat === null) return;
     const lon = prompt('Enter longitude (degrees, -180 to 180):', '2.3522');
+    if (lon === null) return;
 
-    if (lat && lon) {
-      this.observerLocation = {
-        lat: parseFloat(lat),
-        lon: parseFloat(lon),
-        height: 0
-      };
-      astronomyCalculator.setObserverLocation(
-        this.observerLocation.lat,
-        this.observerLocation.lon,
-        this.observerLocation.height
-      );
-
-      // Update sky tilt and rotation based on new location
-      this.updateLatitudeTilt();
-      this.timeController_.refreshCelestialRotation();
-      // Recalculate planet positions with new observer location
-      this.createPlanets();
-
-      alert(`Observer location set to: ${lat}°, ${lon}°\nSky now shows correct position for your location and time.`);
+    const latValue = parseFloat(lat);
+    const lonValue = parseFloat(lon);
+    if (!Number.isFinite(latValue) || !Number.isFinite(lonValue)) {
+      alert('Please enter numeric coordinates, for example 48.8566 and 2.3522.');
+      return;
     }
+
+    // LocationManager is the owner: it clamps latitude, normalizes longitude,
+    // persists to localStorage and emits LOCATION_CHANGED. The handler in
+    // setupCommandListeners_ then applies it to the scene — including the
+    // horizon renderer and a re-render, which this method used to omit.
+    locationManager.setLocation(latValue, lonValue);
+
+    const applied = locationManager.getLocation();
+    alert(`Observer location set to: ${applied.lat}°, ${applied.lon}°\n` +
+        'Sky now shows correct position for your location and time.');
   }
 
   /* ======================================================================
