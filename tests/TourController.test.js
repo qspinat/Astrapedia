@@ -19,37 +19,16 @@ const mockContext = {
 // Override HTMLCanvasElement.prototype.getContext
 HTMLCanvasElement.prototype.getContext = jest.fn(() => mockContext);
 
-// Mock THREE before importing TourController
-global.THREE = {
-  MathUtils: {
-    degToRad: (deg) => deg * Math.PI / 180,
-  },
-  Vector3: jest.fn().mockImplementation((x, y, z) => ({
-    x,
-    y,
-    z,
-    copy: jest.fn().mockReturnThis(),
-    set: jest.fn().mockReturnThis(),
-    normalize: jest.fn().mockReturnThis(),
-  })),
-  CanvasTexture: jest.fn().mockImplementation(() => ({})),
-  SpriteMaterial: jest.fn().mockImplementation(() => ({
-    map: {},
-    dispose: jest.fn(),
-  })),
-  Sprite: jest.fn().mockImplementation(() => ({
-    position: {copy: jest.fn()},
-    scale: {set: jest.fn()},
-    material: {
-      map: {dispose: jest.fn()},
-      dispose: jest.fn(),
-      opacity: 1,
-    },
-    userData: {},
-    renderOrder: 0,
-  })),
-  AdditiveBlending: 2,
-};
+// Install the shared THREE mock before importing TourController, so the
+// module-scope `import 'three'` in the dependency chain resolves against it.
+const {installThreeMock, spyOnThreeConstructors} =
+    await import('./helpers/threeMock.js');
+installThreeMock();
+const three = spyOnThreeConstructors([
+  'CanvasTexture',
+  'SpriteMaterial',
+  'Sprite',
+]);
 
 const {
   TourController,
