@@ -1772,16 +1772,11 @@ export class AstrapediaApp {
       });
     }
 
-    // Start game button (shows game selection modal)
-    const startGameBtn = domCache.get('start-game-btn');
-    if (startGameBtn) {
-      startGameBtn.addEventListener('click', () => {
-        const modal = domCache.gameSelectModal;
-        if (modal) {
-          modal.classList.add('visible');
-        }
-      });
-    }
+    // The start-game button is bound by GameUI, which routes through
+    // CMD_SHOW_GAME_SELECT so the modal is opened together with its history
+    // entry. A second listener here would open it without one, leaving the
+    // popstate handler below to consume a real history entry instead — on
+    // Android that navigates the WebView out of the app.
 
     // Game selection modal buttons and events
     const gameModal = domCache.gameSelectModal;

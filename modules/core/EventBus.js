@@ -136,6 +136,15 @@ export class EventBus {
    * @param {*=} data - Optional data to pass to subscribers
    */
   emit(eventName, data) {
+    // A typo'd or removed Events constant reads as undefined, which would
+    // otherwise publish under the key "undefined" and silently reach nobody.
+    // CompassController did exactly this for three events.
+    if (!eventName) {
+      logger.error('emit() called with no event name; ' +
+          'an Events constant is probably missing or misspelled');
+      return;
+    }
+
     const listeners = this.listeners_.get(eventName);
     if (!listeners || listeners.length === 0) return;
 
