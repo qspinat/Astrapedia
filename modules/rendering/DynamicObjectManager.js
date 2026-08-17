@@ -550,16 +550,14 @@ export class DynamicObjectManager {
     // the whole accumulated list for each incoming DSO.
     const key = (ra, dec) => `${Math.round(ra * 100)}:${Math.round(dec * 100)}`;
     const seen = new Set(this.dynamicDSOs.map((d) => key(d.ra, d.dec)));
+    // DynamicDataLoader.parseVOTableDSOs_ yields objects, not positional rows,
+    // and already resolves the catalog designation into `name`.
     dsoData.forEach(row => {
-      const ra = parseFloat(row[0]);
-      const dec = parseFloat(row[1]);
-      const mag = parseFloat(row[2]) || 12;
-      const sizeMajor = parseFloat(row[3]) || 1;
-      const sizeMinor = parseFloat(row[4]) || sizeMajor;
-      const ngc = row[5];
-      const ic = row[6];
-      const name = row[7];
-      const type = row[8];
+      const ra = parseFloat(row.ra);
+      const dec = parseFloat(row.dec);
+      const mag = parseFloat(row.mag) || 12;
+      const sizeMajor = parseFloat(row.size_major) || 1;
+      const sizeMinor = parseFloat(row.size_minor) || sizeMajor;
 
       if (isNaN(ra) || isNaN(dec)) return;
 
@@ -571,8 +569,8 @@ export class DynamicObjectManager {
         ra, dec, mag,
         size_major: sizeMajor,
         size_minor: sizeMinor,
-        name: ngc ? `NGC ${ngc}` : (ic ? `IC ${ic}` : name),
-        type: type || 'DSO'
+        name: row.name,
+        type: row.type || 'DSO'
       });
     });
 
@@ -689,14 +687,23 @@ export class DynamicObjectManager {
     sprite.position.copy(pos);
     sprite.renderOrder = 5;
 
+    // These sprites are pushed into the same array ExtendedObjectRenderer
+    // scales every frame, so they must carry the same userData contract.
+    // baseSize is the floor updateSizes() takes a Math.max against; without it
+    // the result is NaN and the sprite scales to NaN. Derived exactly as
+    // ExtendedObjectRenderer.createSprite_ does.
+    const angularSizeRad = THREE.MathUtils.degToRad((dso.size_major || 1) / 60);
+    const baseSize = radius * angularSizeRad * 2;
+
     sprite.userData = {
       dso: dso,
       angularSizeArcmin: dso.size_major,
       baseOpacity: baseOpacity,
+      baseSize: baseSize,
       isDynamic: true
     };
 
-    sprite.scale.set(1, 1, 1);
+    sprite.scale.set(baseSize, baseSize, 1);
 
     // Add to tracking array
     const addSprite = this.callbacks_.addExtendedSprite;

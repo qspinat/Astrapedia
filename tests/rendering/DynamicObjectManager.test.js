@@ -80,11 +80,11 @@ describe('DynamicObjectManager dynamic DSOs', () => {
   });
 
   describe('addDynamicDSOs', () => {
-    // DynamicDataLoader emits objects; addDynamicDSOs indexes them as arrays
-    // (row[0], row[1], ...), so every value is undefined, parseFloat yields
-    // NaN, and the isNaN guard silently drops every row. The feature has
-    // never worked.
-    test.failing('ingests rows in the shape the loader emits', () => {
+    // Regression: addDynamicDSOs used to index these objects positionally
+    // (row[0], row[1], ...), so every value was undefined, parseFloat gave
+    // NaN, and the isNaN guard dropped every row silently. Dynamic DSO
+    // loading had never worked.
+    test('ingests rows in the shape the loader emits', () => {
       manager.addDynamicDSOs([
         loaderDso(),
         loaderDso({ra: 148.97, dec: 69.68, name: 'NGC3031'}),
@@ -93,14 +93,14 @@ describe('DynamicObjectManager dynamic DSOs', () => {
       expect(manager.dynamicDSOs).toHaveLength(2);
     });
 
-    test.failing('creates one sprite per accepted DSO', () => {
+    test('creates one sprite per accepted DSO', () => {
       manager.addDynamicDSOs([loaderDso()]);
 
       expect(extendedSprites).toHaveLength(1);
       expect(celestialSphere.children).toHaveLength(1);
     });
 
-    test.failing('carries the loader-provided name and type through', () => {
+    test('carries the loader-provided name and type through', () => {
       manager.addDynamicDSOs([loaderDso({name: 'NGC5457', type: 'Gx'})]);
 
       expect(manager.dynamicDSOs[0]).toMatchObject({
@@ -109,13 +109,13 @@ describe('DynamicObjectManager dynamic DSOs', () => {
       });
     });
 
-    test.failing('deduplicates DSOs at the same position', () => {
+    test('deduplicates DSOs at the same position', () => {
       manager.addDynamicDSOs([loaderDso(), loaderDso()]);
 
       expect(manager.dynamicDSOs).toHaveLength(1);
     });
 
-    test.failing('keeps distinct positions apart', () => {
+    test('keeps distinct positions apart', () => {
       manager.addDynamicDSOs([
         loaderDso({ra: 10, dec: 10}),
         loaderDso({ra: 20, dec: 20}),
@@ -158,17 +158,15 @@ describe('DynamicObjectManager dynamic DSOs', () => {
       expect(createDynamicSprite().userData.angularSizeArcmin).toBe(8.7);
     });
 
-    // updateSizes computes Math.max(userData.baseSize, worldSize). Sprites
-    // built by ExtendedObjectRenderer set baseSize; these do not, so the
-    // result is NaN and the sprite scales to NaN. Unreachable today only
-    // because the ingestion bug means no dynamic sprite is ever created —
-    // fixing that exposes this.
-    test.failing('sets the baseSize that updateSizes requires', () => {
+    // updateSizes computes Math.max(userData.baseSize, worldSize). These
+    // sprites used to omit baseSize, making that NaN and scaling the sprite to
+    // NaN — latent only because the ingestion bug meant none were ever built.
+    test('sets the baseSize that updateSizes requires', () => {
       expect(Number.isFinite(createDynamicSprite().userData.baseSize))
           .toBe(true);
     });
 
-    test.failing('survives a frame of updateSizes with a finite scale', () => {
+    test('survives a frame of updateSizes with a finite scale', () => {
       const sprite = createDynamicSprite();
       const renderer = new ExtendedObjectRenderer({
         celestialSphere,
@@ -183,6 +181,61 @@ describe('DynamicObjectManager dynamic DSOs', () => {
 
       expect(Number.isFinite(sprite.scale.x)).toBe(true);
       expect(sprite.scale.x).toBeGreaterThan(0);
+    });
+
+    // ExtendedObjectRenderer.create() rebuilds the static sprites, but the
+    // array it clears is shared with DynamicObjectManager. It must not dispose
+    // sprites it does not own, and must not swap the array out from under the
+    // alias skymap.js holds.
+    describe('when the static sprites are rebuilt', () => {
+      let renderer;
+
+      beforeEach(() => {
+        renderer = new ExtendedObjectRenderer({
+          celestialSphere,
+          getDSOs: () => [
+            {ra: 10, dec: 20, size_major: 5, mag: 8, type: 'G'},
+          ],
+          requestRender: jest.fn(),
+        });
+        renderer.sprites_ = extendedSprites;
+      });
+
+      test('keeps dynamic sprites alive', () => {
+        const dynamicSprite = createDynamicSprite();
+
+        renderer.create();
+
+        expect(extendedSprites).toContain(dynamicSprite);
+        expect(dynamicSprite.material.disposed).toBe(false);
+      });
+
+      test('still rebuilds the static sprites', () => {
+        createDynamicSprite();
+
+        renderer.create();
+
+        const statics =
+            extendedSprites.filter((s) => !s.userData?.isDynamic);
+        expect(statics).toHaveLength(1);
+      });
+
+      test('keeps the array identity the app aliases', () => {
+        createDynamicSprite();
+
+        renderer.create();
+
+        expect(renderer.sprites_).toBe(extendedSprites);
+      });
+
+      test('disposes the static sprites it replaces', () => {
+        renderer.create();
+        const firstStatic = extendedSprites[0];
+
+        renderer.create();
+
+        expect(firstStatic.material.disposed).toBe(true);
+      });
     });
   });
 });

@@ -55,13 +55,26 @@ export class ExtendedObjectRenderer {
    * Create extended object sprites for DSOs with angular sizes.
    */
   create() {
-    // Clear existing sprites
-    this.sprites_.forEach((sprite) => {
+    // Dispose only the sprites this renderer owns. DynamicObjectManager pushes
+    // its own sprites into this same array (via the addExtendedSprite
+    // callback) and tracks them for its own cleanup — tearing them down here
+    // would dispose live scene objects it still holds references to.
+    const dynamic = [];
+    for (const sprite of this.sprites_) {
+      if (sprite.userData?.isDynamic) {
+        dynamic.push(sprite);
+        continue;
+      }
       this.celestialSphere_.remove(sprite);
       if (sprite.material.map) sprite.material.map.dispose();
       sprite.material.dispose();
-    });
-    this.sprites_ = [];
+    }
+
+    // Empty in place rather than reassigning: skymap.js aliases this array, so
+    // a fresh array would silently detach the app's copy and strand every
+    // sprite added afterwards.
+    this.sprites_.length = 0;
+    for (const sprite of dynamic) this.sprites_.push(sprite);
 
     const dsos = this.getDSOs_();
 
