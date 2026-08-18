@@ -364,11 +364,9 @@ export class AstrapediaApp {
       getFOV: () => this.targetFov || CAMERA.DEFAULT_FOV,
       setFOV: (fov) => { this.targetFov = fov; },
       getConstellationName: (name) => this.getConstellationName(name),
+      showHighlight: (ra, dec, size) => this.showTourHighlight(ra, dec, size),
+      hideHighlight: () => this.hideTourHighlight(),
     });
-    this.tourController_.setSceneCallbacks(
-      (obj) => this.celestialSphere.add(obj),
-      (obj) => this.celestialSphere.remove(obj)
-    );
   }
 
   /**

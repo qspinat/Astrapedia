@@ -4,8 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {SPHERE, CAMERA} from '../core/Constants.js';
-import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {CAMERA} from '../core/Constants.js';
 import {createLogger} from '../core/Logger.js';
 
 const logger = createLogger('TourController');
@@ -84,6 +83,9 @@ export class TourController {
    * @param {function(): void} dependencies.unhighlightConstellation - Remove highlight
    * @param {function(!Object): void} dependencies.showObjectInfo - Show info panel
    * @param {function(string): void} dependencies.showConstellationInfo - Show constellation
+   * @param {function(number, number, number): void} dependencies.showHighlight -
+   *     Show the highlight ring at RA/Dec with an angular size in arcminutes
+   * @param {function(): void} dependencies.hideHighlight - Hide the ring
    * @param {function(): number} dependencies.getLST - Get local sidereal time
    * @param {function(): {lat: number, lon: number}} dependencies.getLocation - Get location
    * @param {function(): !Array} dependencies.getPlanets - Get planets array
@@ -108,6 +110,15 @@ export class TourController {
 
     /** @private @const */
     this.showConstellationInfo_ = dependencies.showConstellationInfo;
+
+    // The highlight ring is owned by the TourHighlight renderer, which the
+    // app animates each frame. SelectionManager and GameController take the
+    // same two callbacks.
+    /** @private @const */
+    this.showHighlight_ = dependencies.showHighlight;
+
+    /** @private @const */
+    this.hideHighlight_ = dependencies.hideHighlight;
 
     /** @private @const */
     this.getLST_ = dependencies.getLST;
@@ -146,38 +157,10 @@ export class TourController {
     this.tourStep_ = 0;
 
     /**
-     * Tour highlight sprite (created externally).
-     * @private {?THREE.Sprite}
-     */
-    this.tourHighlight_ = null;
-
-    /**
-     * Callback to add highlight to scene.
-     * @private {?function(!THREE.Sprite): void}
-     */
-    this.addHighlightToScene_ = null;
-
-    /**
-     * Callback to remove highlight from scene.
-     * @private {?function(!THREE.Sprite): void}
-     */
-    this.removeHighlightFromScene_ = null;
-
-    /**
      * Available tours cache.
      * @private {?Object<string, !Tour>}
      */
     this.toursCache_ = null;
-  }
-
-  /**
-   * Set the scene manipulation callbacks.
-   * @param {function(!THREE.Sprite): void} addCallback - Add to scene
-   * @param {function(!THREE.Sprite): void} removeCallback - Remove from scene
-   */
-  setSceneCallbacks(addCallback, removeCallback) {
-    this.addHighlightToScene_ = addCallback;
-    this.removeHighlightFromScene_ = removeCallback;
   }
 
   /**
@@ -249,7 +232,7 @@ export class TourController {
     this.currentTour_ = null;
     this.tourStep_ = 0;
 
-    this.hideHighlight_();
+    this.hideHighlight_?.();
     this.unhighlightConstellation_?.();
 
     globalEventBus.emit(Events.TOUR_ENDED, {tourName});
@@ -378,7 +361,7 @@ export class TourController {
    * @private
    */
   showConstellationStep_(step) {
-    this.hideHighlight_();
+    this.hideHighlight_?.();
     this.highlightConstellation_?.(step.name);
     this.showConstellationInfo_?.(step.abbrev || step.name);
   }
@@ -409,7 +392,7 @@ export class TourController {
     }
 
     const angularSizeArcmin = step.angularSize || 30;
-    this.showHighlight_(step.ra, step.dec, angularSizeArcmin);
+    this.showHighlight_?.(step.ra, step.dec, angularSizeArcmin);
   }
 
   /**
@@ -430,136 +413,12 @@ export class TourController {
     const angularSizeArcmin = obj?.size_major || obj?.angularSize ||
       step.angularSize || 10;
 
-    this.showHighlight_(step.ra, step.dec, angularSizeArcmin);
+    this.showHighlight_?.(step.ra, step.dec, angularSizeArcmin);
 
     if (obj) {
       if (!obj.name && step.name) obj.name = step.name;
       this.showObjectInfo_?.(obj);
     }
-  }
-
-  /**
-   * Show highlight at position.
-   * @param {number} ra - Right ascension in degrees
-   * @param {number} dec - Declination in degrees
-   * @param {number} angularSizeArcmin - Angular size in arcminutes
-   * @private
-   */
-  showHighlight_(ra, dec, angularSizeArcmin = 10) {
-    this.hideHighlight_();
-
-    if (typeof THREE === 'undefined') return;
-
-    const canvas = document.createElement('canvas');
-    const size = 128;
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-
-    // Draw glowing ring
-    ctx.clearRect(0, 0, size, size);
-    const centerX = size / 2;
-    const centerY = size / 2;
-    const outerRadius = size / 2 - 4;
-    const innerRadius = outerRadius - 12;
-
-    const gradient = ctx.createRadialGradient(
-      centerX, centerY, innerRadius - 10,
-      centerX, centerY, outerRadius + 10
-    );
-    gradient.addColorStop(0, 'rgba(255, 215, 0, 0)');
-    gradient.addColorStop(0.4, 'rgba(255, 215, 0, 0.8)');
-    gradient.addColorStop(0.6, 'rgba(255, 215, 0, 0.8)');
-    gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
-
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, outerRadius, 0, Math.PI * 2);
-    ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2, true);
-    ctx.fillStyle = gradient;
-    ctx.fill();
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      opacity: 1.0,
-      depthWrite: false,
-      depthTest: false,
-      blending: THREE.AdditiveBlending,
-    });
-
-    this.tourHighlight_ = new THREE.Sprite(material);
-
-    const radius = SPHERE.RADIUS - 2;
-    const pos = raDecToCartesian(ra, dec, radius);
-    this.tourHighlight_.position.copy(pos);
-
-    const angularSizeRad = THREE.MathUtils.degToRad(angularSizeArcmin / 60);
-    const realWorldSize = radius * angularSizeRad * 2;
-
-    this.tourHighlight_.renderOrder = 100;
-    this.tourHighlight_.userData = {
-      ra,
-      dec,
-      startTime: Date.now(),
-      angularSizeArcmin,
-      realWorldSize,
-      maxWorldSize: 15,
-    };
-
-    this.addHighlightToScene_?.(this.tourHighlight_);
-  }
-
-  /**
-   * Hide the tour highlight.
-   * @private
-   */
-  hideHighlight_() {
-    if (!this.tourHighlight_) return;
-
-    this.removeHighlightFromScene_?.(this.tourHighlight_);
-
-    if (this.tourHighlight_.material.map) {
-      this.tourHighlight_.material.map.dispose();
-    }
-    this.tourHighlight_.material.dispose();
-    this.tourHighlight_ = null;
-  }
-
-  /**
-   * Update highlight animation (call from animation loop).
-   * @param {number} fov - Current camera FOV
-   * @param {number} canvasHeight - Canvas height in pixels
-   */
-  updateHighlight(fov, canvasHeight) {
-    if (!this.tourHighlight_) return;
-
-    const userData = this.tourHighlight_.userData;
-    const elapsed = (Date.now() - userData.startTime) / 1000;
-
-    // Pulsing opacity
-    const pulse = 0.7 + 0.3 * Math.sin(elapsed * 3);
-    this.tourHighlight_.material.opacity = pulse;
-
-    // Scale based on FOV
-    const pixelsPerDeg = canvasHeight / fov;
-    const angularSizeDeg = userData.angularSizeArcmin / 60;
-    const realSizePixels = angularSizeDeg * pixelsPerDeg;
-
-    const minHighlightPixels = 80;
-    const targetPixels = Math.max(realSizePixels * 1.5, minHighlightPixels);
-
-    const radius = SPHERE.RADIUS - 2;
-    const fovRad = THREE.MathUtils.degToRad(fov / 2);
-    const worldSize = (targetPixels / canvasHeight) * 2 * radius * Math.tan(fovRad);
-
-    const clampedSize = Math.min(
-      Math.max(worldSize, userData.realWorldSize * 1.2),
-      userData.maxWorldSize
-    );
-    const pulsedSize = clampedSize * (1 + 0.1 * Math.sin(elapsed * 2));
-
-    this.tourHighlight_.scale.set(pulsedSize, pulsedSize, 1);
   }
 
   /**

@@ -384,52 +384,6 @@ describe('TourController', () => {
     });
   });
 
-  describe('setSceneCallbacks', () => {
-    test('stores add and remove callbacks', () => {
-      const addCb = jest.fn();
-      const removeCb = jest.fn();
-
-      controller.setSceneCallbacks(addCb, removeCb);
-
-      // These should be stored internally
-      expect(controller.addHighlightToScene_).toBe(addCb);
-      expect(controller.removeHighlightFromScene_).toBe(removeCb);
-    });
-  });
-
-  describe('updateHighlight', () => {
-    beforeEach(() => {
-      const addCb = jest.fn();
-      const removeCb = jest.fn();
-      controller.setSceneCallbacks(addCb, removeCb);
-      controller.start('best-messier');
-    });
-
-    test('does nothing when no highlight exists', () => {
-      controller.tourHighlight_ = null;
-      // Should not throw
-      controller.updateHighlight(60, 800);
-    });
-
-    test('updates opacity and scale when highlight exists', () => {
-      // Create mock highlight
-      controller.tourHighlight_ = {
-        material: {opacity: 1},
-        scale: {set: jest.fn()},
-        userData: {
-          startTime: Date.now() - 1000,
-          angularSizeArcmin: 10,
-          realWorldSize: 5,
-          maxWorldSize: 15,
-        },
-      };
-
-      controller.updateHighlight(30, 800);
-
-      expect(controller.tourHighlight_.scale.set).toHaveBeenCalled();
-    });
-  });
-
   describe('constellation tour', () => {
     test('highlights constellation and shows info', () => {
       controller.start('constellations');
