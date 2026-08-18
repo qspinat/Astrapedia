@@ -139,6 +139,20 @@ export class GameController {
     /** @private {!Array<!Object>} */
     this.stars_ = [];
 
+    /**
+     * Stars indexed by HIP and by id, built on first use. Rebuilt whenever
+     * setData replaces the star list.
+     * @private {?Map<number, !Object>}
+     */
+    this.starByKey_ = null;
+
+    /**
+     * Constellation name to computed centre. Centres depend only on the star
+     * and constellation data, so they survive for as long as that data does.
+     * @private @const {!Map<string, {ra: number, dec: number}>}
+     */
+    this.constellationCenters_ = new Map();
+
     // Callback for camera navigation
     /** @private {?function(number, number): void} */
     this.onNavigateCallback_ = null;
@@ -171,6 +185,8 @@ export class GameController {
     this.deepSkyObjects_ = data.deepSkyObjects || [];
     this.namedObjects_ = data.namedObjects || {};
     this.stars_ = data.stars || [];
+    this.starByKey_ = null;
+    this.constellationCenters_.clear();
     logger.debug(`setData called with ${Object.keys(this.constellations_).length} constellations`);
   }
 
@@ -635,11 +651,34 @@ export class GameController {
    * @returns {{ra: number, dec: number}} Center coordinates
    * @private
    */
-  getConstellationCenter_(constData) {
-    return constellationCenter(
+  getConstellationCenter_(constData, name) {
+    if (name && this.constellationCenters_.has(name)) {
+      return this.constellationCenters_.get(name);
+    }
+
+    if (!this.starByKey_) {
+      // One first-wins index over both keys. Equivalent to the previous
+      // stars_.find((s) => s.hip === id || s.id === id) — inserting each
+      // star's hip then id in array order means the first star that could
+      // have matched still wins — but O(1) instead of a full scan per star
+      // id, which was ~30M comparisons per game start.
+      this.starByKey_ = new Map();
+      for (const star of this.stars_) {
+        if (star.hip != null && !this.starByKey_.has(star.hip)) {
+          this.starByKey_.set(star.hip, star);
+        }
+        if (star.id != null && !this.starByKey_.has(star.id)) {
+          this.starByKey_.set(star.id, star);
+        }
+      }
+    }
+
+    const center = constellationCenter(
       constData,
-      (id) => this.stars_.find((s) => s.hip === id || s.id === id)
+      (id) => this.starByKey_.get(id)
     );
+    if (name) this.constellationCenters_.set(name, center);
+    return center;
   }
 
   /**
@@ -654,7 +693,7 @@ export class GameController {
     names.forEach((name) => {
       const constData = this.constellations_[name];
       if (constData) {
-        const center = this.getConstellationCenter_(constData);
+        const center = this.getConstellationCenter_(constData, name);
         pool.push({
           name,
           displayName: this.getConstellationDisplayName_(name),
@@ -681,7 +720,7 @@ export class GameController {
   addAllConstellationQuestions_(pool) {
     Object.keys(this.constellations_).forEach((name) => {
       const constData = this.constellations_[name];
-      const center = this.getConstellationCenter_(constData);
+      const center = this.getConstellationCenter_(constData, name);
       pool.push({
         name,
         displayName: this.getConstellationDisplayName_(name),
@@ -704,7 +743,7 @@ export class GameController {
   addConstellationsByHemisphere_(pool, hemisphere) {
     Object.keys(this.constellations_).forEach((name) => {
       const constData = this.constellations_[name];
-      const center = this.getConstellationCenter_(constData);
+      const center = this.getConstellationCenter_(constData, name);
 
       if ((hemisphere === 'north' && center.dec >= 0) ||
           (hemisphere === 'south' && center.dec < 0)) {

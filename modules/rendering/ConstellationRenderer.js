@@ -17,6 +17,24 @@ const COLORS = {
 };
 
 /**
+ * Index stars by HIP number for O(1) lookup.
+ *
+ * Keeps the first star seen for a HIP, matching the Array.find() this
+ * replaced; stars without a HIP are skipped, as they can never be a
+ * constellation line endpoint.
+ *
+ * @param {!Array<!Object>} stars - Star records
+ * @returns {!Map<number, !Object>} HIP to star
+ */
+function buildStarByHipIndex(stars) {
+  const byHip = new Map();
+  for (const star of stars) {
+    if (star.hip && !byHip.has(star.hip)) byHip.set(star.hip, star);
+  }
+  return byHip;
+}
+
+/**
  * ConstellationRenderer handles constellation line visualization.
  */
 export class ConstellationRenderer {
@@ -131,6 +149,11 @@ export class ConstellationRenderer {
     const stars = this.getStars_();
     const constellations = this.getConstellations_();
 
+    // Index by HIP once. The previous stars.find() per endpoint was a linear
+    // scan of the whole catalog for each of ~1,500 endpoints — ~61M
+    // comparisons on the default 41K-star set, all of it before first paint.
+    const starByHip = buildStarByHipIndex(stars);
+
     let linesCreated = 0;
 
     Object.entries(constellations).forEach(([constName, constellation]) => {
@@ -147,8 +170,8 @@ export class ConstellationRenderer {
 
       constellation.lines.forEach(([hip1, hip2]) => {
         // Find stars by HIP number
-        const star1 = stars.find((s) => s.hip === hip1);
-        const star2 = stars.find((s) => s.hip === hip2);
+        const star1 = starByHip.get(hip1);
+        const star2 = starByHip.get(hip2);
 
         if (star1 && star2) {
           const points = [
@@ -171,7 +194,7 @@ export class ConstellationRenderer {
     this.celestialSphere_.add(this.linesGroup_);
 
     // Precompute constellation centers for focus mode
-    this.computeConstellationCenters_(stars, constellations);
+    this.computeConstellationCenters_(starByHip, constellations);
 
     globalEventBus.emit(Events.CONSTELLATION_LINES_CREATED, {
       count: linesCreated,
@@ -336,14 +359,9 @@ export class ConstellationRenderer {
    * @param {!Object} constellations - Constellations data
    * @private
    */
-  computeConstellationCenters_(stars, constellations) {
+  computeConstellationCenters_(starByHip, constellations) {
     this.constellationCenters_.clear();
     this.constellationOpacities_.clear();
-
-    const starByHip = new Map();
-    stars.forEach((s) => {
-      if (s.hip) starByHip.set(s.hip, s);
-    });
 
     Object.entries(constellations).forEach(([constName, constellation]) => {
       const hipSet = new Set();
