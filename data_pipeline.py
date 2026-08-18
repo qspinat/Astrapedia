@@ -128,6 +128,13 @@ def process_hyg_stars(
     print(f"  Reading {hyg_file.name}...")
     df = pd.read_csv(hyg_file)
 
+    # Drop the Sun. HYG carries it as row id 0 with placeholder coordinates
+    # (RA 0, Dec 0, distance 0) and magnitude -26.7, so the magnitude filter
+    # keeps it and it ships as a catalogued star: a permanent max-brightness
+    # point at the vernal equinox, and a "Sol" search result that flies the
+    # camera there. The real Sun is drawn from ephemeris by PlanetRenderer.
+    df = df[df["id"] != 0]
+
     # Filter by magnitude
     df_filtered = df[df["mag"] <= max_magnitude].copy()
     print(f"  Filtered {len(df_filtered)} stars (magnitude <= {max_magnitude})")

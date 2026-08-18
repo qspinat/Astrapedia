@@ -1,10 +1,15 @@
 """
-Tests for data_pipeline.py supplementary Messier object injection.
+Tests for data_pipeline.py catalog processing.
 """
 
+import json
+from pathlib import Path
+
+import pandas as pd
 import pytest
 
 from astrapedia.astronomy import inject_supplementary_objects
+from data_pipeline import _stars_from_dataframe
 
 
 class TestInjectSupplementaryObjects:
@@ -214,3 +219,47 @@ class TestSupplementaryMessierDataIntegrity:
             for name in obj['common_names']:
                 assert isinstance(name, str)
                 assert len(name) > 0
+
+
+class TestSunExclusion:
+    """The Sun must not ship as a catalogued star."""
+
+    def test_drops_the_hyg_sun_row(self):
+        """HYG row id 0 is the Sun, with placeholder RA/Dec of 0/0 and
+        magnitude -26.7. It passes any magnitude filter, so it has to be
+        removed explicitly or it renders as a star at the vernal equinox."""
+        df = pd.DataFrame({
+            "id": [0, 32349, 30438],
+            "hip": [None, 32349, 30438],
+            "hd": [None, 48915, 45348],
+            "hr": [None, 2491, 2326],
+            "gl": [None, "Gl 244A", None],
+            "proper": ["Sol", "Sirius", "Canopus"],
+            "ra": [0.0, 6.752, 6.399],
+            "dec": [0.0, -16.716, -52.696],
+            "mag": [-26.7, -1.44, -0.62],
+            "absmag": [4.85, 1.45, -5.53],
+            "spect": ["G2V", "A0m...", "A9II"],
+            "dist": [0.0, 2.64, 95.88],
+            "ci": [0.656, 0.009, 0.164],
+        })
+
+        stars = _stars_from_dataframe(df[df["id"] != 0])
+
+        assert [s["proper"] for s in stars] == ["Sirius", "Canopus"]
+        assert all(s["id"] != 0 for s in stars)
+
+    def test_shipped_catalog_contains_no_sun(self):
+        """Guards the generated files themselves, not just the filter."""
+        data_dir = Path(__file__).resolve().parents[2] / "data"
+        for name in ("stars_bright.json", "stars_medium.json"):
+            path = data_dir / name
+            if not path.exists():
+                continue
+            stars = json.loads(path.read_text())
+            assert not [s for s in stars if s.get("id") == 0], (
+                f"{name} still contains the HYG Sun row"
+            )
+            assert not [s for s in stars if s.get("proper") == "Sol"], (
+                f"{name} still contains a star named Sol"
+            )
