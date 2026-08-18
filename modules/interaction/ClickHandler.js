@@ -18,6 +18,27 @@ import {magnitudeToSize} from '../core/MagnitudeUtils.js';
 const CLICK_THRESHOLD = 5;
 
 /**
+ * Whether an object is actually being drawn.
+ *
+ * THREE's raycaster does not consider visibility — a LineSegments with
+ * visible = false still reports intersections (verified against r128) — so
+ * anything hidden has to be filtered out here, or the user can click a target
+ * that is not on screen. Focus mode hides all but the nearest constellation
+ * exactly this way.
+ *
+ * Walks the parent chain, since hiding a group hides its children.
+ *
+ * @param {?THREE.Object3D} object - Object to test
+ * @returns {boolean} True if the object and all its ancestors are visible
+ */
+function isDisplayed(object) {
+  for (let node = object; node; node = node.parent) {
+    if (node.visible === false) return false;
+  }
+  return true;
+}
+
+/**
  * @typedef {{
  *   camera: THREE.PerspectiveCamera,
  *   renderer: THREE.WebGLRenderer,
@@ -155,6 +176,8 @@ export class ClickHandler {
     let closestDistance = Infinity;
 
     for (const sprite of planetSprites) {
+      if (!isDisplayed(sprite)) continue;
+
       const planetData = sprite.userData;
       // RA 0 is a real coordinate — the vernal equinox — so test for absence,
       // not falsiness, or anything sitting there becomes unclickable.
@@ -386,6 +409,8 @@ export class ClickHandler {
     let closestDistance = Infinity;
 
     for (const sprite of extendedObjectSprites) {
+      if (!isDisplayed(sprite)) continue;
+
       const dsoData = sprite.userData?.dso;
       if (!dsoData || dsoData.ra == null) continue;
       // Skip DSOs beyond the fade range (completely invisible)
@@ -458,6 +483,8 @@ export class ClickHandler {
     for (const intersection of lineIntersects) {
       const name = intersection.object.userData?.constellation;
       if (!name) continue;
+      // Focus mode hides every constellation but the nearest one.
+      if (!isDisplayed(intersection.object)) continue;
       return {
         name,
         // Perpendicular distance from the ray, directly comparable to a

@@ -895,3 +895,87 @@ describe('ClickHandler star versus constellation', () => {
     expect(deps.checkGameAnswerByName).toHaveBeenCalledWith('ORI');
   });
 });
+
+
+describe('ClickHandler only selects what is on screen', () => {
+  let handler;
+  let deps;
+  let mockLine;
+
+  beforeEach(() => {
+    mockLine = {userData: {constellation: 'ORI'}, visible: true, parent: null};
+    deps = {
+      camera: {fov: 60, updateProjectionMatrix: jest.fn()},
+      renderer: {domElement: {width: 800, height: 600}},
+      getCelestialSphere: jest.fn(() => null),
+      getStarField: jest.fn(() => null),
+      getPlanetSprites: jest.fn(() => []),
+      getExtendedObjectSprites: jest.fn(() => []),
+      getConstellationLinesGroup: jest.fn(() => ({children: [mockLine]})),
+      getDynamicObjectManager: jest.fn(() => null),
+      isConstellationLinesVisible: jest.fn(() => true),
+      isGameActive: jest.fn(() => false),
+      getMagnitudeLimit: jest.fn(() => 6),
+      selectObject: jest.fn(),
+      showConstellationInfo: jest.fn(),
+      unhighlightConstellation: jest.fn(),
+      clearSelection: jest.fn(),
+      checkGameAnswer: jest.fn(),
+      checkGameAnswerByName: jest.fn(),
+    };
+    handler = new ClickHandler(deps);
+    handler.raycaster_.intersectObjects = jest.fn(() => [
+      {object: mockLine, distance: 50, distanceToRay: 0.1,
+        point: {x: 100, y: 0, z: 0}},
+    ]);
+    handler.raycaster_.ray.distanceToPoint = () => 0.1;
+  });
+
+  test('selects a constellation whose lines are drawn', () => {
+    handler.handleClick(0, 0);
+
+    expect(deps.showConstellationInfo).toHaveBeenCalledWith('ORI');
+  });
+
+  // THREE's raycaster ignores visibility — a hidden LineSegments still
+  // reports intersections — so focus mode, which hides every constellation
+  // but the nearest, would otherwise let you click one that is not drawn.
+  test('ignores a constellation hidden by focus mode', () => {
+    mockLine.visible = false;
+
+    handler.handleClick(0, 0);
+
+    expect(deps.showConstellationInfo).not.toHaveBeenCalled();
+  });
+
+  test('ignores a constellation whose parent group is hidden', () => {
+    mockLine.parent = {visible: false, parent: null};
+
+    handler.handleClick(0, 0);
+
+    expect(deps.showConstellationInfo).not.toHaveBeenCalled();
+  });
+
+  test('ignores a hidden planet sprite', () => {
+    deps.getPlanetSprites.mockReturnValue([
+      {visible: false, parent: null,
+        userData: {name: 'Mars', ra: 0, dec: 0, mag: 1, angularSize: 10}},
+    ]);
+
+    handler.handleClick(0, 0);
+
+    expect(deps.selectObject).not.toHaveBeenCalled();
+  });
+
+  test('ignores a hidden deep sky object sprite', () => {
+    deps.getExtendedObjectSprites.mockReturnValue([
+      {visible: false, parent: null,
+        userData: {dso: {name: 'NGC1', ra: 0, dec: 0, mag: 5, type: 'G',
+          size_major: 10}}},
+    ]);
+
+    handler.handleClick(0, 0);
+
+    expect(deps.selectObject).not.toHaveBeenCalled();
+  });
+});
