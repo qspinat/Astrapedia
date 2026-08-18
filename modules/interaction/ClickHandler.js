@@ -7,7 +7,7 @@
 import {cartesianToRaDec} from '../core/CoordinateUtils.js';
 import {CAMERA, STARS} from '../core/Constants.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
-import {clamp} from '../core/Utils.js';
+import {magnitudeToSize} from '../core/MagnitudeUtils.js';
 
 /**
  * @typedef {{
@@ -146,17 +146,10 @@ export class ClickHandler {
       const angularSizeDeg = (planetData.angularSize || 0.1) / 60;
       const realSizePixels = angularSizeDeg * pixelsPerDeg;
 
-      // Magnitude-based size
+      // Must match how PlanetRenderer sizes the sprite (maxSize 6), or the
+      // tap target drifts away from what is drawn.
       const mag = planetData.mag || 0;
-      const baseMag = 8;
-      const baseSize = 0.8;
-      const maxSize = 6;
-      const magnitudeDiff = baseMag - mag;
-      const magBasedSize = clamp(
-        baseSize * Math.pow(1.15, magnitudeDiff),
-        baseSize,
-        maxSize
-      );
+      const magBasedSize = magnitudeToSize(mag, 6);
       const magBasedPixels = magBasedSize * 1.5;
       const displaySizePixels = Math.max(realSizePixels, magBasedPixels);
 
