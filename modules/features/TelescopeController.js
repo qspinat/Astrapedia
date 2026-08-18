@@ -222,6 +222,28 @@ export function isDiffuseObject(obj) {
 }
 
 /**
+ * Keep only the named keys whose values are usable optical measurements.
+ *
+ * Anything absent, non-numeric, zero or negative is dropped so the caller's
+ * existing default survives the merge.
+ *
+ * @param {*} source - Untrusted object, typically from localStorage
+ * @param {!Array<string>} keys - Keys to consider
+ * @returns {!Object<string, number>} The valid subset
+ */
+function pickPositiveNumbers(source, keys) {
+  const valid = {};
+  if (!source || typeof source !== 'object') return valid;
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      valid[key] = value;
+    }
+  }
+  return valid;
+}
+
+/**
  * TelescopeController manages telescope simulation mode.
  */
 export class TelescopeController {
@@ -752,15 +774,28 @@ export class TelescopeController {
       const data = JSON.parse(stored);
 
       if (data.currentConfig) {
-        if (data.currentConfig.telescope) {
-          this.telescope_ = {...this.telescope_, ...data.currentConfig.telescope};
-        }
-        if (data.currentConfig.eyepiece) {
-          this.eyepiece_ = {...this.eyepiece_, ...data.currentConfig.eyepiece};
-        }
+        // Validate before merging. Every optical property is derived from
+        // these by division or a logarithm, so a stored 0 or a non-number
+        // propagates: diameter 0 gives a limiting magnitude of -Infinity,
+        // which activating telescope mode pushes into the shader's magLimit
+        // uniform, and every star disappears. The UI inputs already reject
+        // these; storage is the path that did not.
+        this.telescope_ = {
+          ...this.telescope_,
+          ...pickPositiveNumbers(data.currentConfig.telescope,
+              ['diameter', 'focalLength']),
+        };
+        this.eyepiece_ = {
+          ...this.eyepiece_,
+          ...pickPositiveNumbers(data.currentConfig.eyepiece,
+              ['focalLength', 'apparentFov']),
+        };
       }
 
-      if (data.presets) {
+      // presets_ is an object keyed by preset name, so reject anything that
+      // is not one — an array or a string here would break every lookup.
+      if (data.presets && typeof data.presets === 'object' &&
+          !Array.isArray(data.presets)) {
         this.presets_ = data.presets;
       }
     } catch (e) {

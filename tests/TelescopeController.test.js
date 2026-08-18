@@ -1013,3 +1013,92 @@ describe('TelescopeController - diffuse visibility', () => {
     });
   });
 });
+
+
+describe('TelescopeController loading corrupt stored settings', () => {
+  /**
+   * @param {!Object} stored
+   * @returns {!TelescopeController}
+   */
+  function withStoredSettings(stored) {
+    global.localStorage.getItem.mockReturnValue(JSON.stringify(stored));
+    return new TelescopeController({});
+  }
+
+  test('accepts a well-formed stored configuration', () => {
+    const controller = withStoredSettings({
+      currentConfig: {
+        telescope: {diameter: 150, focalLength: 750},
+        eyepiece: {focalLength: 10, apparentFov: 68},
+      },
+    });
+
+    expect(controller.telescope_.diameter).toBe(150);
+    expect(controller.eyepiece_.focalLength).toBe(10);
+  });
+
+  // A stored diameter of 0 gives 2.7 + 5*log10(0) = -Infinity, which
+  // activating telescope mode pushes into the shader's magLimit uniform —
+  // every star vanishes, with no way to recover but clearing storage.
+  test('ignores a zero aperture', () => {
+    const controller = withStoredSettings({
+      currentConfig: {telescope: {diameter: 0, focalLength: 750}},
+    });
+
+    expect(controller.telescope_.diameter).toBeGreaterThan(0);
+    expect(Number.isFinite(controller.telescope_.diameter)).toBe(true);
+  });
+
+  test('ignores negative and non-numeric values', () => {
+    const controller = withStoredSettings({
+      currentConfig: {
+        telescope: {diameter: -200, focalLength: 'wide'},
+        eyepiece: {focalLength: null, apparentFov: NaN},
+      },
+    });
+
+    for (const value of [
+      controller.telescope_.diameter,
+      controller.telescope_.focalLength,
+      controller.eyepiece_.focalLength,
+      controller.eyepiece_.apparentFov,
+    ]) {
+      expect(typeof value).toBe('number');
+      expect(Number.isFinite(value)).toBe(true);
+      expect(value).toBeGreaterThan(0);
+    }
+  });
+
+  test('keeps the valid half of a partially corrupt configuration', () => {
+    const controller = withStoredSettings({
+      currentConfig: {telescope: {diameter: 0, focalLength: 900}},
+    });
+
+    expect(controller.telescope_.focalLength).toBe(900);
+    expect(controller.telescope_.diameter).toBeGreaterThan(0);
+  });
+
+  test('keeps stored presets', () => {
+    const controller = withStoredSettings({
+      presets: {'My 8-inch': {telescope: {diameter: 200, focalLength: 1200}}},
+    });
+
+    expect(controller.presets_['My 8-inch']).toBeDefined();
+  });
+
+  // presets_ is keyed by name, so a non-object here would break every lookup.
+  test('rejects a presets field of the wrong shape', () => {
+    for (const bad of ['not-a-map', 42, ['a', 'b']]) {
+      const controller = withStoredSettings({presets: bad});
+
+      expect(typeof controller.presets_).toBe('object');
+      expect(Array.isArray(controller.presets_)).toBe(false);
+    }
+  });
+
+  test('survives malformed JSON', () => {
+    global.localStorage.getItem.mockReturnValue('{not json');
+
+    expect(() => new TelescopeController({})).not.toThrow();
+  });
+});
