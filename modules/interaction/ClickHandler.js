@@ -5,9 +5,10 @@
 
 // THREE is loaded globally from CDN in app.html
 import {cartesianToRaDec} from '../core/CoordinateUtils.js';
-import {CAMERA, STARS} from '../core/Constants.js';
+import {CAMERA} from '../core/Constants.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
-import {magnitudeToSize} from '../core/MagnitudeUtils.js';
+import {isWithinMagnitudeLimit, magnitudeToSize}
+  from '../core/MagnitudeUtils.js';
 
 /**
  * Raycast tolerance for click targets, in world units at the default field of
@@ -246,10 +247,6 @@ export class ClickHandler {
     const dsos = starField.userData.dsos;
     const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
 
-    // Iterate through all intersections to find the first visible object
-    // (faint stars above magnitude limit may be closer in 3D but invisible)
-    // Stars in the fade range (up to FADE_RANGE beyond limit) are still visible
-    const effectiveLimit = magnitudeLimit + STARS.FADE_RANGE;
 
     for (const intersection of intersects) {
       // A star only wins the click if it is nearer than the best competing
@@ -263,10 +260,7 @@ export class ClickHandler {
 
       if (index < stars.length) {
         const star = stars[index];
-        // Skip stars beyond the fade range (completely invisible)
-        if (star.mag !== undefined && star.mag > effectiveLimit) {
-          continue;
-        }
+        if (!isWithinMagnitudeLimit(star.mag, magnitudeLimit)) continue;
         clickedObject = {
           name: star.proper || star.bf ||
             (star.hip ? `HIP ${star.hip}` : 'Unknown Star'),
@@ -282,10 +276,7 @@ export class ClickHandler {
         const dsoIndex = index - stars.length;
         if (dsoIndex < dsos.length) {
           const dso = dsos[dsoIndex];
-          // Skip DSOs beyond the fade range (completely invisible)
-          if (dso.mag !== undefined && dso.mag > effectiveLimit) {
-            continue;
-          }
+          if (!isWithinMagnitudeLimit(dso.mag, magnitudeLimit)) continue;
           clickedObject = {
             name: dso.messier
               ? `M${Math.floor(dso.messier)}`
@@ -331,7 +322,6 @@ export class ClickHandler {
     if (!dynamicStars) return false;
 
     const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
-    const effectiveLimit = magnitudeLimit + STARS.FADE_RANGE;
 
     // Iterate through all intersections to find the first visible star
     for (const intersection of intersects) {
@@ -347,7 +337,7 @@ export class ClickHandler {
       const star = dynamicStars[originalIndex];
 
       // Skip stars beyond the fade range (completely invisible)
-      if (star.mag !== undefined && star.mag > effectiveLimit) {
+      if (!isWithinMagnitudeLimit(star.mag, magnitudeLimit)) {
         continue;
       }
 
@@ -403,7 +393,6 @@ export class ClickHandler {
     const pixelsPerDeg = canvasHeight / fov;
     const minSizePixels = 6;
     const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
-    const effectiveLimit = magnitudeLimit + STARS.FADE_RANGE;
 
     let closestDSO = null;
     let closestDistance = Infinity;
@@ -414,7 +403,7 @@ export class ClickHandler {
       const dsoData = sprite.userData?.dso;
       if (!dsoData || dsoData.ra == null) continue;
       // Skip DSOs beyond the fade range (completely invisible)
-      if (dsoData.mag !== undefined && dsoData.mag > effectiveLimit) continue;
+      if (!isWithinMagnitudeLimit(dsoData.mag, magnitudeLimit)) continue;
 
       // Wrap RA delta across the 0h/360h meridian
       const dRaDeg = ((dsoData.ra - clickRaDec.ra + 540) % 360) - 180;

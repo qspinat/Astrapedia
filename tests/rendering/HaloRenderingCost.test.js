@@ -178,6 +178,77 @@ describe('per-frame matrix cost', () => {
     });
   });
 
+  describe('magnitude limit', () => {
+    const FADE = 1.5;
+    const dsos = [
+      {ra: 0, dec: 0, size_major: 5, mag: 3, type: 'G'},
+      {ra: 10, dec: 10, size_major: 5, mag: 5.5, type: 'G'},
+      {ra: 20, dec: 20, size_major: 5, mag: 5.6, type: 'G'},
+      {ra: 30, dec: 30, size_major: 5, mag: 11, type: 'G'},
+    ];
+
+    /** @return {!ExtendedObjectRenderer} */
+    function rendererAtLimit(limit) {
+      const r = new ExtendedObjectRenderer({
+        celestialSphere,
+        getDSOs: () => dsos,
+        requestRender: jest.fn(),
+      });
+      r.create();
+      r.setMagnitudeLimit(limit);
+      return r;
+    }
+
+    // The inconsistency this closes: halos were drawn for every sized deep
+    // sky object whatever the limit, while ClickHandler filtered clicks at
+    // limit + fade range. At limit 4 that left 1,672 of 1,729 halos visible
+    // on screen but unselectable.
+    test('hides halos fainter than the limit plus the fade range', () => {
+      const visible = rendererAtLimit(4).getSprites()
+          .filter((s) => s.visible)
+          .map((s) => s.userData.dso.mag);
+
+      expect(visible).toEqual([3, 5.5]);
+    });
+
+    test('includes an object exactly at the fade boundary', () => {
+      const r = rendererAtLimit(4);
+      const atBoundary = r.getSprites()
+          .find((s) => s.userData.dso.mag === 4 + FADE);
+
+      expect(atBoundary.visible).toBe(true);
+    });
+
+    test('shows everything again when the limit is raised', () => {
+      const r = rendererAtLimit(4);
+
+      r.setMagnitudeLimit(11);
+
+      expect(r.getSprites().every((s) => s.visible)).toBe(true);
+    });
+
+    test('applies the limit to newly created halos as well', () => {
+      const r = rendererAtLimit(4);
+
+      r.create();
+
+      const visible = r.getSprites().filter((s) => s.visible);
+      expect(visible).toHaveLength(2);
+    });
+
+    test('keeps an object with no magnitude visible', () => {
+      const r = new ExtendedObjectRenderer({
+        celestialSphere,
+        getDSOs: () => [{ra: 0, dec: 0, size_major: 5, type: 'G'}],
+        requestRender: jest.fn(),
+      });
+      r.create();
+      r.setMagnitudeLimit(1);
+
+      expect(r.getSprites()[0].visible).toBe(true);
+    });
+  });
+
   describe('constellation lines', () => {
     beforeEach(() => {
       new ConstellationRenderer({

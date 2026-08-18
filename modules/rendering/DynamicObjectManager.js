@@ -16,7 +16,8 @@
 /* global THREE */
 
 import {raDecToCartesian, cartesianToRaDec} from '../core/CoordinateUtils.js';
-import {magnitudeToSize} from '../core/MagnitudeUtils.js';
+import {isWithinMagnitudeLimit, magnitudeToSize}
+  from '../core/MagnitudeUtils.js';
 import {clamp} from '../core/Utils.js';
 import {getDsoHaloColor} from '../core/TypeMappings.js';
 import {SHADERS, SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
@@ -625,6 +626,10 @@ export class DynamicObjectManager {
     };
 
     sprite.scale.set(baseSize, baseSize, 1);
+    // These land in the same array ExtendedObjectRenderer manages, so they
+    // follow the same rule: drawn only while bright enough to be selectable.
+    sprite.visible = isWithinMagnitudeLimit(
+        dso.mag, this.callbacks_.getMagnitude?.() ?? 12);
     freezeTransform(sprite);
 
     // Add to tracking array

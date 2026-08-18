@@ -5,7 +5,8 @@
 
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {getDsoHaloColor} from '../core/TypeMappings.js';
-import {SPHERE} from '../core/Constants.js';
+import {SPHERE, STARS} from '../core/Constants.js';
+import {isWithinMagnitudeLimit} from '../core/MagnitudeUtils.js';
 import {
   disposeSpriteTexture,
   freezeTransform,
@@ -47,6 +48,13 @@ export class ExtendedObjectRenderer {
 
     /** @private {number} */
     this.radius_ = SPHERE.RADIUS;
+
+    /**
+     * Magnitude limit currently in force. Halos fainter than this are hidden,
+     * so what is drawn matches what ClickHandler will let you select.
+     * @private {number}
+     */
+    this.magnitudeLimit_ = STARS.DEFAULT_MAGNITUDE;
   }
 
   /**
@@ -141,9 +149,27 @@ export class ExtendedObjectRenderer {
     const displaySize = this.radius_ * angularSizeRad * 2;
     sprite.userData.baseSize = displaySize;
     sprite.scale.set(displaySize, displaySize, 1);
+    sprite.visible = isWithinMagnitudeLimit(dso.mag, this.magnitudeLimit_);
     freezeTransform(sprite);
 
     return sprite;
+  }
+
+  /**
+   * Set the magnitude limit and hide halos fainter than it.
+   *
+   * Applies to dynamically loaded objects too, since they are pushed into
+   * this same sprite array.
+   *
+   * @param {number} limit - Magnitude limit from the settings slider
+   */
+  setMagnitudeLimit(limit) {
+    this.magnitudeLimit_ = limit;
+    for (const sprite of this.sprites_) {
+      const mag = sprite.userData?.dso?.mag;
+      sprite.visible = isWithinMagnitudeLimit(mag, limit);
+    }
+    this.requestRender_();
   }
 
   /**
