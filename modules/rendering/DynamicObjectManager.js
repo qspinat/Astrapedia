@@ -23,6 +23,7 @@ import {SHADERS, SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
 import {dynamicDataLoader} from '../services/DynamicDataLoader.js';
 import {domCache} from '../ui/DOMCache.js';
 import {createLogger} from '../core/Logger.js';
+import {freezeTransform} from './SceneUtils.js';
 
 const logger = createLogger('DynamicObjectManager');
 
@@ -453,6 +454,7 @@ export class DynamicObjectManager {
     });
 
     this.dynamicStarField = new THREE.Points(geometry, material);
+    freezeTransform(this.dynamicStarField);
     celestialSphere?.add(this.dynamicStarField);
 
     const statusEl = domCache.dynamicStarsCount;
@@ -626,6 +628,7 @@ export class DynamicObjectManager {
     };
 
     sprite.scale.set(baseSize, baseSize, 1);
+    freezeTransform(sprite);
 
     // Add to tracking array
     const addSprite = this.callbacks_.addExtendedSprite;

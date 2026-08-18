@@ -6,6 +6,7 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {raDecToCartesian, cartesianToRaDec, angularDistance} from '../core/CoordinateUtils.js';
 import {SPHERE, CONSTELLATIONS} from '../core/Constants.js';
+import {freezeTransform} from './SceneUtils.js';
 
 /**
  * Default colors for constellation lines.
@@ -184,6 +185,7 @@ export class ConstellationRenderer {
           const line = new THREE.Line(geometry, lineMaterial.clone());
           // Store constellation name for highlighting
           line.userData = {constellation: constName};
+          freezeTransform(line);
           this.linesGroup_.add(line);
           linesCreated++;
         }
@@ -191,6 +193,7 @@ export class ConstellationRenderer {
     });
 
     this.linesGroup_.visible = this.visible_;
+    freezeTransform(this.linesGroup_);
     this.celestialSphere_.add(this.linesGroup_);
 
     // Precompute constellation centers for focus mode

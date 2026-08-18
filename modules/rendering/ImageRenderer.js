@@ -8,6 +8,7 @@ import {CURATED_IMAGES, getCuratedImage, getCuratedImageKeys} from '../data/Cura
 import {PLANET_IMAGES, getPlanetImageInfo} from '../data/PlanetImages.js';
 import {clamp} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
+import {freezeTransform} from './SceneUtils.js';
 
 const logger = createLogger('ImageRenderer');
 
@@ -229,6 +230,7 @@ export class ImageRenderer {
 
         sprite.visible = true;
         sprite.material.opacity = 0.1;
+        freezeTransform(sprite);
 
         this.celestialSphere_.add(sprite);
         this.imageSprites_.push(sprite);
@@ -284,6 +286,7 @@ export class ImageRenderer {
       sprite.material.rotation = -THREE.MathUtils.degToRad(dso.pos_angle);
     }
 
+    freezeTransform(sprite);
     this.celestialSphere_.add(sprite);
     this.imageSprites_.push(sprite);
   }
@@ -359,6 +362,7 @@ export class ImageRenderer {
         } else {
           sprite.scale.set(worldSize * aspectRatio, worldSize, 1);
         }
+        sprite.updateMatrix();
 
         const fadeInStart = minPixelsToShow;
         const fadeInEnd = screenSize * fullOpacityThreshold;

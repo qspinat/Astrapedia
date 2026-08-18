@@ -7,6 +7,7 @@ import {globalEventBus, Events} from '../core/EventBus.js';
 import {SHADERS, SPHERE, STARS} from '../core/Constants.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {magnitudeToSize} from '../core/MagnitudeUtils.js';
+import {freezeTransform} from './SceneUtils.js';
 
 /**
  * DSO type to color mapping.
@@ -149,6 +150,7 @@ export class StarFieldRenderer {
     }
 
     this.starField_ = new THREE.Points(geometry, this.material_);
+    freezeTransform(this.starField_);
     this.celestialSphere_.add(this.starField_);
 
     // Store star data for interaction

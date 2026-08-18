@@ -6,6 +6,7 @@
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {getDsoHaloColor} from '../core/TypeMappings.js';
 import {SPHERE} from '../core/Constants.js';
+import {freezeTransform} from './SceneUtils.js';
 
 /**
  * Clamp a value between min and max.
@@ -159,6 +160,7 @@ export class ExtendedObjectRenderer {
     const displaySize = this.radius_ * angularSizeRad * 2;
     sprite.userData.baseSize = displaySize;
     sprite.scale.set(displaySize, displaySize, 1);
+    freezeTransform(sprite);
 
     return sprite;
   }
@@ -186,6 +188,7 @@ export class ExtendedObjectRenderer {
       // Use larger of base size or FOV-based size
       const displaySize = Math.max(userData.baseSize, worldSize);
       sprite.scale.set(displaySize, displaySize, 1);
+      sprite.updateMatrix();
 
       // Fade opacity based on screen coverage (50-100% = 1.0-0.0 opacity)
       const screenCoverage = sizePixels / canvasHeight;
