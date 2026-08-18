@@ -168,6 +168,16 @@ export const CURATED_IMAGES = {
 };
 
 /**
+ * Catalog prefixes and the shapes that resolve to them.
+ * @const {!Array<!Array>}
+ */
+const CATALOG_PATTERNS = [
+  ['M', /^M\s*0*(\d+)$/i],
+  ['NGC', /^NGC\s*0*(\d+)$/i],
+  ['IC', /^IC\s*0*(\d+)$/i],
+];
+
+/**
  * Get curated image URL for an object.
  * @param {string} objectName - Name of the object (e.g., 'M31', 'NGC7293')
  * @returns {?{url: ?string, source: string}} Image info or null if not found
@@ -175,36 +185,25 @@ export const CURATED_IMAGES = {
 export const getCuratedImage = (objectName) => {
   if (!objectName) return null;
 
+  const trimmed = objectName.trim();
+
   // Direct match
-  if (CURATED_IMAGES[objectName]) {
-    return CURATED_IMAGES[objectName];
+  if (CURATED_IMAGES[trimmed]) {
+    return CURATED_IMAGES[trimmed];
   }
 
-  // Try Messier format
-  const messierMatch = objectName.match(/M(\d+)/i);
-  if (messierMatch) {
-    const key = `M${messierMatch[1]}`;
-    if (CURATED_IMAGES[key]) {
-      return CURATED_IMAGES[key];
-    }
-  }
-
-  // Try NGC format (remove leading zeros)
-  const ngcMatch = objectName.match(/NGC\s*0*(\d+)/i);
-  if (ngcMatch) {
-    const key = `NGC${parseInt(ngcMatch[1], 10)}`;
-    if (CURATED_IMAGES[key]) {
-      return CURATED_IMAGES[key];
-    }
-  }
-
-  // Try IC format (remove leading zeros)
-  const icMatch = objectName.match(/IC\s*0*(\d+)/i);
-  if (icMatch) {
-    const key = `IC${parseInt(icMatch[1], 10)}`;
-    if (CURATED_IMAGES[key]) {
-      return CURATED_IMAGES[key];
-    }
+  // Catalog designations, tolerating a separating space and leading zeros:
+  // 'M 31' and 'NGC0869' resolve to 'M31' and 'NGC869'.
+  //
+  // Anchored at both ends. An unanchored /M(\d+)/ matches the designation
+  // anywhere in the string, so a name that merely contains one — 'Cr399M31',
+  // or anything VizieR returns for a dynamically loaded object — would take
+  // another object's photograph.
+  for (const [prefix, pattern] of CATALOG_PATTERNS) {
+    const match = trimmed.match(pattern);
+    if (!match) continue;
+    const entry = CURATED_IMAGES[`${prefix}${parseInt(match[1], 10)}`];
+    if (entry) return entry;
   }
 
   return null;
