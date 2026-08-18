@@ -16,15 +16,13 @@
 /* global THREE */
 
 import {raDecToCartesian, cartesianToRaDec} from '../core/CoordinateUtils.js';
-import {isWithinMagnitudeLimit, magnitudeToSize}
-  from '../core/MagnitudeUtils.js';
-import {clamp} from '../core/Utils.js';
-import {getDsoHaloColor} from '../core/TypeMappings.js';
+import {magnitudeToSize} from '../core/MagnitudeUtils.js';
 import {SHADERS, SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
 import {dynamicDataLoader} from '../services/DynamicDataLoader.js';
 import {domCache} from '../ui/DOMCache.js';
 import {createLogger} from '../core/Logger.js';
 import {
+  createHaloSprite,
   disposeSpriteTexture,
   freezeTransform,
   getSharedHaloTexture,
@@ -587,52 +585,12 @@ export class DynamicObjectManager {
    * @private
    */
   createDynamicDSOSprite_(dso, radius, celestialSphere) {
-    const pos = raDecToCartesian(dso.ra, dso.dec, radius);
-    // Same shared texture and brightness folding as the catalogued halos in
-    // ExtendedObjectRenderer, so a dynamically loaded object is drawn exactly
-    // like the catalogued one beside it.
-    const mag = dso.mag || 10;
-    const magIntensity = clamp((10 - mag) / 24, 0.02, 0.25);
-    const baseOpacity = clamp((10 - mag) / 10, 0.1, 0.6) * magIntensity;
-
-    const [r, g, b] = getDsoHaloColor(dso.type);
-    const material = new THREE.SpriteMaterial({
-      map: getSharedHaloTexture(),
-      color: new THREE.Color(r / 255, g / 255, b / 255),
-      transparent: true,
-      opacity: baseOpacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
+    const sprite = createHaloSprite(dso, radius, {
+      magnitudeLimit: this.callbacks_.getMagnitude?.() ?? 12,
+      isDynamic: true,
     });
 
-    const sprite = new THREE.Sprite(material);
-    sprite.position.copy(pos);
-    sprite.renderOrder = 5;
-
-    // These sprites are pushed into the same array ExtendedObjectRenderer
-    // scales every frame, so they must carry the same userData contract.
-    // baseSize is the floor updateSizes() takes a Math.max against; without it
-    // the result is NaN and the sprite scales to NaN. Derived exactly as
-    // ExtendedObjectRenderer.createSprite_ does.
-    const angularSizeRad = THREE.MathUtils.degToRad((dso.size_major || 1) / 60);
-    const baseSize = radius * angularSizeRad * 2;
-
-    sprite.userData = {
-      dso: dso,
-      angularSizeArcmin: dso.size_major,
-      baseOpacity: baseOpacity,
-      baseSize: baseSize,
-      isDynamic: true
-    };
-
-    sprite.scale.set(baseSize, baseSize, 1);
-    // These land in the same array ExtendedObjectRenderer manages, so they
-    // follow the same rule: drawn only while bright enough to be selectable.
-    sprite.visible = isWithinMagnitudeLimit(
-        dso.mag, this.callbacks_.getMagnitude?.() ?? 12);
-    freezeTransform(sprite);
-
-    // Add to tracking array
+    // Its owner tracks these separately so it can dispose only its own.
     const addSprite = this.callbacks_.addExtendedSprite;
     if (addSprite) addSprite(sprite);
 

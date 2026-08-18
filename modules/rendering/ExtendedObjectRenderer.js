@@ -3,24 +3,9 @@
  * Creates semi-transparent halos for galaxies, nebulae, and clusters.
  */
 
-import {raDecToCartesian} from '../core/CoordinateUtils.js';
-import {getDsoHaloColor} from '../core/TypeMappings.js';
 import {SPHERE, STARS} from '../core/Constants.js';
 import {isWithinMagnitudeLimit} from '../core/MagnitudeUtils.js';
-import {
-  disposeSpriteTexture,
-  freezeTransform,
-  getSharedHaloTexture,
-} from './SceneUtils.js';
-
-/**
- * Clamp a value between min and max.
- * @param {number} value - Value to clamp
- * @param {number} min - Minimum value
- * @param {number} max - Maximum value
- * @returns {number} Clamped value
- */
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+import {createHaloSprite, disposeSpriteTexture} from './SceneUtils.js';
 
 /**
  * ExtendedObjectRenderer creates sprites for DSOs with real angular sizes.
@@ -113,46 +98,9 @@ export class ExtendedObjectRenderer {
    * @private
    */
   createSprite_(dso) {
-    const pos = raDecToCartesian(dso.ra, dso.dec, this.radius_);
-
-    // The halo's visible brightness is the product of the gradient's centre
-    // alpha and the material opacity. With a shared white texture normalised
-    // to alpha 1.0, that whole product has to live in the opacity — fold both
-    // terms together or the magnitude ramp flattens.
-    const mag = dso.mag || 10;
-    const magIntensity = clamp((10 - mag) / 24, 0.02, 0.25);
-    const baseOpacity = clamp((10 - mag) / 10, 0.1, 0.6) * magIntensity;
-
-    const [r, g, b] = getDsoHaloColor(dso.type);
-    const material = new THREE.SpriteMaterial({
-      map: getSharedHaloTexture(),
-      color: new THREE.Color(r / 255, g / 255, b / 255),
-      transparent: true,
-      opacity: baseOpacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
+    return createHaloSprite(dso, this.radius_, {
+      magnitudeLimit: this.magnitudeLimit_,
     });
-
-    const sprite = new THREE.Sprite(material);
-    sprite.position.copy(pos);
-    sprite.renderOrder = 5;
-
-    // Store data for updates
-    sprite.userData = {
-      angularSizeArcmin: dso.size_major,
-      dso: dso,
-      baseOpacity: baseOpacity,
-    };
-
-    // Calculate display size
-    const angularSizeRad = THREE.MathUtils.degToRad(dso.size_major / 60);
-    const displaySize = this.radius_ * angularSizeRad * 2;
-    sprite.userData.baseSize = displaySize;
-    sprite.scale.set(displaySize, displaySize, 1);
-    sprite.visible = isWithinMagnitudeLimit(dso.mag, this.magnitudeLimit_);
-    freezeTransform(sprite);
-
-    return sprite;
   }
 
   /**

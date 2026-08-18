@@ -1102,3 +1102,49 @@ describe('TelescopeController loading corrupt stored settings', () => {
     expect(() => new TelescopeController({})).not.toThrow();
   });
 });
+
+describe('loading a preset from storage', () => {
+  // Same failure as a corrupted currentConfig: diameter 0 makes
+  // theoreticalLimitingMag -Infinity, that reaches the shader's magnitude
+  // uniform, and the sky goes empty.
+  test('falls back to defaults for a non-positive diameter', () => {
+    const controller = new TelescopeController({});
+    controller.presets_ = {
+      Bad: {
+        telescope: {diameter: 0, focalLength: 1000},
+        eyepiece: {focalLength: 25, apparentFov: 52},
+      },
+    };
+
+    controller.loadPreset('Bad');
+
+    expect(controller.telescope_.diameter).toBeGreaterThan(0);
+    expect(Number.isFinite(
+        controller.computedProperties_.limitingMagnitude)).toBe(true);
+  });
+
+  test('keeps the values of a well formed preset', () => {
+    const controller = new TelescopeController({});
+    controller.presets_ = {
+      Good: {
+        telescope: {diameter: 150, focalLength: 750},
+        eyepiece: {focalLength: 10, apparentFov: 60},
+      },
+    };
+
+    controller.loadPreset('Good');
+
+    expect(controller.telescope_).toEqual({diameter: 150, focalLength: 750});
+    expect(controller.eyepiece_).toEqual({focalLength: 10, apparentFov: 60});
+  });
+
+  test('fills in fields a preset omits entirely', () => {
+    const controller = new TelescopeController({});
+    controller.presets_ = {Partial: {telescope: {diameter: 200}}};
+
+    controller.loadPreset('Partial');
+
+    expect(controller.telescope_.focalLength).toBeGreaterThan(0);
+    expect(controller.eyepiece_.apparentFov).toBeGreaterThan(0);
+  });
+});

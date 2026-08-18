@@ -5,6 +5,11 @@
 // THREE is loaded globally via script tag in app.html
 /* global THREE */
 
+import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {getDsoHaloColor} from '../core/TypeMappings.js';
+import {isWithinMagnitudeLimit} from '../core/MagnitudeUtils.js';
+import {clamp} from '../core/Utils.js';
+
 /**
  * Take an object out of THREE's per-frame matrix recomputation.
  *
@@ -91,3 +96,63 @@ export function disposeSpriteTexture(sprite) {
   if (map && !map.isShared) map.dispose();
 }
 
+/**
+ * Build the halo sprite for a deep sky object.
+ *
+ * Catalogued halos and the ones loaded on demand from SIMBAD end up in the
+ * same array, which ExtendedObjectRenderer.updateSizes() walks every frame,
+ * so they have to agree on the whole userData contract — not just look alike.
+ * They previously agreed by having been copied from one another, and had
+ * already drifted once: the dynamic ones baked their own 64px texture, tinted
+ * from a different table, and omitted baseSize, which made updateSizes()
+ * compute Math.max(undefined, ...) and scale the sprite to NaN.
+ *
+ * The halo's visible brightness is the product of the gradient's centre alpha
+ * and the material opacity. With a shared texture normalised to alpha 1.0 the
+ * whole product has to live in the opacity, so both terms are folded together
+ * here — split them and the magnitude ramp silently flattens.
+ *
+ * @param {!Object} dso - Deep sky object record
+ * @param {number} radius - Celestial sphere radius
+ * @param {{magnitudeLimit: number, isDynamic: (boolean|undefined)}} options
+ *     Visibility limit in force, and whether this is a dynamically loaded
+ *     object (which its owner tracks separately for cleanup).
+ * @returns {!THREE.Sprite} The halo sprite, with its transform frozen
+ */
+export function createHaloSprite(dso, radius, options) {
+  const mag = dso.mag || 10;
+  const magIntensity = clamp((10 - mag) / 24, 0.02, 0.25);
+  const baseOpacity = clamp((10 - mag) / 10, 0.1, 0.6) * magIntensity;
+
+  const [r, g, b] = getDsoHaloColor(dso.type);
+  const material = new THREE.SpriteMaterial({
+    map: getSharedHaloTexture(),
+    color: new THREE.Color(r / 255, g / 255, b / 255),
+    transparent: true,
+    opacity: baseOpacity,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+
+  const sprite = new THREE.Sprite(material);
+  sprite.position.copy(raDecToCartesian(dso.ra, dso.dec, radius));
+  sprite.renderOrder = 5;
+
+  // baseSize is the floor updateSizes() takes a Math.max against.
+  const angularSizeRad = THREE.MathUtils.degToRad((dso.size_major || 1) / 60);
+  const baseSize = radius * angularSizeRad * 2;
+
+  sprite.userData = {
+    dso,
+    angularSizeArcmin: dso.size_major,
+    baseOpacity,
+    baseSize,
+  };
+  if (options.isDynamic) sprite.userData.isDynamic = true;
+
+  sprite.scale.set(baseSize, baseSize, 1);
+  sprite.visible = isWithinMagnitudeLimit(dso.mag, options.magnitudeLimit);
+  freezeTransform(sprite);
+
+  return sprite;
+}

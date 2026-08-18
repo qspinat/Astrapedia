@@ -706,8 +706,21 @@ export class TelescopeController {
     const preset = this.presets_[name];
     if (!preset) return false;
 
-    this.telescope_ = {...preset.telescope};
-    this.eyepiece_ = {...preset.eyepiece};
+    // Presets come out of localStorage exactly as currentConfig does, so they
+    // can carry the same junk: a zero or missing diameter drives
+    // theoreticalLimitingMag to -Infinity, which reaches the shader uniform
+    // and blanks every star. Validate here rather than at load time so a
+    // preset saved before this check is also covered.
+    this.telescope_ = {
+      diameter: TELESCOPE.DEFAULT_DIAMETER,
+      focalLength: TELESCOPE.DEFAULT_FOCAL_LENGTH,
+      ...pickPositiveNumbers(preset.telescope, ['diameter', 'focalLength']),
+    };
+    this.eyepiece_ = {
+      focalLength: TELESCOPE.DEFAULT_EYEPIECE_FL,
+      apparentFov: TELESCOPE.DEFAULT_EYEPIECE_AFOV,
+      ...pickPositiveNumbers(preset.eyepiece, ['focalLength', 'apparentFov']),
+    };
     this.computeProperties_();
     this.saveToStorage_();
 
