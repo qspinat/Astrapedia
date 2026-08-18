@@ -54,6 +54,54 @@ def download_catalog(
     return filepath
 
 
+# Star record fields, in the order they appear in the JSON output.
+_STAR_INT_COLUMNS = ("id", "hip", "hd", "hr")
+_STAR_FLOAT_COLUMNS = ("absmag", "dist", "ci")
+_STAR_STRING_COLUMNS = ("gl", "proper", "spect")
+_STAR_FIELD_ORDER = (
+    "id", "hip", "hd", "hr", "gl", "proper",
+    "ra", "dec", "mag", "absmag", "spect", "dist", "ci",
+)
+
+
+def _stars_from_dataframe(df: pd.DataFrame) -> list[dict]:
+    """
+    Convert filtered HYG rows into star records.
+
+    Works column by column so pandas does the per-row work in C. Missing
+    values become None rather than NaN, which json.dump would otherwise emit
+    as a bare NaN token that JSON.parse rejects.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        Magnitude-filtered HYG rows
+
+    Returns:
+    --------
+    list of dict : Star records in JSON field order
+    """
+    columns: dict[str, list] = {}
+
+    for name in _STAR_INT_COLUMNS:
+        values = pd.to_numeric(df[name], errors="coerce")
+        columns[name] = [int(v) if pd.notna(v) else None for v in values]
+
+    for name in _STAR_FLOAT_COLUMNS:
+        values = pd.to_numeric(df[name], errors="coerce")
+        columns[name] = [float(v) if pd.notna(v) else None for v in values]
+
+    for name in _STAR_STRING_COLUMNS:
+        columns[name] = [v if pd.notna(v) else None for v in df[name]]
+
+    # RA is stored in hours in the catalog and degrees in our output.
+    columns["ra"] = (df["ra"].astype(float) * Config.HOURS_TO_DEGREES).tolist()
+    columns["dec"] = df["dec"].astype(float).tolist()
+    columns["mag"] = df["mag"].astype(float).tolist()
+
+    ordered = [columns[name] for name in _STAR_FIELD_ORDER]
+    return [dict(zip(_STAR_FIELD_ORDER, values)) for values in zip(*ordered)]
+
 def process_hyg_stars(
     max_magnitude: float = Config.MAX_MAGNITUDE_LIMIT,
 ) -> dict | None:
@@ -74,34 +122,33 @@ def process_hyg_stars(
     df_filtered = df[df["mag"] <= max_magnitude].copy()
     print(f"  Filtered {len(df_filtered)} stars (magnitude <= {max_magnitude})")
 
-    # Create star data structure
-    stars = []
-    for _, row in df_filtered.iterrows():
-        star = {
-            "id": int(row["id"]),
-            "hip": int(row["hip"]) if pd.notna(row["hip"]) else None,
-            "hd": int(row["hd"]) if pd.notna(row["hd"]) else None,
-            "hr": int(row["hr"]) if pd.notna(row["hr"]) else None,
-            "gl": row["gl"] if pd.notna(row["gl"]) else None,
-            "proper": row["proper"] if pd.notna(row["proper"]) else None,
-            "ra": float(row["ra"]) * Config.HOURS_TO_DEGREES,
-            "dec": float(row["dec"]),
-            "mag": float(row["mag"]),
-            "absmag": float(row["absmag"]) if pd.notna(row["absmag"]) else None,
-            "spect": row["spect"] if pd.notna(row["spect"]) else None,
-            "dist": float(row["dist"]) if pd.notna(row["dist"]) else None,
-            "ci": float(row["ci"]) if pd.notna(row["ci"]) else None,
-        }
-        stars.append(star)
+    # Build the records column-wise. iterrows() materialises a Series per row
+    # and ran ~12 scalar pd.notna() calls on each, which over 118,000 rows is
+    # about 1.4 million pandas calls; this is the same output an order of
+    # magnitude faster.
+    stars = _stars_from_dataframe(df_filtered)
 
-    # Create magnitude bins for statistics
+    # Magnitude bins in a single pass rather than five list comprehensions
+    # over the whole catalog.
     magnitude_bins = {
-        "very_bright": len([s for s in stars if s["mag"] <= 2.0]),
-        "bright": len([s for s in stars if 2.0 < s["mag"] <= 4.0]),
-        "visible": len([s for s in stars if 4.0 < s["mag"] <= 6.0]),
-        "faint": len([s for s in stars if 6.0 < s["mag"] <= 8.0]),
-        "very_faint": len([s for s in stars if s["mag"] > 8.0]),
+        "very_bright": 0,
+        "bright": 0,
+        "visible": 0,
+        "faint": 0,
+        "very_faint": 0,
     }
+    for star in stars:
+        mag = star["mag"]
+        if mag <= 2.0:
+            magnitude_bins["very_bright"] += 1
+        elif mag <= 4.0:
+            magnitude_bins["bright"] += 1
+        elif mag <= 6.0:
+            magnitude_bins["visible"] += 1
+        elif mag <= 8.0:
+            magnitude_bins["faint"] += 1
+        else:
+            magnitude_bins["very_faint"] += 1
 
     print("  Stars by brightness:")
     for category, count in magnitude_bins.items():

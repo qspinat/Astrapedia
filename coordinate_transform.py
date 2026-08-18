@@ -71,12 +71,18 @@ def transform_coordinates(
     altaz_frame = AltAz(obstime=obs_time, location=observer_location)
     coords_altaz = coords.transform_to(altaz_frame)
 
-    # Add Alt/Az to objects
+    # Pull the results out as plain arrays once. Indexing coords_altaz[i]
+    # inside the loop would build a fresh SkyCoord per object and a fresh
+    # Quantity per attribute, discarding the vectorized transform above:
+    # ~470,000 Astropy objects for a 118,000-object catalog.
+    alt_deg = coords_altaz.alt.deg
+    az_deg = coords_altaz.az.deg
+
     transformed_objects = []
-    for i, obj in enumerate(objects):
+    for obj, alt, az in zip(objects, alt_deg, az_deg):
         new_obj = obj.copy()
-        new_obj["alt"] = float(coords_altaz[i].alt.deg)
-        new_obj["az"] = float(coords_altaz[i].az.deg)
+        new_obj["alt"] = float(alt)
+        new_obj["az"] = float(az)
         new_obj["visible"] = new_obj["alt"] > 0  # Above horizon
         transformed_objects.append(new_obj)
 
@@ -133,13 +139,14 @@ def get_planetary_positions(
 
     planet_data = []
 
+    # The frame depends only on time and place, so build it once rather than
+    # per planet.
+    altaz_frame = AltAz(obstime=obs_time, location=observer_location)
+
     for planet_name in planets:
         try:
             # Get planet coordinates
             planet_coord = get_body(planet_name, obs_time, observer_location)
-
-            # Convert to Alt/Az
-            altaz_frame = AltAz(obstime=obs_time, location=observer_location)
             planet_altaz = planet_coord.transform_to(altaz_frame)
 
             planet_info = {
@@ -173,7 +180,9 @@ def calculate_horizon_line(
     list of dict : (ra, dec) points defining the horizon
     """
     # Create points around the horizon (altitude = 0, azimuth = 0-360)
-    azimuths = np.linspace(0, 360, num_points) * u.deg
+    # endpoint=False: 0 and 360 are the same bearing, so including both
+    # emits a degenerate final segment and makes the spacing 360/(n-1).
+    azimuths = np.linspace(0, 360, num_points, endpoint=False) * u.deg
     altitudes = np.zeros(num_points) * u.deg
 
     # Create Alt/Az coordinates
@@ -183,12 +192,12 @@ def calculate_horizon_line(
     # Convert to ICRS (RA/Dec)
     horizon_icrs = horizon_altaz.transform_to("icrs")
 
-    horizon_points = [
-        {"ra": float(horizon_icrs[i].ra.deg), "dec": float(horizon_icrs[i].dec.deg)}
-        for i in range(num_points)
+    # Same reason as transform_coordinates: read the arrays once rather than
+    # slicing the SkyCoord per point.
+    return [
+        {"ra": float(ra), "dec": float(dec)}
+        for ra, dec in zip(horizon_icrs.ra.deg, horizon_icrs.dec.deg)
     ]
-
-    return horizon_points
 
 
 def main():
