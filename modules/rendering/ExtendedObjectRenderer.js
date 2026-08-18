@@ -4,6 +4,7 @@
  */
 
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {getDsoHaloColor} from '../core/TypeMappings.js';
 import {SPHERE} from '../core/Constants.js';
 
 /**
@@ -117,7 +118,7 @@ export class ExtendedObjectRenderer {
     const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
 
     // Color based on type
-    const [r, g, b] = this.getColorForType_(dso.type);
+    const [r, g, b] = getDsoHaloColor(dso.type);
 
     const color1 = `rgba(${r}, ${g}, ${b}, ${magIntensity})`;
     const color2 = `rgba(${r}, ${g}, ${b}, 0)`;
@@ -163,28 +164,6 @@ export class ExtendedObjectRenderer {
   }
 
   /**
-   * Get RGB color for DSO type.
-   * @param {string} type - DSO type
-   * @returns {!Array<number>} RGB values [r, g, b]
-   * @private
-   */
-  getColorForType_(type) {
-    switch (type) {
-      case 'G':
-        return [255, 240, 200]; // Galaxy - yellowish
-      case 'PN':
-        return [180, 255, 200]; // Planetary nebula - greenish
-      case 'Neb':
-      case 'Cl+N':
-      case 'EmN':
-      case 'HII':
-        return [255, 180, 200]; // Nebula - pinkish
-      default:
-        return [200, 220, 255]; // Default - pale blue
-    }
-  }
-
-  /**
    * Update sprite sizes based on FOV.
    * @param {number} fov - Camera FOV in degrees
    * @param {number} canvasHeight - Canvas height in pixels
@@ -227,20 +206,4 @@ export class ExtendedObjectRenderer {
     });
     this.sprites_ = [];
   }
-}
-
-/**
- * Singleton extended object renderer instance.
- * @type {?ExtendedObjectRenderer}
- */
-export let extendedObjectRenderer = null;
-
-/**
- * Initialize the extended object renderer singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!ExtendedObjectRenderer} Initialized renderer
- */
-export function initializeExtendedObjectRenderer(dependencies) {
-  extendedObjectRenderer = new ExtendedObjectRenderer(dependencies);
-  return extendedObjectRenderer;
 }

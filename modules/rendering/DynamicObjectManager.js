@@ -18,6 +18,7 @@
 import {raDecToCartesian, cartesianToRaDec} from '../core/CoordinateUtils.js';
 import {magnitudeToSize} from '../core/MagnitudeUtils.js';
 import {clamp} from '../core/Utils.js';
+import {getDsoHaloColor} from '../core/TypeMappings.js';
 import {SHADERS, SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
 import {dynamicDataLoader} from '../services/DynamicDataLoader.js';
 import {domCache} from '../ui/DOMCache.js';
@@ -580,15 +581,7 @@ export class DynamicObjectManager {
 
     const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
 
-    // Color based on type
-    let r, g, b;
-    if (dso.type && (dso.type.includes('Gx') || dso.type.includes('G'))) {
-      r = 255; g = 240; b = 200;  // Galaxy - yellowish
-    } else if (dso.type && (dso.type.includes('Nb') || dso.type.includes('PN'))) {
-      r = 200; g = 255; b = 220;  // Nebula - greenish
-    } else {
-      r = 200; g = 220; b = 255;  // Default - pale blue
-    }
+    const [r, g, b] = getDsoHaloColor(dso.type);
 
     const color1 = `rgba(${r}, ${g}, ${b}, ${magIntensity})`;
     const color2 = `rgba(${r}, ${g}, ${b}, 0)`;
