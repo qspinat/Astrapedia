@@ -553,19 +553,3 @@ export class PlanetRenderer {
     this.planetDataByName_.clear();
   }
 }
-
-/**
- * Singleton planet renderer instance.
- * @type {?PlanetRenderer}
- */
-export let planetRenderer = null;
-
-/**
- * Initialize the planet renderer singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!PlanetRenderer} Initialized renderer
- */
-export function initializePlanetRenderer(dependencies) {
-  planetRenderer = new PlanetRenderer(dependencies);
-  return planetRenderer;
-}

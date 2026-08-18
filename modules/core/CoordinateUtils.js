@@ -89,32 +89,6 @@ export const angularDistance = (ra1, dec1, ra2, dec2) => {
 };
 
 /**
- * Convert world coordinates to celestial direction.
- * Transforms from Three.js world space to celestial RA/Dec.
- * @param {!THREE.Vector3} worldPos - Position in world coordinates
- * @param {?THREE.Object3D} celestialSphere - The celestial sphere object
- * @returns {{ra: number, dec: number}} RA/Dec in degrees
- */
-export const worldToCelestialDirection = (worldPos, celestialSphere) => {
-  // Direction from origin to position in world coordinates
-  const dir = worldPos.clone().normalize();
-
-  // Transform to celestial coordinates by applying inverse of
-  // celestialSphere's transformation
-  const celestialDir = dir.clone();
-  if (celestialSphere) {
-    celestialSphere.updateMatrixWorld();
-    const inverseMatrix = new THREE.Matrix4()
-        .copy(celestialSphere.matrixWorld)
-        .invert();
-    const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-    celestialDir.applyMatrix3(rotationMatrix);
-  }
-
-  return cartesianToRaDec(celestialDir.x, celestialDir.y, celestialDir.z);
-};
-
-/**
  * Format an angle with appropriate precision (degrees, arcminutes, arcseconds).
  * @param {number} degrees - Angle in degrees
  * @returns {string} Formatted angle string

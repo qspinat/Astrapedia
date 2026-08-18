@@ -322,20 +322,3 @@ export class CompassController {
     this.disable();
   }
 }
-
-/**
- * Singleton instance for application-wide compass control.
- * Note: Must be initialized with dependencies before use.
- * @type {?CompassController}
- */
-export let compassController = null;
-
-/**
- * Initialize the compass controller singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!CompassController} The initialized controller
- */
-export function initCompassController(dependencies) {
-  compassController = new CompassController(dependencies);
-  return compassController;
-}

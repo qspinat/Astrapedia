@@ -316,19 +316,3 @@ export class StarFieldRenderer {
     }
   }
 }
-
-/**
- * Singleton star field renderer instance.
- * @type {?StarFieldRenderer}
- */
-export let starFieldRenderer = null;
-
-/**
- * Initialize the star field renderer singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!StarFieldRenderer} Initialized renderer
- */
-export function initializeStarFieldRenderer(dependencies) {
-  starFieldRenderer = new StarFieldRenderer(dependencies);
-  return starFieldRenderer;
-}

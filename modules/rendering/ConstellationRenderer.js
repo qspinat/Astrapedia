@@ -502,19 +502,3 @@ export class ConstellationRenderer {
     this.lineMaterials_ = [];
   }
 }
-
-/**
- * Singleton constellation renderer instance.
- * @type {?ConstellationRenderer}
- */
-export let constellationRenderer = null;
-
-/**
- * Initialize the constellation renderer singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!ConstellationRenderer} Initialized renderer
- */
-export function initializeConstellationRenderer(dependencies) {
-  constellationRenderer = new ConstellationRenderer(dependencies);
-  return constellationRenderer;
-}

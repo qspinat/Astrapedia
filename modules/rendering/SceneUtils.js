@@ -91,7 +91,3 @@ export function disposeSpriteTexture(sprite) {
   if (map && !map.isShared) map.dispose();
 }
 
-/** Test seam: forget the cached texture so the next call rebuilds it. */
-export function resetSharedHaloTexture() {
-  sharedHaloTexture = null;
-}

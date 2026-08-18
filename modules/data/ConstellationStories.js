@@ -128,11 +128,3 @@ export function getConstellationStory(abbrev) {
   return CONSTELLATION_STORIES[abbrev] || null;
 }
 
-/**
- * Check if a constellation has story data.
- * @param {string} abbrev - IAU constellation abbreviation
- * @returns {boolean} True if story exists
- */
-export function hasConstellationStory(abbrev) {
-  return abbrev in CONSTELLATION_STORIES;
-}

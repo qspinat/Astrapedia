@@ -210,15 +210,6 @@ export const getCuratedImage = (objectName) => {
 };
 
 /**
- * Check if an object has a curated image.
- * @param {string} objectName - Name of the object
- * @returns {boolean} True if curated image exists
- */
-export const hasCuratedImage = (objectName) => {
-  return getCuratedImage(objectName) !== null;
-};
-
-/**
  * Get all curated image keys.
  * @returns {!Array<string>} Array of object names with curated images
  */

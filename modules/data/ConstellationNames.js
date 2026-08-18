@@ -220,15 +220,6 @@ export function getAvailableLanguages() {
 }
 
 /**
- * Get all constellation names for a language.
- * @param {string=} lang - Language code (default: 'en')
- * @returns {!Object<string, string>} Abbreviation to name mapping
- */
-export function getConstellationNamesForLanguage(lang = 'en') {
-  return CONSTELLATION_NAMES[lang] || CONSTELLATION_NAMES['en'];
-}
-
-/**
  * Internal key mapping from IAU abbreviation to constellation data key format.
  * These keys have no spaces (e.g., "UrsaMajor" instead of "Ursa Major").
  * Used for matching constellation data structures that use CamelCase keys.

@@ -135,23 +135,6 @@ export const DYNAMIC_DATA = {
 };
 
 /**
- * Image loading and caching configuration.
- * @const {!Object}
- */
-export const IMAGES = {
-  /** Maximum number of cached images. */
-  MAX_CACHE_SIZE: 200,
-  /** Screen fill percentage to show image. */
-  SHOW_THRESHOLD: 0.5,
-  /** Screen fill percentage to hide image (too zoomed). */
-  HIDE_THRESHOLD: 1.0,
-  /** Timeout for image fetch requests (ms). */
-  FETCH_TIMEOUT: 10000,
-  /** Maximum retries for failed image loads. */
-  MAX_RETRIES: 2,
-};
-
-/**
  * Power saving configuration.
  * @const {!Object}
  */
