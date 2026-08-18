@@ -157,39 +157,47 @@ export class ConstellationRenderer {
 
     let linesCreated = 0;
 
+    // One LineSegments per constellation rather than one Line per segment.
+    // The 89 constellations hold ~750 segments between them, and each Line was
+    // its own scene object, its own geometry and its own cloned material — so
+    // 750 draw calls a frame, and 750 children to walk on every highlight or
+    // focus-mode update. Merging by constellation is also the natural
+    // granularity: highlighting, focus opacity and click detection all act on
+    // a whole constellation, never on one segment.
     Object.entries(constellations).forEach(([constName, constellation]) => {
-      // Create a unique material for each line so we can highlight individually
-      const lineMaterial = new THREE.LineBasicMaterial({
+      const vertices = [];
+      constellation.lines.forEach(([hip1, hip2]) => {
+        const star1 = starByHip.get(hip1);
+        const star2 = starByHip.get(hip2);
+        if (!star1 || !star2) return;
+
+        const a = raDecToCartesian(star1.ra, star1.dec, this.radius_);
+        const b = raDecToCartesian(star2.ra, star2.dec, this.radius_);
+        vertices.push(a.x, a.y, a.z, b.x, b.y, b.z);
+        linesCreated++;
+      });
+
+      if (vertices.length === 0) return;
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute(
+          'position', new THREE.Float32BufferAttribute(vertices, 3));
+      // Required for the raycaster to detect clicks on the lines.
+      geometry.computeBoundingSphere();
+
+      const material = new THREE.LineBasicMaterial({
         color: COLORS.LINE,
         transparent: true,
         opacity: CONSTELLATIONS.LINE_OPACITY,
         linewidth: 1,
         depthWrite: false,
       });
-      // Track material for disposal
-      this.lineMaterials_.push(lineMaterial);
+      this.lineMaterials_.push(material);
 
-      constellation.lines.forEach(([hip1, hip2]) => {
-        // Find stars by HIP number
-        const star1 = starByHip.get(hip1);
-        const star2 = starByHip.get(hip2);
-
-        if (star1 && star2) {
-          const points = [
-            raDecToCartesian(star1.ra, star1.dec, this.radius_),
-            raDecToCartesian(star2.ra, star2.dec, this.radius_),
-          ];
-          const geometry = new THREE.BufferGeometry().setFromPoints(points);
-          // Required for raycaster to detect clicks on lines
-          geometry.computeBoundingSphere();
-          const line = new THREE.Line(geometry, lineMaterial.clone());
-          // Store constellation name for highlighting
-          line.userData = {constellation: constName};
-          freezeTransform(line);
-          this.linesGroup_.add(line);
-          linesCreated++;
-        }
-      });
+      const lines = new THREE.LineSegments(geometry, material);
+      lines.userData = {constellation: constName};
+      freezeTransform(lines);
+      this.linesGroup_.add(lines);
     });
 
     this.linesGroup_.visible = this.visible_;
@@ -324,8 +332,8 @@ export class ConstellationRenderer {
   }
 
   /**
-   * Create a glow line effect for a highlighted constellation line.
-   * @param {!THREE.Line} line - Line to create glow for
+   * Create a glow effect behind a highlighted constellation.
+   * @param {!THREE.LineSegments} line - The constellation's lines
    * @private
    */
   createGlowLine_(line) {
@@ -337,7 +345,8 @@ export class ConstellationRenderer {
       depthWrite: false,
     });
 
-    const glowLine = new THREE.Line(line.geometry.clone(), glowMaterial);
+    const glowLine =
+        new THREE.LineSegments(line.geometry.clone(), glowMaterial);
     glowLine.userData = {isGlow: true};
     this.linesGroup_.add(glowLine);
     this.glowLines_.push(glowLine);
