@@ -442,9 +442,8 @@ export class TourController {
     // Check by name
     let obj = dsos.find((d) =>
       d.name === name ||
-      (d.common_names && (Array.isArray(d.common_names)
-        ? d.common_names.some((n) => n.toLowerCase().includes(name.toLowerCase()))
-        : d.common_names.toLowerCase().includes(name.toLowerCase())))
+      (d.common_names &&
+        d.common_names.toLowerCase().includes(name.toLowerCase()))
     );
     if (obj) return obj;
 

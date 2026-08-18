@@ -65,6 +65,27 @@ def download_catalog(
     return filepath
 
 
+def normalize_common_names(objects: list[dict]) -> list[dict]:
+    """Collapse list-valued common_names to the comma-joined string form.
+
+    OpenNGC rows already carry a single string. The supplementary Messier
+    objects are written as lists because that reads better in source, but
+    emitting both shapes forced every consumer to branch on the type -- five
+    JavaScript call sites did, for the sake of three records out of 1,772.
+
+    Args:
+        objects: Records to normalize, modified in place.
+
+    Returns:
+        The same list, for convenience.
+    """
+    for obj in objects:
+        names = obj.get("common_names")
+        if isinstance(names, list):
+            obj["common_names"] = ", ".join(names)
+    return objects
+
+
 # Star record fields, in the order they appear in the JSON output.
 _STAR_INT_COLUMNS = ("id", "hip", "hd", "hr")
 _STAR_FLOAT_COLUMNS = ("absmag", "dist", "ci")
@@ -348,14 +369,15 @@ def process_deep_sky_objects() -> dict | None:
         },
     ]
 
-    # Inject supplementary Messier objects
+    normalize_common_names(supplementary_messier)
+
     dso_list, added = inject_supplementary_objects(
         dso_list, supplementary_messier, key="messier"
     )
 
     # Log exactly which objects were added
     for supp in added:
-        print(f"  Added M{supp['messier']} ({supp['common_names'][0]})")
+        print(f"  Added M{supp['messier']} ({supp['common_names']})")
 
     print(f"  Total: {len(dso_list)} deep sky objects ({len(added)} supplementary)")
 

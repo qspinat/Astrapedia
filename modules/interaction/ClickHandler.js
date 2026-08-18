@@ -7,6 +7,7 @@
 import {cartesianToRaDec} from '../core/CoordinateUtils.js';
 import {CAMERA} from '../core/Constants.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
+import {catalogDesignation} from '../data/CuratedImages.js';
 import {isWithinMagnitudeLimit, magnitudeToSize}
   from '../core/MagnitudeUtils.js';
 
@@ -296,9 +297,7 @@ export class ClickHandler {
           const dso = dsos[dsoIndex];
           if (!isWithinMagnitudeLimit(dso.mag, magnitudeLimit)) continue;
           clickedObject = {
-            name: dso.messier
-              ? `M${Math.floor(dso.messier)}`
-              : (dso.ngc ? `NGC ${dso.ngc}` : dso.name || 'Unknown Object'),
+            name: catalogDesignation(dso),
             type: getDsoTypeName(dso.type),
             subtype: dso.type,
             ra: dso.ra,

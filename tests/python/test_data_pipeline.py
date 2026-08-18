@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from astrapedia.astronomy import inject_supplementary_objects
-from data_pipeline import _stars_from_dataframe
+from data_pipeline import _stars_from_dataframe, normalize_common_names
 
 
 class TestInjectSupplementaryObjects:
@@ -263,3 +263,45 @@ class TestSunExclusion:
             assert not [s for s in stars if s.get("proper") == "Sol"], (
                 f"{name} still contains a star named Sol"
             )
+
+
+class TestCommonNamesShape:
+    """common_names ships as one type, so consumers need no type test."""
+
+    def test_shipped_catalog_uses_only_strings(self):
+        """OpenNGC rows carry a comma-joined string. The hand-injected
+        Messier objects are written as lists for readability and are joined on
+        the way out; emitting both shapes made five separate JS call sites
+        branch on Array.isArray for the sake of three records."""
+        path = Path(__file__).resolve().parents[2] / "data" / "deep_sky_objects.json"
+        if not path.exists():
+            pytest.skip("generated catalog not present")
+
+        objects = json.loads(path.read_text())
+        offenders = [
+            o["name"] for o in objects
+            if o.get("common_names") is not None
+            and not isinstance(o["common_names"], str)
+        ]
+
+        assert offenders == [], f"common_names is not a string for: {offenders}"
+
+    def test_joins_list_valued_names(self):
+        objects = [{"messier": 45, "common_names": ["Pleiades", "Subaru"]}]
+
+        normalize_common_names(objects)
+
+        assert objects[0]["common_names"] == "Pleiades, Subaru"
+
+    def test_leaves_strings_and_absent_values_alone(self):
+        objects = [
+            {"common_names": "Helix Nebula"},
+            {"common_names": None},
+            {},
+        ]
+
+        normalize_common_names(objects)
+
+        assert objects[0]["common_names"] == "Helix Nebula"
+        assert objects[1]["common_names"] is None
+        assert "common_names" not in objects[2]

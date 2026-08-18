@@ -178,6 +178,40 @@ const CATALOG_PATTERNS = [
 ];
 
 /**
+ * Canonical catalog designation for a deep sky object.
+ *
+ * The pipeline emits OpenNGC's zero-padded names ('NGC0869', 'IC0010') for
+ * 141 of the 1,772 objects, and emits `messier` as a float. Callers used to
+ * each derive a name inline, several of them reading `dso.ngc`/`dso.ic`
+ * fields that no record has ever carried, so the padded name fell through to
+ * the UI and to the image cache — where it misses NASA's 'NGC 869' titles and
+ * fails to dedupe against the normalized key the sprite path uses.
+ *
+ * Messier wins when present, since that is the name people recognise.
+ *
+ * @param {?Object} dso - Deep sky object record from the pipeline
+ * @returns {string} Canonical designation, or 'Unknown Object'
+ */
+export const catalogDesignation = (dso) => {
+  if (!dso) return 'Unknown Object';
+
+  if (dso.messier !== null && dso.messier !== undefined && dso.messier !== '') {
+    const messier = Math.floor(Number(dso.messier));
+    if (Number.isFinite(messier)) return `M${messier}`;
+  }
+
+  const name = typeof dso.name === 'string' ? dso.name.trim() : '';
+  if (!name) return 'Unknown Object';
+
+  for (const [prefix, pattern] of CATALOG_PATTERNS) {
+    const match = name.match(pattern);
+    if (match) return `${prefix}${parseInt(match[1], 10)}`;
+  }
+
+  return name;
+};
+
+/**
  * Get curated image URL for an object.
  * @param {string} objectName - Name of the object (e.g., 'M31', 'NGC7293')
  * @returns {?{url: ?string, source: string}} Image info or null if not found

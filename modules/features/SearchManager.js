@@ -4,6 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
+import {catalogDesignation} from '../data/CuratedImages.js';
 import {angularDistance, constellationCenter} from '../core/CoordinateUtils.js';
 import {CONSTELLATION_NAMES, getAbbrevFromInternalKey} from '../data/ConstellationNames.js';
 import {PLANET_NAMES} from '../data/PlanetNames.js';
@@ -158,7 +159,9 @@ export class SearchManager {
     if (deepSkyObjects) {
       deepSkyObjects.forEach((dso) => {
         // Primary name (Messier or common name)
-        const primaryName = dso.messier ? `M${dso.messier}` : dso.name;
+        // Not `M${dso.messier}`: the pipeline emits messier as a float, so
+        // that produced searchable entries named "M24.0".
+        const primaryName = catalogDesignation(dso);
         if (primaryName) {
           this.index_.push({
             name: primaryName,
@@ -171,25 +174,15 @@ export class SearchManager {
           });
         }
 
-        // NGC alias
-        if (dso.ngc && primaryName !== `NGC${dso.ngc}`) {
+        // Catalog alias, so an object indexed under its Messier number is
+        // still reachable by its NGC or IC designation. The previous NGC and
+        // IC blocks read dso.ngc and dso.ic, fields no pipeline record has
+        // ever carried, so neither ever produced an entry.
+        const catalogAlias = catalogDesignation({name: dso.name});
+        if (catalogAlias !== 'Unknown Object' && catalogAlias !== primaryName) {
           this.index_.push({
-            name: primaryName || `NGC${dso.ngc}`,
-            displayName: `NGC${dso.ngc}`,
-            type: dso.type || 'DSO',
-            ra: dso.ra,
-            dec: dso.dec,
-            mag: dso.mag,
-            isAlias: true,
-            data: dso,
-          });
-        }
-
-        // IC alias
-        if (dso.ic) {
-          this.index_.push({
-            name: primaryName || `IC${dso.ic}`,
-            displayName: `IC${dso.ic}`,
+            name: primaryName,
+            displayName: catalogAlias,
             type: dso.type || 'DSO',
             ra: dso.ra,
             dec: dso.dec,
@@ -201,9 +194,8 @@ export class SearchManager {
 
         // Common name alias - handle both string and array formats
         if (dso.common_names) {
-          const names = Array.isArray(dso.common_names)
-            ? dso.common_names
-            : dso.common_names.split(',').map((n) => n.trim()).filter(Boolean);
+          const names =
+            dso.common_names.split(',').map((n) => n.trim()).filter(Boolean);
           names.forEach((commonName) => {
             if (commonName !== primaryName) {
               this.index_.push({

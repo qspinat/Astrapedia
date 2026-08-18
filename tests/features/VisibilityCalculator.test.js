@@ -179,12 +179,12 @@ describe('VisibilityCalculator class', () => {
       expect(object.description).toContain('Galaxy Pair');
     });
 
-    test('joins a list of common names readably', () => {
+    test('carries the common names into the description', () => {
       const calc = makeCalc({
         location: {lat: 0, lon: 0},
         dsos: [{
           name: 'Mel22', ra: 0, dec: 0, mag: 1.6, type: 'OCl',
-          common_names: ['Pleiades', 'Seven Sisters'],
+          common_names: 'Pleiades, Seven Sisters',
         }],
       });
 
