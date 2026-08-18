@@ -54,10 +54,6 @@ const mockElements = {
   'telescope-btn': {addEventListener: jest.fn()},
   'game-modal': null,
   'tour-modal': null,
-  'night-mode-btn': {
-    addEventListener: jest.fn(),
-    classList: {toggle: jest.fn()},
-  },
   'fov-display': {textContent: ''},
   'fov-badge': {textContent: ''},
 };
@@ -85,7 +81,6 @@ jest.unstable_mockModule('../modules/core/EventBus.js', () => ({
     TOUR_STARTED: 'tour:started',
     TIME_SPEED_CHANGED: 'time:speed-changed',
     FOV_CHANGED: 'fov:changed',
-    CMD_TOGGLE_NIGHT_MODE: 'cmd:toggle-night-mode',
   },
 }));
 
@@ -243,7 +238,6 @@ describe('UIController Module', () => {
 
     beforeEach(() => {
       mockDeps = {
-        toggleNightMode: jest.fn(),
         setConstellationLines: jest.fn(),
         setLanguage: jest.fn(),
         setMagnitudeLimit: jest.fn(),
@@ -325,7 +319,6 @@ describe('UIController Module', () => {
         panelManager: mockPanelManagerInstance,
         performSearch: jest.fn(),
         selectObject: jest.fn(),
-        toggleNightMode: jest.fn(),
         setConstellationLines: jest.fn(),
         setLanguage: jest.fn(),
         setMagnitudeLimit: jest.fn(),

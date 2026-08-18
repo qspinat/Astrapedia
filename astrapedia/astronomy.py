@@ -3,7 +3,6 @@ Astronomy utilities for Astrapedia data pipeline.
 Contains coordinate conversions, magnitude filtering, and data transformations.
 """
 
-import math
 from typing import Any
 
 import pandas as pd

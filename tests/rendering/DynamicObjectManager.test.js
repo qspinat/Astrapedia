@@ -11,19 +11,10 @@ import {jest} from '@jest/globals';
 import {
   installThreeMock,
   resetThreeStats,
+  installCanvasMock,
 } from '../helpers/threeMock.js';
 
-// The halo textures are drawn on a 2D canvas, which jsdom does not implement.
-const mockGradient = {addColorStop: jest.fn()};
-const mockContext = {
-  createRadialGradient: jest.fn(() => mockGradient),
-  clearRect: jest.fn(),
-  beginPath: jest.fn(),
-  arc: jest.fn(),
-  fill: jest.fn(),
-  fillStyle: '',
-};
-HTMLCanvasElement.prototype.getContext = jest.fn(() => mockContext);
+installCanvasMock();
 
 installThreeMock();
 

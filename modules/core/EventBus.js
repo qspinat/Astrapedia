@@ -269,9 +269,6 @@ export const Events = {
   COMPASS_DISABLED: 'compass:disabled',
   COMPASS_HEADING: 'compass:heading',
 
-  // Render events
-
-  // Visibility events
 
   // Application events
   PLANETS_UPDATED: 'planets:updated',

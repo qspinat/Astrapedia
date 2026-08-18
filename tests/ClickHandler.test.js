@@ -340,95 +340,6 @@ describe('initializeClickHandler', () => {
   });
 });
 
-describe('ClickHandler object creation', () => {
-  test('creates correct object for star with proper name', () => {
-    // Test the object format that would be created for a star
-    const starData = {
-      proper: 'Vega',
-      bf: 'Alpha Lyr',
-      hip: 91262,
-      ra: 279.23,
-      dec: 38.78,
-      mag: 0.03,
-      spect: 'A0V',
-      dist: 25.04,
-    };
-
-    // The expected format
-    const expectedObject = {
-      name: 'Vega',
-      type: 'Star',
-      subtype: 'Spectral type A0V',
-      ra: 279.23,
-      dec: 38.78,
-      mag: 0.03,
-      distance: '25.0 ly',
-      angularSize: null,
-    };
-
-    // Manually verify the naming logic
-    const name = starData.proper || starData.bf || `HIP ${starData.hip}` || 'Unknown Star';
-    expect(name).toBe('Vega');
-
-    const subtype = starData.spect ? `Spectral type ${starData.spect}` : null;
-    expect(subtype).toBe('Spectral type A0V');
-
-    const distance = starData.dist ? `${starData.dist.toFixed(1)} ly` : null;
-    expect(distance).toBe('25.0 ly');
-  });
-
-  test('creates correct object for DSO with Messier number', () => {
-    const dsoData = {
-      messier: 31,
-      ngc: 224,
-      name: 'Andromeda Galaxy',
-      ra: 10.68,
-      dec: 41.27,
-      mag: 3.4,
-      type: 'G',
-    };
-
-    // The expected naming logic
-    const name = dsoData.messier
-      ? `M${Math.floor(dsoData.messier)}`
-      : (dsoData.ngc ? `NGC ${dsoData.ngc}` : dsoData.name || 'Unknown Object');
-    expect(name).toBe('M31');
-  });
-
-  test('creates correct object for DSO with NGC number only', () => {
-    const dsoData = {
-      ngc: 7293,
-      name: 'Helix Nebula',
-      ra: 337.41,
-      dec: -20.84,
-      mag: 7.6,
-      type: 'PN',
-    };
-
-    const name = dsoData.messier
-      ? `M${Math.floor(dsoData.messier)}`
-      : (dsoData.ngc ? `NGC ${dsoData.ngc}` : dsoData.name || 'Unknown Object');
-    expect(name).toBe('NGC 7293');
-  });
-
-  test('planet subtypes are correctly assigned', () => {
-    const testCases = [
-      {name: 'Sun', expectedSubtype: 'Star (G2V)'},
-      {name: 'Moon', expectedSubtype: 'Natural Satellite'},
-      {name: 'Mars', expectedSubtype: 'Planet'},
-      {name: 'Jupiter', expectedSubtype: 'Planet'},
-      {name: 'Saturn', expectedSubtype: 'Planet'},
-    ];
-
-    for (const {name, expectedSubtype} of testCases) {
-      const subtype = name === 'Sun'
-        ? 'Star (G2V)'
-        : (name === 'Moon' ? 'Natural Satellite' : 'Planet');
-      expect(subtype).toBe(expectedSubtype);
-    }
-  });
-});
-
 describe('ClickHandler detection paths', () => {
   let handler;
   let mockDeps;
@@ -530,6 +441,25 @@ describe('ClickHandler detection paths', () => {
           subtype: 'Spectral type A0V',
         })
       );
+    });
+
+    // The pipeline emits OpenNGC's zero-padded names for 141 objects and
+    // `messier` as a float. Both used to reach the panel and the image cache
+    // key verbatim, so this asserts the canonical designation instead.
+    test('normalizes a zero-padded catalog name', () => {
+      mockDeps.getStarField.mockReturnValue({
+        userData: {
+          stars: [{proper: 'Star1', ra: 0, dec: 0, mag: 5}],
+          dsos: [{name: 'NGC0869', ra: 34, dec: 57, mag: 5.3, type: 'OCl'}],
+        },
+      });
+      handler.raycaster_.intersectObject =
+          jest.fn().mockReturnValue([{index: 1, distance: 50}]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+          expect.objectContaining({name: 'NGC869'}));
     });
 
     test('detects DSO click from starField when index is beyond stars', () => {

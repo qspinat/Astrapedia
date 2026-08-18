@@ -140,9 +140,9 @@ export class GameController {
     this.stars_ = [];
 
     /**
-     * Stars indexed by HIP and by id, built on first use. Rebuilt whenever
-     * setData replaces the star list.
-     * @private {?Map<number, !Object>}
+     * Stars indexed by HIP, id and proper name, built on first use. Rebuilt
+     * whenever setData replaces the star list. See getStarIndex_.
+     * @private {?Map<(number|string), !Object>}
      */
     this.starByKey_ = null;
 
@@ -644,6 +644,36 @@ export class GameController {
   }
 
   /**
+   * Stars indexed by HIP, catalogue id and proper name, built on first use.
+   *
+   * One first-wins index over every key anything looks a star up by.
+   * Equivalent to the scans it replaces — inserting in array order means the
+   * first star that could have matched still wins — but O(1) rather than a
+   * full pass over ~41,000 stars per lookup. The two callers were costing
+   * ~30M comparisons per constellation game and ~1M per bright-star game.
+   *
+   * @returns {!Map<(number|string), !Object>} The index
+   * @private
+   */
+  getStarIndex_() {
+    if (this.starByKey_) return this.starByKey_;
+
+    this.starByKey_ = new Map();
+    for (const star of this.stars_) {
+      if (star.hip != null && !this.starByKey_.has(star.hip)) {
+        this.starByKey_.set(star.hip, star);
+      }
+      if (star.id != null && !this.starByKey_.has(star.id)) {
+        this.starByKey_.set(star.id, star);
+      }
+      if (star.proper && !this.starByKey_.has(star.proper)) {
+        this.starByKey_.set(star.proper, star);
+      }
+    }
+    return this.starByKey_;
+  }
+
+  /**
    * Calculate the center coordinates of a constellation from its star positions.
    * Uses circular mean for RA to correctly handle constellations spanning the
    * 0°/360° boundary (e.g., Pegasus, Pisces, Andromeda).
@@ -656,27 +686,8 @@ export class GameController {
       return this.constellationCenters_.get(name);
     }
 
-    if (!this.starByKey_) {
-      // One first-wins index over both keys. Equivalent to the previous
-      // stars_.find((s) => s.hip === id || s.id === id) — inserting each
-      // star's hip then id in array order means the first star that could
-      // have matched still wins — but O(1) instead of a full scan per star
-      // id, which was ~30M comparisons per game start.
-      this.starByKey_ = new Map();
-      for (const star of this.stars_) {
-        if (star.hip != null && !this.starByKey_.has(star.hip)) {
-          this.starByKey_.set(star.hip, star);
-        }
-        if (star.id != null && !this.starByKey_.has(star.id)) {
-          this.starByKey_.set(star.id, star);
-        }
-      }
-    }
-
-    const center = constellationCenter(
-      constData,
-      (id) => this.starByKey_.get(id)
-    );
+    const byKey = this.getStarIndex_();
+    const center = constellationCenter(constData, (id) => byKey.get(id));
     if (name) this.constellationCenters_.set(name, center);
     return center;
   }
@@ -825,8 +836,9 @@ export class GameController {
    * @private
    */
   addStarQuestions_(pool, names) {
+    const byKey = this.getStarIndex_();
     names.forEach((name) => {
-      const star = this.stars_.find((s) => s.proper === name);
+      const star = byKey.get(name);
       if (star) {
         pool.push({
           name,

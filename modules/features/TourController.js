@@ -65,8 +65,6 @@ export class TourController {
    * @param {function(number, number, number): void} dependencies.showHighlight -
    *     Show the highlight ring at RA/Dec with an angular size in arcminutes
    * @param {function(): void} dependencies.hideHighlight - Hide the ring
-   * @param {function(): number} dependencies.getLST - Get local sidereal time
-   * @param {function(): {lat: number, lon: number}} dependencies.getLocation - Get location
    * @param {function(): !Array} dependencies.getPlanets - Get planets array
    * @param {function(): !Array} dependencies.getDeepSkyObjects - Get DSO array
    * @param {function(): !Array} dependencies.getStars - Get stars array
@@ -104,12 +102,6 @@ export class TourController {
 
     /** @private @const */
     this.hideHighlight_ = dependencies.hideHighlight;
-
-    /** @private @const */
-    this.getLST_ = dependencies.getLST;
-
-    /** @private @const */
-    this.getLocation_ = dependencies.getLocation;
 
     /** @private @const */
     this.getPlanets_ = dependencies.getPlanets;

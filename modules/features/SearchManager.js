@@ -159,8 +159,8 @@ export class SearchManager {
     if (deepSkyObjects) {
       deepSkyObjects.forEach((dso) => {
         // Primary name (Messier or common name)
-        // Not `M${dso.messier}`: the pipeline emits messier as a float, so
-        // that produced searchable entries named "M24.0".
+        // Shared with every other identity derivation, so the zero-padded
+        // catalog names OpenNGC emits are normalized here too.
         const primaryName = catalogDesignation(dso);
         if (primaryName) {
           this.index_.push({

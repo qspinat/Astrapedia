@@ -10,26 +10,10 @@
  */
 
 import {jest} from '@jest/globals';
-import {installThreeMock, TextureLoader} from '../helpers/threeMock.js';
+import {installCanvasMock, installThreeMock, TextureLoader}
+  from '../helpers/threeMock.js';
 
-const mockGradient = {addColorStop: jest.fn()};
-const mockContext = {
-  createRadialGradient: jest.fn(() => mockGradient),
-  createLinearGradient: jest.fn(() => mockGradient),
-  clearRect: jest.fn(),
-  beginPath: jest.fn(),
-  arc: jest.fn(),
-  ellipse: jest.fn(),
-  fill: jest.fn(),
-  save: jest.fn(),
-  restore: jest.fn(),
-  clip: jest.fn(),
-  quadraticCurveTo: jest.fn(),
-  moveTo: jest.fn(),
-  closePath: jest.fn(),
-  fillStyle: '',
-};
-HTMLCanvasElement.prototype.getContext = jest.fn(() => mockContext);
+installCanvasMock();
 
 installThreeMock();
 

@@ -353,11 +353,6 @@ export class AstrapediaApp {
       unhighlightConstellation: () => this.unhighlightConstellation(),
       showObjectInfo: (obj) => this.showObjectInfo(obj),
       showConstellationInfo: (abbrev) => this.showConstellationInfo(abbrev),
-      getLST: () => calculateLST(
-        this.timeController_?.getTime() ?? new Date(),
-        this.observerLocation?.lon || 0
-      ),
-      getLocation: () => this.observerLocation || {lat: 45, lon: 0},
       getPlanets: () => this.planets || [],
       getDeepSkyObjects: () => this.deepSkyObjects || [],
       getStars: () => this.stars || [],

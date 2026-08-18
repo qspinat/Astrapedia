@@ -605,3 +605,36 @@ export {
   Color,
   Euler,
 };
+
+/**
+ * Install a 2D canvas context double on HTMLCanvasElement.
+ *
+ * jsdom does not implement canvas, and every renderer that bakes a texture --
+ * halos, planet discs, the moon's terminator -- calls into a 2D context. Each
+ * test file used to carry its own copy of this object, which meant a renderer
+ * reaching for a method one copy happened to lack failed with an unhelpful
+ * "ctx.foo is not a function" in that file only.
+ *
+ * @returns {!Object} The mock context, so a test can assert on the calls.
+ */
+export function installCanvasMock() {
+  const gradient = {addColorStop: jest.fn()};
+  const context = {
+    createRadialGradient: jest.fn(() => gradient),
+    createLinearGradient: jest.fn(() => gradient),
+    clearRect: jest.fn(),
+    beginPath: jest.fn(),
+    closePath: jest.fn(),
+    arc: jest.fn(),
+    ellipse: jest.fn(),
+    moveTo: jest.fn(),
+    quadraticCurveTo: jest.fn(),
+    fill: jest.fn(),
+    save: jest.fn(),
+    restore: jest.fn(),
+    clip: jest.fn(),
+    fillStyle: '',
+  };
+  HTMLCanvasElement.prototype.getContext = jest.fn(() => context);
+  return context;
+}

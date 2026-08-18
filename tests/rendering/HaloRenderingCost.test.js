@@ -12,18 +12,10 @@ import {
   installThreeMock,
   resetThreeStats,
   threeStats,
+  installCanvasMock,
 } from '../helpers/threeMock.js';
 
-const mockGradient = {addColorStop: jest.fn()};
-const mockContext = {
-  createRadialGradient: jest.fn(() => mockGradient),
-  clearRect: jest.fn(),
-  beginPath: jest.fn(),
-  arc: jest.fn(),
-  fill: jest.fn(),
-  fillStyle: '',
-};
-HTMLCanvasElement.prototype.getContext = jest.fn(() => mockContext);
+installCanvasMock();
 
 installThreeMock();
 

@@ -317,11 +317,27 @@ export class ImageRenderer {
 
     this.camera_.getWorldDirection(this.tempVec3B_);
 
+    // Every sprite here is a direct child of the celestial sphere, so their
+    // world transforms differ only by their own local matrix. getWorldPosition
+    // would re-walk and recompose the identical parent chain -- sphere, tilt
+    // group, scene -- once per sprite, which at ~1,700 sprites is ~6,900
+    // redundant Matrix4 operations on a loop that runs every frame of a zoom.
+    // Resolve the parent once and apply it directly instead.
+    // updateWorldMatrix(true, false) refreshes the ancestors then this node,
+    // which is exactly what getWorldPosition did per sprite -- just once.
+    // Plain updateMatrixWorld() would trust a possibly stale parent.
+    this.celestialSphere_.updateWorldMatrix(true, false);
+    const sphereMatrix = this.celestialSphere_.matrixWorld;
+
+    // Loop invariant: depends only on the camera, not on the sprite.
+    const halfFovTan = Math.tan(THREE.MathUtils.degToRad(fov / 2));
+
     this.imageSprites_.forEach((sprite) => {
       if (!sprite.userData) return;
 
       // Check if sprite is in the camera's field of view
-      sprite.getWorldPosition(this.tempVec3_);
+      this.tempVec3_.setFromMatrixPosition(sprite.matrix)
+          .applyMatrix4(sphereMatrix);
       const toSpriteX = this.tempVec3_.x - this.camera_.position.x;
       const toSpriteY = this.tempVec3_.y - this.camera_.position.y;
       const toSpriteZ = this.tempVec3_.z - this.camera_.position.z;
@@ -354,8 +370,8 @@ export class ImageRenderer {
           }
         }
 
-        const worldSize = (realSizePixels / canvasHeight) * 2 * this.radius_ *
-          Math.tan(THREE.MathUtils.degToRad(fov / 2));
+        const worldSize =
+          (realSizePixels / canvasHeight) * 2 * this.radius_ * halfFovTan;
         const aspectRatio = sprite.userData.aspectRatio || 1;
         if (aspectRatio >= 1) {
           sprite.scale.set(worldSize, worldSize / aspectRatio, 1);

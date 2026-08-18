@@ -204,13 +204,6 @@ describe('Singleton Enforcement', () => {
       resetTimeUI();
     });
 
-    test('resetUIController allows creating new instance', () => {
-      // Just verify the reset function works and singleton variable is exported
-      // Full UIController initialization requires too many mocks
-      resetUIController();
-      expect(true).toBe(true);
-    });
-
     // Note: Full UIController singleton tests would require mocking SearchController,
     // SettingsController, TelescopeUI, LocationUI, and many panel-related methods.
     // The singleton pattern is enforced at the code level - see initializeUIController()
