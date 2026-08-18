@@ -1,5 +1,5 @@
 /**
- * @fileoverview Guards the per-frame matrix optimization.
+ * @fileoverview Guards the per-frame and per-object cost of DSO halos.
  *
  * WebGLRenderer.render() calls scene.updateMatrixWorld() every frame, which
  * recomposes the local matrix of every object with matrixAutoUpdate set —
@@ -108,6 +108,73 @@ describe('per-frame matrix cost', () => {
         expect(Number.isFinite(sprite.scale.x)).toBe(true);
         expect(sprite.scale.x).toBeGreaterThan(0);
       }
+    });
+  });
+
+  describe('shared halo texture', () => {
+    let renderer;
+
+    beforeEach(() => {
+      renderer = new ExtendedObjectRenderer({
+        celestialSphere,
+        getDSOs: () => DSOS,
+        requestRender: jest.fn(),
+      });
+      renderer.create();
+    });
+
+    test('every halo shares one texture instead of baking its own', () => {
+      const textures = new Set(renderer.getSprites().map((s) => s.material.map));
+
+      expect(textures.size).toBe(1);
+    });
+
+    test('each halo keeps its own material, so tint and opacity still vary',
+        () => {
+          const materials = new Set(
+              renderer.getSprites().map((s) => s.material));
+
+          expect(materials.size).toBe(DSOS.length);
+        });
+
+    test('the type tint moves to the material colour', () => {
+      const [galaxy, planetary] = renderer.getSprites();
+
+      expect(galaxy.material.color.equals(planetary.material.color))
+          .toBe(false);
+    });
+
+    // The trap: the texture's centre alpha used to carry the magnitude term.
+    // Normalising it to 1.0 without folding that term into the opacity would
+    // flatten the brightness ramp, and nothing would visibly fail.
+    test('brightness still tracks magnitude', () => {
+      const bright = new ExtendedObjectRenderer({
+        celestialSphere: new global.THREE.Group(),
+        getDSOs: () => [{ra: 0, dec: 0, size_major: 5, mag: 2, type: 'G'}],
+        requestRender: jest.fn(),
+      });
+      bright.create();
+      const faint = new ExtendedObjectRenderer({
+        celestialSphere: new global.THREE.Group(),
+        getDSOs: () => [{ra: 0, dec: 0, size_major: 5, mag: 12, type: 'G'}],
+        requestRender: jest.fn(),
+      });
+      faint.create();
+
+      const brightOpacity = bright.getSprites()[0].material.opacity;
+      const faintOpacity = faint.getSprites()[0].material.opacity;
+
+      expect(brightOpacity).toBeCloseTo(0.15, 6);
+      expect(faintOpacity).toBeCloseTo(0.002, 6);
+      expect(brightOpacity / faintOpacity).toBeCloseTo(75, 1);
+    });
+
+    test('disposing a sprite does not destroy the shared texture', () => {
+      const texture = renderer.getSprites()[0].material.map;
+
+      renderer.dispose();
+
+      expect(texture.disposed).toBe(false);
     });
   });
 

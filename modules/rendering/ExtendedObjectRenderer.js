@@ -6,7 +6,11 @@
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {getDsoHaloColor} from '../core/TypeMappings.js';
 import {SPHERE} from '../core/Constants.js';
-import {freezeTransform} from './SceneUtils.js';
+import {
+  disposeSpriteTexture,
+  freezeTransform,
+  getSharedHaloTexture,
+} from './SceneUtils.js';
 
 /**
  * Clamp a value between min and max.
@@ -68,7 +72,7 @@ export class ExtendedObjectRenderer {
         continue;
       }
       this.celestialSphere_.remove(sprite);
-      if (sprite.material.map) sprite.material.map.dispose();
+      disposeSpriteTexture(sprite);
       sprite.material.dispose();
     }
 
@@ -103,41 +107,18 @@ export class ExtendedObjectRenderer {
   createSprite_(dso) {
     const pos = raDecToCartesian(dso.ra, dso.dec, this.radius_);
 
-    // Calculate magnitude-based intensity
+    // The halo's visible brightness is the product of the gradient's centre
+    // alpha and the material opacity. With a shared white texture normalised
+    // to alpha 1.0, that whole product has to live in the opacity — fold both
+    // terms together or the magnitude ramp flattens.
     const mag = dso.mag || 10;
     const magIntensity = clamp((10 - mag) / 24, 0.02, 0.25);
+    const baseOpacity = clamp((10 - mag) / 10, 0.1, 0.6) * magIntensity;
 
-    // Create canvas texture
-    const canvas = document.createElement('canvas');
-    const size = 128;
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-
-    // Draw gradient based on type
-    ctx.clearRect(0, 0, size, size);
-    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-
-    // Color based on type
     const [r, g, b] = getDsoHaloColor(dso.type);
-
-    const color1 = `rgba(${r}, ${g}, ${b}, ${magIntensity})`;
-    const color2 = `rgba(${r}, ${g}, ${b}, 0)`;
-
-    gradient.addColorStop(0, color1);
-    gradient.addColorStop(0.7, color2);
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Create sprite with magnitude-based opacity
-    const texture = new THREE.CanvasTexture(canvas);
-    const baseOpacity = clamp((10 - mag) / 10, 0.1, 0.6);
     const material = new THREE.SpriteMaterial({
-      map: texture,
+      map: getSharedHaloTexture(),
+      color: new THREE.Color(r / 255, g / 255, b / 255),
       transparent: true,
       opacity: baseOpacity,
       blending: THREE.AdditiveBlending,
@@ -204,7 +185,7 @@ export class ExtendedObjectRenderer {
   dispose() {
     this.sprites_.forEach((sprite) => {
       this.celestialSphere_.remove(sprite);
-      if (sprite.material.map) sprite.material.map.dispose();
+      disposeSpriteTexture(sprite);
       sprite.material.dispose();
     });
     this.sprites_ = [];

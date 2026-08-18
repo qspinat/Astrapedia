@@ -23,7 +23,11 @@ import {SHADERS, SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
 import {dynamicDataLoader} from '../services/DynamicDataLoader.js';
 import {domCache} from '../ui/DOMCache.js';
 import {createLogger} from '../core/Logger.js';
-import {freezeTransform} from './SceneUtils.js';
+import {
+  disposeSpriteTexture,
+  freezeTransform,
+  getSharedHaloTexture,
+} from './SceneUtils.js';
 
 const logger = createLogger('DynamicObjectManager');
 
@@ -263,7 +267,7 @@ export class DynamicObjectManager {
         );
         spritesToRemove.forEach(sprite => {
           if (sprite.material) {
-            if (sprite.material.map) sprite.material.map.dispose();
+            disposeSpriteTexture(sprite);
             sprite.material.dispose();
           }
           celestialSphere?.remove(sprite);
@@ -554,7 +558,7 @@ export class DynamicObjectManager {
       .filter((s) => s.userData?.isDynamic && removedSet.has(s.userData.dso))
       .forEach((sprite) => {
         if (sprite.material) {
-          if (sprite.material.map) sprite.material.map.dispose();
+          disposeSpriteTexture(sprite);
           sprite.material.dispose();
         }
         celestialSphere?.remove(sprite);
@@ -571,40 +575,21 @@ export class DynamicObjectManager {
    */
   createDynamicDSOSprite_(dso, radius, celestialSphere) {
     const pos = raDecToCartesian(dso.ra, dso.dec, radius);
+    // Same shared texture and brightness folding as the catalogued halos in
+    // ExtendedObjectRenderer, so a dynamically loaded object is drawn exactly
+    // like the catalogued one beside it.
     const mag = dso.mag || 10;
     const magIntensity = clamp((10 - mag) / 24, 0.02, 0.25);
-
-    // Create halo texture
-    const canvas = document.createElement('canvas');
-    const size = 64;
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-
-    const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+    const baseOpacity = clamp((10 - mag) / 10, 0.1, 0.6) * magIntensity;
 
     const [r, g, b] = getDsoHaloColor(dso.type);
-
-    const color1 = `rgba(${r}, ${g}, ${b}, ${magIntensity})`;
-    const color2 = `rgba(${r}, ${g}, ${b}, 0)`;
-
-    gradient.addColorStop(0, color1);
-    gradient.addColorStop(0.7, color2);
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
-    ctx.fill();
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const baseOpacity = clamp((10 - mag) / 10, 0.1, 0.6);
     const material = new THREE.SpriteMaterial({
-      map: texture,
+      map: getSharedHaloTexture(),
+      color: new THREE.Color(r / 255, g / 255, b / 255),
       transparent: true,
       opacity: baseOpacity,
       blending: THREE.AdditiveBlending,
-      depthWrite: false
+      depthWrite: false,
     });
 
     const sprite = new THREE.Sprite(material);
