@@ -72,7 +72,8 @@ document.addEventListener = jest.fn();
 // Mock EventBus
 jest.unstable_mockModule('../modules/core/EventBus.js', () => ({
   globalEventBus: {
-    on: jest.fn(),
+    // Mirrors the real EventBus, which returns an unsubscribe handle.
+    on: jest.fn(() => ({unsubscribe: jest.fn()})),
     off: jest.fn(),
     emit: jest.fn(),
   },

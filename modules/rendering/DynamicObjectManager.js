@@ -303,15 +303,16 @@ export class DynamicObjectManager {
    * @private
    */
   filterStarsOutsideFov_(camera, celestialSphere, fov) {
-    // Get view direction in celestial coordinates
-    const viewDirWorld = new THREE.Vector3(0, 0, 0).sub(camera.position).normalize();
-    const viewDirCelestial = viewDirWorld.clone();
+    // Reuse the instance temporaries rather than allocating five Three.js
+    // objects per call; checkLoading twenty lines above already does this.
+    const viewDirCelestial = this._tempVec3
+        .set(0, 0, 0).sub(camera.position).normalize();
     if (celestialSphere) {
       celestialSphere.updateMatrixWorld();
-      const worldMatrix = new THREE.Matrix4().copy(celestialSphere.matrixWorld);
-      const inverseMatrix = new THREE.Matrix4().copy(worldMatrix).invert();
-      const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-      viewDirCelestial.applyMatrix3(rotationMatrix);
+      this._tempMatrix4.copy(celestialSphere.matrixWorld);
+      this._tempMatrix4B.copy(this._tempMatrix4).invert();
+      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
+      viewDirCelestial.applyMatrix3(this._tempMatrix3);
     }
     const viewRaDec = cartesianToRaDec(viewDirCelestial.x, viewDirCelestial.y, viewDirCelestial.z);
 
