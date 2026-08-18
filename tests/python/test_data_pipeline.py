@@ -9,7 +9,12 @@ import pandas as pd
 import pytest
 
 from astrapedia.astronomy import inject_supplementary_objects
-from data_pipeline import _stars_from_dataframe, normalize_common_names
+from astrapedia.config import Config
+from data_pipeline import (
+    _stars_from_dataframe,
+    download_catalog,
+    normalize_common_names,
+)
 
 
 class TestInjectSupplementaryObjects:
@@ -305,3 +310,42 @@ class TestCommonNamesShape:
         assert objects[0]["common_names"] == "Helix Nebula"
         assert objects[1]["common_names"] is None
         assert "common_names" not in objects[2]
+
+
+class TestChecksumHandling:
+    """A checksum mismatch warns; it does not destroy the catalog."""
+
+    def test_keeps_a_file_whose_checksum_does_not_match(self, tmp_path,
+                                                        monkeypatch):
+        """Both pinned hashes are snapshots of catalogs served from moving
+        refs -- HYG's CURRENT/, OpenNGC's master/ -- so upstream publishing a
+        routine update is the expected cause of a mismatch. Deleting the file
+        and returning None made the pipeline abort that stage on every run,
+        re-downloading and re-deleting, until someone edited the hash by
+        hand."""
+        catalog = tmp_path / "catalog.csv"
+        catalog.write_text("id,ra,dec\n1,0,0\n")
+        monkeypatch.setattr(Config, "get_data_path", lambda name: catalog)
+        monkeypatch.setattr(
+            Config, "verify_checksum",
+            lambda data, name, warn_only=True: False,
+        )
+
+        result = download_catalog("http://example.invalid/x", "catalog.csv",
+                                  catalog_name="hyg")
+
+        assert result == catalog, "a mismatch must not fail the stage"
+        assert catalog.exists(), "a mismatch must not delete the catalog"
+
+    def test_returns_the_path_when_the_checksum_matches(self, tmp_path,
+                                                        monkeypatch):
+        catalog = tmp_path / "catalog.csv"
+        catalog.write_text("id,ra,dec\n1,0,0\n")
+        monkeypatch.setattr(Config, "get_data_path", lambda name: catalog)
+        monkeypatch.setattr(
+            Config, "verify_checksum",
+            lambda data, name, warn_only=True: True,
+        )
+
+        assert download_catalog("http://example.invalid/x", "catalog.csv",
+                                catalog_name="hyg") == catalog
