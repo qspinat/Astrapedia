@@ -32,7 +32,6 @@ const three = spyOnThreeConstructors([
 
 const {
   TourController,
-  initializeTourController,
 } = await import('../modules/features/TourController.js');
 const {globalEventBus, Events} = await import('../modules/core/EventBus.js');
 
@@ -446,28 +445,6 @@ describe('TourController', () => {
 
       expect(mockDependencies.showObjectInfo).toHaveBeenCalled();
     });
-  });
-});
-
-describe('initializeTourController', () => {
-  test('creates and returns TourController instance', () => {
-    const mockDeps = {
-      navigateToRaDec: jest.fn(),
-      highlightConstellation: jest.fn(),
-      unhighlightConstellation: jest.fn(),
-      showObjectInfo: jest.fn(),
-      showConstellationInfo: jest.fn(),
-      getLST: jest.fn(),
-      getLocation: jest.fn(),
-      getPlanets: jest.fn().mockReturnValue([]),
-      getDeepSkyObjects: jest.fn().mockReturnValue([]),
-      getStars: jest.fn().mockReturnValue([]),
-      getFOV: jest.fn(),
-      setFOV: jest.fn(),
-    };
-
-    const result = initializeTourController(mockDeps);
-    expect(result).toBeInstanceOf(TourController);
   });
 });
 

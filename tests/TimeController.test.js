@@ -5,7 +5,6 @@
 import {jest} from '@jest/globals';
 import {
   TimeController,
-  initializeTimeController,
 } from '../modules/features/TimeController.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
 
@@ -461,20 +460,6 @@ describe('TimeController', () => {
       controller.dispose();
       expect(controller.isPlaying()).toBe(false);
     });
-  });
-});
-
-describe('initializeTimeController', () => {
-  test('creates and returns TimeController instance', () => {
-    const mockDeps = {
-      updatePlanets: jest.fn(),
-      rotateCelestialSphere: jest.fn(),
-      setCelestialRotation: jest.fn(),
-      calculateLST: jest.fn(),
-      getLongitude: jest.fn(),
-    };
-    const result = initializeTimeController(mockDeps);
-    expect(result).toBeInstanceOf(TimeController);
   });
 });
 

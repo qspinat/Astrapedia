@@ -768,20 +768,3 @@ export class TelescopeController {
     }
   }
 }
-
-/**
- * Singleton telescope controller instance.
- * @type {?TelescopeController}
- */
-export let telescopeController = null;
-
-/**
- * Initialize the telescope controller singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!TelescopeController} Initialized controller
- */
-export function initializeTelescopeController(dependencies) {
-  telescopeController = new TelescopeController(dependencies);
-  telescopeController.initialize();
-  return telescopeController;
-}

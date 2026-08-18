@@ -5,7 +5,6 @@
 import {jest} from '@jest/globals';
 import {
   TelescopeController,
-  initializeTelescopeController,
   isDiffuseObject,
 } from '../modules/features/TelescopeController.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
@@ -541,36 +540,6 @@ describe('TelescopeController', () => {
       const props = controller.computeProperties();
       expect(props.realFieldOfView).toBe(2.5); // 100 / 40
     });
-  });
-});
-
-describe('initializeTelescopeController', () => {
-  beforeEach(() => {
-    localStorageMock.clear();
-    globalEventBus.clear();
-  });
-
-  test('creates and returns TelescopeController instance', () => {
-    const mockDeps = {
-      setFOV: jest.fn(),
-      setMagnitudeLimit: jest.fn(),
-      getCurrentFOV: jest.fn().mockReturnValue(60),
-      getCurrentMagnitude: jest.fn().mockReturnValue(8.0),
-    };
-    const result = initializeTelescopeController(mockDeps);
-    expect(result).toBeInstanceOf(TelescopeController);
-  });
-
-  test('initializes the controller', () => {
-    const mockDeps = {
-      setFOV: jest.fn(),
-      setMagnitudeLimit: jest.fn(),
-      getCurrentFOV: jest.fn().mockReturnValue(60),
-      getCurrentMagnitude: jest.fn().mockReturnValue(8.0),
-    };
-    const result = initializeTelescopeController(mockDeps);
-    // Should have computed properties after initialization
-    expect(result.getComputedProperties()).not.toBeNull();
   });
 });
 

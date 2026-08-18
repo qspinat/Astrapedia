@@ -1049,20 +1049,3 @@ export class TourController {
     };
   }
 }
-
-/**
- * Singleton instance for application-wide tour control.
- * Note: Must be initialized with dependencies before use.
- * @type {?TourController}
- */
-export let tourController = null;
-
-/**
- * Initialize the tour controller singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!TourController} Initialized controller
- */
-export function initializeTourController(dependencies) {
-  tourController = new TourController(dependencies);
-  return tourController;
-}

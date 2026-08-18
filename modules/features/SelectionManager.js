@@ -756,19 +756,3 @@ export class SelectionManager {
     this.selectedObject_ = null;
   }
 }
-
-/**
- * Singleton selection manager instance.
- * @type {?SelectionManager}
- */
-export let selectionManager = null;
-
-/**
- * Initialize the selection manager singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!SelectionManager} Initialized manager
- */
-export function initializeSelectionManager(dependencies) {
-  selectionManager = new SelectionManager(dependencies);
-  return selectionManager;
-}

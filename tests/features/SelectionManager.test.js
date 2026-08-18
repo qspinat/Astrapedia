@@ -6,7 +6,6 @@
 import {jest} from '@jest/globals';
 import {
   SelectionManager,
-  initializeSelectionManager,
 } from '../../modules/features/SelectionManager.js';
 
 describe('SelectionManager', () => {
@@ -157,14 +156,6 @@ describe('SelectionManager', () => {
       jest.advanceTimersByTime(5000);
       // hideHighlight called once during dispose cleanup
       jest.useRealTimers();
-    });
-  });
-
-  describe('initializeSelectionManager', () => {
-    it('creates and returns singleton instance', () => {
-      const instance = initializeSelectionManager(mockDeps);
-      expect(instance).toBeInstanceOf(SelectionManager);
-      instance.dispose();
     });
   });
 

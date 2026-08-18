@@ -507,20 +507,3 @@ export class TimeController {
     this.pause();
   }
 }
-
-/**
- * Singleton instance for application-wide time control.
- * Note: Must be initialized with dependencies before use.
- * @type {?TimeController}
- */
-export let timeController = null;
-
-/**
- * Initialize the time controller singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!TimeController} Initialized controller
- */
-export function initializeTimeController(dependencies) {
-  timeController = new TimeController(dependencies);
-  return timeController;
-}

@@ -223,19 +223,3 @@ export class VisibilityCalculator {
     };
   }
 }
-
-/**
- * Singleton visibility calculator instance.
- * @type {?VisibilityCalculator}
- */
-export let visibilityCalculator = null;
-
-/**
- * Initialize the visibility calculator singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!VisibilityCalculator} Initialized calculator
- */
-export function initializeVisibilityCalculator(dependencies) {
-  visibilityCalculator = new VisibilityCalculator(dependencies);
-  return visibilityCalculator;
-}
