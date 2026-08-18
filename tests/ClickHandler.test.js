@@ -131,6 +131,31 @@ describe('ClickHandler', () => {
       handler.handleClick(0, 0);
       expect(mockDeps.selectObject).not.toHaveBeenCalled();
     });
+
+    // The test mock's raycaster always points at RA 0 / Dec 0, so a planet
+    // there is exactly what a click resolves to. `!planetData.ra` treated that
+    // real coordinate — the vernal equinox — as missing data.
+    test('selects a planet sitting at RA 0', () => {
+      mockDeps.getPlanetSprites.mockReturnValue([{
+        userData: {name: 'Mars', ra: 0, dec: 0, mag: 1, angularSize: 10},
+      }]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+          expect.objectContaining({name: 'Mars'}));
+    });
+
+    test('selects a planet at declination 0', () => {
+      mockDeps.getPlanetSprites.mockReturnValue([{
+        userData: {name: 'Venus', ra: 0.5, dec: 0, mag: -4, angularSize: 20},
+      }]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+          expect.objectContaining({name: 'Venus'}));
+    });
   });
 
   describe('detectStarClick_', () => {

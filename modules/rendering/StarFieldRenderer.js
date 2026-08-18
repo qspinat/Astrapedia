@@ -92,7 +92,9 @@ export class StarFieldRenderer {
     // Include ALL stars up to max magnitude (shader handles visibility)
     const maxMagnitude = 20;
     const stars = this.getStars_().filter((s) => s.mag <= maxMagnitude);
-    const dsos = this.getDSOs_().filter((dso) => dso.mag && dso.mag <= maxMagnitude);
+    // `dso.mag &&` would drop a magnitude-0 object; test for a value.
+    const dsos = this.getDSOs_().filter(
+        (dso) => dso.mag != null && dso.mag <= maxMagnitude);
 
     const geometry = new THREE.BufferGeometry();
     const positions = [];

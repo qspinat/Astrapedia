@@ -134,7 +134,9 @@ export class ClickHandler {
 
     for (const sprite of planetSprites) {
       const planetData = sprite.userData;
-      if (!planetData || !planetData.ra) continue;
+      // RA 0 is a real coordinate — the vernal equinox — so test for absence,
+      // not falsiness, or anything sitting there becomes unclickable.
+      if (!planetData || planetData.ra == null) continue;
 
       // Calculate angular distance (wrap RA delta across the 0h/360h meridian)
       const dRaDeg = ((planetData.ra - clickRaDec.ra + 540) % 360) - 180;
@@ -357,7 +359,7 @@ export class ClickHandler {
 
     for (const sprite of extendedObjectSprites) {
       const dsoData = sprite.userData?.dso;
-      if (!dsoData || !dsoData.ra) continue;
+      if (!dsoData || dsoData.ra == null) continue;
       // Skip DSOs beyond the fade range (completely invisible)
       if (dsoData.mag !== undefined && dsoData.mag > effectiveLimit) continue;
 
