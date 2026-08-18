@@ -1,5 +1,8 @@
-const CACHE_NAME = 'astrapedia-v4';
-const CACHE_VERSION = 4;
+// Bump on every release that changes any precached asset. Cached same-origin
+// responses have no TTL and are evicted only when this name changes, so a
+// returning user otherwise keeps the old JS, the old modules and the old star
+// catalog indefinitely.
+const CACHE_NAME = 'astrapedia-v5';
 
 // Cache TTL in milliseconds (24 hours for external resources)
 const EXTERNAL_CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -8,7 +11,13 @@ const EXTERNAL_CACHE_TTL = 24 * 60 * 60 * 1000;
 // Using 2x means we keep entries up to 48 hours before cleanup
 const CLEANUP_TTL_MULTIPLIER = 2;
 
+// build:web deploys the app as both index.html (the entry point) and
+// app.html (the path used when serving the repo directly in development).
+// cache.addAll is atomic: one 404 here rejects the whole install and leaves
+// the app with no offline cache at all, warned about only in the console.
+// scripts/verify-precache.mjs checks this list against a built www/.
 const STATIC_ASSETS = [
+    '/index.html',
     '/app.html',
     '/main.js',
     '/skymap.js',

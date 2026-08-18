@@ -187,3 +187,11 @@ temp/
 # ====================
 docs/_build/
 site/
+
+# Generated star catalogs. The app fetches only stars_medium.json (hardcoded
+# in skymap.js and precached by sw.js); these are build outputs of
+# data_pipeline.py and add ~40 MB to the repository. stars.json and
+# stars_all.json are byte-identical to each other.
+data/stars.json
+data/stars_all.json
+data/stars_bright.json
