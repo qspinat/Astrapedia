@@ -633,17 +633,6 @@ export class AstrapediaApp {
    * @private
    */
   setupCommandListeners_() {
-    // Selection commands
-    globalEventBus.on(Events.CMD_SELECT_OBJECT, (data) => {
-      this.selectObject(data?.object || null);
-    });
-
-    // Search commands
-    globalEventBus.on(Events.CMD_SEARCH, (data) => {
-      const results = this.performSearch(data?.query || '');
-      globalEventBus.emit(Events.SEARCH_RESULTS, {results});
-    });
-
     // Time commands
     globalEventBus.on(Events.CMD_SET_TIME_SPEED, (data) => {
       this.setTimeSpeed(data?.speed || 0);
@@ -665,37 +654,6 @@ export class AstrapediaApp {
       if (this.timeController_?.isPlaying()) {
         this.startAnimating();
       }
-    });
-
-    // Settings commands
-    globalEventBus.on(Events.CMD_SET_MAGNITUDE, (data) => {
-      if (typeof data?.magnitude === 'number') {
-        this.setMagnitudeLimit(data.magnitude);
-      }
-    });
-
-    globalEventBus.on(Events.CMD_SET_LANGUAGE, (data) => {
-      if (data?.language) {
-        this.setConstellationLanguage(data.language);
-      }
-    });
-
-    globalEventBus.on(Events.CMD_SET_CONSTELLATION_LINES, (data) => {
-      const mode = data?.visible ? CONSTELLATIONS.MODE_ALL : CONSTELLATIONS.MODE_OFF;
-      this.setConstellationLinesMode(mode);
-    });
-
-    // Camera commands
-    globalEventBus.on(Events.CMD_RESET_CAMERA, () => {
-      this.resetView();
-    });
-
-    globalEventBus.on(Events.CMD_TOGGLE_COMPASS, () => {
-      this.toggleCompassMode();
-    });
-
-    globalEventBus.on(Events.CMD_REQUEST_RENDER, () => {
-      this.requestRender();
     });
 
     // Game commands
@@ -745,15 +703,6 @@ export class AstrapediaApp {
       this.tourController_.stop();
     });
 
-    // Location commands
-    globalEventBus.on(Events.CMD_SHOW_LOCATION_DIALOG, () => {
-      this.setObserverLocation();
-    });
-
-    globalEventBus.on(Events.CMD_REQUEST_GEOLOCATION, () => {
-      this.requestGeolocation();
-    });
-
     // Listen for location changes to update sky rotation
     globalEventBus.on(Events.LOCATION_CHANGED, (data) => {
       if (data?.location) {
@@ -773,11 +722,6 @@ export class AstrapediaApp {
         this.requestRender();
         logger.info(`Location updated: ${this.observerLocation.lat.toFixed(2)}°, ${this.observerLocation.lon.toFixed(2)}°`);
       }
-    });
-
-    // Events calendar command
-    globalEventBus.on(Events.CMD_SHOW_EVENTS, () => {
-      this.showEventsCalendar();
     });
   }
 

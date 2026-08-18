@@ -39,7 +39,6 @@ jest.unstable_mockModule('../modules/core/EventBus.js', () => ({
     GAME_STARTED: 'game:started',
     GAME_STOPPED: 'game:stopped',
     TOUR_STARTED: 'tour:started',
-    TOUR_STOPPED: 'tour:stopped',
     TIME_SPEED_CHANGED: 'time:speed-changed',
   },
 }));

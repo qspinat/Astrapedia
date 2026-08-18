@@ -212,19 +212,14 @@ export const Events = {
   // Data events
   DATA_LOADED: 'data:loaded',
   DATA_ERROR: 'data:error',
-  STARS_LOADED: 'data:stars:loaded',
-  DSOS_LOADED: 'data:dsos:loaded',
-  CONSTELLATIONS_LOADED: 'data:constellations:loaded',
 
   // Camera events
   CAMERA_MOVE: 'camera:move',
-  CAMERA_ZOOM: 'camera:zoom',
   FOV_CHANGED: 'camera:fov:changed',
 
   // Selection events
   OBJECT_SELECTED: 'object:selected',
   OBJECT_DESELECTED: 'object:deselected',
-  OBJECT_HOVERED: 'object:hovered',
 
   // Time events
   TIME_CHANGED: 'time:changed',
@@ -238,36 +233,29 @@ export const Events = {
   // Game events
   GAME_STARTED: 'game:started',
   GAME_STOPPED: 'game:stopped',
-  GAME_ENDED: 'game:ended',
   GAME_QUESTION: 'game:question',
   GAME_CORRECT: 'game:correct',
-  GAME_INCORRECT: 'game:incorrect',
   GAME_PASSED: 'game:passed',
   GAME_SCORE: 'game:score',
   GAME_SCORE_UPDATED: 'game:score:updated',
 
   // Tour events
   TOUR_STARTED: 'tour:started',
-  TOUR_STOPPED: 'tour:stopped',
   TOUR_ENDED: 'tour:ended',
   TOUR_STEP_CHANGED: 'tour:step:changed',
 
   // UI events
   PANEL_OPENED: 'ui:panel:opened',
   PANEL_CLOSED: 'ui:panel:closed',
-  SETTINGS_CHANGED: 'ui:settings:changed',
   SETTING_CHANGED: 'ui:setting:changed',
   MAGNITUDE_CHANGED: 'ui:magnitude:changed',
 
   // Search events
-  SEARCH_QUERY: 'search:query',
   SEARCH_RESULTS: 'search:results',
-  SEARCH_SELECT: 'search:select',
   SEARCH_RESULT_SELECTED: 'search:result:selected',
 
   // Image events
   IMAGE_LOADED: 'image:loaded',
-  IMAGE_ERROR: 'image:error',
 
   // Dynamic data events
   DYNAMIC_STARS_LOADED: 'dynamic:stars:loaded',
@@ -282,16 +270,10 @@ export const Events = {
   COMPASS_HEADING: 'compass:heading',
 
   // Render events
-  RENDER_FRAME: 'render:frame',
-  RENDER_IDLE: 'render:idle',
-  RENDER_ACTIVE: 'render:active',
 
   // Visibility events
-  PAGE_VISIBLE: 'page:visible',
-  PAGE_HIDDEN: 'page:hidden',
 
   // Application events
-  APP_INITIALIZED: 'app:initialized',
   PLANETS_UPDATED: 'planets:updated',
   SERVICE_WORKER_ERROR: 'app:sw:error',
 
@@ -309,15 +291,9 @@ export const Events = {
   TELESCOPE_DSO_CENTERED: 'telescope:dso:centered',
 
   // Command events (requests from UI to app)
-  CMD_SELECT_OBJECT: 'cmd:select:object',
-  CMD_SEARCH: 'cmd:search',
   CMD_SET_TIME_SPEED: 'cmd:time:speed',
   CMD_JUMP_TO_TIME: 'cmd:time:jump',
   CMD_TOGGLE_PLAYBACK: 'cmd:time:toggle',
-  CMD_SET_MAGNITUDE: 'cmd:magnitude:set',
-  CMD_SET_LANGUAGE: 'cmd:language:set',
-  CMD_RESET_CAMERA: 'cmd:camera:reset',
-  CMD_TOGGLE_COMPASS: 'cmd:compass:toggle',
   CMD_SHOW_GAME_SELECT: 'cmd:game:select',
   CMD_START_GAME: 'cmd:game:start',
   CMD_STOP_GAME: 'cmd:game:stop',
@@ -326,11 +302,6 @@ export const Events = {
   CMD_NEXT_TOUR_STEP: 'cmd:tour:next',
   CMD_PREV_TOUR_STEP: 'cmd:tour:prev',
   CMD_STOP_TOUR: 'cmd:tour:stop',
-  CMD_SHOW_LOCATION_DIALOG: 'cmd:location:dialog',
-  CMD_REQUEST_GEOLOCATION: 'cmd:location:request',
-  CMD_SHOW_EVENTS: 'cmd:events:show',
-  CMD_SET_CONSTELLATION_LINES: 'cmd:constellation:lines',
-  CMD_REQUEST_RENDER: 'cmd:render:request',
 };
 
 /**
