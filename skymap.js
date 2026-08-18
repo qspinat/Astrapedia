@@ -131,7 +131,6 @@ export class AstrapediaApp {
 
     // State
     this.currentMagnitude = STARS.DEFAULT_MAGNITUDE;
-    this.currentLevel = 3;
 
     // Observer location is managed by LocationManager singleton
     this.observerLocation = locationManager.getLocation();
@@ -153,7 +152,6 @@ export class AstrapediaApp {
     this.constellationLanguage = supportedLangs.includes(browserLang)
       ? browserLang
       : 'en';
-    this.forceNightMode = true;  // Force night mode by default
     this.telescopeModeActive = false;  // Telescope simulation mode blocks zoom
     /**
      * Leaves telescope mode. Assigned by main.js, which owns
@@ -1536,66 +1534,7 @@ export class AstrapediaApp {
     this.requestRender();
   }
 
-  /**
-   * Returns the current simulation time (falls back to the real clock).
-   * @return {!Date} The simulated time.
-   */
-  getSimulationTime() {
-    return this.timeController_?.getTime() ?? new Date();
-  }
-
-  // Feature 9: Atmosphere Rendering (simplified)
-  updateAtmosphere() {
-    // If force night mode is enabled, always show night sky
-    if (this.forceNightMode) {
-      this.scene.background = new THREE.Color(0x000000);  // Pure black night sky
-      if (this.starField) {
-        this.starField.material.opacity = 1.0;  // Full brightness
-      }
-      return;
-    }
-
-    // Otherwise, set scene background based on time of day
-    const simTime = this.timeController_.getTime();
-    const hour = simTime.getHours();
-    let skyColor;
-
-    if (hour >= 6 && hour < 8) {
-      // Dawn - orange/pink
-      skyColor = new THREE.Color(0x4A3A2A);
-    } else if (hour >= 8 && hour < 18) {
-      // Day - blue
-      skyColor = new THREE.Color(0x87CEEB);
-    } else if (hour >= 18 && hour < 20) {
-      // Dusk - orange/red
-      skyColor = new THREE.Color(0x4A2A3A);
-    } else {
-      // Night - pure black
-      skyColor = new THREE.Color(0x000000);
-    }
-
-    this.scene.background = skyColor;
-
-    // Fade stars based on time of day
-    if (this.starField) {
-      const isDaytime = hour >= 6 && hour < 20;
-      this.starField.material.opacity = isDaytime ? 0.3 : 1.0;  // Full brightness at night
-    }
-  }
-
-  // Toggle night mode
-  toggleNightMode() {
-    this.forceNightMode = !this.forceNightMode;
-    this.updateAtmosphere();
-
-    // Update button text
-    const btn = domCache.get('night-mode-btn');
-    if (btn) {
-      btn.textContent = this.forceNightMode ? '🌙 Night Mode: ON' : '☀️ Day/Night: AUTO';
-    }
-
-    logger.info(`Night mode: ${this.forceNightMode ? 'ON (forced)' : 'OFF (automatic)'}`);
-  }
+  
 
   /* ======================================================================
      TOURS & EDUCATION
@@ -1710,15 +1649,6 @@ export class AstrapediaApp {
    * handlers that need direct access to skymap internals.
    */
   setupEventListeners() {
-    // Difficulty select (game-related, not in UIController)
-    const difficultySelect = domCache.get('difficulty-select');
-    if (difficultySelect) {
-      difficultySelect.addEventListener('change', (e) => {
-        this.currentLevel = parseInt(e.target.value);
-        this.applyDifficultyLevel();
-      });
-    }
-
     // The start-game button is bound by GameUI, which routes through
     // CMD_SHOW_GAME_SELECT so the modal is opened together with its history
     // entry. A second listener here would open it without one, leaving the
@@ -1776,28 +1706,6 @@ export class AstrapediaApp {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.requestRender();
-  }
-
-  applyDifficultyLevel() {
-    // Apply difficulty level settings
-    switch (this.currentLevel) {
-      case 1: // Level 1: Only constellations
-        this.currentMagnitude = 6.0;
-        break;
-      case 2: // Level 2: Bright objects
-        this.currentMagnitude = 4.0;
-        break;
-      case 3: // Level 3: Custom magnitude
-        // Use slider value
-        break;
-    }
-
-    const slider = domCache.magnitudeSlider;
-    if (slider) slider.value = this.currentMagnitude;
-    const magVal = domCache.magValue;
-    if (magVal) magVal.textContent = this.currentMagnitude.toFixed(1);
-    // Update shader uniform for smooth fading
-    this.setMagnitudeLimit(this.currentMagnitude);
   }
 
   setObserverLocation() {
@@ -2019,12 +1927,6 @@ export class AstrapediaApp {
       this.updateSimulationTime(deltaMs);
     } else {
       this._lastFrameTime = now;
-    }
-
-    // Feature 9: Update atmosphere (throttled - every 10 frames)
-    const simTime = this.timeController_.getTime();
-    if (simTime && this._frameCount % 10 === 0) {
-      this.updateAtmosphere();
     }
 
     // Smooth zoom interpolation

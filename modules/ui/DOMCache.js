@@ -42,7 +42,6 @@ const DOM_ELEMENT_IDS = {
     'magnitude-slider',
     'mag-value',
     'constellation-lines-toggle',
-    'night-mode-toggle',
     'constellation-language',
     'max-dynamic-stars',
     'max-dynamic-stars-value',

@@ -1043,15 +1043,6 @@ select:focus {
     color: var(--text-primary);
 }
 
-/* Night mode for game selection modal */
-body.night-mode .game-select-modal {
-    background: rgba(30, 0, 0, 0.8);
-}
-
-body.night-mode .game-select-content {
-    background: rgba(30, 10, 10, 0.95);
-}
-
 /* ==========================================================================
    10. OBJECT INFO PANEL
    ========================================================================== */
@@ -1715,32 +1706,7 @@ button.secondary:hover {
 }
 
 /* ==========================================================================
-   18. NIGHT MODE ADJUSTMENTS
-   ========================================================================== */
-
-body.night-mode {
-    --accent: #8B3030;
-    --accent-hover: #6B2020;
-}
-
-body.night-mode .header,
-body.night-mode .slide-panel,
-body.night-mode .game-panel,
-body.night-mode .time-controls,
-body.night-mode .bottom-bar,
-body.night-mode .info-badge,
-body.night-mode #tour-panel {
-    background: rgba(30, 10, 10, 0.95);
-}
-
-body.night-mode .icon-btn:hover,
-body.night-mode .tour-btn:hover,
-body.night-mode .quick-btn:hover {
-    background: var(--accent);
-}
-
-/* ==========================================================================
-   19. SCROLLBAR STYLING
+   18. SCROLLBAR STYLING
    ========================================================================== */
 
 ::-webkit-scrollbar {
@@ -1761,7 +1727,7 @@ body.night-mode .quick-btn:hover {
 }
 
 /* ==========================================================================
-   20. ACCESSIBILITY
+   19. ACCESSIBILITY
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
@@ -1780,7 +1746,7 @@ select:focus-visible {
 }
 
 /* ==========================================================================
-   21. EXTRACTED INLINE STYLES
+   20. EXTRACTED INLINE STYLES
    CSS classes for styles previously inline in HTML
    ========================================================================== */
 
@@ -1954,7 +1920,7 @@ select:focus-visible {
 }
 
 /* ==========================================================================
-   22. TELESCOPE SIMULATION
+   21. TELESCOPE SIMULATION
    ========================================================================== */
 
 /* Sky conditions display */
@@ -2351,45 +2317,6 @@ body.telescope-mode::after {
     z-index: calc(var(--z-canvas) + 1);
 }
 
-/* Night mode adjustments for telescope */
-body.night-mode .telescope-warning {
-    background: rgba(220, 38, 38, 0.15);
-    border-color: rgba(220, 38, 38, 0.4);
-    color: #8B3030;
-}
-
-body.night-mode .reticle-circle {
-    stroke: rgba(200, 100, 100, 0.15);
-}
-
-body.night-mode .reticle-circle.active {
-    stroke: rgba(200, 100, 100, 0.8);
-}
-
-body.night-mode .reticle-line {
-    stroke: rgba(200, 100, 100, 0.4);
-}
-
-body.night-mode .reticle-label {
-    fill: rgba(200, 100, 100, 0.2);
-}
-
-body.night-mode .reticle-label.active {
-    fill: rgba(200, 100, 100, 0.9);
-}
-
-body.night-mode .reticle-info {
-    color: rgba(200, 100, 100, 0.7);
-}
-
-body.night-mode .reticle-dso-info {
-    color: rgba(200, 100, 100, 0.7);
-}
-
-body.night-mode .reticle-dso-name {
-    color: rgba(200, 100, 100, 0.8);
-}
-
 /* ==========================================================================
    BUG REPORT PANEL
    ========================================================================== */
@@ -2473,11 +2400,4 @@ body.night-mode .reticle-dso-name {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
-}
-
-/* Night mode for notification panel */
-body.night-mode .notification-panel {
-    background: rgba(40, 20, 20, 0.95);
-    color: rgba(200, 100, 100, 0.9);
-    border: 1px solid rgba(200, 100, 100, 0.3);
 }

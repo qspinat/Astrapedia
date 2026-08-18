@@ -213,7 +213,6 @@ export class SettingsHandler {
   /**
    * Creates a new SettingsHandler instance.
    * @param {!Object} dependencies - Required dependencies
-   * @param {function(): void=} dependencies.toggleNightMode - Toggle night mode
    * @param {function(boolean): void=} dependencies.setConstellationLines - Set lines
    * @param {function(string): void=} dependencies.setConstellationLinesMode - Set mode
    * @param {function(boolean): void=} dependencies.setEquatorLineVisible - Set equator
@@ -559,7 +558,6 @@ export class UIController {
     this.searchController_.initialize();
 
     this.settingsHandler_ = new SettingsHandler({
-      toggleNightMode: this.deps_.toggleNightMode,
       setConstellationLines: this.deps_.setConstellationLines,
       setConstellationLinesMode: this.deps_.setConstellationLinesMode,
       setEquatorLineVisible: this.deps_.setEquatorLineVisible,
