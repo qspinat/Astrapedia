@@ -56,6 +56,12 @@ export class StarFieldRenderer {
     /** @private {?THREE.ShaderMaterial} */
     this.material_ = null;
 
+    /**
+     * Every object's magnitude, ascending. Rebuilt by create().
+     * @private {?Float64Array}
+     */
+    this.sortedMagnitudes_ = null;
+
     /** @private {number} */
     this.magnitudeLimit_ = STARS.DEFAULT_MAGNITUDE;
 
@@ -157,6 +163,16 @@ export class StarFieldRenderer {
     this.starField_.userData.stars = stars;
     this.starField_.userData.dsos = dsos;
 
+    // Sorted magnitudes, so getVisibleCount is a binary search rather than a
+    // scan of every object. The slider fires this on every input event.
+    // Float64, not Float32: rounding a magnitude to float32 can move it
+    // across the slider threshold and shift the count by one.
+    const mags = new Float64Array(stars.length + dsos.length);
+    let n = 0;
+    for (const star of stars) mags[n++] = star.mag;
+    for (const dso of dsos) mags[n++] = dso.mag;
+    this.sortedMagnitudes_ = mags.sort();
+
     globalEventBus.emit(Events.STAR_FIELD_CREATED, {
       starCount: stars.length,
       dsoCount: dsos.length,
@@ -193,15 +209,20 @@ export class StarFieldRenderer {
    * @returns {number} Visible count
    */
   getVisibleCount() {
-    if (!this.starField_) return 0;
+    if (!this.starField_ || !this.sortedMagnitudes_) return 0;
 
-    const stars = this.starField_.userData.stars || [];
-    const dsos = this.starField_.userData.dsos || [];
-
-    return (
-      stars.filter((s) => s.mag <= this.magnitudeLimit_).length +
-      dsos.filter((d) => d.mag <= this.magnitudeLimit_).length
-    );
+    // Count of magnitudes <= the limit, via upper-bound binary search. The
+    // previous two .filter().length calls walked ~43,000 objects and built two
+    // throwaway arrays on every slider input event.
+    const mags = this.sortedMagnitudes_;
+    let lo = 0;
+    let hi = mags.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (mags[mid] <= this.magnitudeLimit_) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
   }
 
   /**
