@@ -188,24 +188,8 @@ describe('Singleton Enforcement', () => {
     });
   });
 
-  describe('UIController', () => {
-    beforeEach(() => {
-      resetUIController();
-      // Also reset the sub-UIs that UIController creates
-      resetGameUI();
-      resetTourUI();
-      resetTimeUI();
-    });
-
-    afterEach(() => {
-      resetUIController();
-      resetGameUI();
-      resetTourUI();
-      resetTimeUI();
-    });
-
-    // Note: Full UIController singleton tests would require mocking SearchController,
-    // SettingsController, TelescopeUI, LocationUI, and many panel-related methods.
-    // The singleton pattern is enforced at the code level - see initializeUIController()
-  });
+  // UIController has no singleton test: constructing one needs
+  // SearchController, SettingsController, TelescopeUI, LocationUI and most of
+  // the panel surface mocked. Its guard is the same initializeUIController()
+  // early return the modules above are checked through.
 });
