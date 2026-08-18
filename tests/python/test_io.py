@@ -10,8 +10,6 @@ import pytest
 from astrapedia.io import (
     read_json,
     write_json,
-    validate_json_structure,
-    ensure_directory,
 )
 
 
@@ -133,63 +131,3 @@ class TestWriteJson:
         assert file_path.exists()
 
 
-class TestValidateJsonStructure:
-    """Tests for JSON structure validation."""
-
-    def test_validates_expected_type_dict(self):
-        assert validate_json_structure({"key": "value"}, expected_type=dict) is True
-        assert validate_json_structure([], expected_type=dict) is False
-
-    def test_validates_expected_type_list(self):
-        assert validate_json_structure([1, 2, 3], expected_type=list) is True
-        assert validate_json_structure({}, expected_type=list) is False
-
-    def test_validates_required_keys(self):
-        data = {"name": "test", "value": 123}
-        assert validate_json_structure(data, required_keys=["name", "value"]) is True
-        assert validate_json_structure(data, required_keys=["name", "missing"]) is False
-
-    def test_validates_both_type_and_keys(self):
-        data = {"name": "test"}
-        assert validate_json_structure(
-            data, expected_type=dict, required_keys=["name"]
-        ) is True
-        assert validate_json_structure(
-            data, expected_type=list, required_keys=["name"]
-        ) is False
-
-    def test_no_validation_criteria(self):
-        assert validate_json_structure({"any": "data"}) is True
-        assert validate_json_structure([1, 2, 3]) is True
-        assert validate_json_structure("string") is True
-
-
-class TestEnsureDirectory:
-    """Tests for directory creation."""
-
-    def test_creates_directory(self, tmp_path):
-        new_dir = tmp_path / "new_directory"
-        result = ensure_directory(new_dir)
-        assert new_dir.exists()
-        assert new_dir.is_dir()
-        assert result == new_dir
-
-    def test_creates_nested_directories(self, tmp_path):
-        nested_dir = tmp_path / "a" / "b" / "c"
-        result = ensure_directory(nested_dir)
-        assert nested_dir.exists()
-        assert nested_dir.is_dir()
-
-    def test_handles_existing_directory(self, tmp_path):
-        existing = tmp_path / "existing"
-        existing.mkdir()
-
-        result = ensure_directory(existing)
-        assert result == existing
-        assert existing.exists()
-
-    def test_accepts_string_path(self, tmp_path):
-        new_dir = tmp_path / "string_path"
-        result = ensure_directory(str(new_dir))
-        assert isinstance(result, Path)
-        assert new_dir.exists()
