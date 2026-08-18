@@ -33,112 +33,6 @@ export class EventsCalendar {
   }
 
   /**
-   * Parse iCal format events data.
-   * @param {string} icalData - Raw iCal data
-   * @returns {!Array<!Object>} Parsed events
-   */
-  parseICalEvents(icalData) {
-    const events = [];
-    const lines = icalData.split(/\r?\n/);
-
-    let currentEvent = null;
-    let currentField = '';
-    let currentValue = '';
-
-    for (const line of lines) {
-      // Handle line continuation (lines starting with space or tab)
-      if (line.startsWith(' ') || line.startsWith('\t')) {
-        currentValue += line.substring(1);
-        continue;
-      }
-
-      // Process previous field if we have one
-      if (currentEvent && currentField) {
-        this.processICalField_(currentEvent, currentField, currentValue);
-      }
-
-      // Check for event boundaries
-      if (line === 'BEGIN:VEVENT') {
-        currentEvent = {};
-      } else if (line === 'END:VEVENT' && currentEvent) {
-        if (currentEvent.name && currentEvent.date) {
-          events.push(currentEvent);
-        }
-        currentEvent = null;
-      } else if (currentEvent && line.includes(':')) {
-        const colonIndex = line.indexOf(':');
-        currentField = line.substring(0, colonIndex).split(';')[0];
-        currentValue = line.substring(colonIndex + 1);
-      }
-    }
-
-    return events;
-  }
-
-  /**
-   * Process a single iCal field.
-   * @param {!Object} event - Event object to populate
-   * @param {string} field - Field name
-   * @param {string} value - Field value
-   * @private
-   */
-  processICalField_(event, field, value) {
-    switch (field) {
-      case 'SUMMARY':
-        event.name = value;
-        event.type = this.determineEventType_(value);
-        break;
-      case 'DTSTART':
-      case 'DTSTART;VALUE=DATE':
-        const dateStr = value.replace(/[TZ]/g, '');
-        const year = parseInt(dateStr.substring(0, 4));
-        const month = parseInt(dateStr.substring(4, 6)) - 1;
-        const day = parseInt(dateStr.substring(6, 8));
-        event.date = new Date(year, month, day);
-        break;
-      case 'DESCRIPTION':
-        event.description = value
-          .replace(/\\n/g, ' ')
-          .replace(/\\,/g, ',')
-          .replace(/&ndash;/g, '\u2013')
-          .replace(/\s+/g, ' ')
-          .trim();
-        break;
-      case 'URL':
-        event.url = value.trim();
-        break;
-    }
-  }
-
-  /**
-   * Determine event type from name.
-   * @param {string} name - Event name
-   * @returns {string} Event type
-   * @private
-   */
-  determineEventType_(name) {
-    const nameLower = name.toLowerCase();
-    if (nameLower.includes('meteor') || nameLower.includes('shower')) {
-      return 'meteor';
-    } else if (nameLower.includes('eclipse')) {
-      return 'eclipse';
-    } else if (nameLower.includes('solstice')) {
-      return 'solstice';
-    } else if (nameLower.includes('equinox')) {
-      return 'equinox';
-    } else if (nameLower.includes('opposition') || nameLower.includes('conjunction') ||
-               nameLower.includes('venus') || nameLower.includes('mars') ||
-               nameLower.includes('jupiter') || nameLower.includes('saturn') ||
-               nameLower.includes('mercury') || nameLower.includes('uranus') ||
-               nameLower.includes('neptune')) {
-      return 'planet';
-    } else if (nameLower.includes('moon') || nameLower.includes('lunar')) {
-      return 'moon';
-    }
-    return 'other';
-  }
-
-  /**
    * Get astronomy events (from built-in data).
    * @returns {!Array<!Object>} Array of event objects
    */
@@ -446,20 +340,6 @@ export class EventsCalendar {
     if (content) content.innerHTML = html;
   }
 
-  /**
-   * Check if events are cached.
-   * @returns {boolean} True if events are cached
-   */
-  hasCachedEvents() {
-    return this.eventsCache_ !== null;
-  }
-
-  /**
-   * Clear cached events.
-   */
-  clearCache() {
-    this.eventsCache_ = null;
-  }
 }
 
 /**
