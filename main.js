@@ -12,7 +12,6 @@
  * - Constants: Shared configuration (SPHERE, CAMERA, STARS, TIME, TELESCOPE)
  * - CoordinateUtils: RA/Dec to Cartesian conversions
  * - AstronomyCalculator: LST, altitude/azimuth calculations
- * - ErrorHandler: Centralized error handling
  * - SecurityUtils: HTML escaping, Wikipedia fetching
  *
  * DATA MODULES (modules/data/)
@@ -48,7 +47,6 @@
 
 // Core modules
 import {globalEventBus, Events} from './modules/core/EventBus.js';
-import {handleError, ErrorSeverity} from './modules/core/ErrorHandler.js';
 import {CAMERA} from './modules/core/Constants.js';
 
 // Service modules
@@ -313,8 +311,7 @@ async function initializeApp() {
     registerServiceWorker_();
 
   } catch (error) {
-    logger.error('Initialization failed:', error);
-    handleError(error, 'Application initialization failed', ErrorSeverity.CRITICAL);
+    logger.error('Application initialization failed:', error);
 
     // Show error on loading screen
     const loadingEl = document.getElementById('loading');
