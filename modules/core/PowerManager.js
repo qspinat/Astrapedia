@@ -175,20 +175,3 @@ export class PowerManager {
     }
   }
 }
-
-/**
- * Singleton power manager instance.
- * @type {?PowerManager}
- */
-export let powerManager = null;
-
-/**
- * Initialize the power manager singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!PowerManager} Initialized manager
- */
-export function initializePowerManager(dependencies) {
-  powerManager = new PowerManager(dependencies);
-  powerManager.initialize();
-  return powerManager;
-}

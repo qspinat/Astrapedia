@@ -8,6 +8,7 @@ import {escapeHtml, fetchWikipedia} from '../core/SecurityUtils.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
 import {descriptionGenerator} from '../data/DescriptionGenerator.js';
 import {getConstellationStory} from '../data/ConstellationStories.js';
+import {catalogDesignation} from '../data/CuratedImages.js';
 import {createLogger} from '../core/Logger.js';
 import {domCache} from '../ui/DOMCache.js';
 
@@ -266,9 +267,7 @@ export class SelectionManager {
 
     // Alternative names
     if (obj.common_names) {
-      const names = Array.isArray(obj.common_names)
-        ? obj.common_names.join(', ')
-        : obj.common_names;
+      const names = obj.common_names;
       html += `<p><strong>Also known as:</strong> ${escapeHtml(names)}</p>`;
     }
 
@@ -463,10 +462,14 @@ export class SelectionManager {
     // Get object identifier - prefer catalog names from raw data or internalName
     // to avoid using localized display names (e.g., 'Galaxie du Sombrero')
     const raw = obj.data || obj;
-    const objectName = raw.messier ? `M${Math.floor(raw.messier)}` :
-      (raw.ngc ? `NGC${raw.ngc}` :
-        (raw.ic ? `IC${raw.ic}` :
-          (obj.internalName || obj.name)));
+    // catalogDesignation hands back the record's own name unchanged when it
+    // is not a catalog form, which is the case for stars and for objects
+    // known by a common name — those still want internalName.
+    const designation = catalogDesignation(raw);
+    const objectName =
+        (designation !== 'Unknown Object' && designation !== raw.name) ?
+        designation :
+        (obj.internalName || obj.name);
 
     // Use unified image fetcher to get the best available image
     // Pass forPanel=true to enable DSS fallback for stars
@@ -755,20 +758,4 @@ export class SelectionManager {
 
     this.selectedObject_ = null;
   }
-}
-
-/**
- * Singleton selection manager instance.
- * @type {?SelectionManager}
- */
-export let selectionManager = null;
-
-/**
- * Initialize the selection manager singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!SelectionManager} Initialized manager
- */
-export function initializeSelectionManager(dependencies) {
-  selectionManager = new SelectionManager(dependencies);
-  return selectionManager;
 }

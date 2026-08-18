@@ -3,24 +3,12 @@
  * Determines which objects are visible tonight from a given location.
  */
 
-/**
- * Calculate altitude of an object at a given location and time.
- * @param {number} ra - Right ascension in degrees
- * @param {number} dec - Declination in degrees
- * @param {number} lat - Observer latitude in degrees
- * @param {number} lst - Local sidereal time in degrees
- * @returns {number} Altitude in degrees
- */
-export const calculateAltitude = (ra, dec, lat, lst) => {
-  const latRad = lat * Math.PI / 180;
-  const decRad = dec * Math.PI / 180;
-  const haRad = (lst - ra) * Math.PI / 180;
+import {calculateAltitude} from '../core/CoordinateUtils.js';
+import {getDsoTypeName} from '../core/TypeMappings.js';
+import {catalogDesignation} from '../data/CuratedImages.js';
 
-  const sinAlt = Math.sin(latRad) * Math.sin(decRad) +
-    Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
-
-  return Math.asin(sinAlt) * 180 / Math.PI;
-};
+// Re-exported so visibility callers can take everything from one module.
+export {calculateAltitude};
 
 /**
  * Check if an object is above the horizon.
@@ -152,9 +140,9 @@ export class VisibilityCalculator {
       if (dso.mag && dso.mag < maxMagnitude) {
         const altitude = calculateAltitude(dso.ra, dso.dec, location.lat, lst);
         if (altitude > minAltitude) {
-          const name = dso.messier ? `M${Math.floor(dso.messier)}` :
-            (dso.name?.match(/^(NGC|IC)\d+/)?.[0] || dso.name);
-          const commonName = dso.common_names ? ` (${dso.common_names})` : '';
+          const name = catalogDesignation(dso);
+          const commonName =
+              dso.common_names ? ` (${dso.common_names})` : '';
 
           objects.push({
             name,
@@ -163,7 +151,9 @@ export class VisibilityCalculator {
             mag: dso.mag,
             altitude,
             type: dso.type || 'DSO',
-            description: `Mag ${dso.mag.toFixed(1)}, Alt ${altitude.toFixed(0)}°${commonName}`,
+            typeName: getDsoTypeName(dso.type),
+            description: `${getDsoTypeName(dso.type)}${commonName} - ` +
+              `Mag ${dso.mag.toFixed(1)}, Alt ${altitude.toFixed(0)}°`,
             data: dso,
           });
         }
@@ -222,20 +212,4 @@ export class VisibilityCalculator {
       altitude,
     };
   }
-}
-
-/**
- * Singleton visibility calculator instance.
- * @type {?VisibilityCalculator}
- */
-export let visibilityCalculator = null;
-
-/**
- * Initialize the visibility calculator singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!VisibilityCalculator} Initialized calculator
- */
-export function initializeVisibilityCalculator(dependencies) {
-  visibilityCalculator = new VisibilityCalculator(dependencies);
-  return visibilityCalculator;
 }

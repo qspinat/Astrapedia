@@ -3,6 +3,27 @@
  * Shared calculations for star/object size based on magnitude.
  */
 
+import {STARS} from './Constants.js';
+
+/**
+ * Whether an object of this magnitude is bright enough to be drawn.
+ *
+ * The single definition of "visible at this limit", used both by the
+ * renderers that decide what to draw and by the click handler that decides
+ * what can be selected. Keeping them on one predicate is the point: they
+ * disagreed before, so faint deep sky objects were drawn but not clickable.
+ *
+ * The fade range matches the star shader's magFadeRange uniform, which ramps
+ * visibility to zero across it — so an object is treated as drawable exactly
+ * while the shader still shows something.
+ *
+ * @param {number|null|undefined} mag - Object magnitude; absent means always shown
+ * @param {number} limit - Current magnitude limit
+ * @returns {boolean} True if the object should be drawn and selectable
+ */
+export const isWithinMagnitudeLimit = (mag, limit) =>
+  mag === null || mag === undefined || mag <= limit + STARS.FADE_RANGE;
+
 /**
  * Convert astronomical magnitude to display size.
  * Uses exponential scaling to make brighter objects (lower magnitude) larger.

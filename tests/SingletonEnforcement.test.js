@@ -39,7 +39,6 @@ jest.unstable_mockModule('../modules/core/EventBus.js', () => ({
     GAME_STARTED: 'game:started',
     GAME_STOPPED: 'game:stopped',
     TOUR_STARTED: 'tour:started',
-    TOUR_STOPPED: 'tour:stopped',
     TIME_SPEED_CHANGED: 'time:speed-changed',
   },
 }));
@@ -189,31 +188,8 @@ describe('Singleton Enforcement', () => {
     });
   });
 
-  describe('UIController', () => {
-    beforeEach(() => {
-      resetUIController();
-      // Also reset the sub-UIs that UIController creates
-      resetGameUI();
-      resetTourUI();
-      resetTimeUI();
-    });
-
-    afterEach(() => {
-      resetUIController();
-      resetGameUI();
-      resetTourUI();
-      resetTimeUI();
-    });
-
-    test('resetUIController allows creating new instance', () => {
-      // Just verify the reset function works and singleton variable is exported
-      // Full UIController initialization requires too many mocks
-      resetUIController();
-      expect(true).toBe(true);
-    });
-
-    // Note: Full UIController singleton tests would require mocking SearchController,
-    // SettingsController, TelescopeUI, LocationUI, and many panel-related methods.
-    // The singleton pattern is enforced at the code level - see initializeUIController()
-  });
+  // UIController has no singleton test: constructing one needs
+  // SearchController, SettingsController, TelescopeUI, LocationUI and most of
+  // the panel surface mocked. Its guard is the same initializeUIController()
+  // early return the modules above are checked through.
 });

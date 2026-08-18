@@ -56,6 +56,7 @@ import {GameController} from './modules/features/GameController.js';
 import {TimeController} from './modules/features/TimeController.js';
 import {SelectionManager} from './modules/features/SelectionManager.js';
 import {VisibilityCalculator} from './modules/features/VisibilityCalculator.js';
+import {panelManager} from './modules/ui/PanelManager.js';
 import {eventsCalendar} from './modules/features/EventsCalendar.js';
 import {locationManager} from './modules/services/LocationManager.js';
 import {CompassController} from './modules/interaction/CompassController.js';
@@ -131,7 +132,6 @@ export class AstrapediaApp {
 
     // State
     this.currentMagnitude = STARS.DEFAULT_MAGNITUDE;
-    this.currentLevel = 3;
 
     // Observer location is managed by LocationManager singleton
     this.observerLocation = locationManager.getLocation();
@@ -153,8 +153,14 @@ export class AstrapediaApp {
     this.constellationLanguage = supportedLangs.includes(browserLang)
       ? browserLang
       : 'en';
-    this.forceNightMode = true;  // Force night mode by default
     this.telescopeModeActive = false;  // Telescope simulation mode blocks zoom
+    /**
+     * Leaves telescope mode. Assigned by main.js, which owns
+     * TelescopeController, alongside the lockZoom/unlockZoom wiring that sets
+     * telescopeModeActive.
+     * @type {?function(): void}
+     */
+    this.exitTelescopeMode = null;
 
     // Time simulation (state managed by TimeController)
 
@@ -202,7 +208,6 @@ export class AstrapediaApp {
 
     // Throttling for expensive operations
     this._lastImageVisUpdate = 0;
-    this._lastExtendedObjUpdate = 0;
     this._lastDynamicCheck = 0;
 
     // Animation loop state (synced with PowerManager via callbacks)
@@ -348,22 +353,16 @@ export class AstrapediaApp {
       unhighlightConstellation: () => this.unhighlightConstellation(),
       showObjectInfo: (obj) => this.showObjectInfo(obj),
       showConstellationInfo: (abbrev) => this.showConstellationInfo(abbrev),
-      getLST: () => calculateLST(
-        this.timeController_?.getTime() ?? new Date(),
-        this.observerLocation?.lon || 0
-      ),
-      getLocation: () => this.observerLocation || {lat: 45, lon: 0},
       getPlanets: () => this.planets || [],
       getDeepSkyObjects: () => this.deepSkyObjects || [],
       getStars: () => this.stars || [],
       getFOV: () => this.targetFov || CAMERA.DEFAULT_FOV,
       setFOV: (fov) => { this.targetFov = fov; },
       getConstellationName: (name) => this.getConstellationName(name),
+      showHighlight: (ra, dec, size) => this.showTourHighlight(ra, dec, size),
+      hideHighlight: () => this.hideTourHighlight(),
+      getBestVisibleObjectsTonight: () => this.getBestVisibleObjectsTonight(),
     });
-    this.tourController_.setSceneCallbacks(
-      (obj) => this.celestialSphere.add(obj),
-      (obj) => this.celestialSphere.remove(obj)
-    );
   }
 
   /**
@@ -408,7 +407,10 @@ export class AstrapediaApp {
    */
   initTimeController_() {
     this.timeController_ = new TimeController({
-      updatePlanets: () => this.createPlanets(),
+      // Reposition rather than rebuild. createPlanets() disposes and recreates
+      // all nine sprites, which at 1000x speed ran every ~3.6 real seconds and
+      // re-fetched every planet photo from the CDN each time.
+      updatePlanets: () => this.updatePlanetPositions(),
       rotateCelestialSphere: (angle) => {
         if (this.celestialSphere) {
           this.celestialSphere.rotation.y += angle;
@@ -439,8 +441,8 @@ export class AstrapediaApp {
       showHighlight: (ra, dec, size) => this.showTourHighlight(ra, dec, size),
       hideHighlight: () => this.hideTourHighlight(),
       getImageUrl: (obj) => this.getObjectImageUrl(obj),
-      openPanel: (id) => window.openPanel?.(id),
-      closeAllPanels: () => window.closeAllPanels?.(),
+      openPanel: (id) => panelManager.open(id),
+      closeAllPanels: () => panelManager.closeAll(),
       // Constellation info callbacks
       getConstellationAbbrev: (name) => this.getConstellationAbbrev(name),
       getConstellationName: (abbrev) => this.getConstellationName(abbrev),
@@ -523,7 +525,8 @@ export class AstrapediaApp {
       onStopAnimating: () => {
         this._isAnimating = false;
       },
-      shouldKeepAnimating: () => this.timeController_.isPlaying() || !!this._targetFov,
+      shouldKeepAnimating: () =>
+        this.timeController_.isPlaying() || this.isCameraConverging_(),
     });
     this.powerManager_.initialize();
   }
@@ -539,7 +542,12 @@ export class AstrapediaApp {
       getCamera: () => this.camera,
       getStarFieldRenderer: () => this.starFieldRenderer_,
       getExtendedObjectSprites: () => this.extendedObjectSprites,
-      addExtendedSprite: (sprite) => this.extendedObjectSprites.push(sprite),
+      addExtendedSprite: (sprite) => {
+        this.extendedObjectSprites.push(sprite);
+        // Newly loaded halos start at their base size; mark dirty so the next
+        // frame scales them for the current field of view.
+        this._fovDirty = true;
+      },
       removeExtendedSprite: (sprite) => {
         const idx = this.extendedObjectSprites.indexOf(sprite);
         if (idx > -1) this.extendedObjectSprites.splice(idx, 1);
@@ -622,17 +630,6 @@ export class AstrapediaApp {
    * @private
    */
   setupCommandListeners_() {
-    // Selection commands
-    globalEventBus.on(Events.CMD_SELECT_OBJECT, (data) => {
-      this.selectObject(data?.object || null);
-    });
-
-    // Search commands
-    globalEventBus.on(Events.CMD_SEARCH, (data) => {
-      const results = this.performSearch(data?.query || '');
-      globalEventBus.emit(Events.SEARCH_RESULTS, {results});
-    });
-
     // Time commands
     globalEventBus.on(Events.CMD_SET_TIME_SPEED, (data) => {
       this.setTimeSpeed(data?.speed || 0);
@@ -654,37 +651,6 @@ export class AstrapediaApp {
       if (this.timeController_?.isPlaying()) {
         this.startAnimating();
       }
-    });
-
-    // Settings commands
-    globalEventBus.on(Events.CMD_SET_MAGNITUDE, (data) => {
-      if (typeof data?.magnitude === 'number') {
-        this.setMagnitudeLimit(data.magnitude);
-      }
-    });
-
-    globalEventBus.on(Events.CMD_SET_LANGUAGE, (data) => {
-      if (data?.language) {
-        this.setConstellationLanguage(data.language);
-      }
-    });
-
-    globalEventBus.on(Events.CMD_SET_CONSTELLATION_LINES, (data) => {
-      const mode = data?.visible ? CONSTELLATIONS.MODE_ALL : CONSTELLATIONS.MODE_OFF;
-      this.setConstellationLinesMode(mode);
-    });
-
-    // Camera commands
-    globalEventBus.on(Events.CMD_RESET_CAMERA, () => {
-      this.resetView();
-    });
-
-    globalEventBus.on(Events.CMD_TOGGLE_COMPASS, () => {
-      this.toggleCompassMode();
-    });
-
-    globalEventBus.on(Events.CMD_REQUEST_RENDER, () => {
-      this.requestRender();
     });
 
     // Game commands
@@ -734,15 +700,6 @@ export class AstrapediaApp {
       this.tourController_.stop();
     });
 
-    // Location commands
-    globalEventBus.on(Events.CMD_SHOW_LOCATION_DIALOG, () => {
-      this.setObserverLocation();
-    });
-
-    globalEventBus.on(Events.CMD_REQUEST_GEOLOCATION, () => {
-      this.requestGeolocation();
-    });
-
     // Listen for location changes to update sky rotation
     globalEventBus.on(Events.LOCATION_CHANGED, (data) => {
       if (data?.location) {
@@ -762,11 +719,6 @@ export class AstrapediaApp {
         this.requestRender();
         logger.info(`Location updated: ${this.observerLocation.lat.toFixed(2)}°, ${this.observerLocation.lon.toFixed(2)}°`);
       }
-    });
-
-    // Events calendar command
-    globalEventBus.on(Events.CMD_SHOW_EVENTS, () => {
-      this.showEventsCalendar();
     });
   }
 
@@ -1208,6 +1160,13 @@ export class AstrapediaApp {
 
     // Delegate to StarFieldRenderer for main star field
     this.starFieldRenderer_.setMagnitudeLimit(magLimit);
+
+    // Deep sky object halos follow the same limit, so what is drawn matches
+    // what can be clicked.
+    this.extendedObjectRenderer_?.setMagnitudeLimit(magLimit);
+    // updateSizes skips hidden halos, so anything the new limit reveals still
+    // carries the scale it had when it was last visible. Re-run the pass.
+    this._fovDirty = true;
     this.updateVisibleCount(this.starFieldRenderer_.getVisibleCount());
 
     // Update dynamic star field uniform via DynamicObjectManager
@@ -1242,17 +1201,66 @@ export class AstrapediaApp {
     if (domCache.fovDisplay) domCache.fovDisplay.textContent = formatAngle(this.camera.fov);
   }
 
+  /**
+   * Shortest signed distance from the current theta to the target, taking the
+   * 2*PI wraparound into account.
+   * @return {number} Difference in radians, in [-PI, PI].
+   * @private
+   */
+  thetaDiffToTarget_() {
+    let diff = this.targetTheta - this.cameraRotation.theta;
+    if (diff > Math.PI) diff -= 2 * Math.PI;
+    if (diff < -Math.PI) diff += 2 * Math.PI;
+    return diff;
+  }
+
+  /**
+   * Whether the FOV lerp has yet to settle.
+   * Uses a proportional threshold so deep zooms (FOV far below 1 degree) still
+   * converge rather than stopping at a fixed absolute epsilon.
+   * @return {boolean}
+   * @private
+   */
+  isFovConverging_() {
+    if (this.targetFov === null) return false;
+    const threshold = Math.min(0.001, this.camera.fov * 0.001);
+    return Math.abs(this.targetFov - this.camera.fov) > threshold;
+  }
+
+  /**
+   * Whether the camera rotation lerp has yet to settle.
+   * @return {boolean}
+   * @private
+   */
+  isRotationConverging_() {
+    return Math.abs(this.thetaDiffToTarget_()) > 0.0001 ||
+           Math.abs(this.targetPhi - this.cameraRotation.phi) > 0.0001;
+  }
+
+  /**
+   * Whether the camera is still animating toward a target.
+   *
+   * PowerManager consults this to decide whether it may stop the render loop
+   * when the user goes idle. It shares its thresholds with updateSmoothZoom so
+   * the two cannot disagree — if the gate were laxer than the lerp, the loop
+   * would stop mid-animation and freeze the camera partway; if it were
+   * stricter, the loop would never idle and drain the battery.
+   * @return {boolean}
+   * @private
+   */
+  isCameraConverging_() {
+    if (this.targetFov === null) return false;
+    return this.isFovConverging_() || this.isRotationConverging_();
+  }
+
   updateSmoothZoom() {
     if (this.targetFov === null) return false;
 
     let changed = false;
 
     // Smoothly interpolate FOV
-    const fovDiff = this.targetFov - this.camera.fov;
-    // Use proportional threshold for deep zoom (0.1% of current FOV or 0.001, whichever is smaller)
-    const fovThreshold = Math.min(0.001, this.camera.fov * 0.001);
-    if (Math.abs(fovDiff) > fovThreshold) {
-      this.camera.fov += fovDiff * this.zoomLerpSpeed;
+    if (this.isFovConverging_()) {
+      this.camera.fov += (this.targetFov - this.camera.fov) * this.zoomLerpSpeed;
       this.camera.updateProjectionMatrix();
       changed = true;
 
@@ -1261,16 +1269,10 @@ export class AstrapediaApp {
     }
 
     // Smoothly interpolate rotation
-    let thetaDiff = this.targetTheta - this.cameraRotation.theta;
-    // Handle wraparound
-    if (thetaDiff > Math.PI) thetaDiff -= 2 * Math.PI;
-    if (thetaDiff < -Math.PI) thetaDiff += 2 * Math.PI;
-
-    const phiDiff = this.targetPhi - this.cameraRotation.phi;
-
-    if (Math.abs(thetaDiff) > 0.0001 || Math.abs(phiDiff) > 0.0001) {
-      this.cameraRotation.theta += thetaDiff * this.zoomLerpSpeed;
-      this.cameraRotation.phi += phiDiff * this.zoomLerpSpeed;
+    if (this.isRotationConverging_()) {
+      this.cameraRotation.theta += this.thetaDiffToTarget_() * this.zoomLerpSpeed;
+      this.cameraRotation.phi +=
+          (this.targetPhi - this.cameraRotation.phi) * this.zoomLerpSpeed;
 
       // Clamp phi
       this.cameraRotation.phi = clamp(this.cameraRotation.phi, 0.1, Math.PI - 0.1);
@@ -1539,64 +1541,16 @@ export class AstrapediaApp {
   }
 
   /**
-   * Returns the current simulation time (falls back to the real clock).
-   * @return {!Date} The simulated time.
+   * Get the current simulated time.
+   *
+   * Public because main.js wires it into the UI dependency graph; TimeUI uses
+   * it to prefill the date and time pickers, which must open showing where the
+   * user has travelled to rather than the wall clock.
+   *
+   * @returns {!Date} The simulated time.
    */
   getSimulationTime() {
     return this.timeController_?.getTime() ?? new Date();
-  }
-
-  // Feature 9: Atmosphere Rendering (simplified)
-  updateAtmosphere() {
-    // If force night mode is enabled, always show night sky
-    if (this.forceNightMode) {
-      this.scene.background = new THREE.Color(0x000000);  // Pure black night sky
-      if (this.starField) {
-        this.starField.material.opacity = 1.0;  // Full brightness
-      }
-      return;
-    }
-
-    // Otherwise, set scene background based on time of day
-    const simTime = this.timeController_.getTime();
-    const hour = simTime.getHours();
-    let skyColor;
-
-    if (hour >= 6 && hour < 8) {
-      // Dawn - orange/pink
-      skyColor = new THREE.Color(0x4A3A2A);
-    } else if (hour >= 8 && hour < 18) {
-      // Day - blue
-      skyColor = new THREE.Color(0x87CEEB);
-    } else if (hour >= 18 && hour < 20) {
-      // Dusk - orange/red
-      skyColor = new THREE.Color(0x4A2A3A);
-    } else {
-      // Night - pure black
-      skyColor = new THREE.Color(0x000000);
-    }
-
-    this.scene.background = skyColor;
-
-    // Fade stars based on time of day
-    if (this.starField) {
-      const isDaytime = hour >= 6 && hour < 20;
-      this.starField.material.opacity = isDaytime ? 0.3 : 1.0;  // Full brightness at night
-    }
-  }
-
-  // Toggle night mode
-  toggleNightMode() {
-    this.forceNightMode = !this.forceNightMode;
-    this.updateAtmosphere();
-
-    // Update button text
-    const btn = domCache.get('night-mode-btn');
-    if (btn) {
-      btn.textContent = this.forceNightMode ? '🌙 Night Mode: ON' : '☀️ Day/Night: AUTO';
-    }
-
-    logger.info(`Night mode: ${this.forceNightMode ? 'ON (forced)' : 'OFF (automatic)'}`);
   }
 
   /* ======================================================================
@@ -1639,26 +1593,12 @@ export class AstrapediaApp {
    */
   getBestVisibleObjectsTonight() {
     const results = this.visibilityCalculator_.getBestVisibleObjectsTonight(15, 10, 50);
-    // Enhance with custom descriptions
-    const typeDesc = {
-      'G': 'Galaxy', 'Neb': 'Nebula', 'PN': 'Planetary Nebula',
-      'EmN': 'Emission Nebula', 'HII': 'HII Region', 'RfN': 'Reflection Nebula',
-      'SNR': 'Supernova Remnant', 'GCl': 'Globular Cluster',
-      'OCl': 'Open Cluster', 'Cl+N': 'Cluster with Nebulosity'
-    };
-    return results.map(obj => {
-      if (obj.type === 'Planet') {
-        return {
-          ...obj,
-          description: `${this.getPlanetDescription(obj.name)} - Currently ${obj.altitude.toFixed(0)}° above horizon`
-        };
-      }
-      const typeName = typeDesc[obj.type] || obj.type || 'Deep Sky Object';
-      const commonName = obj.data?.common_names ? ` (${obj.data.common_names})` : '';
-      return {
-        ...obj,
-        description: `${typeName}${commonName} - Mag ${obj.mag.toFixed(1)}, Alt ${obj.altitude.toFixed(0)}°`
-      };
+    // The calculator labels deep sky objects; planets need an app-level
+    // description, which is the only thing left to add here.
+    return results.map((obj) => obj.type !== 'Planet' ? obj : {
+      ...obj,
+      description: `${this.getPlanetDescription(obj.name)} - ` +
+        `Currently ${obj.altitude.toFixed(0)}° above horizon`,
     });
   }
 
@@ -1698,7 +1638,7 @@ export class AstrapediaApp {
    * Delegates to EventsCalendar module.
    */
   showEventsCalendar() {
-    eventsCalendar.showEventsCalendar(window.openPanel);
+    eventsCalendar.showEventsCalendar();
   }
 
   /* ======================================================================
@@ -1712,25 +1652,11 @@ export class AstrapediaApp {
    * handlers that need direct access to skymap internals.
    */
   setupEventListeners() {
-    // Difficulty select (game-related, not in UIController)
-    const difficultySelect = domCache.get('difficulty-select');
-    if (difficultySelect) {
-      difficultySelect.addEventListener('change', (e) => {
-        this.currentLevel = parseInt(e.target.value);
-        this.applyDifficultyLevel();
-      });
-    }
-
-    // Start game button (shows game selection modal)
-    const startGameBtn = domCache.get('start-game-btn');
-    if (startGameBtn) {
-      startGameBtn.addEventListener('click', () => {
-        const modal = domCache.gameSelectModal;
-        if (modal) {
-          modal.classList.add('visible');
-        }
-      });
-    }
+    // The start-game button is bound by GameUI, which routes through
+    // CMD_SHOW_GAME_SELECT so the modal is opened together with its history
+    // entry. A second listener here would open it without one, leaving the
+    // popstate handler below to consume a real history entry instead — on
+    // Android that navigates the WebView out of the app.
 
     // Game selection modal buttons and events
     const gameModal = domCache.gameSelectModal;
@@ -1782,56 +1708,37 @@ export class AstrapediaApp {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    // Sprite sizes are derived from the canvas height, so a resize needs the
+    // same recalculation a zoom does.
+    this._fovDirty = true;
     this.requestRender();
   }
 
-  applyDifficultyLevel() {
-    // Apply difficulty level settings
-    switch (this.currentLevel) {
-      case 1: // Level 1: Only constellations
-        this.currentMagnitude = 6.0;
-        break;
-      case 2: // Level 2: Bright objects
-        this.currentMagnitude = 4.0;
-        break;
-      case 3: // Level 3: Custom magnitude
-        // Use slider value
-        break;
-    }
-
-    const slider = domCache.magnitudeSlider;
-    if (slider) slider.value = this.currentMagnitude;
-    const magVal = domCache.magValue;
-    if (magVal) magVal.textContent = this.currentMagnitude.toFixed(1);
-    // Update shader uniform for smooth fading
-    this.setMagnitudeLimit(this.currentMagnitude);
-  }
-
   setObserverLocation() {
-    // Prompt for location
+    // Cancelling either prompt aborts; note the explicit null checks — the
+    // previous `if (lat && lon)` also rejected "0", so nobody on the equator
+    // or the prime meridian could set their location.
     const lat = prompt('Enter latitude (degrees, -90 to 90):', '48.8566');
+    if (lat === null) return;
     const lon = prompt('Enter longitude (degrees, -180 to 180):', '2.3522');
+    if (lon === null) return;
 
-    if (lat && lon) {
-      this.observerLocation = {
-        lat: parseFloat(lat),
-        lon: parseFloat(lon),
-        height: 0
-      };
-      astronomyCalculator.setObserverLocation(
-        this.observerLocation.lat,
-        this.observerLocation.lon,
-        this.observerLocation.height
-      );
-
-      // Update sky tilt and rotation based on new location
-      this.updateLatitudeTilt();
-      this.timeController_.refreshCelestialRotation();
-      // Recalculate planet positions with new observer location
-      this.createPlanets();
-
-      alert(`Observer location set to: ${lat}°, ${lon}°\nSky now shows correct position for your location and time.`);
+    const latValue = parseFloat(lat);
+    const lonValue = parseFloat(lon);
+    if (!Number.isFinite(latValue) || !Number.isFinite(lonValue)) {
+      alert('Please enter numeric coordinates, for example 48.8566 and 2.3522.');
+      return;
     }
+
+    // LocationManager is the owner: it clamps latitude, normalizes longitude,
+    // persists to localStorage and emits LOCATION_CHANGED. The handler in
+    // setupCommandListeners_ then applies it to the scene — including the
+    // horizon renderer and a re-render, which this method used to omit.
+    locationManager.setLocation(latValue, lonValue);
+
+    const applied = locationManager.getLocation();
+    alert(`Observer location set to: ${applied.lat}°, ${applied.lon}°\n` +
+        'Sky now shows correct position for your location and time.');
   }
 
   /* ======================================================================
@@ -1931,6 +1838,15 @@ export class AstrapediaApp {
   }
 
   resetView() {
+    // Telescope mode locks zoom (InputController.isZoomLocked), so resetting
+    // the FOV underneath it would leave the user at ~106 degrees with the
+    // reticle still up, the magnitude slider still disabled, and no way to
+    // zoom back in. Leave the telescope first — "reset view" plainly means
+    // "give me the default sky back".
+    if (this.telescopeModeActive) {
+      this.exitTelescopeMode?.();
+    }
+
     this.cameraRotation = {theta: CAMERA.DEFAULT_THETA, phi: CAMERA.DEFAULT_PHI};
     this.cameraDistance = CAMERA.INITIAL_DISTANCE;
     // Sync smooth-zoom targets and FOV so updateSmoothZoom() converges to the
@@ -2019,12 +1935,6 @@ export class AstrapediaApp {
       this._lastFrameTime = now;
     }
 
-    // Feature 9: Update atmosphere (throttled - every 10 frames)
-    const simTime = this.timeController_.getTime();
-    if (simTime && this._frameCount % 10 === 0) {
-      this.updateAtmosphere();
-    }
-
     // Smooth zoom interpolation
     const zoomChanged = this.updateSmoothZoom();
 
@@ -2046,10 +1956,13 @@ export class AstrapediaApp {
       this._lastImageVisUpdate = now;
     }
 
-    // Extended objects - throttled to every 100ms or when FOV changes
-    if (this._fovDirty || (now - this._lastExtendedObjUpdate > 100)) {
+    // Extended objects - only when something they depend on changed.
+    // updateSizes reads the field of view and the canvas height and nothing
+    // else, so the old 10Hz timer recomputed an identical result over every
+    // halo ten times a second: ~17,000 wasted iterations per second for the
+    // bundled catalog, and four times that once dynamic objects load.
+    if (this._fovDirty) {
       this.updateExtendedObjectSizes();
-      this._lastExtendedObjUpdate = now;
     }
 
     // Planet sizes - only when FOV changes

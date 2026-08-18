@@ -8,6 +8,7 @@ import {CURATED_IMAGES, getCuratedImage, getCuratedImageKeys} from '../data/Cura
 import {PLANET_IMAGES, getPlanetImageInfo} from '../data/PlanetImages.js';
 import {clamp} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
+import {freezeTransform} from './SceneUtils.js';
 
 const logger = createLogger('ImageRenderer');
 
@@ -229,6 +230,7 @@ export class ImageRenderer {
 
         sprite.visible = true;
         sprite.material.opacity = 0.1;
+        freezeTransform(sprite);
 
         this.celestialSphere_.add(sprite);
         this.imageSprites_.push(sprite);
@@ -284,6 +286,7 @@ export class ImageRenderer {
       sprite.material.rotation = -THREE.MathUtils.degToRad(dso.pos_angle);
     }
 
+    freezeTransform(sprite);
     this.celestialSphere_.add(sprite);
     this.imageSprites_.push(sprite);
   }
@@ -314,11 +317,27 @@ export class ImageRenderer {
 
     this.camera_.getWorldDirection(this.tempVec3B_);
 
+    // Every sprite here is a direct child of the celestial sphere, so their
+    // world transforms differ only by their own local matrix. getWorldPosition
+    // would re-walk and recompose the identical parent chain -- sphere, tilt
+    // group, scene -- once per sprite, which at ~1,700 sprites is ~6,900
+    // redundant Matrix4 operations on a loop that runs every frame of a zoom.
+    // Resolve the parent once and apply it directly instead.
+    // updateWorldMatrix(true, false) refreshes the ancestors then this node,
+    // which is exactly what getWorldPosition did per sprite -- just once.
+    // Plain updateMatrixWorld() would trust a possibly stale parent.
+    this.celestialSphere_.updateWorldMatrix(true, false);
+    const sphereMatrix = this.celestialSphere_.matrixWorld;
+
+    // Loop invariant: depends only on the camera, not on the sprite.
+    const halfFovTan = Math.tan(THREE.MathUtils.degToRad(fov / 2));
+
     this.imageSprites_.forEach((sprite) => {
       if (!sprite.userData) return;
 
       // Check if sprite is in the camera's field of view
-      sprite.getWorldPosition(this.tempVec3_);
+      this.tempVec3_.setFromMatrixPosition(sprite.matrix)
+          .applyMatrix4(sphereMatrix);
       const toSpriteX = this.tempVec3_.x - this.camera_.position.x;
       const toSpriteY = this.tempVec3_.y - this.camera_.position.y;
       const toSpriteZ = this.tempVec3_.z - this.camera_.position.z;
@@ -351,14 +370,15 @@ export class ImageRenderer {
           }
         }
 
-        const worldSize = (realSizePixels / canvasHeight) * 2 * this.radius_ *
-          Math.tan(THREE.MathUtils.degToRad(fov / 2));
+        const worldSize =
+          (realSizePixels / canvasHeight) * 2 * this.radius_ * halfFovTan;
         const aspectRatio = sprite.userData.aspectRatio || 1;
         if (aspectRatio >= 1) {
           sprite.scale.set(worldSize, worldSize / aspectRatio, 1);
         } else {
           sprite.scale.set(worldSize * aspectRatio, worldSize, 1);
         }
+        sprite.updateMatrix();
 
         const fadeInStart = minPixelsToShow;
         const fadeInEnd = screenSize * fullOpacityThreshold;
@@ -559,11 +579,15 @@ export class ImageRenderer {
     // Check cache
     if (this.dynamicImageCache_.has(cacheKey) && !skipToFallback) {
       const cached = this.dynamicImageCache_.get(cacheKey);
-      if (!cached.loading) {
-        logger.debug(`Cache hit for ${cacheKey}: ${cached.source || 'no image'}`);
-        return cached;
+      // An entry holding a promise is a fetch already in flight for this key.
+      // Join it instead of bailing out — the previous sentinel returned null,
+      // which the sprite path read as "no image" and recorded permanently.
+      if (cached.promise) {
+        logger.debug(`Joining in-flight fetch for ${cacheKey}`);
+        return cached.promise;
       }
-      return null;
+      logger.debug(`Cache hit for ${cacheKey}: ${cached.source || 'no image'}`);
+      return cached;
     } else if (skipToFallback && this.dynamicImageCache_.has(cacheKey)) {
       this.dynamicImageCache_.delete(cacheKey);
     }
@@ -574,8 +598,46 @@ export class ImageRenderer {
       keysToRemove.forEach((key) => this.dynamicImageCache_.delete(key));
     }
 
-    this.dynamicImageCache_.set(cacheKey, {url: null, loading: true, source: null});
+    // Store the in-flight promise, not a sentinel value. Two callers race
+    // for the same object — the info panel via SelectionManager and the
+    // in-sky sprite via triggerDynamicLoad_ — and the second one used to
+    // receive null and give up permanently.
+    const promise = this.resolveBestImage_(
+        objectName, normalizedName, cacheKey, ra, dec, type,
+        angularSizeArcmin, skipToFallback);
+    this.dynamicImageCache_.set(cacheKey, {promise});
 
+    try {
+      const result = await promise;
+      // resolveBestImage_ caches its own result on most paths; replace the
+      // in-flight marker on any that did not.
+      if (this.dynamicImageCache_.get(cacheKey)?.promise) {
+        this.dynamicImageCache_.set(cacheKey, result);
+      }
+      return result;
+    } catch (error) {
+      // Never leave a rejected promise cached, or every later caller for
+      // this object would inherit the failure forever.
+      this.dynamicImageCache_.delete(cacheKey);
+      throw error;
+    }
+  }
+
+  /**
+   * Resolve the best available image, ignoring the cache.
+   * @param {string} objectName
+   * @param {string|undefined} normalizedName
+   * @param {string} cacheKey
+   * @param {number|undefined} ra
+   * @param {number|undefined} dec
+   * @param {string|undefined} type
+   * @param {?number} angularSizeArcmin
+   * @param {boolean} skipToFallback
+   * @returns {!Promise<?{url: ?string, source: ?string, tier: ?string}>}
+   * @private
+   */
+  async resolveBestImage_(objectName, normalizedName, cacheKey, ra, dec,
+      type, angularSizeArcmin, skipToFallback) {
     // Check special objects (planets) - use centralized PLANET_IMAGES
     const planetInfo = normalizedName ? getPlanetImageInfo(normalizedName) : null;
     if (planetInfo) {

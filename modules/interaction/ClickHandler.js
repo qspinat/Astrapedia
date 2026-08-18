@@ -5,9 +5,58 @@
 
 // THREE is loaded globally from CDN in app.html
 import {cartesianToRaDec} from '../core/CoordinateUtils.js';
-import {CAMERA, STARS} from '../core/Constants.js';
+import {CAMERA} from '../core/Constants.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
-import {clamp} from '../core/Utils.js';
+import {catalogDesignation} from '../data/CuratedImages.js';
+import {isWithinMagnitudeLimit, magnitudeToSize}
+  from '../core/MagnitudeUtils.js';
+
+/**
+ * Raycast tolerance for click targets, in world units at the default field of
+ * view. Scaled by fov/DEFAULT_FOV at use, which holds the tolerance constant
+ * in screen pixels (about 22px) at every zoom level.
+ * @const {number}
+ */
+const CLICK_THRESHOLD = 5;
+
+/**
+ * Whether an object is actually being drawn.
+ *
+ * THREE's raycaster does not consider visibility — a LineSegments with
+ * visible = false still reports intersections (verified against r128) — so
+ * anything hidden has to be filtered out here, or the user can click a target
+ * that is not on screen. Focus mode hides all but the nearest constellation
+ * exactly this way.
+ *
+ * Walks the parent chain, since hiding a group hides its children.
+ *
+ * @param {?THREE.Object3D} object - Object to test
+ * @returns {boolean} True if the object and all its ancestors are visible
+ */
+/**
+ * Opacity at or below which an object is treated as not drawn, and so not
+ * clickable.
+ * @const {number}
+ */
+const MIN_VISIBLE_OPACITY = 0.01;
+
+function isDisplayed(object) {
+  for (let node = object; node; node = node.parent) {
+    if (node.visible === false) return false;
+
+    // `visible` is not the only way this app stops drawing something.
+    // ExtendedObjectRenderer fades a halo to opacity 0 once it covers the
+    // whole screen, leaving visible === true; since DSOs outrank stars in the
+    // ladder below, a completely transparent halo would otherwise swallow
+    // every click at deep zoom. The threshold sits under the deliberate
+    // game-mode dimming (0.08), which is faint but still meant to be clickable.
+    const material = node.material;
+    if (material?.transparent && material.opacity <= MIN_VISIBLE_OPACITY) {
+      return false;
+    }
+  }
+  return true;
+}
 
 /**
  * @typedef {{
@@ -64,7 +113,8 @@ export class ClickHandler {
     this.mouse_.set(x, y);
 
     // Configure raycaster with FOV-scaled threshold
-    this.raycaster_.params.Points.threshold = 5 * (camera.fov / CAMERA.DEFAULT_FOV);
+    this.raycaster_.params.Points.threshold =
+        CLICK_THRESHOLD * (camera.fov / CAMERA.DEFAULT_FOV);
     this.raycaster_.setFromCamera(this.mouse_, camera);
 
     // Try click detection in priority order.
@@ -72,9 +122,22 @@ export class ClickHandler {
     // within a nebula selects the nebula, not a field star inside it.
     if (this.detectPlanetClick_(camera, renderer)) return;
     if (this.detectDSOClick_(camera, renderer)) return;
-    if (this.detectStarClick_()) return;
+
+    // Constellation lines compete with the star field on distance rather than
+    // losing to it by rank. Both measure perpendicular distance from the ray
+    // in the same world units, so whichever the click is actually closer to
+    // wins — clicking a line's midpoint selects the constellation, clicking a
+    // star on that line still selects the star.
+    const constellation = this.findConstellationCandidate_(camera);
+    const starLimit = constellation ? constellation.distanceToRay : Infinity;
+
+    if (this.detectStarClick_(starLimit)) return;
     if (this.detectDynamicStarClick_()) return;
-    if (this.detectConstellationClick_(camera)) return;
+
+    if (constellation) {
+      this.selectConstellation_(constellation);
+      return;
+    }
 
     // Empty space click - deselect any selected object/constellation
     if (!this.deps_.isGameActive()) {
@@ -133,8 +196,12 @@ export class ClickHandler {
     let closestDistance = Infinity;
 
     for (const sprite of planetSprites) {
+      if (!isDisplayed(sprite)) continue;
+
       const planetData = sprite.userData;
-      if (!planetData || !planetData.ra) continue;
+      // RA 0 is a real coordinate — the vernal equinox — so test for absence,
+      // not falsiness, or anything sitting there becomes unclickable.
+      if (!planetData || planetData.ra == null) continue;
 
       // Calculate angular distance (wrap RA delta across the 0h/360h meridian)
       const dRaDeg = ((planetData.ra - clickRaDec.ra + 540) % 360) - 180;
@@ -146,17 +213,10 @@ export class ClickHandler {
       const angularSizeDeg = (planetData.angularSize || 0.1) / 60;
       const realSizePixels = angularSizeDeg * pixelsPerDeg;
 
-      // Magnitude-based size
+      // Must match how PlanetRenderer sizes the sprite (maxSize 6), or the
+      // tap target drifts away from what is drawn.
       const mag = planetData.mag || 0;
-      const baseMag = 8;
-      const baseSize = 0.8;
-      const maxSize = 6;
-      const magnitudeDiff = baseMag - mag;
-      const magBasedSize = clamp(
-        baseSize * Math.pow(1.15, magnitudeDiff),
-        baseSize,
-        maxSize
-      );
+      const magBasedSize = magnitudeToSize(mag, 6);
       const magBasedPixels = magBasedSize * 1.5;
       const displaySizePixels = Math.max(realSizePixels, magBasedPixels);
 
@@ -195,7 +255,7 @@ export class ClickHandler {
    * @returns {boolean} True if star/DSO was clicked
    * @private
    */
-  detectStarClick_() {
+  detectStarClick_(maxDistanceToRay = Infinity) {
     const starField = this.deps_.getStarField();
     if (!starField) return false;
 
@@ -206,21 +266,20 @@ export class ClickHandler {
     const dsos = starField.userData.dsos;
     const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
 
-    // Iterate through all intersections to find the first visible object
-    // (faint stars above magnitude limit may be closer in 3D but invisible)
-    // Stars in the fade range (up to FADE_RANGE beyond limit) are still visible
-    const effectiveLimit = magnitudeLimit + STARS.FADE_RANGE;
 
     for (const intersection of intersects) {
+      // A star only wins the click if it is nearer than the best competing
+      // target. Without this the star field took every click at wide fields
+      // of view, where its 22px capture radius is about the mean spacing
+      // between visible stars.
+      if (intersection.distanceToRay > maxDistanceToRay) continue;
+
       const index = intersection.index;
       let clickedObject = null;
 
       if (index < stars.length) {
         const star = stars[index];
-        // Skip stars beyond the fade range (completely invisible)
-        if (star.mag !== undefined && star.mag > effectiveLimit) {
-          continue;
-        }
+        if (!isWithinMagnitudeLimit(star.mag, magnitudeLimit)) continue;
         clickedObject = {
           name: star.proper || star.bf ||
             (star.hip ? `HIP ${star.hip}` : 'Unknown Star'),
@@ -236,14 +295,9 @@ export class ClickHandler {
         const dsoIndex = index - stars.length;
         if (dsoIndex < dsos.length) {
           const dso = dsos[dsoIndex];
-          // Skip DSOs beyond the fade range (completely invisible)
-          if (dso.mag !== undefined && dso.mag > effectiveLimit) {
-            continue;
-          }
+          if (!isWithinMagnitudeLimit(dso.mag, magnitudeLimit)) continue;
           clickedObject = {
-            name: dso.messier
-              ? `M${Math.floor(dso.messier)}`
-              : (dso.ngc ? `NGC ${dso.ngc}` : dso.name || 'Unknown Object'),
+            name: catalogDesignation(dso),
             type: getDsoTypeName(dso.type),
             subtype: dso.type,
             ra: dso.ra,
@@ -285,7 +339,6 @@ export class ClickHandler {
     if (!dynamicStars) return false;
 
     const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
-    const effectiveLimit = magnitudeLimit + STARS.FADE_RANGE;
 
     // Iterate through all intersections to find the first visible star
     for (const intersection of intersects) {
@@ -301,7 +354,7 @@ export class ClickHandler {
       const star = dynamicStars[originalIndex];
 
       // Skip stars beyond the fade range (completely invisible)
-      if (star.mag !== undefined && star.mag > effectiveLimit) {
+      if (!isWithinMagnitudeLimit(star.mag, magnitudeLimit)) {
         continue;
       }
 
@@ -357,16 +410,17 @@ export class ClickHandler {
     const pixelsPerDeg = canvasHeight / fov;
     const minSizePixels = 6;
     const magnitudeLimit = this.deps_.getMagnitudeLimit?.() ?? 12;
-    const effectiveLimit = magnitudeLimit + STARS.FADE_RANGE;
 
     let closestDSO = null;
     let closestDistance = Infinity;
 
     for (const sprite of extendedObjectSprites) {
+      if (!isDisplayed(sprite)) continue;
+
       const dsoData = sprite.userData?.dso;
-      if (!dsoData || !dsoData.ra) continue;
+      if (!dsoData || dsoData.ra == null) continue;
       // Skip DSOs beyond the fade range (completely invisible)
-      if (dsoData.mag !== undefined && dsoData.mag > effectiveLimit) continue;
+      if (!isWithinMagnitudeLimit(dsoData.mag, magnitudeLimit)) continue;
 
       // Wrap RA delta across the 0h/360h meridian
       const dRaDeg = ((dsoData.ra - clickRaDec.ra + 540) % 360) - 180;
@@ -415,35 +469,54 @@ export class ClickHandler {
    * @returns {boolean} True if constellation was clicked
    * @private
    */
-  detectConstellationClick_(camera) {
-    if (!this.deps_.isConstellationLinesVisible()) return false;
+  findConstellationCandidate_(camera) {
+    if (!this.deps_.isConstellationLinesVisible()) return null;
 
     const constellationLinesGroup = this.deps_.getConstellationLinesGroup();
-    if (!constellationLinesGroup) return false;
+    if (!constellationLinesGroup) return null;
 
-    // Set line threshold based on FOV (larger threshold = easier to click)
-    this.raycaster_.params.Line = {threshold: 2.0 * (camera.fov / CAMERA.DEFAULT_FOV)};
+    // Same tolerance the star field gets. Lines previously had 2.5x less,
+    // which combined with being checked last meant they almost never won.
+    this.raycaster_.params.Line = {
+      threshold: CLICK_THRESHOLD * (camera.fov / CAMERA.DEFAULT_FOV),
+    };
 
     const lineIntersects = this.raycaster_.intersectObjects(
       constellationLinesGroup.children,
       false
     );
 
-    if (lineIntersects.length > 0) {
-      const clickedLine = lineIntersects[0].object;
-      const constInternalKey = clickedLine.userData.constellation;
-
-      if (constInternalKey) {
-        if (this.deps_.isGameActive()) {
-          this.deps_.checkGameAnswerByName(constInternalKey);
-        } else {
-          this.deps_.showConstellationInfo(constInternalKey);
-        }
-        return true;
-      }
+    for (const intersection of lineIntersects) {
+      const name = intersection.object.userData?.constellation;
+      if (!name) continue;
+      // Focus mode hides every constellation but the nearest one.
+      if (!isDisplayed(intersection.object)) continue;
+      return {
+        name,
+        // Perpendicular distance from the ray, directly comparable to a
+        // star's distanceToRay: both are world units on the same sphere.
+        // Fall back to the raw ray distance if the intersection carries no
+        // point, so a click still registers rather than throwing.
+        distanceToRay: intersection.point ?
+          this.raycaster_.ray.distanceToPoint(intersection.point) :
+          (intersection.distanceToRay ?? 0),
+      };
     }
 
-    return false;
+    return null;
+  }
+
+  /**
+   * Select a constellation found by findConstellationCandidate_.
+   * @param {{name: string}} candidate - The constellation to select
+   * @private
+   */
+  selectConstellation_(candidate) {
+    if (this.deps_.isGameActive()) {
+      this.deps_.checkGameAnswerByName(candidate.name);
+    } else {
+      this.deps_.showConstellationInfo(candidate.name);
+    }
   }
 
   /**

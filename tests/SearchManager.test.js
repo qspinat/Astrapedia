@@ -19,12 +19,17 @@ describe('SearchManager', () => {
     {id: 4, hip: 27989, proper: 'Betelgeuse', ra: 88.79, dec: 7.41, mag: 0.50},
   ];
 
+  // Shaped like the pipeline's actual output: zero-padded OpenNGC catalog
+  // names, `messier` as a float, and no `ngc`/`ic` fields at all. The fixture
+  // used to carry `ngc: 224` alongside a common name, a shape no record has,
+  // which let the alias indexing pass while doing nothing in production.
   const testDSOs = [
-    {name: 'Andromeda Galaxy', messier: 31, ngc: 224, ra: 10.68, dec: 41.27, mag: 3.4, type: 'G',
-      common_names: ['Andromeda Galaxy']},
-    {name: 'Orion Nebula', messier: 42, ngc: 1976, ra: 83.82, dec: -5.39, mag: 4.0, type: 'Neb',
-      common_names: ['Orion Nebula']},
-    {ngc: 7293, common_names: ['Helix Nebula'], ra: 337.41, dec: -20.84, mag: 7.6, type: 'PN'},
+    {name: 'NGC0224', messier: 31.0, ra: 10.68, dec: 41.27, mag: 3.4, type: 'G',
+      common_names: 'Andromeda Galaxy'},
+    {name: 'NGC1976', messier: 42.0, ra: 83.82, dec: -5.39, mag: 4.0, type: 'Neb',
+      common_names: 'Orion Nebula'},
+    {name: 'NGC7293', common_names: 'Helix Nebula', ra: 337.41, dec: -20.84,
+      mag: 7.6, type: 'PN'},
   ];
 
   const testConstellations = {
@@ -123,17 +128,16 @@ describe('SearchManager', () => {
       expect(subaru).not.toBeNull();
     });
 
-    test('handles mixed common_names formats in same dataset', () => {
-      const mixedDSOs = [
-        {ngc: 7293, common_names: ['Helix Nebula'], ra: 337.41, dec: -20.84, mag: 7.6, type: 'PN'},
-        {name: 'Mel22', messier: 45, common_names: 'Pleiades, Seven Sisters', ra: 56.87, dec: 24.12, mag: 1.6, type: 'OCl'},
+    test('indexes every name in a comma-joined common_names field', () => {
+      const dsos = [
+        {name: 'NGC7293', common_names: 'Helix Nebula', ra: 337.41,
+          dec: -20.84, mag: 7.6, type: 'PN'},
+        {name: 'Mel22', messier: 45.0, common_names: 'Pleiades, Seven Sisters',
+          ra: 56.87, dec: 24.12, mag: 1.6, type: 'OCl'},
       ];
-      manager.buildIndex({deepSkyObjects: mixedDSOs});
+      manager.buildIndex({deepSkyObjects: dsos});
 
-      // Array format
       expect(manager.findByName('Helix Nebula')).not.toBeNull();
-
-      // String format
       expect(manager.findByName('Pleiades')).not.toBeNull();
       expect(manager.findByName('Seven Sisters')).not.toBeNull();
     });

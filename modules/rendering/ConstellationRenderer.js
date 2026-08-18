@@ -6,6 +6,7 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {raDecToCartesian, cartesianToRaDec, angularDistance} from '../core/CoordinateUtils.js';
 import {SPHERE, CONSTELLATIONS} from '../core/Constants.js';
+import {freezeTransform} from './SceneUtils.js';
 
 /**
  * Default colors for constellation lines.
@@ -15,6 +16,24 @@ const COLORS = {
   LINE: 0x3366AA,
   HIGHLIGHT: 0x4A9EFF,
 };
+
+/**
+ * Index stars by HIP number for O(1) lookup.
+ *
+ * Keeps the first star seen for a HIP, matching the Array.find() this
+ * replaced; stars without a HIP are skipped, as they can never be a
+ * constellation line endpoint.
+ *
+ * @param {!Array<!Object>} stars - Star records
+ * @returns {!Map<number, !Object>} HIP to star
+ */
+function buildStarByHipIndex(stars) {
+  const byHip = new Map();
+  for (const star of stars) {
+    if (star.hip && !byHip.has(star.hip)) byHip.set(star.hip, star);
+  }
+  return byHip;
+}
 
 /**
  * ConstellationRenderer handles constellation line visualization.
@@ -131,47 +150,62 @@ export class ConstellationRenderer {
     const stars = this.getStars_();
     const constellations = this.getConstellations_();
 
+    // Index by HIP once. The previous stars.find() per endpoint was a linear
+    // scan of the whole catalog for each of ~1,500 endpoints — ~61M
+    // comparisons on the default 41K-star set, all of it before first paint.
+    const starByHip = buildStarByHipIndex(stars);
+
     let linesCreated = 0;
 
+    // One LineSegments per constellation rather than one Line per segment.
+    // The 89 constellations hold ~750 segments between them, and each Line was
+    // its own scene object, its own geometry and its own cloned material — so
+    // 750 draw calls a frame, and 750 children to walk on every highlight or
+    // focus-mode update. Merging by constellation is also the natural
+    // granularity: highlighting, focus opacity and click detection all act on
+    // a whole constellation, never on one segment.
     Object.entries(constellations).forEach(([constName, constellation]) => {
-      // Create a unique material for each line so we can highlight individually
-      const lineMaterial = new THREE.LineBasicMaterial({
+      const vertices = [];
+      constellation.lines.forEach(([hip1, hip2]) => {
+        const star1 = starByHip.get(hip1);
+        const star2 = starByHip.get(hip2);
+        if (!star1 || !star2) return;
+
+        const a = raDecToCartesian(star1.ra, star1.dec, this.radius_);
+        const b = raDecToCartesian(star2.ra, star2.dec, this.radius_);
+        vertices.push(a.x, a.y, a.z, b.x, b.y, b.z);
+        linesCreated++;
+      });
+
+      if (vertices.length === 0) return;
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute(
+          'position', new THREE.Float32BufferAttribute(vertices, 3));
+      // Required for the raycaster to detect clicks on the lines.
+      geometry.computeBoundingSphere();
+
+      const material = new THREE.LineBasicMaterial({
         color: COLORS.LINE,
         transparent: true,
         opacity: CONSTELLATIONS.LINE_OPACITY,
         linewidth: 1,
         depthWrite: false,
       });
-      // Track material for disposal
-      this.lineMaterials_.push(lineMaterial);
+      this.lineMaterials_.push(material);
 
-      constellation.lines.forEach(([hip1, hip2]) => {
-        // Find stars by HIP number
-        const star1 = stars.find((s) => s.hip === hip1);
-        const star2 = stars.find((s) => s.hip === hip2);
-
-        if (star1 && star2) {
-          const points = [
-            raDecToCartesian(star1.ra, star1.dec, this.radius_),
-            raDecToCartesian(star2.ra, star2.dec, this.radius_),
-          ];
-          const geometry = new THREE.BufferGeometry().setFromPoints(points);
-          // Required for raycaster to detect clicks on lines
-          geometry.computeBoundingSphere();
-          const line = new THREE.Line(geometry, lineMaterial.clone());
-          // Store constellation name for highlighting
-          line.userData = {constellation: constName};
-          this.linesGroup_.add(line);
-          linesCreated++;
-        }
-      });
+      const lines = new THREE.LineSegments(geometry, material);
+      lines.userData = {constellation: constName};
+      freezeTransform(lines);
+      this.linesGroup_.add(lines);
     });
 
     this.linesGroup_.visible = this.visible_;
+    freezeTransform(this.linesGroup_);
     this.celestialSphere_.add(this.linesGroup_);
 
     // Precompute constellation centers for focus mode
-    this.computeConstellationCenters_(stars, constellations);
+    this.computeConstellationCenters_(starByHip, constellations);
 
     globalEventBus.emit(Events.CONSTELLATION_LINES_CREATED, {
       count: linesCreated,
@@ -298,8 +332,8 @@ export class ConstellationRenderer {
   }
 
   /**
-   * Create a glow line effect for a highlighted constellation line.
-   * @param {!THREE.Line} line - Line to create glow for
+   * Create a glow effect behind a highlighted constellation.
+   * @param {!THREE.LineSegments} line - The constellation's lines
    * @private
    */
   createGlowLine_(line) {
@@ -311,7 +345,8 @@ export class ConstellationRenderer {
       depthWrite: false,
     });
 
-    const glowLine = new THREE.Line(line.geometry.clone(), glowMaterial);
+    const glowLine =
+        new THREE.LineSegments(line.geometry.clone(), glowMaterial);
     glowLine.userData = {isGlow: true};
     this.linesGroup_.add(glowLine);
     this.glowLines_.push(glowLine);
@@ -336,14 +371,9 @@ export class ConstellationRenderer {
    * @param {!Object} constellations - Constellations data
    * @private
    */
-  computeConstellationCenters_(stars, constellations) {
+  computeConstellationCenters_(starByHip, constellations) {
     this.constellationCenters_.clear();
     this.constellationOpacities_.clear();
-
-    const starByHip = new Map();
-    stars.forEach((s) => {
-      if (s.hip) starByHip.set(s.hip, s);
-    });
 
     Object.entries(constellations).forEach(([constName, constellation]) => {
       const hipSet = new Set();
@@ -471,20 +501,4 @@ export class ConstellationRenderer {
     this.lineMaterials_.forEach((mat) => mat.dispose());
     this.lineMaterials_ = [];
   }
-}
-
-/**
- * Singleton constellation renderer instance.
- * @type {?ConstellationRenderer}
- */
-export let constellationRenderer = null;
-
-/**
- * Initialize the constellation renderer singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!ConstellationRenderer} Initialized renderer
- */
-export function initializeConstellationRenderer(dependencies) {
-  constellationRenderer = new ConstellationRenderer(dependencies);
-  return constellationRenderer;
 }

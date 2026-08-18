@@ -3,7 +3,7 @@
  */
 
 import {jest} from '@jest/globals';
-import {PowerManager, initializePowerManager} from '../modules/core/PowerManager.js';
+import {PowerManager} from '../modules/core/PowerManager.js';
 
 describe('PowerManager', () => {
   let powerManager;
@@ -177,14 +177,3 @@ describe('PowerManager', () => {
   });
 });
 
-describe('initializePowerManager', () => {
-  test('returns a PowerManager instance', () => {
-    const deps = {
-      onStartAnimating: jest.fn(),
-      onStopAnimating: jest.fn(),
-    };
-    const pm = initializePowerManager(deps);
-    expect(pm).toBeInstanceOf(PowerManager);
-    pm.dispose();
-  });
-});

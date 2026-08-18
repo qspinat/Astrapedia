@@ -298,9 +298,17 @@ export class DynamicDataLoader {
     globalEventBus.emit(Events.DYNAMIC_QUERY_STARTED, {type: 'stars', ra, dec, fov});
 
     try {
+      // SIMBAD is a different host with its own rate-limit bucket, so start it
+      // alongside the VizieR queries rather than after them. Only reached at
+      // extreme zoom, where three serial round-trips were the whole latency.
+      const simbadPromise = (fov < 1 && magLimit > 16) ?
+        this.querySimbadStars_(ra, dec, fov, magLimit) : null;
+
       const stars = [];
 
-      // Query Tycho-2 (bright stars up to ~11.5 mag)
+      // Tycho-2 and UCAC4 must stay sequential: they share the 'vizier'
+      // rate-limit bucket, so issuing them together makes the second return
+      // an empty result rather than the faint stars it was asked for.
       const tychoStars = await this.queryTycho_(ra, dec, fov, magLimit);
       stars.push(...tychoStars);
 
@@ -310,10 +318,8 @@ export class DynamicDataLoader {
         stars.push(...ucacStars);
       }
 
-      // Query SIMBAD for very faint stars at extreme zoom
-      if (fov < 1 && magLimit > 16) {
-        const simbadStars = await this.querySimbadStars_(ra, dec, fov, magLimit);
-        stars.push(...simbadStars);
+      if (simbadPromise) {
+        stars.push(...await simbadPromise);
       }
 
       globalEventBus.emit(Events.DYNAMIC_STARS_LOADED, {

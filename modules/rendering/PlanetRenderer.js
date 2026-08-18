@@ -19,6 +19,31 @@ import {createLogger} from '../core/Logger.js';
 const logger = createLogger('PlanetRenderer');
 
 /**
+ * Terminator geometry for a lunar phase.
+ *
+ * `phase` runs 0 at new moon, 0.5 at full, back to 1 at the next new — the
+ * convention SolarSystem.calculateMoonPosition produces.
+ *
+ * `semiAxis` is the terminator ellipse's x semi-axis as a fraction of the
+ * disc radius, signed by which way it bulges:
+ *   -1  new moon      ellipse bulges across the lit side, whole disc shaded
+ *    0  quarter       straight line, exactly half shaded
+ *   +1  full moon     ellipse hugs the shaded limb, nothing shaded
+ *
+ * @param {number} phase - Lunar phase, 0 to 1
+ * @returns {{illuminated: number, waxing: boolean, semiAxis: number}}
+ */
+export function moonShadowGeometry(phase) {
+  // Triangular in phase: 0 at both new moons, 1 at full.
+  const illuminated = 1 - Math.abs(2 * phase - 1);
+  return {
+    illuminated,
+    waxing: phase < 0.5,
+    semiAxis: 2 * illuminated - 1,
+  };
+}
+
+/**
  * PlanetRenderer manages planet sprite visualization.
  */
 export class PlanetRenderer {
@@ -57,6 +82,14 @@ export class PlanetRenderer {
 
     /** @private {?THREE.TextureLoader} */
     this.textureLoader_ = null;
+
+    /**
+     * Incremented by create(). A texture load stamps the generation it
+     * started in, so one that resolves after a rebuild can be discarded
+     * instead of being applied to a disposed sprite.
+     * @private {number}
+     */
+    this.generation_ = 0;
 
     /** @private {number} */
     this.radius_ = SPHERE.GRID_RADIUS;
@@ -100,6 +133,10 @@ export class PlanetRenderer {
       this.celestialSphere_.remove(sprite);
     });
     this.sprites_ = [];
+
+    // Invalidate any texture load still in flight against the sprites just
+    // disposed, so it cannot resolve onto an orphan. See applyTexture_.
+    this.generation_++;
 
     // Initialize texture loader
     if (!this.textureLoader_) {
@@ -172,7 +209,7 @@ export class PlanetRenderer {
     if (planet.name === 'Sun') {
       this.drawSun_(ctx, canvasSize);
     } else if (planet.name === 'Moon') {
-      this.drawMoon_(ctx, canvasSize, planet.phase || 0.5);
+      this.drawMoon_(ctx, canvasSize, planet.phase ?? 0.5);
     } else {
       this.drawPlanet_(ctx, canvasSize, color);
     }
@@ -206,6 +243,8 @@ export class PlanetRenderer {
       imageUrl: planet.imageUrl,
       imageLoaded: false,
       imageLoading: false,
+      // Checked by applyTexture_ to discard loads that outlive their sprite.
+      generation: this.generation_,
     };
 
     sprite.scale.set(1, 1, 1);
@@ -240,6 +279,28 @@ export class PlanetRenderer {
    * @param {number} phase - Moon phase (0-1)
    * @private
    */
+  /**
+   * Repaint the Moon's canvas texture for a new phase.
+   *
+   * No-op once a photograph has replaced the drawn disc, since the canvas is
+   * no longer what the sprite shows.
+   *
+   * @param {!THREE.Sprite} sprite - The Moon sprite
+   * @param {number} phase - Illuminated fraction, 0..1
+   * @private
+   */
+  redrawMoonPhase_(sprite, phase) {
+    if (sprite.userData.imageLoaded) return;
+
+    const canvas = sprite.material.map?.image;
+    const ctx = canvas?.getContext?.('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.drawMoon_(ctx, canvas.width, phase);
+    sprite.material.map.needsUpdate = true;
+  }
+
   drawMoon_(ctx, size, phase) {
     const cx = size / 2;
     const cy = size / 2;
@@ -263,19 +324,25 @@ export class PlanetRenderer {
     ctx.arc(cx - r * 0.1, cy + r * 0.4, r * 0.1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw shadow for phase
-    if (phase < 0.98) {
+    // Draw shadow for phase. Near full there is nothing to shade.
+    const {illuminated, waxing, semiAxis} = moonShadowGeometry(phase);
+    if (illuminated < 0.98) {
       ctx.fillStyle = 'rgba(10, 15, 28, 0.95)';
       ctx.beginPath();
 
-      if (phase < 0.5) {
-        const terminatorX = cx + r * (1 - phase * 4);
-        ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
-        ctx.quadraticCurveTo(terminatorX, cy, cx, cy - r);
+      const rx = Math.abs(semiAxis) * r;
+
+      if (waxing) {
+        // Lit on the right: shade the left limb, top to bottom...
+        ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, true);
+        // ...then close along the terminator. A negative semi-axis bulges the
+        // ellipse into the lit side (crescent), a positive one back toward the
+        // shaded limb (gibbous).
+        ctx.ellipse(cx, cy, rx, r, 0, Math.PI / 2, -Math.PI / 2, semiAxis < 0);
       } else {
-        const terminatorX = cx - r * ((1 - phase) * 4);
-        ctx.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2, false);
-        ctx.quadraticCurveTo(terminatorX, cy, cx, cy - r);
+        // Waning: mirrored, lit on the left.
+        ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
+        ctx.ellipse(cx, cy, rx, r, 0, Math.PI / 2, -Math.PI / 2, semiAxis >= 0);
       }
       ctx.fill();
     }
@@ -346,7 +413,16 @@ export class PlanetRenderer {
         // Update userData
         sprite.userData.ra = pos.ra;
         sprite.userData.dec = pos.dec;
-        if (pos.phase !== undefined) sprite.userData.phase = pos.phase;
+        if (pos.phase !== undefined) {
+          // The Moon's phase is painted into its canvas texture, not derived
+          // from the transform, so repositioning alone leaves the crescent
+          // frozen at whatever it was when create() last ran. At 1000x that
+          // is days of simulated time showing one stale shape.
+          if (name === 'Moon' && pos.phase !== sprite.userData.phase) {
+            this.redrawMoonPhase_(sprite, pos.phase);
+          }
+          sprite.userData.phase = pos.phase;
+        }
       }
     });
 
@@ -463,6 +539,16 @@ export class PlanetRenderer {
   applyTexture_(sprite, texture) {
     const data = sprite.userData;
 
+    // A load started before the last create() targets a sprite that has since
+    // been disposed and removed from the scene. Applying it would
+    // double-dispose the material, strand the new texture on an orphan, and
+    // set imageLoaded on dead userData — leaving the live sprite to request
+    // the same image again on the next frame.
+    if (data.generation !== this.generation_) {
+      texture.dispose();
+      return;
+    }
+
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
 
@@ -497,20 +583,4 @@ export class PlanetRenderer {
     this.planets_ = [];
     this.planetDataByName_.clear();
   }
-}
-
-/**
- * Singleton planet renderer instance.
- * @type {?PlanetRenderer}
- */
-export let planetRenderer = null;
-
-/**
- * Initialize the planet renderer singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!PlanetRenderer} Initialized renderer
- */
-export function initializePlanetRenderer(dependencies) {
-  planetRenderer = new PlanetRenderer(dependencies);
-  return planetRenderer;
 }

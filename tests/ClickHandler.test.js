@@ -131,6 +131,31 @@ describe('ClickHandler', () => {
       handler.handleClick(0, 0);
       expect(mockDeps.selectObject).not.toHaveBeenCalled();
     });
+
+    // The test mock's raycaster always points at RA 0 / Dec 0, so a planet
+    // there is exactly what a click resolves to. `!planetData.ra` treated that
+    // real coordinate — the vernal equinox — as missing data.
+    test('selects a planet sitting at RA 0', () => {
+      mockDeps.getPlanetSprites.mockReturnValue([{
+        userData: {name: 'Mars', ra: 0, dec: 0, mag: 1, angularSize: 10},
+      }]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+          expect.objectContaining({name: 'Mars'}));
+    });
+
+    test('selects a planet at declination 0', () => {
+      mockDeps.getPlanetSprites.mockReturnValue([{
+        userData: {name: 'Venus', ra: 0.5, dec: 0, mag: -4, angularSize: 20},
+      }]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+          expect.objectContaining({name: 'Venus'}));
+    });
   });
 
   describe('detectStarClick_', () => {
@@ -233,13 +258,33 @@ describe('ClickHandler', () => {
       expect(mockDeps.showConstellationInfo).not.toHaveBeenCalled();
     });
 
-    test('scales line threshold based on FOV', () => {
+    test('gives lines the same tolerance as the star field', () => {
       mockCamera.fov = 30;
       mockDeps.isConstellationLinesVisible.mockReturnValue(true);
       mockDeps.getConstellationLinesGroup.mockReturnValue({children: []});
+
       handler.handleClick(0, 0);
-      // Threshold of 2.0 makes lines easier to click
-      expect(handler.raycaster_.params.Line.threshold).toBeCloseTo(2.0 * (30 / 60), 2);
+
+      // Lines used to get 2.0 against the star field's 5.0. Combined with
+      // being checked last, that meant a click on a line almost always went
+      // to a nearby star instead.
+      expect(handler.raycaster_.params.Line.threshold)
+          .toBeCloseTo(handler.raycaster_.params.Points.threshold, 6);
+    });
+
+    test('scales the line threshold with FOV, holding screen tolerance', () => {
+      mockDeps.isConstellationLinesVisible.mockReturnValue(true);
+      mockDeps.getConstellationLinesGroup.mockReturnValue({children: []});
+
+      mockCamera.fov = 60;
+      handler.handleClick(0, 0);
+      const wide = handler.raycaster_.params.Line.threshold;
+
+      mockCamera.fov = 15;
+      handler.handleClick(0, 0);
+      const narrow = handler.raycaster_.params.Line.threshold;
+
+      expect(wide / narrow).toBeCloseTo(4, 6);
     });
   });
 
@@ -292,95 +337,6 @@ describe('initializeClickHandler', () => {
 
     const handler = initializeClickHandler(deps);
     expect(handler).toBeInstanceOf(ClickHandler);
-  });
-});
-
-describe('ClickHandler object creation', () => {
-  test('creates correct object for star with proper name', () => {
-    // Test the object format that would be created for a star
-    const starData = {
-      proper: 'Vega',
-      bf: 'Alpha Lyr',
-      hip: 91262,
-      ra: 279.23,
-      dec: 38.78,
-      mag: 0.03,
-      spect: 'A0V',
-      dist: 25.04,
-    };
-
-    // The expected format
-    const expectedObject = {
-      name: 'Vega',
-      type: 'Star',
-      subtype: 'Spectral type A0V',
-      ra: 279.23,
-      dec: 38.78,
-      mag: 0.03,
-      distance: '25.0 ly',
-      angularSize: null,
-    };
-
-    // Manually verify the naming logic
-    const name = starData.proper || starData.bf || `HIP ${starData.hip}` || 'Unknown Star';
-    expect(name).toBe('Vega');
-
-    const subtype = starData.spect ? `Spectral type ${starData.spect}` : null;
-    expect(subtype).toBe('Spectral type A0V');
-
-    const distance = starData.dist ? `${starData.dist.toFixed(1)} ly` : null;
-    expect(distance).toBe('25.0 ly');
-  });
-
-  test('creates correct object for DSO with Messier number', () => {
-    const dsoData = {
-      messier: 31,
-      ngc: 224,
-      name: 'Andromeda Galaxy',
-      ra: 10.68,
-      dec: 41.27,
-      mag: 3.4,
-      type: 'G',
-    };
-
-    // The expected naming logic
-    const name = dsoData.messier
-      ? `M${Math.floor(dsoData.messier)}`
-      : (dsoData.ngc ? `NGC ${dsoData.ngc}` : dsoData.name || 'Unknown Object');
-    expect(name).toBe('M31');
-  });
-
-  test('creates correct object for DSO with NGC number only', () => {
-    const dsoData = {
-      ngc: 7293,
-      name: 'Helix Nebula',
-      ra: 337.41,
-      dec: -20.84,
-      mag: 7.6,
-      type: 'PN',
-    };
-
-    const name = dsoData.messier
-      ? `M${Math.floor(dsoData.messier)}`
-      : (dsoData.ngc ? `NGC ${dsoData.ngc}` : dsoData.name || 'Unknown Object');
-    expect(name).toBe('NGC 7293');
-  });
-
-  test('planet subtypes are correctly assigned', () => {
-    const testCases = [
-      {name: 'Sun', expectedSubtype: 'Star (G2V)'},
-      {name: 'Moon', expectedSubtype: 'Natural Satellite'},
-      {name: 'Mars', expectedSubtype: 'Planet'},
-      {name: 'Jupiter', expectedSubtype: 'Planet'},
-      {name: 'Saturn', expectedSubtype: 'Planet'},
-    ];
-
-    for (const {name, expectedSubtype} of testCases) {
-      const subtype = name === 'Sun'
-        ? 'Star (G2V)'
-        : (name === 'Moon' ? 'Natural Satellite' : 'Planet');
-      expect(subtype).toBe(expectedSubtype);
-    }
   });
 });
 
@@ -485,6 +441,25 @@ describe('ClickHandler detection paths', () => {
           subtype: 'Spectral type A0V',
         })
       );
+    });
+
+    // The pipeline emits OpenNGC's zero-padded names for 141 objects and
+    // `messier` as a float. Both used to reach the panel and the image cache
+    // key verbatim, so this asserts the canonical designation instead.
+    test('normalizes a zero-padded catalog name', () => {
+      mockDeps.getStarField.mockReturnValue({
+        userData: {
+          stars: [{proper: 'Star1', ra: 0, dec: 0, mag: 5}],
+          dsos: [{name: 'NGC0869', ra: 34, dec: 57, mag: 5.3, type: 'OCl'}],
+        },
+      });
+      handler.raycaster_.intersectObject =
+          jest.fn().mockReturnValue([{index: 1, distance: 50}]);
+
+      handler.handleClick(0, 0);
+
+      expect(mockDeps.selectObject).toHaveBeenCalledWith(
+          expect.objectContaining({name: 'NGC869'}));
     });
 
     test('detects DSO click from starField when index is beyond stars', () => {
@@ -669,7 +644,9 @@ describe('ClickHandler detection paths', () => {
 
       // Mock raycaster to return line intersection
       handler.raycaster_.intersectObjects = jest.fn().mockReturnValue([
-        {object: mockLine, distance: 50},
+        // Real Line raycast results carry the point on the segment.
+        {object: mockLine, distance: 50,
+          point: {x: 100, y: 0, z: 0}, distanceToRay: 0.5},
       ]);
 
       handler.handleClick(0, 0);
@@ -684,7 +661,9 @@ describe('ClickHandler detection paths', () => {
       const mockLine = {userData: {constellation: 'ORI'}};
       mockDeps.getConstellationLinesGroup.mockReturnValue({children: [mockLine]});
       handler.raycaster_.intersectObjects = jest.fn().mockReturnValue([
-        {object: mockLine, distance: 50},
+        // Real Line raycast results carry the point on the segment.
+        {object: mockLine, distance: 50,
+          point: {x: 100, y: 0, z: 0}, distanceToRay: 0.5},
       ]);
 
       handler.handleClick(0, 0);
@@ -699,7 +678,9 @@ describe('ClickHandler detection paths', () => {
       const mockLine = {userData: {}};
       mockDeps.getConstellationLinesGroup.mockReturnValue({children: [mockLine]});
       handler.raycaster_.intersectObjects = jest.fn().mockReturnValue([
-        {object: mockLine, distance: 50},
+        // Real Line raycast results carry the point on the segment.
+        {object: mockLine, distance: 50,
+          point: {x: 100, y: 0, z: 0}, distanceToRay: 0.5},
       ]);
 
       handler.handleClick(0, 0);
@@ -742,5 +723,230 @@ describe('ClickHandler detection paths', () => {
       // getCelestialSphere is called during planet click detection
       expect(mockDeps.getCelestialSphere).toHaveBeenCalled();
     });
+  });
+});
+
+
+describe('ClickHandler star versus constellation', () => {
+  let handler;
+  let deps;
+  let mockLine;
+
+  beforeEach(() => {
+    mockLine = {userData: {constellation: 'ORI'}};
+    deps = {
+      camera: {fov: 60, updateProjectionMatrix: jest.fn()},
+      renderer: {domElement: {width: 800, height: 600}},
+      getCelestialSphere: jest.fn(() => null),
+      getStarField: jest.fn(() => ({
+        userData: {
+          stars: [{proper: 'Betelgeuse', ra: 88, dec: 7, mag: 0.5}],
+          dsos: [],
+        },
+      })),
+      getPlanetSprites: jest.fn(() => []),
+      getExtendedObjectSprites: jest.fn(() => []),
+      getConstellationLinesGroup: jest.fn(() => ({children: [mockLine]})),
+      getDynamicObjectManager: jest.fn(() => null),
+      isConstellationLinesVisible: jest.fn(() => true),
+      isGameActive: jest.fn(() => false),
+      getMagnitudeLimit: jest.fn(() => 6),
+      selectObject: jest.fn(),
+      showConstellationInfo: jest.fn(),
+      unhighlightConstellation: jest.fn(),
+      clearSelection: jest.fn(),
+      checkGameAnswer: jest.fn(),
+      checkGameAnswerByName: jest.fn(),
+    };
+    handler = new ClickHandler(deps);
+  });
+
+  /**
+   * @param {number} starDistance Perpendicular distance to the nearest star.
+   * @param {number} lineDistance Perpendicular distance to the nearest line.
+   */
+  function clickWith(starDistance, lineDistance) {
+    handler.raycaster_.intersectObject = jest.fn(() => [
+      {index: 0, distanceToRay: starDistance},
+    ]);
+    handler.raycaster_.intersectObjects = jest.fn(() => [
+      {object: mockLine, distance: 50, distanceToRay: lineDistance,
+        point: {x: 100, y: 0, z: 0}},
+    ]);
+    // The mock ray sits at the origin pointing down +x, so a point at
+    // (100, 0, 0) is exactly on it; override to report the distance we want.
+    handler.raycaster_.ray.distanceToPoint = () => lineDistance;
+    handler.handleClick(0, 0);
+  }
+
+  // The regression this fixes: the star field was checked first and won by
+  // rank, whatever the distances. At a wide field of view its capture radius
+  // (~22px) is about the mean spacing between visible stars, so a click on a
+  // constellation line practically always selected a star instead.
+  test('selects the constellation when the click is nearer the line', () => {
+    clickWith(4.0, 0.2);
+
+    expect(deps.showConstellationInfo).toHaveBeenCalledWith('ORI');
+    expect(deps.selectObject).not.toHaveBeenCalled();
+  });
+
+  test('selects the star when the click is nearer the star', () => {
+    clickWith(0.2, 4.0);
+
+    expect(deps.selectObject).toHaveBeenCalledWith(
+        expect.objectContaining({name: 'Betelgeuse'}));
+    expect(deps.showConstellationInfo).not.toHaveBeenCalled();
+  });
+
+  // Constellation lines join bright named stars, so their endpoints are
+  // exactly the stars people most want to click. A tie must not take that
+  // away from them.
+  test('prefers the star when both are equally near', () => {
+    clickWith(1.0, 1.0);
+
+    expect(deps.selectObject).toHaveBeenCalled();
+    expect(deps.showConstellationInfo).not.toHaveBeenCalled();
+  });
+
+  test('still selects a star when no constellation lines are shown', () => {
+    deps.isConstellationLinesVisible.mockReturnValue(false);
+
+    clickWith(4.0, 0.2);
+
+    expect(deps.selectObject).toHaveBeenCalled();
+    expect(deps.showConstellationInfo).not.toHaveBeenCalled();
+  });
+
+  test('answers the game by constellation name when the line wins', () => {
+    deps.isGameActive.mockReturnValue(true);
+
+    clickWith(4.0, 0.2);
+
+    expect(deps.checkGameAnswerByName).toHaveBeenCalledWith('ORI');
+  });
+});
+
+
+describe('ClickHandler only selects what is on screen', () => {
+  let handler;
+  let deps;
+  let mockLine;
+
+  beforeEach(() => {
+    mockLine = {userData: {constellation: 'ORI'}, visible: true, parent: null};
+    deps = {
+      camera: {fov: 60, updateProjectionMatrix: jest.fn()},
+      renderer: {domElement: {width: 800, height: 600}},
+      getCelestialSphere: jest.fn(() => null),
+      getStarField: jest.fn(() => null),
+      getPlanetSprites: jest.fn(() => []),
+      getExtendedObjectSprites: jest.fn(() => []),
+      getConstellationLinesGroup: jest.fn(() => ({children: [mockLine]})),
+      getDynamicObjectManager: jest.fn(() => null),
+      isConstellationLinesVisible: jest.fn(() => true),
+      isGameActive: jest.fn(() => false),
+      getMagnitudeLimit: jest.fn(() => 6),
+      selectObject: jest.fn(),
+      showConstellationInfo: jest.fn(),
+      unhighlightConstellation: jest.fn(),
+      clearSelection: jest.fn(),
+      checkGameAnswer: jest.fn(),
+      checkGameAnswerByName: jest.fn(),
+    };
+    handler = new ClickHandler(deps);
+    handler.raycaster_.intersectObjects = jest.fn(() => [
+      {object: mockLine, distance: 50, distanceToRay: 0.1,
+        point: {x: 100, y: 0, z: 0}},
+    ]);
+    handler.raycaster_.ray.distanceToPoint = () => 0.1;
+  });
+
+  test('selects a constellation whose lines are drawn', () => {
+    handler.handleClick(0, 0);
+
+    expect(deps.showConstellationInfo).toHaveBeenCalledWith('ORI');
+  });
+
+  // THREE's raycaster ignores visibility — a hidden LineSegments still
+  // reports intersections — so focus mode, which hides every constellation
+  // but the nearest, would otherwise let you click one that is not drawn.
+  test('ignores a constellation hidden by focus mode', () => {
+    mockLine.visible = false;
+
+    handler.handleClick(0, 0);
+
+    expect(deps.showConstellationInfo).not.toHaveBeenCalled();
+  });
+
+  test('ignores a constellation whose parent group is hidden', () => {
+    mockLine.parent = {visible: false, parent: null};
+
+    handler.handleClick(0, 0);
+
+    expect(deps.showConstellationInfo).not.toHaveBeenCalled();
+  });
+
+  test('ignores a hidden planet sprite', () => {
+    deps.getPlanetSprites.mockReturnValue([
+      {visible: false, parent: null,
+        userData: {name: 'Mars', ra: 0, dec: 0, mag: 1, angularSize: 10}},
+    ]);
+
+    handler.handleClick(0, 0);
+
+    expect(deps.selectObject).not.toHaveBeenCalled();
+  });
+
+  test('ignores a hidden deep sky object sprite', () => {
+    deps.getExtendedObjectSprites.mockReturnValue([
+      {visible: false, parent: null,
+        userData: {dso: {name: 'NGC1', ra: 0, dec: 0, mag: 5, type: 'G',
+          size_major: 10}}},
+    ]);
+
+    handler.handleClick(0, 0);
+
+    expect(deps.selectObject).not.toHaveBeenCalled();
+  });
+
+  // ExtendedObjectRenderer.updateSizes fades a halo out as it grows past half
+  // the screen, reaching opacity 0 at full coverage without ever clearing
+  // `visible`. Deep sky objects outrank stars and constellations in the
+  // ladder, so at deep zoom an invisible halo would swallow every click.
+  test('ignores a deep sky object halo that has faded to nothing', () => {
+    deps.getExtendedObjectSprites.mockReturnValue([
+      {visible: true, parent: null,
+        material: {transparent: true, opacity: 0},
+        userData: {dso: {name: 'NGC1', ra: 0, dec: 0, mag: 5, type: 'G',
+          size_major: 10}}},
+    ]);
+
+    handler.handleClick(0, 0);
+
+    expect(deps.selectObject).not.toHaveBeenCalled();
+  });
+
+  test('still selects a halo that is merely dimmed', () => {
+    deps.getExtendedObjectSprites.mockReturnValue([
+      {visible: true, parent: null,
+        material: {transparent: true, opacity: 0.2},
+        userData: {dso: {name: 'NGC1', ra: 0, dec: 0, mag: 5, type: 'G',
+          size_major: 10}}},
+    ]);
+
+    handler.handleClick(0, 0);
+
+    expect(deps.selectObject).toHaveBeenCalled();
+  });
+
+  // Game mode forces every constellation visible and dims the lines to 0.08
+  // rather than hiding them. Those are still the answer the player is meant
+  // to click, so the opacity cutoff has to sit below that.
+  test('still selects a constellation dimmed by game mode', () => {
+    mockLine.material = {transparent: true, opacity: 0.08};
+
+    handler.handleClick(0, 0);
+
+    expect(deps.showConstellationInfo).toHaveBeenCalledWith('ORI');
   });
 });

@@ -151,7 +151,7 @@ export class CompassController {
     this.startOrientationTimeout_();
 
     logger.info('Compass mode enabled');
-    globalEventBus.emit(Events.COMPASS_MODE_CHANGED, {enabled: true});
+    globalEventBus.emit(Events.COMPASS_ENABLED, {enabled: true});
     this.requestRender_();
 
     return true;
@@ -184,7 +184,7 @@ export class CompassController {
     this.updateButtonState_(false);
 
     logger.info('Compass mode disabled');
-    globalEventBus.emit(Events.COMPASS_MODE_CHANGED, {enabled: false});
+    globalEventBus.emit(Events.COMPASS_DISABLED, {enabled: false});
   }
 
   /**
@@ -306,7 +306,7 @@ export class CompassController {
     this.compassTilt_ += phiDiff * this.SMOOTH_FACTOR_;
 
     // Emit event with new orientation values
-    globalEventBus.emit(Events.COMPASS_ORIENTATION, {
+    globalEventBus.emit(Events.COMPASS_HEADING, {
       theta: this.compassHeading_,
       phi: this.compassTilt_,
     });
@@ -321,21 +321,4 @@ export class CompassController {
   dispose() {
     this.disable();
   }
-}
-
-/**
- * Singleton instance for application-wide compass control.
- * Note: Must be initialized with dependencies before use.
- * @type {?CompassController}
- */
-export let compassController = null;
-
-/**
- * Initialize the compass controller singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!CompassController} The initialized controller
- */
-export function initCompassController(dependencies) {
-  compassController = new CompassController(dependencies);
-  return compassController;
 }

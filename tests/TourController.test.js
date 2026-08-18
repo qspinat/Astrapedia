@@ -19,41 +19,19 @@ const mockContext = {
 // Override HTMLCanvasElement.prototype.getContext
 HTMLCanvasElement.prototype.getContext = jest.fn(() => mockContext);
 
-// Mock THREE before importing TourController
-global.THREE = {
-  MathUtils: {
-    degToRad: (deg) => deg * Math.PI / 180,
-  },
-  Vector3: jest.fn().mockImplementation((x, y, z) => ({
-    x,
-    y,
-    z,
-    copy: jest.fn().mockReturnThis(),
-    set: jest.fn().mockReturnThis(),
-    normalize: jest.fn().mockReturnThis(),
-  })),
-  CanvasTexture: jest.fn().mockImplementation(() => ({})),
-  SpriteMaterial: jest.fn().mockImplementation(() => ({
-    map: {},
-    dispose: jest.fn(),
-  })),
-  Sprite: jest.fn().mockImplementation(() => ({
-    position: {copy: jest.fn()},
-    scale: {set: jest.fn()},
-    material: {
-      map: {dispose: jest.fn()},
-      dispose: jest.fn(),
-      opacity: 1,
-    },
-    userData: {},
-    renderOrder: 0,
-  })),
-  AdditiveBlending: 2,
-};
+// Install the shared THREE mock before importing TourController, so the
+// module-scope `import 'three'` in the dependency chain resolves against it.
+const {installThreeMock, spyOnThreeConstructors} =
+    await import('./helpers/threeMock.js');
+installThreeMock();
+const three = spyOnThreeConstructors([
+  'CanvasTexture',
+  'SpriteMaterial',
+  'Sprite',
+]);
 
 const {
   TourController,
-  initializeTourController,
 } = await import('../modules/features/TourController.js');
 const {globalEventBus, Events} = await import('../modules/core/EventBus.js');
 
@@ -372,86 +350,6 @@ describe('TourController', () => {
     });
   });
 
-  describe('getBestVisibleObjectsTonight', () => {
-    test('returns array of visible objects', () => {
-      const objects = controller.getBestVisibleObjectsTonight();
-      expect(Array.isArray(objects)).toBe(true);
-    });
-
-    test('excludes Sun and Moon from planets', () => {
-      mockDependencies.getPlanets.mockReturnValue([
-        {name: 'Sun', ra: 0, dec: 0, mag: -26},
-        {name: 'Moon', ra: 10, dec: 5, mag: -12},
-        ...mockPlanets,
-      ]);
-
-      const objects = controller.getBestVisibleObjectsTonight();
-      const names = objects.map((o) => o.name);
-
-      expect(names).not.toContain('Sun');
-      expect(names).not.toContain('Moon');
-    });
-
-    test('sorts by magnitude (brightest first)', () => {
-      const objects = controller.getBestVisibleObjectsTonight();
-
-      for (let i = 1; i < objects.length; i++) {
-        expect(objects[i].mag).toBeGreaterThanOrEqual(objects[i - 1].mag);
-      }
-    });
-
-    test('limits to 50 objects', () => {
-      const objects = controller.getBestVisibleObjectsTonight();
-      expect(objects.length).toBeLessThanOrEqual(50);
-    });
-  });
-
-  describe('setSceneCallbacks', () => {
-    test('stores add and remove callbacks', () => {
-      const addCb = jest.fn();
-      const removeCb = jest.fn();
-
-      controller.setSceneCallbacks(addCb, removeCb);
-
-      // These should be stored internally
-      expect(controller.addHighlightToScene_).toBe(addCb);
-      expect(controller.removeHighlightFromScene_).toBe(removeCb);
-    });
-  });
-
-  describe('updateHighlight', () => {
-    beforeEach(() => {
-      const addCb = jest.fn();
-      const removeCb = jest.fn();
-      controller.setSceneCallbacks(addCb, removeCb);
-      controller.start('best-messier');
-    });
-
-    test('does nothing when no highlight exists', () => {
-      controller.tourHighlight_ = null;
-      // Should not throw
-      controller.updateHighlight(60, 800);
-    });
-
-    test('updates opacity and scale when highlight exists', () => {
-      // Create mock highlight
-      controller.tourHighlight_ = {
-        material: {opacity: 1},
-        scale: {set: jest.fn()},
-        userData: {
-          startTime: Date.now() - 1000,
-          angularSizeArcmin: 10,
-          realWorldSize: 5,
-          maxWorldSize: 15,
-        },
-      };
-
-      controller.updateHighlight(30, 800);
-
-      expect(controller.tourHighlight_.scale.set).toHaveBeenCalled();
-    });
-  });
-
   describe('constellation tour', () => {
     test('highlights constellation and shows info', () => {
       controller.start('constellations');
@@ -467,28 +365,6 @@ describe('TourController', () => {
 
       expect(mockDependencies.showObjectInfo).toHaveBeenCalled();
     });
-  });
-});
-
-describe('initializeTourController', () => {
-  test('creates and returns TourController instance', () => {
-    const mockDeps = {
-      navigateToRaDec: jest.fn(),
-      highlightConstellation: jest.fn(),
-      unhighlightConstellation: jest.fn(),
-      showObjectInfo: jest.fn(),
-      showConstellationInfo: jest.fn(),
-      getLST: jest.fn(),
-      getLocation: jest.fn(),
-      getPlanets: jest.fn().mockReturnValue([]),
-      getDeepSkyObjects: jest.fn().mockReturnValue([]),
-      getStars: jest.fn().mockReturnValue([]),
-      getFOV: jest.fn(),
-      setFOV: jest.fn(),
-    };
-
-    const result = initializeTourController(mockDeps);
-    expect(result).toBeInstanceOf(TourController);
   });
 });
 

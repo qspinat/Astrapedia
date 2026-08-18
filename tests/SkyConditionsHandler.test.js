@@ -203,15 +203,17 @@ describe('SkyConditionsHandler', () => {
 
   describe('estimateMoonPhase_', () => {
     test('calculates phase for known new moon date', () => {
-      // January 6, 2000 was a known new moon
-      const newMoonDate = new Date(2000, 0, 6, 18, 14, 0);
+      // 6 January 2000, 18:14 UTC was a new moon. Built with Date.UTC, like
+      // the epoch it is compared against — the local-time constructor shifts
+      // the instant by the runner's offset, which is the bug this pins.
+      const newMoonDate = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
       handler.estimateMoonPhase_(newMoonDate);
       expect(handler.moonPhase_).toBeCloseTo(0, 1);
     });
 
     test('calculates phase for date one lunar cycle later', () => {
       // ~29.5 days after new moon should be another new moon
-      const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+      const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
       const nextNewMoon = new Date(knownNewMoon.getTime() + 29.530588853 * 24 * 60 * 60 * 1000);
       handler.estimateMoonPhase_(nextNewMoon);
       // Phase wraps around, so ~0 or ~1 both represent new moon
@@ -221,21 +223,21 @@ describe('SkyConditionsHandler', () => {
     });
 
     test('calculates phase for date half lunar cycle later (full moon)', () => {
-      const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+      const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
       const fullMoon = new Date(knownNewMoon.getTime() + 14.765 * 24 * 60 * 60 * 1000);
       handler.estimateMoonPhase_(fullMoon);
       expect(handler.moonPhase_).toBeCloseTo(0.5, 1);
     });
 
     test('calculates phase for first quarter (7.4 days after new moon)', () => {
-      const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+      const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
       const firstQuarter = new Date(knownNewMoon.getTime() + 7.38 * 24 * 60 * 60 * 1000);
       handler.estimateMoonPhase_(firstQuarter);
       expect(handler.moonPhase_).toBeCloseTo(0.25, 1);
     });
 
     test('calculates phase for last quarter (22.1 days after new moon)', () => {
-      const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+      const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
       const lastQuarter = new Date(knownNewMoon.getTime() + 22.14 * 24 * 60 * 60 * 1000);
       handler.estimateMoonPhase_(lastQuarter);
       expect(handler.moonPhase_).toBeCloseTo(0.75, 1);
@@ -253,7 +255,7 @@ describe('SkyConditionsHandler', () => {
 
       test('full moon at midnight has moon high in sky', () => {
         // Full moon transits at midnight
-        const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+        const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
         const fullMoonMidnight = new Date(knownNewMoon.getTime() + 14.765 * 24 * 60 * 60 * 1000);
         fullMoonMidnight.setHours(0, 0, 0, 0); // Midnight
         handler.estimateMoonPhase_(fullMoonMidnight);
@@ -262,7 +264,7 @@ describe('SkyConditionsHandler', () => {
 
       test('full moon at noon has moon below horizon', () => {
         // Full moon transits at midnight, so at noon it should be below horizon
-        const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+        const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
         const fullMoonNoon = new Date(knownNewMoon.getTime() + 14.765 * 24 * 60 * 60 * 1000);
         fullMoonNoon.setHours(12, 0, 0, 0); // Noon
         handler.estimateMoonPhase_(fullMoonNoon);
@@ -271,7 +273,7 @@ describe('SkyConditionsHandler', () => {
 
       test('first quarter moon at 6pm has moon high in sky', () => {
         // First quarter transits at ~6pm
-        const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+        const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
         const firstQuarter = new Date(knownNewMoon.getTime() + 7.38 * 24 * 60 * 60 * 1000);
         firstQuarter.setHours(18, 0, 0, 0); // 6 PM
         handler.estimateMoonPhase_(firstQuarter);

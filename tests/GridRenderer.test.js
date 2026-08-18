@@ -4,37 +4,21 @@
 
 import {jest} from '@jest/globals';
 import {GridRenderer} from '../modules/rendering/GridRenderer.js';
+import {
+  installThreeMock,
+  resetThreeStats,
+  spyOnThreeConstructors,
+  threeStats,
+} from './helpers/threeMock.js';
 
-// Mock THREE.js
-const mockGeometry = {
-  setAttribute: jest.fn(),
-  setFromPoints: jest.fn().mockReturnThis(),
-  dispose: jest.fn(),
-};
-
-const mockMaterial = {
-  dispose: jest.fn(),
-};
-
-const mockLineSegments = {
-  visible: true,
-};
-
-const mockLine = {
-  visible: true,
-};
-
-global.THREE = {
-  LineBasicMaterial: jest.fn(() => mockMaterial),
-  BufferGeometry: jest.fn(() => mockGeometry),
-  Float32BufferAttribute: jest.fn(),
-  LineSegments: jest.fn(() => mockLineSegments),
-  Line: jest.fn(() => mockLine),
-  Vector3: jest.fn((x, y, z) => ({x, y, z})),
-  MathUtils: {
-    degToRad: (deg) => deg * Math.PI / 180,
-  },
-};
+installThreeMock();
+const three = spyOnThreeConstructors([
+  'LineBasicMaterial',
+  'BufferGeometry',
+  'Float32BufferAttribute',
+  'LineSegments',
+  'Line',
+]);
 
 describe('GridRenderer', () => {
   let renderer;
@@ -43,6 +27,11 @@ describe('GridRenderer', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // threeStats counters are plain numbers, so clearAllMocks does not touch
+    // them — reset explicitly or disposal counts leak between tests.
+    // resetThreeStats, not installThreeMock: the latter would restore the real
+    // constructors over the spies installed above.
+    resetThreeStats();
 
     mockCelestialSphere = {
       add: jest.fn(),
@@ -197,7 +186,7 @@ describe('GridRenderer', () => {
     test('disposes materials', () => {
       renderer.create();
       renderer.dispose();
-      expect(mockMaterial.dispose).toHaveBeenCalledTimes(2);
+      expect(threeStats.materialDisposals).toBe(2);
     });
 
     test('removes grid from scene', () => {
@@ -209,7 +198,7 @@ describe('GridRenderer', () => {
     test('disposes geometry', () => {
       renderer.create();
       renderer.dispose();
-      expect(mockGeometry.dispose).toHaveBeenCalled();
+      expect(threeStats.geometryDisposals).toBeGreaterThan(0);
     });
   });
 });

@@ -222,6 +222,28 @@ export function isDiffuseObject(obj) {
 }
 
 /**
+ * Keep only the named keys whose values are usable optical measurements.
+ *
+ * Anything absent, non-numeric, zero or negative is dropped so the caller's
+ * existing default survives the merge.
+ *
+ * @param {*} source - Untrusted object, typically from localStorage
+ * @param {!Array<string>} keys - Keys to consider
+ * @returns {!Object<string, number>} The valid subset
+ */
+function pickPositiveNumbers(source, keys) {
+  const valid = {};
+  if (!source || typeof source !== 'object') return valid;
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      valid[key] = value;
+    }
+  }
+  return valid;
+}
+
+/**
  * TelescopeController manages telescope simulation mode.
  */
 export class TelescopeController {
@@ -684,8 +706,21 @@ export class TelescopeController {
     const preset = this.presets_[name];
     if (!preset) return false;
 
-    this.telescope_ = {...preset.telescope};
-    this.eyepiece_ = {...preset.eyepiece};
+    // Presets come out of localStorage exactly as currentConfig does, so they
+    // can carry the same junk: a zero or missing diameter drives
+    // theoreticalLimitingMag to -Infinity, which reaches the shader uniform
+    // and blanks every star. Validate here rather than at load time so a
+    // preset saved before this check is also covered.
+    this.telescope_ = {
+      diameter: TELESCOPE.DEFAULT_DIAMETER,
+      focalLength: TELESCOPE.DEFAULT_FOCAL_LENGTH,
+      ...pickPositiveNumbers(preset.telescope, ['diameter', 'focalLength']),
+    };
+    this.eyepiece_ = {
+      focalLength: TELESCOPE.DEFAULT_EYEPIECE_FL,
+      apparentFov: TELESCOPE.DEFAULT_EYEPIECE_AFOV,
+      ...pickPositiveNumbers(preset.eyepiece, ['focalLength', 'apparentFov']),
+    };
     this.computeProperties_();
     this.saveToStorage_();
 
@@ -752,36 +787,32 @@ export class TelescopeController {
       const data = JSON.parse(stored);
 
       if (data.currentConfig) {
-        if (data.currentConfig.telescope) {
-          this.telescope_ = {...this.telescope_, ...data.currentConfig.telescope};
-        }
-        if (data.currentConfig.eyepiece) {
-          this.eyepiece_ = {...this.eyepiece_, ...data.currentConfig.eyepiece};
-        }
+        // Validate before merging. Every optical property is derived from
+        // these by division or a logarithm, so a stored 0 or a non-number
+        // propagates: diameter 0 gives a limiting magnitude of -Infinity,
+        // which activating telescope mode pushes into the shader's magLimit
+        // uniform, and every star disappears. The UI inputs already reject
+        // these; storage is the path that did not.
+        this.telescope_ = {
+          ...this.telescope_,
+          ...pickPositiveNumbers(data.currentConfig.telescope,
+              ['diameter', 'focalLength']),
+        };
+        this.eyepiece_ = {
+          ...this.eyepiece_,
+          ...pickPositiveNumbers(data.currentConfig.eyepiece,
+              ['focalLength', 'apparentFov']),
+        };
       }
 
-      if (data.presets) {
+      // presets_ is an object keyed by preset name, so reject anything that
+      // is not one — an array or a string here would break every lookup.
+      if (data.presets && typeof data.presets === 'object' &&
+          !Array.isArray(data.presets)) {
         this.presets_ = data.presets;
       }
     } catch (e) {
       logger.warn('Failed to load telescope settings:', e);
     }
   }
-}
-
-/**
- * Singleton telescope controller instance.
- * @type {?TelescopeController}
- */
-export let telescopeController = null;
-
-/**
- * Initialize the telescope controller singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!TelescopeController} Initialized controller
- */
-export function initializeTelescopeController(dependencies) {
-  telescopeController = new TelescopeController(dependencies);
-  telescopeController.initialize();
-  return telescopeController;
 }

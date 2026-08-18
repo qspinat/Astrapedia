@@ -4,6 +4,7 @@
  */
 
 import {createLogger} from '../core/Logger.js';
+import {panelManager} from './PanelManager.js';
 
 const logger = createLogger('BugReportHandler');
 
@@ -67,12 +68,12 @@ export class BugReportHandler {
   validateForm_() {
     const description = document.getElementById('bug-description');
     if (!description || !description.value.trim()) {
-      this.showNotification_('Please provide a description of the bug.');
+      panelManager.showNotification('Please provide a description of the bug.');
       description?.focus();
       return false;
     }
     if (description.value.trim().length < 10) {
-      this.showNotification_('Please provide a more detailed description.');
+      panelManager.showNotification('Please provide a more detailed description.');
       description?.focus();
       return false;
     }
@@ -81,7 +82,7 @@ export class BugReportHandler {
     const emailInput = document.getElementById('bug-email');
     const email = emailInput?.value.trim() || '';
     if (email && !isValidEmail(email)) {
-      this.showNotification_('Please enter a valid email address.');
+      panelManager.showNotification('Please enter a valid email address.');
       emailInput?.focus();
       return false;
     }
@@ -148,15 +149,15 @@ export class BugReportHandler {
       });
 
       if (response.ok) {
-        this.showNotification_('Bug report submitted. Thank you!');
+        panelManager.showNotification('Bug report submitted. Thank you!');
         this.clearForm_();
         this.deps_.closePanel?.();
       } else {
-        this.showNotification_('Failed to submit. Please try again.');
+        panelManager.showNotification('Failed to submit. Please try again.');
       }
     } catch (error) {
       logger.error('Submission failed:', error);
-      this.showNotification_('Network error. Please try again.');
+      panelManager.showNotification('Network error. Please try again.');
     } finally {
       this.submitting_ = false;
       if (submitBtn) {
@@ -179,23 +180,6 @@ export class BugReportHandler {
     if (email) email.value = '';
   }
 
-  /**
-   * Shows a notification message.
-   * @param {string} message - Message to display
-   * @private
-   */
-  showNotification_(message) {
-    let notification = document.getElementById('notification-panel');
-    if (!notification) {
-      notification = document.createElement('div');
-      notification.id = 'notification-panel';
-      notification.className = 'notification-panel';
-      document.body.appendChild(notification);
-    }
-    notification.textContent = message;
-    notification.classList.add('visible');
-    setTimeout(() => notification.classList.remove('visible'), 3000);
-  }
 }
 
 /**

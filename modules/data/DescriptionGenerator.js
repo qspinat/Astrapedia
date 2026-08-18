@@ -182,9 +182,8 @@ export class DescriptionGenerator {
     // Add English common names from raw data (e.g., 'Sombrero Galaxy')
     const data = obj.data;
     if (data?.common_names) {
-      const commonNames = Array.isArray(data.common_names)
-        ? data.common_names
-        : data.common_names.split(',').map((n) => n.trim()).filter(Boolean);
+      const commonNames =
+          data.common_names.split(',').map((n) => n.trim()).filter(Boolean);
       for (const cn of commonNames) {
         addTerm(cn.replace(/\s+/g, '_'));
       }

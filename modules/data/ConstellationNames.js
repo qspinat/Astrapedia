@@ -30,27 +30,11 @@ export const CONSTELLATION_NAMES = {
     'Tuc': 'Tucana', 'UMa': 'Ursa Major', 'UMi': 'Ursa Minor', 'Vel': 'Vela', 'Vir': 'Virgo',
     'Vol': 'Volans', 'Vul': 'Vulpecula',
   },
-  'la': {  // Latin (same as English for most)
-    'And': 'Andromeda', 'Ant': 'Antlia', 'Aps': 'Apus', 'Aqr': 'Aquarius', 'Aql': 'Aquila',
-    'Ara': 'Ara', 'Ari': 'Aries', 'Aur': 'Auriga', 'Boo': 'Boötes', 'Cae': 'Caelum',
-    'Cam': 'Camelopardalis', 'Cnc': 'Cancer', 'CVn': 'Canes Venatici', 'CMa': 'Canis Major',
-    'CMi': 'Canis Minor', 'Cap': 'Capricornus', 'Car': 'Carina', 'Cas': 'Cassiopeia',
-    'Cen': 'Centaurus', 'Cep': 'Cepheus', 'Cet': 'Cetus', 'Cha': 'Chamaeleon', 'Cir': 'Circinus',
-    'Col': 'Columba', 'Com': 'Coma Berenices', 'CrA': 'Corona Australis', 'CrB': 'Corona Borealis',
-    'Crv': 'Corvus', 'Crt': 'Crater', 'Cru': 'Crux', 'Cyg': 'Cygnus', 'Del': 'Delphinus',
-    'Dor': 'Dorado', 'Dra': 'Draco', 'Equ': 'Equuleus', 'Eri': 'Eridanus', 'For': 'Fornax',
-    'Gem': 'Gemini', 'Gru': 'Grus', 'Her': 'Hercules', 'Hor': 'Horologium', 'Hya': 'Hydra',
-    'Hyi': 'Hydrus', 'Ind': 'Indus', 'Lac': 'Lacerta', 'Leo': 'Leo', 'LMi': 'Leo Minor',
-    'Lep': 'Lepus', 'Lib': 'Libra', 'Lup': 'Lupus', 'Lyn': 'Lynx', 'Lyr': 'Lyra',
-    'Men': 'Mensa', 'Mic': 'Microscopium', 'Mon': 'Monoceros', 'Mus': 'Musca', 'Nor': 'Norma',
-    'Oct': 'Octans', 'Oph': 'Ophiuchus', 'Ori': 'Orion', 'Pav': 'Pavo', 'Peg': 'Pegasus',
-    'Per': 'Perseus', 'Phe': 'Phoenix', 'Pic': 'Pictor', 'Psc': 'Pisces', 'PsA': 'Piscis Austrinus',
-    'Pup': 'Puppis', 'Pyx': 'Pyxis', 'Ret': 'Reticulum', 'Sge': 'Sagitta', 'Sgr': 'Sagittarius',
-    'Sco': 'Scorpius', 'Scl': 'Sculptor', 'Sct': 'Scutum', 'Ser': 'Serpens', 'Sex': 'Sextans',
-    'Tau': 'Taurus', 'Tel': 'Telescopium', 'Tri': 'Triangulum', 'TrA': 'Triangulum Australe',
-    'Tuc': 'Tucana', 'UMa': 'Ursa Major', 'UMi': 'Ursa Minor', 'Vel': 'Vela', 'Vir': 'Virgo',
-    'Vol': 'Volans', 'Vul': 'Vulpecula',
-  },
+  // Latin uses the IAU nominative forms, which are exactly the English
+  // names this file already lists. Aliasing the same object keeps 'la' in
+  // getAvailableLanguages() — app.html offers it in the language picker —
+  // without maintaining 88 duplicate entries that could silently drift.
+  'la': null,  // assigned immediately below
   'fr': {  // French
     'And': 'Andromède', 'Ant': 'Machine Pneumatique', 'Aps': 'Oiseau de Paradis', 'Aqr': 'Verseau', 'Aql': 'Aigle',
     'Ara': 'Autel', 'Ari': 'Bélier', 'Aur': 'Cocher', 'Boo': 'Bouvier', 'Cae': 'Burin',
@@ -179,6 +163,8 @@ export const CONSTELLATION_NAMES = {
   },
 };
 
+CONSTELLATION_NAMES['la'] = CONSTELLATION_NAMES['en'];
+
 /**
  * Build reverse lookup map (name -> abbreviation) for a language.
  * @private
@@ -231,15 +217,6 @@ export function getConstellationAbbrev(name, lang = 'en') {
  */
 export function getAvailableLanguages() {
   return Object.keys(CONSTELLATION_NAMES);
-}
-
-/**
- * Get all constellation names for a language.
- * @param {string=} lang - Language code (default: 'en')
- * @returns {!Object<string, string>} Abbreviation to name mapping
- */
-export function getConstellationNamesForLanguage(lang = 'en') {
-  return CONSTELLATION_NAMES[lang] || CONSTELLATION_NAMES['en'];
 }
 
 /**

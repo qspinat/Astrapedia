@@ -4,8 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {SPHERE, CAMERA} from '../core/Constants.js';
-import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {CAMERA} from '../core/Constants.js';
 import {createLogger} from '../core/Logger.js';
 
 const logger = createLogger('TourController');
@@ -50,29 +49,6 @@ const PLANET_DESCRIPTIONS = {
 };
 
 /**
- * DSO type descriptions.
- * @const {!Object<string, string>}
- */
-const DSO_TYPE_DESCRIPTIONS = {
-  'G': 'Galaxy',
-  'Neb': 'Nebula',
-  'PN': 'Planetary Nebula',
-  'EmN': 'Emission Nebula',
-  'HII': 'HII Region',
-  'RfN': 'Reflection Nebula',
-  'SNR': 'Supernova Remnant',
-  'GCl': 'Globular Cluster',
-  'OCl': 'Open Cluster',
-  'Cl+N': 'Cluster with Nebulosity',
-};
-
-/**
- * Types to exclude from "tonight's best" tour.
- * @const {!Array<string>}
- */
-const EXCLUDE_STELLAR_TYPES = ['*', '**', '*Ass', 'Star', 'Nova', 'SNR?'];
-
-/**
  * TourController manages guided tours through the night sky.
  */
 export class TourController {
@@ -84,8 +60,11 @@ export class TourController {
    * @param {function(): void} dependencies.unhighlightConstellation - Remove highlight
    * @param {function(!Object): void} dependencies.showObjectInfo - Show info panel
    * @param {function(string): void} dependencies.showConstellationInfo - Show constellation
-   * @param {function(): number} dependencies.getLST - Get local sidereal time
-   * @param {function(): {lat: number, lon: number}} dependencies.getLocation - Get location
+   * @param {function(): !Array<!Object>} dependencies.getBestVisibleObjectsTonight -
+   *     The objects highest and brightest right now, for the tonight tour
+   * @param {function(number, number, number): void} dependencies.showHighlight -
+   *     Show the highlight ring at RA/Dec with an angular size in arcminutes
+   * @param {function(): void} dependencies.hideHighlight - Hide the ring
    * @param {function(): !Array} dependencies.getPlanets - Get planets array
    * @param {function(): !Array} dependencies.getDeepSkyObjects - Get DSO array
    * @param {function(): !Array} dependencies.getStars - Get stars array
@@ -109,11 +88,20 @@ export class TourController {
     /** @private @const */
     this.showConstellationInfo_ = dependencies.showConstellationInfo;
 
+    // Supplied rather than reimplemented: VisibilityCalculator owns the
+    // "what is up tonight" query, and the tour is one of three callers.
     /** @private @const */
-    this.getLST_ = dependencies.getLST;
+    this.getBestVisibleObjectsTonight_ =
+        dependencies.getBestVisibleObjectsTonight;
+
+    // The highlight ring is owned by the TourHighlight renderer, which the
+    // app animates each frame. SelectionManager and GameController take the
+    // same two callbacks.
+    /** @private @const */
+    this.showHighlight_ = dependencies.showHighlight;
 
     /** @private @const */
-    this.getLocation_ = dependencies.getLocation;
+    this.hideHighlight_ = dependencies.hideHighlight;
 
     /** @private @const */
     this.getPlanets_ = dependencies.getPlanets;
@@ -146,38 +134,10 @@ export class TourController {
     this.tourStep_ = 0;
 
     /**
-     * Tour highlight sprite (created externally).
-     * @private {?THREE.Sprite}
-     */
-    this.tourHighlight_ = null;
-
-    /**
-     * Callback to add highlight to scene.
-     * @private {?function(!THREE.Sprite): void}
-     */
-    this.addHighlightToScene_ = null;
-
-    /**
-     * Callback to remove highlight from scene.
-     * @private {?function(!THREE.Sprite): void}
-     */
-    this.removeHighlightFromScene_ = null;
-
-    /**
      * Available tours cache.
      * @private {?Object<string, !Tour>}
      */
     this.toursCache_ = null;
-  }
-
-  /**
-   * Set the scene manipulation callbacks.
-   * @param {function(!THREE.Sprite): void} addCallback - Add to scene
-   * @param {function(!THREE.Sprite): void} removeCallback - Remove from scene
-   */
-  setSceneCallbacks(addCallback, removeCallback) {
-    this.addHighlightToScene_ = addCallback;
-    this.removeHighlightFromScene_ = removeCallback;
   }
 
   /**
@@ -249,7 +209,7 @@ export class TourController {
     this.currentTour_ = null;
     this.tourStep_ = 0;
 
-    this.hideHighlight_();
+    this.hideHighlight_?.();
     this.unhighlightConstellation_?.();
 
     globalEventBus.emit(Events.TOUR_ENDED, {tourName});
@@ -378,7 +338,7 @@ export class TourController {
    * @private
    */
   showConstellationStep_(step) {
-    this.hideHighlight_();
+    this.hideHighlight_?.();
     this.highlightConstellation_?.(step.name);
     this.showConstellationInfo_?.(step.abbrev || step.name);
   }
@@ -409,7 +369,7 @@ export class TourController {
     }
 
     const angularSizeArcmin = step.angularSize || 30;
-    this.showHighlight_(step.ra, step.dec, angularSizeArcmin);
+    this.showHighlight_?.(step.ra, step.dec, angularSizeArcmin);
   }
 
   /**
@@ -430,136 +390,12 @@ export class TourController {
     const angularSizeArcmin = obj?.size_major || obj?.angularSize ||
       step.angularSize || 10;
 
-    this.showHighlight_(step.ra, step.dec, angularSizeArcmin);
+    this.showHighlight_?.(step.ra, step.dec, angularSizeArcmin);
 
     if (obj) {
       if (!obj.name && step.name) obj.name = step.name;
       this.showObjectInfo_?.(obj);
     }
-  }
-
-  /**
-   * Show highlight at position.
-   * @param {number} ra - Right ascension in degrees
-   * @param {number} dec - Declination in degrees
-   * @param {number} angularSizeArcmin - Angular size in arcminutes
-   * @private
-   */
-  showHighlight_(ra, dec, angularSizeArcmin = 10) {
-    this.hideHighlight_();
-
-    if (typeof THREE === 'undefined') return;
-
-    const canvas = document.createElement('canvas');
-    const size = 128;
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-
-    // Draw glowing ring
-    ctx.clearRect(0, 0, size, size);
-    const centerX = size / 2;
-    const centerY = size / 2;
-    const outerRadius = size / 2 - 4;
-    const innerRadius = outerRadius - 12;
-
-    const gradient = ctx.createRadialGradient(
-      centerX, centerY, innerRadius - 10,
-      centerX, centerY, outerRadius + 10
-    );
-    gradient.addColorStop(0, 'rgba(255, 215, 0, 0)');
-    gradient.addColorStop(0.4, 'rgba(255, 215, 0, 0.8)');
-    gradient.addColorStop(0.6, 'rgba(255, 215, 0, 0.8)');
-    gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
-
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, outerRadius, 0, Math.PI * 2);
-    ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2, true);
-    ctx.fillStyle = gradient;
-    ctx.fill();
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      opacity: 1.0,
-      depthWrite: false,
-      depthTest: false,
-      blending: THREE.AdditiveBlending,
-    });
-
-    this.tourHighlight_ = new THREE.Sprite(material);
-
-    const radius = SPHERE.RADIUS - 2;
-    const pos = raDecToCartesian(ra, dec, radius);
-    this.tourHighlight_.position.copy(pos);
-
-    const angularSizeRad = THREE.MathUtils.degToRad(angularSizeArcmin / 60);
-    const realWorldSize = radius * angularSizeRad * 2;
-
-    this.tourHighlight_.renderOrder = 100;
-    this.tourHighlight_.userData = {
-      ra,
-      dec,
-      startTime: Date.now(),
-      angularSizeArcmin,
-      realWorldSize,
-      maxWorldSize: 15,
-    };
-
-    this.addHighlightToScene_?.(this.tourHighlight_);
-  }
-
-  /**
-   * Hide the tour highlight.
-   * @private
-   */
-  hideHighlight_() {
-    if (!this.tourHighlight_) return;
-
-    this.removeHighlightFromScene_?.(this.tourHighlight_);
-
-    if (this.tourHighlight_.material.map) {
-      this.tourHighlight_.material.map.dispose();
-    }
-    this.tourHighlight_.material.dispose();
-    this.tourHighlight_ = null;
-  }
-
-  /**
-   * Update highlight animation (call from animation loop).
-   * @param {number} fov - Current camera FOV
-   * @param {number} canvasHeight - Canvas height in pixels
-   */
-  updateHighlight(fov, canvasHeight) {
-    if (!this.tourHighlight_) return;
-
-    const userData = this.tourHighlight_.userData;
-    const elapsed = (Date.now() - userData.startTime) / 1000;
-
-    // Pulsing opacity
-    const pulse = 0.7 + 0.3 * Math.sin(elapsed * 3);
-    this.tourHighlight_.material.opacity = pulse;
-
-    // Scale based on FOV
-    const pixelsPerDeg = canvasHeight / fov;
-    const angularSizeDeg = userData.angularSizeArcmin / 60;
-    const realSizePixels = angularSizeDeg * pixelsPerDeg;
-
-    const minHighlightPixels = 80;
-    const targetPixels = Math.max(realSizePixels * 1.5, minHighlightPixels);
-
-    const radius = SPHERE.RADIUS - 2;
-    const fovRad = THREE.MathUtils.degToRad(fov / 2);
-    const worldSize = (targetPixels / canvasHeight) * 2 * radius * Math.tan(fovRad);
-
-    const clampedSize = Math.min(
-      Math.max(worldSize, userData.realWorldSize * 1.2),
-      userData.maxWorldSize
-    );
-    const pulsedSize = clampedSize * (1 + 0.1 * Math.sin(elapsed * 2));
-
-    this.tourHighlight_.scale.set(pulsedSize, pulsedSize, 1);
   }
 
   /**
@@ -598,9 +434,8 @@ export class TourController {
     // Check by name
     let obj = dsos.find((d) =>
       d.name === name ||
-      (d.common_names && (Array.isArray(d.common_names)
-        ? d.common_names.some((n) => n.toLowerCase().includes(name.toLowerCase()))
-        : d.common_names.toLowerCase().includes(name.toLowerCase())))
+      (d.common_names &&
+        d.common_names.toLowerCase().includes(name.toLowerCase()))
     );
     if (obj) return obj;
 
@@ -634,91 +469,6 @@ export class TourController {
    */
   getPlanetDescription(planetName) {
     return PLANET_DESCRIPTIONS[planetName] || 'Solar System object';
-  }
-
-  /**
-   * Calculate altitude of object at location.
-   * @param {number} ra - Right ascension in degrees
-   * @param {number} dec - Declination in degrees
-   * @param {number} lat - Latitude in degrees
-   * @param {number} lst - Local sidereal time in degrees
-   * @returns {number} Altitude in degrees
-   * @private
-   */
-  calculateAltitude_(ra, dec, lat, lst) {
-    const latRad = lat * Math.PI / 180;
-    const decRad = dec * Math.PI / 180;
-    const haRad = (lst - ra) * Math.PI / 180;
-
-    const sinAlt = Math.sin(latRad) * Math.sin(decRad) +
-      Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
-
-    return Math.asin(sinAlt) * 180 / Math.PI;
-  }
-
-  /**
-   * Get the best visible objects for tonight.
-   * @returns {!Array<!TourStep>} Array of visible objects
-   */
-  getBestVisibleObjectsTonight() {
-    const objects = [];
-    const location = this.getLocation_?.() || {lat: 45, lon: 0};
-    const lst = this.getLST_?.() || 0;
-    const minAltitude = 15;
-
-    // Add visible planets
-    const planets = this.getPlanets_?.() || [];
-    planets.forEach((planet) => {
-      if (planet.name !== 'Sun' && planet.name !== 'Moon') {
-        const altitude = this.calculateAltitude_(
-          planet.ra, planet.dec, location.lat, lst
-        );
-        if (altitude > minAltitude && planet.mag < 6) {
-          objects.push({
-            name: planet.name,
-            ra: planet.ra,
-            dec: planet.dec,
-            mag: planet.mag,
-            altitude,
-            description: `${this.getPlanetDescription(planet.name)} - ` +
-              `Currently ${altitude.toFixed(0)}° above horizon`,
-          });
-        }
-      }
-    });
-
-    // Add visible DSOs
-    const dsos = this.getDeepSkyObjects_?.() || [];
-    dsos.forEach((dso) => {
-      if (EXCLUDE_STELLAR_TYPES.includes(dso.type)) return;
-
-      if (dso.mag && dso.mag < 10) {
-        const altitude = this.calculateAltitude_(
-          dso.ra, dso.dec, location.lat, lst
-        );
-        if (altitude > minAltitude) {
-          const name = dso.messier ? `M${Math.floor(dso.messier)}` :
-            (dso.name?.match(/^(NGC|IC)\d+/)?.[0] || dso.name);
-          const typeName = DSO_TYPE_DESCRIPTIONS[dso.type] || dso.type ||
-            'Deep Sky Object';
-          const commonName = dso.common_names
-            ? ` (${Array.isArray(dso.common_names) ? dso.common_names.join(', ') : dso.common_names})`
-            : '';
-
-          objects.push({
-            name,
-            ra: dso.ra,
-            dec: dso.dec,
-            mag: dso.mag,
-            altitude,
-            description: `${typeName}${commonName} - ` +
-              `Mag ${dso.mag.toFixed(1)}, Alt ${altitude.toFixed(0)}°`,
-          });
-        }
-      }
-    });
-
-    return objects.sort((a, b) => a.mag - b.mag).slice(0, 50);
   }
 
   /**
@@ -763,7 +513,7 @@ export class TourController {
       'best-galaxies': this.getGalaxiesTour_(),
       'tonight-best': {
         name: 'Best Objects Tonight',
-        steps: this.getBestVisibleObjectsTonight(),
+        steps: this.getBestVisibleObjectsTonight_?.() || [],
       },
       'best-clusters': this.getClustersTour_(),
     };
@@ -1048,21 +798,4 @@ export class TourController {
       ].sort((a, b) => a.mag - b.mag),
     };
   }
-}
-
-/**
- * Singleton instance for application-wide tour control.
- * Note: Must be initialized with dependencies before use.
- * @type {?TourController}
- */
-export let tourController = null;
-
-/**
- * Initialize the tour controller singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!TourController} Initialized controller
- */
-export function initializeTourController(dependencies) {
-  tourController = new TourController(dependencies);
-  return tourController;
 }

@@ -17,11 +17,16 @@
 
 import {raDecToCartesian, cartesianToRaDec} from '../core/CoordinateUtils.js';
 import {magnitudeToSize} from '../core/MagnitudeUtils.js';
-import {clamp} from '../core/Utils.js';
 import {SHADERS, SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
 import {dynamicDataLoader} from '../services/DynamicDataLoader.js';
 import {domCache} from '../ui/DOMCache.js';
 import {createLogger} from '../core/Logger.js';
+import {
+  createHaloSprite,
+  disposeSpriteTexture,
+  freezeTransform,
+  getSharedHaloTexture,
+} from './SceneUtils.js';
 
 const logger = createLogger('DynamicObjectManager');
 
@@ -187,10 +192,21 @@ export class DynamicObjectManager {
 
     logger.debug(`Dynamic loading triggered: FOV=${camera.fov.toFixed(2)}°, RA=${raDec.ra.toFixed(1)}°, Dec=${raDec.dec.toFixed(1)}°`);
 
-    // Query for stars and DSOs in this region
+    // Query for stars and DSOs in this region.
+    //
+    // The region is recorded only once something comes back. Marking it up
+    // front meant a query the rate limiter had dropped — queryTycho_ and
+    // queryDSOs share one bucket, so panning twice within a second returns []
+    // immediately — still counted as done, and the region stayed empty until
+    // the user zoomed past 15 degrees and back to clear the whole set.
     const ra = raDec.ra, dec = raDec.dec, fov = camera.fov;
+    const markQueried = (received) => {
+      if (received) this.queriedRegions.add(regionKey);
+    };
+
     dynamicDataLoader.queryStars(ra, dec, fov, magLimit)
       .then(stars => {
+        markQueried(stars?.length > 0);
         if (stars?.length > 0) {
           const starArrays = stars.map(s => [s.ra, s.dec, s.mag, s.ci || 0]);
           this.addDynamicStars(starArrays, false);
@@ -203,13 +219,13 @@ export class DynamicObjectManager {
     if (fov <= 10) {
       dynamicDataLoader.queryDSOs(ra, dec, fov, magLimit)
         .then(dsos => {
+          markQueried(dsos?.length > 0);
           if (dsos?.length > 0) this.addDynamicDSOs(dsos);
         })
         .catch(err => {
           logger.warn('Dynamic DSO query failed:', err?.message || err);
         });
     }
-    this.queriedRegions.add(regionKey);
   }
 
   /**
@@ -261,7 +277,7 @@ export class DynamicObjectManager {
         );
         spritesToRemove.forEach(sprite => {
           if (sprite.material) {
-            if (sprite.material.map) sprite.material.map.dispose();
+            disposeSpriteTexture(sprite);
             sprite.material.dispose();
           }
           celestialSphere?.remove(sprite);
@@ -286,15 +302,16 @@ export class DynamicObjectManager {
    * @private
    */
   filterStarsOutsideFov_(camera, celestialSphere, fov) {
-    // Get view direction in celestial coordinates
-    const viewDirWorld = new THREE.Vector3(0, 0, 0).sub(camera.position).normalize();
-    const viewDirCelestial = viewDirWorld.clone();
+    // Reuse the instance temporaries rather than allocating five Three.js
+    // objects per call; checkLoading twenty lines above already does this.
+    const viewDirCelestial = this._tempVec3
+        .set(0, 0, 0).sub(camera.position).normalize();
     if (celestialSphere) {
       celestialSphere.updateMatrixWorld();
-      const worldMatrix = new THREE.Matrix4().copy(celestialSphere.matrixWorld);
-      const inverseMatrix = new THREE.Matrix4().copy(worldMatrix).invert();
-      const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-      viewDirCelestial.applyMatrix3(rotationMatrix);
+      this._tempMatrix4.copy(celestialSphere.matrixWorld);
+      this._tempMatrix4B.copy(this._tempMatrix4).invert();
+      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
+      viewDirCelestial.applyMatrix3(this._tempMatrix3);
     }
     const viewRaDec = cartesianToRaDec(viewDirCelestial.x, viewDirCelestial.y, viewDirCelestial.z);
 
@@ -452,83 +469,13 @@ export class DynamicObjectManager {
     });
 
     this.dynamicStarField = new THREE.Points(geometry, material);
+    freezeTransform(this.dynamicStarField);
     celestialSphere?.add(this.dynamicStarField);
 
     const statusEl = domCache.dynamicStarsCount;
     if (statusEl) statusEl.textContent = String(this.dynamicStars.length);
 
     logger.debug(`Dynamic star field: ${this.dynamicStars.length} stars`);
-  }
-
-  /**
-   * Rebuild dynamic star field with magnitude filtering.
-   * @param {number} magLimit - Magnitude limit for visibility
-   */
-  rebuildWithMagnitude(magLimit) {
-    const celestialSphere = this.callbacks_.getCelestialSphere();
-
-    // Remove old field
-    if (this.dynamicStarField) {
-      if (this.dynamicStarField.geometry) this.dynamicStarField.geometry.dispose();
-      if (this.dynamicStarField.material) this.dynamicStarField.material.dispose();
-      celestialSphere?.remove(this.dynamicStarField);
-    }
-
-    if (this.dynamicStars.length === 0) {
-      this.dynamicStarField = null;
-      const statusEl = domCache.dynamicStarsCount;
-      if (statusEl) statusEl.textContent = '0';
-      return;
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    const positions = [];
-    const colors = [];
-    const sizes = [];
-    const magnitudes = [];
-    const radius = SPHERE.RADIUS;
-
-    const starFieldRenderer = this.callbacks_.getStarFieldRenderer();
-    this.visibleDynamicStarIndices = [];
-
-    this.dynamicStars.forEach((star, originalIndex) => {
-      this.visibleDynamicStarIndices.push(originalIndex);
-
-      const pos = raDecToCartesian(star.ra, star.dec, radius);
-      positions.push(pos.x, pos.y, pos.z);
-
-      const color = starFieldRenderer.spectralTypeToColor(null, star.ci);
-      colors.push(color[0], color[1], color[2]);
-
-      const size = magnitudeToSize(star.mag);
-      sizes.push(size);
-
-      magnitudes.push(star.mag);
-    });
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
-    geometry.setAttribute('magnitude', new THREE.Float32BufferAttribute(magnitudes, 1));
-
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        opacity: { value: 0.9 },
-        magLimit: { value: magLimit },
-        magFadeRange: { value: 1.5 }
-      },
-      vertexShader: SHADERS.VERTEX,
-      fragmentShader: SHADERS.FRAGMENT,
-      transparent: true,
-      vertexColors: true,
-      depthWrite: false
-    });
-
-    this.dynamicStarField = new THREE.Points(geometry, material);
-    celestialSphere?.add(this.dynamicStarField);
-
-    const statusEl = domCache.dynamicStarsCount;
-    if (statusEl) statusEl.textContent = String(this.dynamicStars.length);
   }
 
   /* ======================================================================
@@ -550,16 +497,14 @@ export class DynamicObjectManager {
     // the whole accumulated list for each incoming DSO.
     const key = (ra, dec) => `${Math.round(ra * 100)}:${Math.round(dec * 100)}`;
     const seen = new Set(this.dynamicDSOs.map((d) => key(d.ra, d.dec)));
+    // DynamicDataLoader.parseVOTableDSOs_ yields objects, not positional rows,
+    // and already resolves the catalog designation into `name`.
     dsoData.forEach(row => {
-      const ra = parseFloat(row[0]);
-      const dec = parseFloat(row[1]);
-      const mag = parseFloat(row[2]) || 12;
-      const sizeMajor = parseFloat(row[3]) || 1;
-      const sizeMinor = parseFloat(row[4]) || sizeMajor;
-      const ngc = row[5];
-      const ic = row[6];
-      const name = row[7];
-      const type = row[8];
+      const ra = parseFloat(row.ra);
+      const dec = parseFloat(row.dec);
+      const mag = parseFloat(row.mag) || 12;
+      const sizeMajor = parseFloat(row.size_major) || 1;
+      const sizeMinor = parseFloat(row.size_minor) || sizeMajor;
 
       if (isNaN(ra) || isNaN(dec)) return;
 
@@ -571,8 +516,8 @@ export class DynamicObjectManager {
         ra, dec, mag,
         size_major: sizeMajor,
         size_minor: sizeMinor,
-        name: ngc ? `NGC ${ngc}` : (ic ? `IC ${ic}` : name),
-        type: type || 'DSO'
+        name: row.name,
+        type: row.type || 'DSO'
       });
     });
 
@@ -624,7 +569,7 @@ export class DynamicObjectManager {
       .filter((s) => s.userData?.isDynamic && removedSet.has(s.userData.dso))
       .forEach((sprite) => {
         if (sprite.material) {
-          if (sprite.material.map) sprite.material.map.dispose();
+          disposeSpriteTexture(sprite);
           sprite.material.dispose();
         }
         celestialSphere?.remove(sprite);
@@ -640,65 +585,12 @@ export class DynamicObjectManager {
    * @private
    */
   createDynamicDSOSprite_(dso, radius, celestialSphere) {
-    const pos = raDecToCartesian(dso.ra, dso.dec, radius);
-    const mag = dso.mag || 10;
-    const magIntensity = clamp((10 - mag) / 24, 0.02, 0.25);
-
-    // Create halo texture
-    const canvas = document.createElement('canvas');
-    const size = 64;
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-
-    const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-
-    // Color based on type
-    let r, g, b;
-    if (dso.type && (dso.type.includes('Gx') || dso.type.includes('G'))) {
-      r = 255; g = 240; b = 200;  // Galaxy - yellowish
-    } else if (dso.type && (dso.type.includes('Nb') || dso.type.includes('PN'))) {
-      r = 200; g = 255; b = 220;  // Nebula - greenish
-    } else {
-      r = 200; g = 220; b = 255;  // Default - pale blue
-    }
-
-    const color1 = `rgba(${r}, ${g}, ${b}, ${magIntensity})`;
-    const color2 = `rgba(${r}, ${g}, ${b}, 0)`;
-
-    gradient.addColorStop(0, color1);
-    gradient.addColorStop(0.7, color2);
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
-    ctx.fill();
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const baseOpacity = clamp((10 - mag) / 10, 0.1, 0.6);
-    const material = new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      opacity: baseOpacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+    const sprite = createHaloSprite(dso, radius, {
+      magnitudeLimit: this.callbacks_.getMagnitude?.() ?? 12,
+      isDynamic: true,
     });
 
-    const sprite = new THREE.Sprite(material);
-    sprite.position.copy(pos);
-    sprite.renderOrder = 5;
-
-    sprite.userData = {
-      dso: dso,
-      angularSizeArcmin: dso.size_major,
-      baseOpacity: baseOpacity,
-      isDynamic: true
-    };
-
-    sprite.scale.set(1, 1, 1);
-
-    // Add to tracking array
+    // Its owner tracks these separately so it can dispose only its own.
     const addSprite = this.callbacks_.addExtendedSprite;
     if (addSprite) addSprite(sprite);
 

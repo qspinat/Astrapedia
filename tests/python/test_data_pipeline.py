@@ -1,10 +1,20 @@
 """
-Tests for data_pipeline.py supplementary Messier object injection.
+Tests for data_pipeline.py catalog processing.
 """
 
+import json
+from pathlib import Path
+
+import pandas as pd
 import pytest
 
 from astrapedia.astronomy import inject_supplementary_objects
+from astrapedia.config import Config
+from data_pipeline import (
+    _stars_from_dataframe,
+    download_catalog,
+    normalize_common_names,
+)
 
 
 class TestInjectSupplementaryObjects:
@@ -214,3 +224,128 @@ class TestSupplementaryMessierDataIntegrity:
             for name in obj['common_names']:
                 assert isinstance(name, str)
                 assert len(name) > 0
+
+
+class TestSunExclusion:
+    """The Sun must not ship as a catalogued star."""
+
+    def test_drops_the_hyg_sun_row(self):
+        """HYG row id 0 is the Sun, with placeholder RA/Dec of 0/0 and
+        magnitude -26.7. It passes any magnitude filter, so it has to be
+        removed explicitly or it renders as a star at the vernal equinox."""
+        df = pd.DataFrame({
+            "id": [0, 32349, 30438],
+            "hip": [None, 32349, 30438],
+            "hd": [None, 48915, 45348],
+            "hr": [None, 2491, 2326],
+            "gl": [None, "Gl 244A", None],
+            "proper": ["Sol", "Sirius", "Canopus"],
+            "ra": [0.0, 6.752, 6.399],
+            "dec": [0.0, -16.716, -52.696],
+            "mag": [-26.7, -1.44, -0.62],
+            "absmag": [4.85, 1.45, -5.53],
+            "spect": ["G2V", "A0m...", "A9II"],
+            "dist": [0.0, 2.64, 95.88],
+            "ci": [0.656, 0.009, 0.164],
+        })
+
+        stars = _stars_from_dataframe(df[df["id"] != 0])
+
+        assert [s["proper"] for s in stars] == ["Sirius", "Canopus"]
+        assert all(s["id"] != 0 for s in stars)
+
+    def test_shipped_catalog_contains_no_sun(self):
+        """Guards the generated files themselves, not just the filter."""
+        data_dir = Path(__file__).resolve().parents[2] / "data"
+        for name in ("stars_bright.json", "stars_medium.json"):
+            path = data_dir / name
+            if not path.exists():
+                continue
+            stars = json.loads(path.read_text())
+            assert not [s for s in stars if s.get("id") == 0], (
+                f"{name} still contains the HYG Sun row"
+            )
+            assert not [s for s in stars if s.get("proper") == "Sol"], (
+                f"{name} still contains a star named Sol"
+            )
+
+
+class TestCommonNamesShape:
+    """common_names ships as one type, so consumers need no type test."""
+
+    def test_shipped_catalog_uses_only_strings(self):
+        """OpenNGC rows carry a comma-joined string. The hand-injected
+        Messier objects are written as lists for readability and are joined on
+        the way out; emitting both shapes made five separate JS call sites
+        branch on Array.isArray for the sake of three records."""
+        path = Path(__file__).resolve().parents[2] / "data" / "deep_sky_objects.json"
+        if not path.exists():
+            pytest.skip("generated catalog not present")
+
+        objects = json.loads(path.read_text())
+        offenders = [
+            o["name"] for o in objects
+            if o.get("common_names") is not None
+            and not isinstance(o["common_names"], str)
+        ]
+
+        assert offenders == [], f"common_names is not a string for: {offenders}"
+
+    def test_joins_list_valued_names(self):
+        objects = [{"messier": 45, "common_names": ["Pleiades", "Subaru"]}]
+
+        normalize_common_names(objects)
+
+        assert objects[0]["common_names"] == "Pleiades, Subaru"
+
+    def test_leaves_strings_and_absent_values_alone(self):
+        objects = [
+            {"common_names": "Helix Nebula"},
+            {"common_names": None},
+            {},
+        ]
+
+        normalize_common_names(objects)
+
+        assert objects[0]["common_names"] == "Helix Nebula"
+        assert objects[1]["common_names"] is None
+        assert "common_names" not in objects[2]
+
+
+class TestChecksumHandling:
+    """A checksum mismatch warns; it does not destroy the catalog."""
+
+    def test_keeps_a_file_whose_checksum_does_not_match(self, tmp_path,
+                                                        monkeypatch):
+        """Both pinned hashes are snapshots of catalogs served from moving
+        refs -- HYG's CURRENT/, OpenNGC's master/ -- so upstream publishing a
+        routine update is the expected cause of a mismatch. Deleting the file
+        and returning None made the pipeline abort that stage on every run,
+        re-downloading and re-deleting, until someone edited the hash by
+        hand."""
+        catalog = tmp_path / "catalog.csv"
+        catalog.write_text("id,ra,dec\n1,0,0\n")
+        monkeypatch.setattr(Config, "get_data_path", lambda name: catalog)
+        monkeypatch.setattr(
+            Config, "verify_checksum",
+            lambda data, name, warn_only=True: False,
+        )
+
+        result = download_catalog("http://example.invalid/x", "catalog.csv",
+                                  catalog_name="hyg")
+
+        assert result == catalog, "a mismatch must not fail the stage"
+        assert catalog.exists(), "a mismatch must not delete the catalog"
+
+    def test_returns_the_path_when_the_checksum_matches(self, tmp_path,
+                                                        monkeypatch):
+        catalog = tmp_path / "catalog.csv"
+        catalog.write_text("id,ra,dec\n1,0,0\n")
+        monkeypatch.setattr(Config, "get_data_path", lambda name: catalog)
+        monkeypatch.setattr(
+            Config, "verify_checksum",
+            lambda data, name, warn_only=True: True,
+        )
+
+        assert download_catalog("http://example.invalid/x", "catalog.csv",
+                                catalog_name="hyg") == catalog

@@ -6,6 +6,7 @@
 
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {createLogger} from '../core/Logger.js';
+import {freezeTransform} from './SceneUtils.js';
 
 const logger = createLogger('GridRenderer');
 
@@ -217,6 +218,7 @@ export class GridRenderer {
     // Use LineSegments - much more efficient than many Line objects
     this.gridLines_ = new THREE.LineSegments(this.gridGeometry_, this.gridMaterial_);
     this.gridLines_.visible = this.gridVisible_;
+    freezeTransform(this.gridLines_);
     this.celestialSphere_.add(this.gridLines_);
   }
 
@@ -236,6 +238,7 @@ export class GridRenderer {
     this.equatorGeometry_ = new THREE.BufferGeometry().setFromPoints(equatorPoints);
     this.equatorLine_ = new THREE.Line(this.equatorGeometry_, this.equatorMaterial_);
     this.equatorLine_.visible = this.equatorVisible_;
+    freezeTransform(this.equatorLine_);
     this.celestialSphere_.add(this.equatorLine_);
   }
 

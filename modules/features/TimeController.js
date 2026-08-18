@@ -4,7 +4,6 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {TIME} from '../core/Constants.js';
 
 /**
  * Sidereal day in seconds (23h 56m 4s).
@@ -76,18 +75,6 @@ export class TimeController {
      * @private {number}
      */
     this.lastPlanetUpdate_ = Date.now();
-
-    /**
-     * Available time speed presets.
-     * @private @const {!Array<number>}
-     */
-    this.speedPresets_ = TIME.SPEED_PRESETS;
-
-    /**
-     * Current preset index.
-     * @private {number}
-     */
-    this.currentPresetIndex_ = 0;
   }
 
   /**
@@ -96,14 +83,6 @@ export class TimeController {
    */
   getTime() {
     return new Date(this.simulationTime_);
-  }
-
-  /**
-   * Get current time speed.
-   * @returns {number} Time speed multiplier
-   */
-  getSpeed() {
-    return this.timeSpeed_;
   }
 
   /**
@@ -140,11 +119,11 @@ export class TimeController {
   }
 
   /**
-   * Reset to current real time.
+   * Get the current time speed multiplier.
+   * @returns {number} Speed multiplier; 0 when paused
    */
-  resetToNow() {
-    this.setTime(new Date());
-    this.setSpeed(0);
+  getSpeed() {
+    return this.timeSpeed_;
   }
 
   /**
@@ -175,105 +154,10 @@ export class TimeController {
   }
 
   /**
-   * Start playback at specified or current speed.
-   * @param {number=} speed - Speed to use (defaults to current or 1)
-   */
-  play(speed) {
-    const targetSpeed = speed ?? (this.timeSpeed_ || 1);
-    this.setSpeed(targetSpeed);
-  }
-
-  /**
    * Pause playback.
    */
   pause() {
     this.setSpeed(0);
-  }
-
-  /**
-   * Cycle to next speed preset.
-   */
-  nextSpeed() {
-    this.currentPresetIndex_ = (this.currentPresetIndex_ + 1) %
-      this.speedPresets_.length;
-    this.setSpeed(this.speedPresets_[this.currentPresetIndex_]);
-  }
-
-  /**
-   * Cycle to previous speed preset.
-   */
-  previousSpeed() {
-    this.currentPresetIndex_ = (this.currentPresetIndex_ - 1 +
-      this.speedPresets_.length) % this.speedPresets_.length;
-    this.setSpeed(this.speedPresets_[this.currentPresetIndex_]);
-  }
-
-  /**
-   * Speed up by factor.
-   * @param {number=} factor - Multiplier (default 2)
-   */
-  speedUp(factor = 2) {
-    const newSpeed = Math.max(1, this.timeSpeed_ * factor);
-    this.setSpeed(Math.min(newSpeed, TIME.MAX_SPEED));
-  }
-
-  /**
-   * Slow down by factor.
-   * @param {number=} factor - Divisor (default 2)
-   */
-  slowDown(factor = 2) {
-    const newSpeed = this.timeSpeed_ / factor;
-    if (newSpeed < 1) {
-      this.setSpeed(0);
-    } else {
-      this.setSpeed(newSpeed);
-    }
-  }
-
-  /**
-   * Step forward by duration.
-   * @param {number} milliseconds - Duration to step
-   */
-  stepForward(milliseconds) {
-    const newTime = new Date(this.simulationTime_.getTime() + milliseconds);
-    this.setTime(newTime);
-  }
-
-  /**
-   * Step backward by duration.
-   * @param {number} milliseconds - Duration to step back
-   */
-  stepBackward(milliseconds) {
-    const newTime = new Date(this.simulationTime_.getTime() - milliseconds);
-    this.setTime(newTime);
-  }
-
-  /**
-   * Step forward by one hour.
-   */
-  stepHour() {
-    this.stepForward(3600000);
-  }
-
-  /**
-   * Step forward by one day.
-   */
-  stepDay() {
-    this.stepForward(86400000);
-  }
-
-  /**
-   * Step forward by one week.
-   */
-  stepWeek() {
-    this.stepForward(604800000);
-  }
-
-  /**
-   * Step forward by one month (30 days).
-   */
-  stepMonth() {
-    this.stepForward(2592000000);
   }
 
   /**
@@ -381,146 +265,9 @@ export class TimeController {
   }
 
   /**
-   * Get formatted time string.
-   * @param {string=} format - Format type ('full', 'date', 'time')
-   * @returns {string} Formatted time string
-   */
-  getFormattedTime(format = 'full') {
-    const date = this.simulationTime_;
-
-    switch (format) {
-      case 'date':
-        return date.toLocaleDateString();
-      case 'time':
-        return date.toLocaleTimeString();
-      case 'iso':
-        return date.toISOString();
-      case 'short':
-        return date.toLocaleString(undefined, {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-      case 'full':
-      default:
-        return date.toLocaleString();
-    }
-  }
-
-  /**
-   * Get time of day category.
-   * @returns {string} 'day', 'night', 'dawn', or 'dusk'
-   */
-  getTimeOfDay() {
-    const hour = this.simulationTime_.getHours();
-
-    if (hour >= 6 && hour < 8) {
-      return 'dawn';
-    } else if (hour >= 8 && hour < 18) {
-      return 'day';
-    } else if (hour >= 18 && hour < 20) {
-      return 'dusk';
-    } else {
-      return 'night';
-    }
-  }
-
-  /**
-   * Check if it's currently nighttime.
-   * @returns {boolean} True if nighttime
-   */
-  isNight() {
-    const timeOfDay = this.getTimeOfDay();
-    return timeOfDay === 'night' || timeOfDay === 'dusk' || timeOfDay === 'dawn';
-  }
-
-  /**
-   * Get Julian Date for current simulation time.
-   * @returns {number} Julian Date
-   */
-  getJulianDate() {
-    const date = this.simulationTime_;
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth() + 1;
-    const day = date.getUTCDate();
-    const hour = date.getUTCHours();
-    const minute = date.getUTCMinutes();
-    const second = date.getUTCSeconds();
-
-    const y = month <= 2 ? year - 1 : year;
-    const m = month <= 2 ? month + 12 : month;
-
-    const A = Math.floor(y / 100);
-    const B = 2 - A + Math.floor(A / 4);
-
-    return Math.floor(365.25 * (y + 4716)) +
-      Math.floor(30.6001 * (m + 1)) +
-      day + B - 1524.5 +
-      (hour + minute / 60 + second / 3600) / 24;
-  }
-
-  /**
-   * Set time from Julian Date.
-   * @param {number} jd - Julian Date
-   */
-  setFromJulianDate(jd) {
-    const z = Math.floor(jd + 0.5);
-    const f = jd + 0.5 - z;
-
-    let a;
-    if (z < 2299161) {
-      a = z;
-    } else {
-      const alpha = Math.floor((z - 1867216.25) / 36524.25);
-      a = z + 1 + alpha - Math.floor(alpha / 4);
-    }
-
-    const b = a + 1524;
-    const c = Math.floor((b - 122.1) / 365.25);
-    const d = Math.floor(365.25 * c);
-    const e = Math.floor((b - d) / 30.6001);
-
-    const day = b - d - Math.floor(30.6001 * e) + f;
-    const month = e < 14 ? e - 1 : e - 13;
-    const year = month > 2 ? c - 4716 : c - 4715;
-
-    const dayFrac = day % 1;
-    const hours = dayFrac * 24;
-    const hourInt = Math.floor(hours);
-    const minutes = (hours - hourInt) * 60;
-    const minuteInt = Math.floor(minutes);
-    const seconds = (minutes - minuteInt) * 60;
-
-    const date = new Date(Date.UTC(
-      year, month - 1, Math.floor(day),
-      hourInt, minuteInt, Math.floor(seconds)
-    ));
-
-    this.setTime(date);
-  }
-
-  /**
    * Dispose of resources.
    */
   dispose() {
     this.pause();
   }
-}
-
-/**
- * Singleton instance for application-wide time control.
- * Note: Must be initialized with dependencies before use.
- * @type {?TimeController}
- */
-export let timeController = null;
-
-/**
- * Initialize the time controller singleton.
- * @param {!Object} dependencies - Required dependencies
- * @returns {!TimeController} Initialized controller
- */
-export function initializeTimeController(dependencies) {
-  timeController = new TimeController(dependencies);
-  return timeController;
 }

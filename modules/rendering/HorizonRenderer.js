@@ -5,6 +5,7 @@
 
 import {CAMERA} from '../core/Constants.js';
 import {createLogger} from '../core/Logger.js';
+import {freezeTransform} from './SceneUtils.js';
 
 const logger = createLogger('HorizonRenderer');
 
@@ -116,6 +117,7 @@ export class HorizonRenderer {
     horizonGroup.add(horizonCircle);
 
     this.horizonGroup_ = horizonGroup;
+    freezeTransform(this.horizonGroup_);
     this.scene_.add(this.horizonGroup_);
 
     logger.info('Created local horizon line');

@@ -74,48 +74,6 @@ export const STARS = {
 };
 
 /**
- * DSO (Deep Sky Object) type colors for rendering.
- * Each color is an RGB array with values 0-1.
- * @const {!Object<string, !Array<number>>}
- */
-export const DSO_COLORS = {
-  /** Default color for unknown types. */
-  DEFAULT: [0.5, 0.8, 1.0],
-  /** Galaxy color (yellowish). */
-  G: [1.0, 0.9, 0.6],
-  /** Planetary nebula color (greenish). */
-  PN: [0.6, 1.0, 0.6],
-  /** Nebula types (pinkish). */
-  Neb: [1.0, 0.6, 0.8],
-  'Cl+N': [1.0, 0.6, 0.8],
-  EmN: [1.0, 0.6, 0.8],
-  HII: [1.0, 0.6, 0.8],
-  /** Globular cluster color (pale yellow). */
-  GCl: [1.0, 1.0, 0.8],
-  /** Open cluster color (pale blue). */
-  OCl: [0.8, 0.9, 1.0],
-};
-
-/**
- * Grid line configuration.
- * @const {!Object}
- */
-export const GRID = {
-  /** Spacing between RA lines in degrees. */
-  RA_SPACING: 15,
-  /** Spacing between Dec lines in degrees. */
-  DEC_SPACING: 15,
-  /** Color for grid lines (hex). */
-  LINE_COLOR: 0x1a2535,
-  /** Opacity for grid lines. */
-  LINE_OPACITY: 0.2,
-  /** Color for equatorial line (hex). */
-  EQUATOR_COLOR: 0xcc5530,
-  /** Opacity for equatorial line. */
-  EQUATOR_OPACITY: 0.5,
-};
-
-/**
  * Constellation line configuration.
  * @const {!Object}
  */
@@ -138,25 +96,6 @@ export const CONSTELLATIONS = {
   FOCUS_RADIUS: 40,
   /** Per-frame opacity interpolation speed (~0.5s fade). */
   FOCUS_LERP_SPEED: 0.08,
-};
-
-/**
- * Horizon and cardinal direction configuration.
- * @const {!Object}
- */
-export const HORIZON = {
-  /** Color for local horizon line (hex). */
-  LINE_COLOR: 0x22c55e,
-  /** Opacity for horizon line. */
-  LINE_OPACITY: 0.9,
-  /** Number of segments for horizon circle. */
-  SEGMENTS: 128,
-  /** Font for cardinal labels. */
-  LABEL_FONT: 'bold 80px Arial',
-  /** Color for cardinal labels (CSS). */
-  LABEL_COLOR: '#22C55E',
-  /** Base scale for cardinal label sprites. */
-  LABEL_SCALE: 10,
 };
 
 /**
@@ -193,53 +132,6 @@ export const DYNAMIC_DATA = {
   LOAD_FOV_THRESHOLD: 10,
   /** Minimum time between dynamic queries (ms). */
   QUERY_THROTTLE: 2000,
-};
-
-/**
- * Image loading and caching configuration.
- * @const {!Object}
- */
-export const IMAGES = {
-  /** Maximum number of cached images. */
-  MAX_CACHE_SIZE: 200,
-  /** Screen fill percentage to show image. */
-  SHOW_THRESHOLD: 0.5,
-  /** Screen fill percentage to hide image (too zoomed). */
-  HIDE_THRESHOLD: 1.0,
-  /** Timeout for image fetch requests (ms). */
-  FETCH_TIMEOUT: 10000,
-  /** Maximum retries for failed image loads. */
-  MAX_RETRIES: 2,
-};
-
-/**
- * Game mode configuration.
- * @const {!Object}
- */
-export const GAME = {
-  /** Points awarded for correct answer. */
-  CORRECT_POINTS: 10,
-  /** Bonus points for quick answer. */
-  SPEED_BONUS: 5,
-  /** Time threshold for speed bonus (seconds). */
-  SPEED_THRESHOLD: 10,
-  /** Tolerance for object selection (degrees). */
-  SELECTION_TOLERANCE: 5,
-};
-
-/**
- * UI update intervals and throttling.
- * @const {!Object}
- */
-export const THROTTLE = {
-  /** Interval for image visibility updates (ms). */
-  IMAGE_VISIBILITY: 100,
-  /** Interval for extended object updates (ms). */
-  EXTENDED_OBJECTS: 200,
-  /** Interval for dynamic loading checks (ms). */
-  DYNAMIC_CHECK: 500,
-  /** Interval for info badge updates (ms). */
-  INFO_BADGE: 2000,
 };
 
 /**
@@ -333,17 +225,6 @@ export const SHADERS = {
 };
 
 /**
- * Cardinal directions with azimuth angles.
- * @const {!Array<!Object>}
- */
-export const CARDINAL_DIRECTIONS = [
-  {name: 'N', az: 0},
-  {name: 'W', az: 90},
-  {name: 'S', az: 180},
-  {name: 'E', az: 270},
-];
-
-/**
  * API endpoints for external data sources.
  * @const {!Object}
  */
@@ -353,15 +234,6 @@ export const API_ENDPOINTS = {
   NASA_IMAGES: 'https://images-api.nasa.gov/search',
   WIKIMEDIA: 'https://commons.wikimedia.org/w/api.php',
   CDS_HIPS: 'https://alasky.cds.unistra.fr/hips-image-services/hips2fits',
-};
-
-/**
- * Image source base URLs.
- * @const {!Object}
- */
-export const IMAGE_SOURCES = {
-  WEBB: 'https://cdn.esawebb.org/archives/images/screen/',
-  HUBBLE: 'https://cdn.esahubble.org/archives/images/screen/',
 };
 
 /**

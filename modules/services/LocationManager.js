@@ -5,7 +5,10 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {DEFAULT_LOCATION} from '../core/Constants.js';
-import {calculateLST as computeLST} from '../core/CoordinateUtils.js';
+import {
+  calculateAltitude as computeAltitude,
+  calculateLST as computeLST,
+} from '../core/CoordinateUtils.js';
 import {createLogger} from '../core/Logger.js';
 
 const logger = createLogger('LocationManager');
@@ -264,17 +267,8 @@ export class LocationManager {
    * @returns {number} Altitude in degrees
    */
   calculateAltitude(ra, dec, date) {
-    const lst = this.calculateLST(date);
-    const ha = lst - ra; // Hour angle
-
-    const latRad = this.location_.lat * Math.PI / 180;
-    const decRad = dec * Math.PI / 180;
-    const haRad = ha * Math.PI / 180;
-
-    const sinAlt = Math.sin(latRad) * Math.sin(decRad) +
-                   Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
-
-    return Math.asin(sinAlt) * 180 / Math.PI;
+    return computeAltitude(ra, dec, this.location_.lat,
+        this.calculateLST(date));
   }
 
   /**

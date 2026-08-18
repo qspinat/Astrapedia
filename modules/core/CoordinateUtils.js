@@ -89,32 +89,6 @@ export const angularDistance = (ra1, dec1, ra2, dec2) => {
 };
 
 /**
- * Convert world coordinates to celestial direction.
- * Transforms from Three.js world space to celestial RA/Dec.
- * @param {!THREE.Vector3} worldPos - Position in world coordinates
- * @param {?THREE.Object3D} celestialSphere - The celestial sphere object
- * @returns {{ra: number, dec: number}} RA/Dec in degrees
- */
-export const worldToCelestialDirection = (worldPos, celestialSphere) => {
-  // Direction from origin to position in world coordinates
-  const dir = worldPos.clone().normalize();
-
-  // Transform to celestial coordinates by applying inverse of
-  // celestialSphere's transformation
-  const celestialDir = dir.clone();
-  if (celestialSphere) {
-    celestialSphere.updateMatrixWorld();
-    const inverseMatrix = new THREE.Matrix4()
-        .copy(celestialSphere.matrixWorld)
-        .invert();
-    const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-    celestialDir.applyMatrix3(rotationMatrix);
-  }
-
-  return cartesianToRaDec(celestialDir.x, celestialDir.y, celestialDir.z);
-};
-
-/**
  * Format an angle with appropriate precision (degrees, arcminutes, arcseconds).
  * @param {number} degrees - Angle in degrees
  * @returns {string} Formatted angle string
@@ -214,6 +188,31 @@ export const calculateLST = (date, longitude) => {
   const lst = lstMod < 0 ? lstMod + 360 : lstMod;
 
   return lst;
+};
+
+/**
+ * Calculate the altitude of an object above the horizon.
+ *
+ * The canonical implementation: the stateful wrappers in AstronomyCalculator,
+ * LocationManager and VisibilityCalculator all resolve to this, so a change
+ * here (atmospheric refraction, a horizon offset) applies everywhere rather
+ * than to whichever copy the caller happened to reach.
+ *
+ * @param {number} ra - Right ascension in degrees
+ * @param {number} dec - Declination in degrees
+ * @param {number} lat - Observer latitude in degrees
+ * @param {number} lst - Local sidereal time in degrees
+ * @returns {number} Altitude in degrees, -90 to 90
+ */
+export const calculateAltitude = (ra, dec, lat, lst) => {
+  const latRad = lat * Math.PI / 180;
+  const decRad = dec * Math.PI / 180;
+  const haRad = (lst - ra) * Math.PI / 180;
+
+  const sinAlt = Math.sin(latRad) * Math.sin(decRad) +
+    Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
+
+  return Math.asin(sinAlt) * 180 / Math.PI;
 };
 
 /**

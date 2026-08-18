@@ -46,13 +46,93 @@ def download_catalog(
     elif not download_file(url, filepath, show_progress=True):
         return None
 
-    # Verify integrity: warns on mismatch, no-op when no checksum is configured.
-    # Runs on the reused file too, so a previously corrupted catalog is caught.
+    # Verify integrity: no-op when no checksum is configured. Runs on the
+    # reused file too, so a previously corrupted catalog is reported.
+    #
+    # A mismatch warns but does not abort, matching verify_checksum's
+    # warn_only default. The pinned hashes are a snapshot of catalogs served
+    # from moving refs (HYG's CURRENT/, OpenNGC's master/), so upstream
+    # publishing a routine update is the *expected* cause of a mismatch.
+    # Failing here would delete a perfectly good download and abort the stage
+    # on every run until someone hand-edited the hash.
+    #
+    # Truncated downloads — the realistic corruption mode — are caught by
+    # download_file's Content-Length check before the file is ever committed
+    # to its final path.
     if catalog_name:
         Config.verify_checksum(filepath.read_bytes(), catalog_name)
 
     return filepath
 
+
+def normalize_common_names(objects: list[dict]) -> list[dict]:
+    """Collapse list-valued common_names to the comma-joined string form.
+
+    OpenNGC rows already carry a single string. The supplementary Messier
+    objects are written as lists because that reads better in source, but
+    emitting both shapes forced every consumer to branch on the type -- five
+    JavaScript call sites did, for the sake of three records out of 1,772.
+
+    Args:
+        objects: Records to normalize, modified in place.
+
+    Returns:
+        The same list, for convenience.
+    """
+    for obj in objects:
+        names = obj.get("common_names")
+        if isinstance(names, list):
+            obj["common_names"] = ", ".join(names)
+    return objects
+
+
+# Star record fields, in the order they appear in the JSON output.
+_STAR_INT_COLUMNS = ("id", "hip", "hd", "hr")
+_STAR_FLOAT_COLUMNS = ("absmag", "dist", "ci")
+_STAR_STRING_COLUMNS = ("gl", "proper", "spect")
+_STAR_FIELD_ORDER = (
+    "id", "hip", "hd", "hr", "gl", "proper",
+    "ra", "dec", "mag", "absmag", "spect", "dist", "ci",
+)
+
+
+def _stars_from_dataframe(df: pd.DataFrame) -> list[dict]:
+    """
+    Convert filtered HYG rows into star records.
+
+    Works column by column so pandas does the per-row work in C. Missing
+    values become None rather than NaN, which json.dump would otherwise emit
+    as a bare NaN token that JSON.parse rejects.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        Magnitude-filtered HYG rows
+
+    Returns:
+    --------
+    list of dict : Star records in JSON field order
+    """
+    columns: dict[str, list] = {}
+
+    for name in _STAR_INT_COLUMNS:
+        values = pd.to_numeric(df[name], errors="coerce")
+        columns[name] = [int(v) if pd.notna(v) else None for v in values]
+
+    for name in _STAR_FLOAT_COLUMNS:
+        values = pd.to_numeric(df[name], errors="coerce")
+        columns[name] = [float(v) if pd.notna(v) else None for v in values]
+
+    for name in _STAR_STRING_COLUMNS:
+        columns[name] = [v if pd.notna(v) else None for v in df[name]]
+
+    # RA is stored in hours in the catalog and degrees in our output.
+    columns["ra"] = (df["ra"].astype(float) * Config.HOURS_TO_DEGREES).tolist()
+    columns["dec"] = df["dec"].astype(float).tolist()
+    columns["mag"] = df["mag"].astype(float).tolist()
+
+    ordered = [columns[name] for name in _STAR_FIELD_ORDER]
+    return [dict(zip(_STAR_FIELD_ORDER, values)) for values in zip(*ordered)]
 
 def process_hyg_stars(
     max_magnitude: float = Config.MAX_MAGNITUDE_LIMIT,
@@ -70,38 +150,44 @@ def process_hyg_stars(
     print(f"  Reading {hyg_file.name}...")
     df = pd.read_csv(hyg_file)
 
+    # Drop the Sun. HYG carries it as row id 0 with placeholder coordinates
+    # (RA 0, Dec 0, distance 0) and magnitude -26.7, so the magnitude filter
+    # keeps it and it ships as a catalogued star: a permanent max-brightness
+    # point at the vernal equinox, and a "Sol" search result that flies the
+    # camera there. The real Sun is drawn from ephemeris by PlanetRenderer.
+    df = df[df["id"] != 0]
+
     # Filter by magnitude
     df_filtered = df[df["mag"] <= max_magnitude].copy()
     print(f"  Filtered {len(df_filtered)} stars (magnitude <= {max_magnitude})")
 
-    # Create star data structure
-    stars = []
-    for _, row in df_filtered.iterrows():
-        star = {
-            "id": int(row["id"]),
-            "hip": int(row["hip"]) if pd.notna(row["hip"]) else None,
-            "hd": int(row["hd"]) if pd.notna(row["hd"]) else None,
-            "hr": int(row["hr"]) if pd.notna(row["hr"]) else None,
-            "gl": row["gl"] if pd.notna(row["gl"]) else None,
-            "proper": row["proper"] if pd.notna(row["proper"]) else None,
-            "ra": float(row["ra"]) * Config.HOURS_TO_DEGREES,
-            "dec": float(row["dec"]),
-            "mag": float(row["mag"]),
-            "absmag": float(row["absmag"]) if pd.notna(row["absmag"]) else None,
-            "spect": row["spect"] if pd.notna(row["spect"]) else None,
-            "dist": float(row["dist"]) if pd.notna(row["dist"]) else None,
-            "ci": float(row["ci"]) if pd.notna(row["ci"]) else None,
-        }
-        stars.append(star)
+    # Build the records column-wise. iterrows() materialises a Series per row
+    # and ran ~12 scalar pd.notna() calls on each, which over 118,000 rows is
+    # about 1.4 million pandas calls; this is the same output an order of
+    # magnitude faster.
+    stars = _stars_from_dataframe(df_filtered)
 
-    # Create magnitude bins for statistics
+    # Magnitude bins in a single pass rather than five list comprehensions
+    # over the whole catalog.
     magnitude_bins = {
-        "very_bright": len([s for s in stars if s["mag"] <= 2.0]),
-        "bright": len([s for s in stars if 2.0 < s["mag"] <= 4.0]),
-        "visible": len([s for s in stars if 4.0 < s["mag"] <= 6.0]),
-        "faint": len([s for s in stars if 6.0 < s["mag"] <= 8.0]),
-        "very_faint": len([s for s in stars if s["mag"] > 8.0]),
+        "very_bright": 0,
+        "bright": 0,
+        "visible": 0,
+        "faint": 0,
+        "very_faint": 0,
     }
+    for star in stars:
+        mag = star["mag"]
+        if mag <= 2.0:
+            magnitude_bins["very_bright"] += 1
+        elif mag <= 4.0:
+            magnitude_bins["bright"] += 1
+        elif mag <= 6.0:
+            magnitude_bins["visible"] += 1
+        elif mag <= 8.0:
+            magnitude_bins["faint"] += 1
+        else:
+            magnitude_bins["very_faint"] += 1
 
     print("  Stars by brightness:")
     for category, count in magnitude_bins.items():
@@ -174,6 +260,15 @@ def process_constellation_lines() -> dict | None:
                         continue
 
     print(f"  Loaded {len(constellations)} constellations")
+
+    # Never overwrite a good file with an empty parse. A download can succeed
+    # and still be unparseable — an upstream format change, or a captive
+    # portal returning HTML with a 200 — and this catalog is fetched without a
+    # catalog_name, so no checksum guards it. Writing {} here would leave the
+    # app with no constellation lines at all.
+    if not constellations:
+        print("  Parsed no constellations; keeping the existing file")
+        return None
 
     # Save to JSON (compact to reduce file size and diff noise)
     output_file = Config.get_data_path("constellations.json")
@@ -274,14 +369,15 @@ def process_deep_sky_objects() -> dict | None:
         },
     ]
 
-    # Inject supplementary Messier objects
+    normalize_common_names(supplementary_messier)
+
     dso_list, added = inject_supplementary_objects(
         dso_list, supplementary_messier, key="messier"
     )
 
     # Log exactly which objects were added
     for supp in added:
-        print(f"  Added M{supp['messier']} ({supp['common_names'][0]})")
+        print(f"  Added M{supp['messier']} ({supp['common_names']})")
 
     print(f"  Total: {len(dso_list)} deep sky objects ({len(added)} supplementary)")
 

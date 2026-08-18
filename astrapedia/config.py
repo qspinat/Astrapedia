@@ -30,8 +30,11 @@ class CatalogSource:
 class Config:
     """Configuration constants for the Astrapedia data pipeline."""
 
-    # Base directory (relative to script location)
-    DATA_DIR = Path("data")
+    # Anchored to the repository, not the working directory. A relative
+    # Path("data") silently resolves against wherever the script happens to be
+    # run from: read_json then returns its default for every missing file and
+    # the pipeline reports "0 stars", writes an empty sky and exits 0.
+    DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
     # Output file names
     OUTPUT_FILES = {

@@ -103,7 +103,14 @@ export class SkyConditionsHandler {
    */
   setupEventSubscriptions_() {
     this.subscriptions_.push(
+      // TIME_CHANGED fires only on an explicit jump; continuous playback
+      // emits TIME_TICK. Listening to just the former left simulationTime_ at
+      // the last jump, so the moon altitude and the naked-eye limit derived
+      // from it drifted further out of date the longer playback ran.
       globalEventBus.on(Events.TIME_CHANGED, (data) => {
+        this.simulationTime_ = data.time;
+      }),
+      globalEventBus.on(Events.TIME_TICK, (data) => {
         this.simulationTime_ = data.time;
       }),
       globalEventBus.on(Events.LOCATION_CHANGED, (data) => {
@@ -217,8 +224,10 @@ export class SkyConditionsHandler {
    * @private
    */
   estimateMoonPhase_(date) {
-    // Known new moon: January 6, 2000
-    const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+    // Known new moon: 6 January 2000, 18:14 UTC. Date.UTC, not the local-time
+    // constructor — that read the instant as local, shifting the whole phase
+    // estimate by the viewer's UTC offset.
+    const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
     const lunarCycle = 29.530588853; // days
     const daysSinceNew = (date - knownNewMoon) / (1000 * 60 * 60 * 24);
     const phaseInCycle = ((daysSinceNew % lunarCycle) + lunarCycle) % lunarCycle;

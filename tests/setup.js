@@ -109,6 +109,18 @@ global.THREE = {
         origin: new global.THREE.Vector3(),
         // Default direction points to RA=0, Dec=0 (cartesian: x=1, y=0, z=0)
         direction: new global.THREE.Vector3(1, 0, 0),
+        // Real THREE.Ray exposes this; ClickHandler uses it to compare how
+        // near a click landed to a constellation line versus a star.
+        distanceToPoint(point) {
+          const ox = this.origin.x, oy = this.origin.y, oz = this.origin.z;
+          const dx = point.x - ox, dy = point.y - oy, dz = point.z - oz;
+          const t = dx * this.direction.x + dy * this.direction.y +
+              dz * this.direction.z;
+          const px = ox + this.direction.x * t;
+          const py = oy + this.direction.y * t;
+          const pz = oz + this.direction.z * t;
+          return Math.hypot(point.x - px, point.y - py, point.z - pz);
+        },
       };
       this.params = {
         Points: {threshold: 1},

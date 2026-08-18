@@ -67,7 +67,7 @@ export function calculateSunPosition(date) {
   const lambda = L + 1.915 * Math.sin(gRad) + 0.020 * Math.sin(2 * gRad);
 
   // Obliquity of the ecliptic (degrees)
-  const epsilon = 23.439 - 0.0000004 * n;
+  const epsilon = ASTRONOMY.OBLIQUITY_J2000 - 0.0000004 * n;
   const epsilonRad = degToRad(epsilon);
   const lambdaRad = degToRad(lambda);
 
@@ -137,7 +137,7 @@ export function calculateMoonPosition(date) {
   const betaRad = degToRad(beta);
 
   // Obliquity of the ecliptic
-  const epsilon = 23.439 - 0.0000004 * (jd - J2000);
+  const epsilon = ASTRONOMY.OBLIQUITY_J2000 - 0.0000004 * (jd - J2000);
   const epsilonRad = degToRad(epsilon);
 
   // Right Ascension
@@ -229,7 +229,7 @@ export function calculatePlanetPosition(planetName, date, observer = null) {
     const equator = Astronomy.Equator(body, astroDate, astroObserver, false, true);
 
     return {
-      ra: equator.ra * 15, // Convert hours to degrees
+      ra: equator.ra * ASTRONOMY.HOURS_TO_DEGREES,
       dec: equator.dec,
     };
   } catch (error) {
@@ -256,7 +256,8 @@ export function calculatePlanetPositionFallback(planetName, date) {
 
   // Approximate RA (this is very rough)
   const ra = normalizeAngle(meanAnomaly + 280);
-  const dec = Math.sin(degToRad(meanAnomaly)) * 23.4 * (1 / planet.a);
+  const dec = Math.sin(degToRad(meanAnomaly)) * ASTRONOMY.OBLIQUITY_J2000 *
+    (1 / planet.a);
 
   return {ra, dec};
 }
@@ -331,52 +332,3 @@ export const PLANET_DEFAULTS = [
     get imageUrl() { return getPlanetImageUrl('Neptune'); },
   },
 ];
-
-/**
- * Calculate all solar system positions for a given date.
- * @param {!Date} date - Date for calculation
- * @param {?{lat: number, lon: number, height: number}} observer - Observer location
- * @returns {!Array<!Object>} Array of planet data with positions
- */
-export function calculateAllSolarSystemPositions(date, observer = null) {
-  const sunPos = calculateSunPosition(date);
-  const moonPos = calculateMoonPosition(date);
-
-  const planets = [];
-
-  // Sun
-  const sunData = {...PLANET_DEFAULTS.find((p) => p.name === 'Sun')};
-  sunData.ra = sunPos.ra;
-  sunData.dec = sunPos.dec;
-  planets.push(sunData);
-
-  // Moon
-  const moonData = {...PLANET_DEFAULTS.find((p) => p.name === 'Moon')};
-  moonData.ra = moonPos.ra;
-  moonData.dec = moonPos.dec;
-  moonData.phase = moonPos.phase;
-  planets.push(moonData);
-
-  // Planets
-  const planetNames = [
-    'Mercury',
-    'Venus',
-    'Mars',
-    'Jupiter',
-    'Saturn',
-    'Uranus',
-    'Neptune',
-  ];
-
-  for (const name of planetNames) {
-    const pos = calculatePlanetPosition(name, date, observer) || {ra: 0, dec: 0};
-    const defaults = PLANET_DEFAULTS.find((p) => p.name === name);
-    planets.push({
-      ...defaults,
-      ra: pos.ra,
-      dec: pos.dec,
-    });
-  }
-
-  return planets;
-}

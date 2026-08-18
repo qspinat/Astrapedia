@@ -213,7 +213,6 @@ export class SettingsHandler {
   /**
    * Creates a new SettingsHandler instance.
    * @param {!Object} dependencies - Required dependencies
-   * @param {function(): void=} dependencies.toggleNightMode - Toggle night mode
    * @param {function(boolean): void=} dependencies.setConstellationLines - Set lines
    * @param {function(string): void=} dependencies.setConstellationLinesMode - Set mode
    * @param {function(boolean): void=} dependencies.setEquatorLineVisible - Set equator
@@ -235,6 +234,9 @@ export class SettingsHandler {
 
     /** @private {boolean} */
     this.telescopeModeActive_ = false;
+
+    /** @private {!Array<{unsubscribe: function(): void}>} */
+    this.subscriptions_ = [];
   }
 
   /**
@@ -250,24 +252,33 @@ export class SettingsHandler {
    * @private
    */
   setupTelescopeModeListeners_() {
-    globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, () => {
-      this.telescopeModeActive_ = true;
-      const magSlider = domCache.get('magnitude-slider');
-      if (magSlider) {
-        this.savedMagnitude_ = parseFloat(magSlider.value);
-        magSlider.disabled = true;
-      }
-    });
+    this.subscriptions_.push(
+      globalEventBus.on(Events.TELESCOPE_MODE_ACTIVATED, () => {
+        this.telescopeModeActive_ = true;
+        const magSlider = domCache.get('magnitude-slider');
+        if (magSlider) {
+          this.savedMagnitude_ = parseFloat(magSlider.value);
+          magSlider.disabled = true;
+        }
+      }),
+      globalEventBus.on(Events.TELESCOPE_MODE_DEACTIVATED, () => {
+        this.telescopeModeActive_ = false;
+        const magSlider = domCache.get('magnitude-slider');
+        if (magSlider) {
+          magSlider.disabled = false;
+          magSlider.value = this.savedMagnitude_;
+          this.deps_.setMagnitudeLimit?.(this.savedMagnitude_);
+        }
+      })
+    );
+  }
 
-    globalEventBus.on(Events.TELESCOPE_MODE_DEACTIVATED, () => {
-      this.telescopeModeActive_ = false;
-      const magSlider = domCache.get('magnitude-slider');
-      if (magSlider) {
-        magSlider.disabled = false;
-        magSlider.value = this.savedMagnitude_;
-        this.deps_.setMagnitudeLimit?.(this.savedMagnitude_);
-      }
-    });
+  /**
+   * Release EventBus subscriptions.
+   */
+  dispose() {
+    this.subscriptions_.forEach((sub) => sub?.unsubscribe?.());
+    this.subscriptions_ = [];
   }
 
   /**
@@ -425,6 +436,9 @@ export class InfoBadgeUpdater {
 
     /** @private {?number} */
     this.intervalId_ = null;
+
+    /** @private {!Array<{unsubscribe: function(): void}>} */
+    this.subscriptions_ = [];
   }
 
   /**
@@ -440,13 +454,22 @@ export class InfoBadgeUpdater {
    * @private
    */
   setupEventBusListeners_() {
-    globalEventBus.on(Events.FOV_CHANGED, (data) => {
-      this.updateFOVDisplay_(data.fov);
-    });
+    this.subscriptions_.push(
+      globalEventBus.on(Events.FOV_CHANGED, (data) => {
+        this.updateFOVDisplay_(data.fov);
+      }),
+      globalEventBus.on(Events.CAMERA_MOVE, () => {
+        this.updateBadges_();
+      })
+    );
+  }
 
-    globalEventBus.on(Events.CAMERA_MOVE, () => {
-      this.updateBadges_();
-    });
+  /**
+   * Release EventBus subscriptions.
+   */
+  dispose() {
+    this.subscriptions_.forEach((sub) => sub?.unsubscribe?.());
+    this.subscriptions_ = [];
   }
 
   /**
@@ -559,7 +582,6 @@ export class UIController {
     this.searchController_.initialize();
 
     this.settingsHandler_ = new SettingsHandler({
-      toggleNightMode: this.deps_.toggleNightMode,
       setConstellationLines: this.deps_.setConstellationLines,
       setConstellationLinesMode: this.deps_.setConstellationLinesMode,
       setEquatorLineVisible: this.deps_.setEquatorLineVisible,
@@ -706,6 +728,8 @@ export class UIController {
    */
   dispose() {
     this.infoBadgeUpdater_?.stop();
+    this.infoBadgeUpdater_?.dispose();
+    this.settingsHandler_?.dispose();
     this.panelManager_.dispose();
   }
 }

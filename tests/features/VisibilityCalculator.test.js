@@ -117,6 +117,82 @@ describe('VisibilityCalculator class', () => {
   });
 
   describe('getBestVisibleObjectsTonight', () => {
+    // Relocated from TourController, which used to carry its own copy of
+    // this query.
+    test('returns an array', () => {
+      expect(Array.isArray(makeCalc().getBestVisibleObjectsTonight()))
+          .toBe(true);
+    });
+
+    test('excludes the Sun and the Moon', () => {
+      const calc = makeCalc({
+        location: {lat: 0, lon: 0},
+        planets: [
+          {name: 'Sun', ra: 0, dec: 0, mag: -26},
+          {name: 'Moon', ra: 0, dec: 0, mag: -12},
+          {name: 'Mars', ra: 0, dec: 0, mag: 1},
+        ],
+      });
+
+      const names = calc.getBestVisibleObjectsTonight().map((o) => o.name);
+
+      expect(names).toContain('Mars');
+      expect(names).not.toContain('Sun');
+      expect(names).not.toContain('Moon');
+    });
+
+    test('sorts brightest first', () => {
+      const calc = makeCalc({
+        location: {lat: 0, lon: 0},
+        dsos: [
+          {name: 'NGC3', ra: 0, dec: 0, mag: 8, type: 'G'},
+          {name: 'NGC1', ra: 0, dec: 0, mag: 4, type: 'G'},
+          {name: 'NGC2', ra: 0, dec: 0, mag: 6, type: 'G'},
+        ],
+      });
+
+      const objects = calc.getBestVisibleObjectsTonight();
+
+      expect(objects.map((o) => o.mag)).toEqual([4, 6, 8]);
+    });
+
+    test('honours the object limit', () => {
+      const dsos = Array.from({length: 80}, (_, i) => (
+        {name: `NGC${i}`, ra: 0, dec: 0, mag: 1 + i / 100, type: 'G'}));
+
+      expect(makeCalc({location: {lat: 0, lon: 0}, dsos})
+          .getBestVisibleObjectsTonight(15, 10, 50)).toHaveLength(50);
+    });
+
+    // TourController and skymap.js each carried a ten-entry label table, so a
+    // type outside those ten showed a raw catalog code in one list and a full
+    // name in another. TypeMappings has thirty-odd.
+    test('labels deep sky objects with the shared type table', () => {
+      const calc = makeCalc({
+        location: {lat: 0, lon: 0},
+        dsos: [{name: 'NGC1', ra: 0, dec: 0, mag: 5, type: 'GPair'}],
+      });
+
+      const [object] = calc.getBestVisibleObjectsTonight();
+
+      expect(object.typeName).toBe('Galaxy Pair');
+      expect(object.description).toContain('Galaxy Pair');
+    });
+
+    test('carries the common names into the description', () => {
+      const calc = makeCalc({
+        location: {lat: 0, lon: 0},
+        dsos: [{
+          name: 'Mel22', ra: 0, dec: 0, mag: 1.6, type: 'OCl',
+          common_names: 'Pleiades, Seven Sisters',
+        }],
+      });
+
+      const [object] = calc.getBestVisibleObjectsTonight();
+
+      expect(object.description).toContain('(Pleiades, Seven Sisters)');
+    });
+
     test('includes a high, bright DSO and excludes a low one', () => {
       const calc = makeCalc({
         location: {lat: 0, lon: 0},
