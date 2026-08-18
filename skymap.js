@@ -56,6 +56,7 @@ import {GameController} from './modules/features/GameController.js';
 import {TimeController} from './modules/features/TimeController.js';
 import {SelectionManager} from './modules/features/SelectionManager.js';
 import {VisibilityCalculator} from './modules/features/VisibilityCalculator.js';
+import {panelManager} from './modules/ui/PanelManager.js';
 import {eventsCalendar} from './modules/features/EventsCalendar.js';
 import {locationManager} from './modules/services/LocationManager.js';
 import {CompassController} from './modules/interaction/CompassController.js';
@@ -207,7 +208,6 @@ export class AstrapediaApp {
 
     // Throttling for expensive operations
     this._lastImageVisUpdate = 0;
-    this._lastExtendedObjUpdate = 0;
     this._lastDynamicCheck = 0;
 
     // Animation loop state (synced with PowerManager via callbacks)
@@ -446,8 +446,8 @@ export class AstrapediaApp {
       showHighlight: (ra, dec, size) => this.showTourHighlight(ra, dec, size),
       hideHighlight: () => this.hideTourHighlight(),
       getImageUrl: (obj) => this.getObjectImageUrl(obj),
-      openPanel: (id) => window.openPanel?.(id),
-      closeAllPanels: () => window.closeAllPanels?.(),
+      openPanel: (id) => panelManager.open(id),
+      closeAllPanels: () => panelManager.closeAll(),
       // Constellation info callbacks
       getConstellationAbbrev: (name) => this.getConstellationAbbrev(name),
       getConstellationName: (abbrev) => this.getConstellationName(abbrev),
@@ -547,7 +547,12 @@ export class AstrapediaApp {
       getCamera: () => this.camera,
       getStarFieldRenderer: () => this.starFieldRenderer_,
       getExtendedObjectSprites: () => this.extendedObjectSprites,
-      addExtendedSprite: (sprite) => this.extendedObjectSprites.push(sprite),
+      addExtendedSprite: (sprite) => {
+        this.extendedObjectSprites.push(sprite);
+        // Newly loaded halos start at their base size; mark dirty so the next
+        // frame scales them for the current field of view.
+        this._fovDirty = true;
+      },
       removeExtendedSprite: (sprite) => {
         const idx = this.extendedObjectSprites.indexOf(sprite);
         if (idx > -1) this.extendedObjectSprites.splice(idx, 1);
@@ -1624,7 +1629,7 @@ export class AstrapediaApp {
    * Delegates to EventsCalendar module.
    */
   showEventsCalendar() {
-    eventsCalendar.showEventsCalendar(window.openPanel);
+    eventsCalendar.showEventsCalendar();
   }
 
   /* ======================================================================
@@ -1694,6 +1699,9 @@ export class AstrapediaApp {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    // Sprite sizes are derived from the canvas height, so a resize needs the
+    // same recalculation a zoom does.
+    this._fovDirty = true;
     this.requestRender();
   }
 
@@ -1939,10 +1947,13 @@ export class AstrapediaApp {
       this._lastImageVisUpdate = now;
     }
 
-    // Extended objects - throttled to every 100ms or when FOV changes
-    if (this._fovDirty || (now - this._lastExtendedObjUpdate > 100)) {
+    // Extended objects - only when something they depend on changed.
+    // updateSizes reads the field of view and the canvas height and nothing
+    // else, so the old 10Hz timer recomputed an identical result over every
+    // halo ten times a second: ~17,000 wasted iterations per second for the
+    // bundled catalog, and four times that once dynamic objects load.
+    if (this._fovDirty) {
       this.updateExtendedObjectSizes();
-      this._lastExtendedObjUpdate = now;
     }
 
     // Planet sizes - only when FOV changes

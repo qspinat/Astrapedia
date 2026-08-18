@@ -76,10 +76,7 @@ let skyConditionsHandler = null;
  * @private
  */
 function initializeUI_(appInstance) {
-  // Initialize panel manager (expose to window for skymap.js compatibility)
   panelManager.initialize();
-  window.openPanel = (panelId) => panelManager.open(panelId);
-  window.closeAllPanels = () => panelManager.closeAll();
 
   // Initialize sky conditions handler
   skyConditionsHandler = new SkyConditionsHandler();

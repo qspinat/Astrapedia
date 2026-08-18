@@ -179,6 +179,10 @@ export class ExtendedObjectRenderer {
    */
   updateSizes(fov, canvasHeight) {
     const pixelsPerDeg = canvasHeight / fov;
+    // Loop invariants: these depend only on the arguments, and the loop runs
+    // over every halo in the scene.
+    const halfFovTan = Math.tan(THREE.MathUtils.degToRad(fov / 2));
+    const worldPerPixel = (2 * this.radius_ * halfFovTan) / canvasHeight;
 
     for (const sprite of this.sprites_) {
       const userData = sprite.userData;
@@ -189,8 +193,7 @@ export class ExtendedObjectRenderer {
       const sizePixels = angularSizeDeg * pixelsPerDeg;
 
       // Convert to world units
-      const fovRad = THREE.MathUtils.degToRad(fov / 2);
-      const worldSize = (sizePixels / canvasHeight) * 2 * this.radius_ * Math.tan(fovRad);
+      const worldSize = sizePixels * worldPerPixel;
 
       // Use larger of base size or FOV-based size
       const displaySize = Math.max(userData.baseSize, worldSize);

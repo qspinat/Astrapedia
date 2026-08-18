@@ -5,6 +5,7 @@
  */
 
 import {escapeHtml} from '../core/SecurityUtils.js';
+import {panelManager} from '../ui/PanelManager.js';
 
 /**
  * Event type icons for display.
@@ -281,20 +282,16 @@ export class EventsCalendar {
    * Show events calendar in the events panel.
    * @param {function(string): void=} openPanel - Function to open panel
    */
-  showEventsCalendar(openPanel) {
+  showEventsCalendar() {
     const panel = document.getElementById('events-panel');
     if (!panel) return;
 
     const content = panel.querySelector('.panel-content');
 
-    // Open panel first with loading state
-    if (openPanel) {
-      openPanel('events-panel');
-    } else if (window.openPanel) {
-      window.openPanel('events-panel');
-    } else {
-      panel.classList.add('visible');
-    }
+    // Through the manager, not by adding the class directly: the manager also
+    // shows the backdrop, sets body.panel-open, pushes a history entry so the
+    // Android back button closes the panel, and emits PANEL_OPENED.
+    panelManager.open('events-panel');
 
     // Get events
     const events = this.getUpcomingEvents();
