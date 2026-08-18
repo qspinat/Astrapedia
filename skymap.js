@@ -366,6 +366,7 @@ export class AstrapediaApp {
       getConstellationName: (name) => this.getConstellationName(name),
       showHighlight: (ra, dec, size) => this.showTourHighlight(ra, dec, size),
       hideHighlight: () => this.hideTourHighlight(),
+      getBestVisibleObjectsTonight: () => this.getBestVisibleObjectsTonight(),
     });
   }
 
@@ -1574,26 +1575,12 @@ export class AstrapediaApp {
    */
   getBestVisibleObjectsTonight() {
     const results = this.visibilityCalculator_.getBestVisibleObjectsTonight(15, 10, 50);
-    // Enhance with custom descriptions
-    const typeDesc = {
-      'G': 'Galaxy', 'Neb': 'Nebula', 'PN': 'Planetary Nebula',
-      'EmN': 'Emission Nebula', 'HII': 'HII Region', 'RfN': 'Reflection Nebula',
-      'SNR': 'Supernova Remnant', 'GCl': 'Globular Cluster',
-      'OCl': 'Open Cluster', 'Cl+N': 'Cluster with Nebulosity'
-    };
-    return results.map(obj => {
-      if (obj.type === 'Planet') {
-        return {
-          ...obj,
-          description: `${this.getPlanetDescription(obj.name)} - Currently ${obj.altitude.toFixed(0)}° above horizon`
-        };
-      }
-      const typeName = typeDesc[obj.type] || obj.type || 'Deep Sky Object';
-      const commonName = obj.data?.common_names ? ` (${obj.data.common_names})` : '';
-      return {
-        ...obj,
-        description: `${typeName}${commonName} - Mag ${obj.mag.toFixed(1)}, Alt ${obj.altitude.toFixed(0)}°`
-      };
+    // The calculator labels deep sky objects; planets need an app-level
+    // description, which is the only thing left to add here.
+    return results.map((obj) => obj.type !== 'Planet' ? obj : {
+      ...obj,
+      description: `${this.getPlanetDescription(obj.name)} - ` +
+        `Currently ${obj.altitude.toFixed(0)}° above horizon`,
     });
   }
 

@@ -4,6 +4,7 @@
  */
 
 import {calculateAltitude} from '../core/CoordinateUtils.js';
+import {getDsoTypeName} from '../core/TypeMappings.js';
 
 // Re-exported so visibility callers can take everything from one module.
 export {calculateAltitude};
@@ -140,7 +141,11 @@ export class VisibilityCalculator {
         if (altitude > minAltitude) {
           const name = dso.messier ? `M${Math.floor(dso.messier)}` :
             (dso.name?.match(/^(NGC|IC)\d+/)?.[0] || dso.name);
-          const commonName = dso.common_names ? ` (${dso.common_names})` : '';
+          // common_names is a comma-joined string for catalog rows and an
+          // array for the hand-injected Messier objects.
+          const names = Array.isArray(dso.common_names) ?
+            dso.common_names.join(', ') : dso.common_names;
+          const commonName = names ? ` (${names})` : '';
 
           objects.push({
             name,
@@ -149,7 +154,9 @@ export class VisibilityCalculator {
             mag: dso.mag,
             altitude,
             type: dso.type || 'DSO',
-            description: `Mag ${dso.mag.toFixed(1)}, Alt ${altitude.toFixed(0)}°${commonName}`,
+            typeName: getDsoTypeName(dso.type),
+            description: `${getDsoTypeName(dso.type)}${commonName} - ` +
+              `Mag ${dso.mag.toFixed(1)}, Alt ${altitude.toFixed(0)}°`,
             data: dso,
           });
         }

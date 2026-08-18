@@ -350,40 +350,6 @@ describe('TourController', () => {
     });
   });
 
-  describe('getBestVisibleObjectsTonight', () => {
-    test('returns array of visible objects', () => {
-      const objects = controller.getBestVisibleObjectsTonight();
-      expect(Array.isArray(objects)).toBe(true);
-    });
-
-    test('excludes Sun and Moon from planets', () => {
-      mockDependencies.getPlanets.mockReturnValue([
-        {name: 'Sun', ra: 0, dec: 0, mag: -26},
-        {name: 'Moon', ra: 10, dec: 5, mag: -12},
-        ...mockPlanets,
-      ]);
-
-      const objects = controller.getBestVisibleObjectsTonight();
-      const names = objects.map((o) => o.name);
-
-      expect(names).not.toContain('Sun');
-      expect(names).not.toContain('Moon');
-    });
-
-    test('sorts by magnitude (brightest first)', () => {
-      const objects = controller.getBestVisibleObjectsTonight();
-
-      for (let i = 1; i < objects.length; i++) {
-        expect(objects[i].mag).toBeGreaterThanOrEqual(objects[i - 1].mag);
-      }
-    });
-
-    test('limits to 50 objects', () => {
-      const objects = controller.getBestVisibleObjectsTonight();
-      expect(objects.length).toBeLessThanOrEqual(50);
-    });
-  });
-
   describe('constellation tour', () => {
     test('highlights constellation and shows info', () => {
       controller.start('constellations');

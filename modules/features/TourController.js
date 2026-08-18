@@ -5,7 +5,6 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {CAMERA} from '../core/Constants.js';
-import {calculateAltitude} from '../core/CoordinateUtils.js';
 import {createLogger} from '../core/Logger.js';
 
 const logger = createLogger('TourController');
@@ -50,29 +49,6 @@ const PLANET_DESCRIPTIONS = {
 };
 
 /**
- * DSO type descriptions.
- * @const {!Object<string, string>}
- */
-const DSO_TYPE_DESCRIPTIONS = {
-  'G': 'Galaxy',
-  'Neb': 'Nebula',
-  'PN': 'Planetary Nebula',
-  'EmN': 'Emission Nebula',
-  'HII': 'HII Region',
-  'RfN': 'Reflection Nebula',
-  'SNR': 'Supernova Remnant',
-  'GCl': 'Globular Cluster',
-  'OCl': 'Open Cluster',
-  'Cl+N': 'Cluster with Nebulosity',
-};
-
-/**
- * Types to exclude from "tonight's best" tour.
- * @const {!Array<string>}
- */
-const EXCLUDE_STELLAR_TYPES = ['*', '**', '*Ass', 'Star', 'Nova', 'SNR?'];
-
-/**
  * TourController manages guided tours through the night sky.
  */
 export class TourController {
@@ -84,6 +60,8 @@ export class TourController {
    * @param {function(): void} dependencies.unhighlightConstellation - Remove highlight
    * @param {function(!Object): void} dependencies.showObjectInfo - Show info panel
    * @param {function(string): void} dependencies.showConstellationInfo - Show constellation
+   * @param {function(): !Array<!Object>} dependencies.getBestVisibleObjectsTonight -
+   *     The objects highest and brightest right now, for the tonight tour
    * @param {function(number, number, number): void} dependencies.showHighlight -
    *     Show the highlight ring at RA/Dec with an angular size in arcminutes
    * @param {function(): void} dependencies.hideHighlight - Hide the ring
@@ -111,6 +89,12 @@ export class TourController {
 
     /** @private @const */
     this.showConstellationInfo_ = dependencies.showConstellationInfo;
+
+    // Supplied rather than reimplemented: VisibilityCalculator owns the
+    // "what is up tonight" query, and the tour is one of three callers.
+    /** @private @const */
+    this.getBestVisibleObjectsTonight_ =
+        dependencies.getBestVisibleObjectsTonight;
 
     // The highlight ring is owned by the TourHighlight renderer, which the
     // app animates each frame. SelectionManager and GameController take the
@@ -497,71 +481,6 @@ export class TourController {
   }
 
   /**
-   * Get the best visible objects for tonight.
-   * @returns {!Array<!TourStep>} Array of visible objects
-   */
-  getBestVisibleObjectsTonight() {
-    const objects = [];
-    const location = this.getLocation_?.() || {lat: 45, lon: 0};
-    const lst = this.getLST_?.() || 0;
-    const minAltitude = 15;
-
-    // Add visible planets
-    const planets = this.getPlanets_?.() || [];
-    planets.forEach((planet) => {
-      if (planet.name !== 'Sun' && planet.name !== 'Moon') {
-        const altitude = calculateAltitude(
-          planet.ra, planet.dec, location.lat, lst
-        );
-        if (altitude > minAltitude && planet.mag < 6) {
-          objects.push({
-            name: planet.name,
-            ra: planet.ra,
-            dec: planet.dec,
-            mag: planet.mag,
-            altitude,
-            description: `${this.getPlanetDescription(planet.name)} - ` +
-              `Currently ${altitude.toFixed(0)}° above horizon`,
-          });
-        }
-      }
-    });
-
-    // Add visible DSOs
-    const dsos = this.getDeepSkyObjects_?.() || [];
-    dsos.forEach((dso) => {
-      if (EXCLUDE_STELLAR_TYPES.includes(dso.type)) return;
-
-      if (dso.mag && dso.mag < 10) {
-        const altitude = calculateAltitude(
-          dso.ra, dso.dec, location.lat, lst
-        );
-        if (altitude > minAltitude) {
-          const name = dso.messier ? `M${Math.floor(dso.messier)}` :
-            (dso.name?.match(/^(NGC|IC)\d+/)?.[0] || dso.name);
-          const typeName = DSO_TYPE_DESCRIPTIONS[dso.type] || dso.type ||
-            'Deep Sky Object';
-          const commonName = dso.common_names
-            ? ` (${Array.isArray(dso.common_names) ? dso.common_names.join(', ') : dso.common_names})`
-            : '';
-
-          objects.push({
-            name,
-            ra: dso.ra,
-            dec: dso.dec,
-            mag: dso.mag,
-            altitude,
-            description: `${typeName}${commonName} - ` +
-              `Mag ${dso.mag.toFixed(1)}, Alt ${altitude.toFixed(0)}°`,
-          });
-        }
-      }
-    });
-
-    return objects.sort((a, b) => a.mag - b.mag).slice(0, 50);
-  }
-
-  /**
    * Get all available tours.
    * @returns {!Object<string, !Tour>} Tours indexed by name
    */
@@ -603,7 +522,7 @@ export class TourController {
       'best-galaxies': this.getGalaxiesTour_(),
       'tonight-best': {
         name: 'Best Objects Tonight',
-        steps: this.getBestVisibleObjectsTonight(),
+        steps: this.getBestVisibleObjectsTonight_?.() || [],
       },
       'best-clusters': this.getClustersTour_(),
     };
