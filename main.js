@@ -20,7 +20,6 @@
  *
  * SERVICE MODULES (modules/services/)
  * - DataLoader: JSON/CSV data loading with caching
- * - ImageFetcher: Dynamic image fetching from NASA/Wikimedia/DSS
  * - LocationManager: Geolocation with fallback
  * - DynamicDataLoader: VizieR API for dynamic star loading
  *
@@ -51,7 +50,6 @@ import {CAMERA} from './modules/core/Constants.js';
 
 // Service modules
 import {dataLoader} from './modules/services/DataLoader.js';
-import {imageFetcher} from './modules/services/ImageFetcher.js';
 import {locationManager} from './modules/services/LocationManager.js';
 
 // Rendering modules
@@ -355,7 +353,6 @@ export {
 
   // Services
   dataLoader,
-  imageFetcher,
   locationManager,
 
   // Data

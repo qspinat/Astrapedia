@@ -3,8 +3,9 @@
  *
  * ImageRenderer.fetchBestImage is what the app actually runs — the info panel
  * reaches it through SelectionManager and the in-sky sprites through
- * triggerDynamicLoad_ — and it had no coverage at all. (The tested
- * implementation, ImageFetcher, is a fork that nothing calls.)
+ * triggerDynamicLoad_ — and it had no coverage at all until these tests. The
+ * only image tests that existed covered ImageFetcher, a fork nothing called,
+ * which has since been deleted.
  */
 
 import {jest} from '@jest/globals';
