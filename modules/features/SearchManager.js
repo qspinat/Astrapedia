@@ -339,73 +339,71 @@ export class SearchManager {
     const lowerQuery = query.toLowerCase();
     const lang = this.currentLang_;
 
-    const results = this.index_
-      .filter((entry) => {
-        // Hide internal CamelCase constellation keys (e.g., 'UrsaMajor');
-        // user-facing names are indexed as separate displayName entries
-        if (entry.type === 'Constellation' && !entry.displayName) return false;
-        // No lang tag = scientific/catalog name, always shown
-        if (!entry.lang) return true;
-        // Always show English, Latin, and current language
-        return entry.lang === 'en' || entry.lang === 'la' || entry.lang === lang;
-      })
-      .map((entry) => {
-        const displayName = entry.displayName || entry.name;
-        const displayLower = displayName.toLowerCase();
-        let score = 0;
+    // One pass that allocates only for matches. The previous
+    // .filter().map().filter() built a full result object for every entry —
+    // ~6,000 of them per keystroke — and threw away all but a handful.
+    const results = [];
+    for (const entry of this.index_) {
+      // Hide internal CamelCase constellation keys (e.g., 'UrsaMajor');
+      // user-facing names are indexed as separate displayName entries
+      if (entry.type === 'Constellation' && !entry.displayName) continue;
+      // A lang tag means a translated name: show English, Latin, and the
+      // current language. No tag means a scientific/catalog name, always shown.
+      if (entry.lang && entry.lang !== 'en' && entry.lang !== 'la' &&
+          entry.lang !== lang) {
+        continue;
+      }
 
-        // Match against displayName first
-        if (displayLower === lowerQuery) {
+      const displayLower = entry.displayLower_;
+      let score = 0;
+      if (displayLower === lowerQuery) {
+        score = 1000;
+      } else if (displayLower.startsWith(lowerQuery)) {
+        score = 500;
+      } else if (displayLower.includes(lowerQuery)) {
+        score = 100;
+      }
+
+      // Fall back to matching against internal name if no displayName match
+      if (score === 0 && entry.displayName) {
+        const nameLower = entry.nameLower_;
+        if (nameLower === lowerQuery) {
           score = 1000;
-        } else if (displayLower.startsWith(lowerQuery)) {
+        } else if (nameLower.startsWith(lowerQuery)) {
           score = 500;
-        } else if (displayLower.includes(lowerQuery)) {
+        } else if (nameLower.includes(lowerQuery)) {
           score = 100;
         }
+      }
 
-        // Fall back to matching against internal name if no displayName match
-        if (score === 0 && entry.displayName) {
-          const nameLower = entry.name.toLowerCase();
-          if (nameLower === lowerQuery) {
-            score = 1000;
-          } else if (nameLower.startsWith(lowerQuery)) {
-            score = 500;
-          } else if (nameLower.includes(lowerQuery)) {
-            score = 100;
-          }
-        }
+      if (score === 0) continue;
 
-        // Only apply ranking boosts when there is a text match
-        if (score > 0) {
-          // Penalize aliases
-          if (entry.isAlias) {
-            score -= 10;
-          }
+      // Penalize aliases
+      if (entry.isAlias) score -= 10;
 
-          // Boost by brightness
-          if (entry.mag !== null && entry.mag !== undefined) {
-            score += (10 - entry.mag) * 5;
-          }
+      // Boost by brightness
+      if (entry.mag !== null && entry.mag !== undefined) {
+        score += (10 - entry.mag) * 5;
+      }
 
-          // Boost planets and constellations
-          if (entry.type === 'Planet') score += 50;
-          if (entry.type === 'Constellation') score += 30;
-        }
+      // Boost planets and constellations
+      if (entry.type === 'Planet') score += 50;
+      if (entry.type === 'Constellation') score += 30;
 
-        return {
-          name: displayName,
-          internalName: entry.name,
-          type: entry.type,
-          ra: entry.ra,
-          dec: entry.dec,
-          mag: entry.mag,
-          score,
-          data: entry.data,
-        };
-      })
-      .filter((r) => r.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+      results.push({
+        name: entry.displayName || entry.name,
+        internalName: entry.name,
+        type: entry.type,
+        ra: entry.ra,
+        dec: entry.dec,
+        mag: entry.mag,
+        score,
+        data: entry.data,
+      });
+    }
+
+    results.sort((a, b) => b.score - a.score);
+    results.length = Math.min(results.length, limit);
 
     globalEventBus.emit(Events.SEARCH_RESULTS, {
       query,
@@ -545,6 +543,13 @@ export class SearchManager {
       if (!this.nameIndex_.has(nameKey)) {
         this.nameIndex_.set(nameKey, entry);
       }
+
+      // Cache the lowercased forms search() matches against. Doing it here,
+      // where the index is already being walked, keeps search() from
+      // lowercasing every one of ~6,000 entries on every keystroke.
+      entry.displayLower_ = entry.displayName ?
+        entry.displayName.toLowerCase() : nameKey;
+      entry.nameLower_ = nameKey;
     }
   }
 
