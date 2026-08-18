@@ -193,10 +193,21 @@ export class DynamicObjectManager {
 
     logger.debug(`Dynamic loading triggered: FOV=${camera.fov.toFixed(2)}°, RA=${raDec.ra.toFixed(1)}°, Dec=${raDec.dec.toFixed(1)}°`);
 
-    // Query for stars and DSOs in this region
+    // Query for stars and DSOs in this region.
+    //
+    // The region is recorded only once something comes back. Marking it up
+    // front meant a query the rate limiter had dropped — queryTycho_ and
+    // queryDSOs share one bucket, so panning twice within a second returns []
+    // immediately — still counted as done, and the region stayed empty until
+    // the user zoomed past 15 degrees and back to clear the whole set.
     const ra = raDec.ra, dec = raDec.dec, fov = camera.fov;
+    const markQueried = (received) => {
+      if (received) this.queriedRegions.add(regionKey);
+    };
+
     dynamicDataLoader.queryStars(ra, dec, fov, magLimit)
       .then(stars => {
+        markQueried(stars?.length > 0);
         if (stars?.length > 0) {
           const starArrays = stars.map(s => [s.ra, s.dec, s.mag, s.ci || 0]);
           this.addDynamicStars(starArrays, false);
@@ -209,13 +220,13 @@ export class DynamicObjectManager {
     if (fov <= 10) {
       dynamicDataLoader.queryDSOs(ra, dec, fov, magLimit)
         .then(dsos => {
+          markQueried(dsos?.length > 0);
           if (dsos?.length > 0) this.addDynamicDSOs(dsos);
         })
         .catch(err => {
           logger.warn('Dynamic DSO query failed:', err?.message || err);
         });
     }
-    this.queriedRegions.add(regionKey);
   }
 
   /**
