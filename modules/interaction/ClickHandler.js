@@ -10,6 +10,14 @@ import {getDsoTypeName} from '../core/TypeMappings.js';
 import {magnitudeToSize} from '../core/MagnitudeUtils.js';
 
 /**
+ * Raycast tolerance for click targets, in world units at the default field of
+ * view. Scaled by fov/DEFAULT_FOV at use, which holds the tolerance constant
+ * in screen pixels (about 22px) at every zoom level.
+ * @const {number}
+ */
+const CLICK_THRESHOLD = 5;
+
+/**
  * @typedef {{
  *   camera: THREE.PerspectiveCamera,
  *   renderer: THREE.WebGLRenderer,
@@ -64,7 +72,8 @@ export class ClickHandler {
     this.mouse_.set(x, y);
 
     // Configure raycaster with FOV-scaled threshold
-    this.raycaster_.params.Points.threshold = 5 * (camera.fov / CAMERA.DEFAULT_FOV);
+    this.raycaster_.params.Points.threshold =
+        CLICK_THRESHOLD * (camera.fov / CAMERA.DEFAULT_FOV);
     this.raycaster_.setFromCamera(this.mouse_, camera);
 
     // Try click detection in priority order.
@@ -72,9 +81,22 @@ export class ClickHandler {
     // within a nebula selects the nebula, not a field star inside it.
     if (this.detectPlanetClick_(camera, renderer)) return;
     if (this.detectDSOClick_(camera, renderer)) return;
-    if (this.detectStarClick_()) return;
+
+    // Constellation lines compete with the star field on distance rather than
+    // losing to it by rank. Both measure perpendicular distance from the ray
+    // in the same world units, so whichever the click is actually closer to
+    // wins — clicking a line's midpoint selects the constellation, clicking a
+    // star on that line still selects the star.
+    const constellation = this.findConstellationCandidate_(camera);
+    const starLimit = constellation ? constellation.distanceToRay : Infinity;
+
+    if (this.detectStarClick_(starLimit)) return;
     if (this.detectDynamicStarClick_()) return;
-    if (this.detectConstellationClick_(camera)) return;
+
+    if (constellation) {
+      this.selectConstellation_(constellation);
+      return;
+    }
 
     // Empty space click - deselect any selected object/constellation
     if (!this.deps_.isGameActive()) {
@@ -190,7 +212,7 @@ export class ClickHandler {
    * @returns {boolean} True if star/DSO was clicked
    * @private
    */
-  detectStarClick_() {
+  detectStarClick_(maxDistanceToRay = Infinity) {
     const starField = this.deps_.getStarField();
     if (!starField) return false;
 
@@ -207,6 +229,12 @@ export class ClickHandler {
     const effectiveLimit = magnitudeLimit + STARS.FADE_RANGE;
 
     for (const intersection of intersects) {
+      // A star only wins the click if it is nearer than the best competing
+      // target. Without this the star field took every click at wide fields
+      // of view, where its 22px capture radius is about the mean spacing
+      // between visible stars.
+      if (intersection.distanceToRay > maxDistanceToRay) continue;
+
       const index = intersection.index;
       let clickedObject = null;
 
@@ -410,35 +438,52 @@ export class ClickHandler {
    * @returns {boolean} True if constellation was clicked
    * @private
    */
-  detectConstellationClick_(camera) {
-    if (!this.deps_.isConstellationLinesVisible()) return false;
+  findConstellationCandidate_(camera) {
+    if (!this.deps_.isConstellationLinesVisible()) return null;
 
     const constellationLinesGroup = this.deps_.getConstellationLinesGroup();
-    if (!constellationLinesGroup) return false;
+    if (!constellationLinesGroup) return null;
 
-    // Set line threshold based on FOV (larger threshold = easier to click)
-    this.raycaster_.params.Line = {threshold: 2.0 * (camera.fov / CAMERA.DEFAULT_FOV)};
+    // Same tolerance the star field gets. Lines previously had 2.5x less,
+    // which combined with being checked last meant they almost never won.
+    this.raycaster_.params.Line = {
+      threshold: CLICK_THRESHOLD * (camera.fov / CAMERA.DEFAULT_FOV),
+    };
 
     const lineIntersects = this.raycaster_.intersectObjects(
       constellationLinesGroup.children,
       false
     );
 
-    if (lineIntersects.length > 0) {
-      const clickedLine = lineIntersects[0].object;
-      const constInternalKey = clickedLine.userData.constellation;
-
-      if (constInternalKey) {
-        if (this.deps_.isGameActive()) {
-          this.deps_.checkGameAnswerByName(constInternalKey);
-        } else {
-          this.deps_.showConstellationInfo(constInternalKey);
-        }
-        return true;
-      }
+    for (const intersection of lineIntersects) {
+      const name = intersection.object.userData?.constellation;
+      if (!name) continue;
+      return {
+        name,
+        // Perpendicular distance from the ray, directly comparable to a
+        // star's distanceToRay: both are world units on the same sphere.
+        // Fall back to the raw ray distance if the intersection carries no
+        // point, so a click still registers rather than throwing.
+        distanceToRay: intersection.point ?
+          this.raycaster_.ray.distanceToPoint(intersection.point) :
+          (intersection.distanceToRay ?? 0),
+      };
     }
 
-    return false;
+    return null;
+  }
+
+  /**
+   * Select a constellation found by findConstellationCandidate_.
+   * @param {{name: string}} candidate - The constellation to select
+   * @private
+   */
+  selectConstellation_(candidate) {
+    if (this.deps_.isGameActive()) {
+      this.deps_.checkGameAnswerByName(candidate.name);
+    } else {
+      this.deps_.showConstellationInfo(candidate.name);
+    }
   }
 
   /**

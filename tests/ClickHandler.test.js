@@ -258,13 +258,33 @@ describe('ClickHandler', () => {
       expect(mockDeps.showConstellationInfo).not.toHaveBeenCalled();
     });
 
-    test('scales line threshold based on FOV', () => {
+    test('gives lines the same tolerance as the star field', () => {
       mockCamera.fov = 30;
       mockDeps.isConstellationLinesVisible.mockReturnValue(true);
       mockDeps.getConstellationLinesGroup.mockReturnValue({children: []});
+
       handler.handleClick(0, 0);
-      // Threshold of 2.0 makes lines easier to click
-      expect(handler.raycaster_.params.Line.threshold).toBeCloseTo(2.0 * (30 / 60), 2);
+
+      // Lines used to get 2.0 against the star field's 5.0. Combined with
+      // being checked last, that meant a click on a line almost always went
+      // to a nearby star instead.
+      expect(handler.raycaster_.params.Line.threshold)
+          .toBeCloseTo(handler.raycaster_.params.Points.threshold, 6);
+    });
+
+    test('scales the line threshold with FOV, holding screen tolerance', () => {
+      mockDeps.isConstellationLinesVisible.mockReturnValue(true);
+      mockDeps.getConstellationLinesGroup.mockReturnValue({children: []});
+
+      mockCamera.fov = 60;
+      handler.handleClick(0, 0);
+      const wide = handler.raycaster_.params.Line.threshold;
+
+      mockCamera.fov = 15;
+      handler.handleClick(0, 0);
+      const narrow = handler.raycaster_.params.Line.threshold;
+
+      expect(wide / narrow).toBeCloseTo(4, 6);
     });
   });
 
@@ -694,7 +714,9 @@ describe('ClickHandler detection paths', () => {
 
       // Mock raycaster to return line intersection
       handler.raycaster_.intersectObjects = jest.fn().mockReturnValue([
-        {object: mockLine, distance: 50},
+        // Real Line raycast results carry the point on the segment.
+        {object: mockLine, distance: 50,
+          point: {x: 100, y: 0, z: 0}, distanceToRay: 0.5},
       ]);
 
       handler.handleClick(0, 0);
@@ -709,7 +731,9 @@ describe('ClickHandler detection paths', () => {
       const mockLine = {userData: {constellation: 'ORI'}};
       mockDeps.getConstellationLinesGroup.mockReturnValue({children: [mockLine]});
       handler.raycaster_.intersectObjects = jest.fn().mockReturnValue([
-        {object: mockLine, distance: 50},
+        // Real Line raycast results carry the point on the segment.
+        {object: mockLine, distance: 50,
+          point: {x: 100, y: 0, z: 0}, distanceToRay: 0.5},
       ]);
 
       handler.handleClick(0, 0);
@@ -724,7 +748,9 @@ describe('ClickHandler detection paths', () => {
       const mockLine = {userData: {}};
       mockDeps.getConstellationLinesGroup.mockReturnValue({children: [mockLine]});
       handler.raycaster_.intersectObjects = jest.fn().mockReturnValue([
-        {object: mockLine, distance: 50},
+        // Real Line raycast results carry the point on the segment.
+        {object: mockLine, distance: 50,
+          point: {x: 100, y: 0, z: 0}, distanceToRay: 0.5},
       ]);
 
       handler.handleClick(0, 0);
@@ -767,5 +793,105 @@ describe('ClickHandler detection paths', () => {
       // getCelestialSphere is called during planet click detection
       expect(mockDeps.getCelestialSphere).toHaveBeenCalled();
     });
+  });
+});
+
+
+describe('ClickHandler star versus constellation', () => {
+  let handler;
+  let deps;
+  let mockLine;
+
+  beforeEach(() => {
+    mockLine = {userData: {constellation: 'ORI'}};
+    deps = {
+      camera: {fov: 60, updateProjectionMatrix: jest.fn()},
+      renderer: {domElement: {width: 800, height: 600}},
+      getCelestialSphere: jest.fn(() => null),
+      getStarField: jest.fn(() => ({
+        userData: {
+          stars: [{proper: 'Betelgeuse', ra: 88, dec: 7, mag: 0.5}],
+          dsos: [],
+        },
+      })),
+      getPlanetSprites: jest.fn(() => []),
+      getExtendedObjectSprites: jest.fn(() => []),
+      getConstellationLinesGroup: jest.fn(() => ({children: [mockLine]})),
+      getDynamicObjectManager: jest.fn(() => null),
+      isConstellationLinesVisible: jest.fn(() => true),
+      isGameActive: jest.fn(() => false),
+      getMagnitudeLimit: jest.fn(() => 6),
+      selectObject: jest.fn(),
+      showConstellationInfo: jest.fn(),
+      unhighlightConstellation: jest.fn(),
+      clearSelection: jest.fn(),
+      checkGameAnswer: jest.fn(),
+      checkGameAnswerByName: jest.fn(),
+    };
+    handler = new ClickHandler(deps);
+  });
+
+  /**
+   * @param {number} starDistance Perpendicular distance to the nearest star.
+   * @param {number} lineDistance Perpendicular distance to the nearest line.
+   */
+  function clickWith(starDistance, lineDistance) {
+    handler.raycaster_.intersectObject = jest.fn(() => [
+      {index: 0, distanceToRay: starDistance},
+    ]);
+    handler.raycaster_.intersectObjects = jest.fn(() => [
+      {object: mockLine, distance: 50, distanceToRay: lineDistance,
+        point: {x: 100, y: 0, z: 0}},
+    ]);
+    // The mock ray sits at the origin pointing down +x, so a point at
+    // (100, 0, 0) is exactly on it; override to report the distance we want.
+    handler.raycaster_.ray.distanceToPoint = () => lineDistance;
+    handler.handleClick(0, 0);
+  }
+
+  // The regression this fixes: the star field was checked first and won by
+  // rank, whatever the distances. At a wide field of view its capture radius
+  // (~22px) is about the mean spacing between visible stars, so a click on a
+  // constellation line practically always selected a star instead.
+  test('selects the constellation when the click is nearer the line', () => {
+    clickWith(4.0, 0.2);
+
+    expect(deps.showConstellationInfo).toHaveBeenCalledWith('ORI');
+    expect(deps.selectObject).not.toHaveBeenCalled();
+  });
+
+  test('selects the star when the click is nearer the star', () => {
+    clickWith(0.2, 4.0);
+
+    expect(deps.selectObject).toHaveBeenCalledWith(
+        expect.objectContaining({name: 'Betelgeuse'}));
+    expect(deps.showConstellationInfo).not.toHaveBeenCalled();
+  });
+
+  // Constellation lines join bright named stars, so their endpoints are
+  // exactly the stars people most want to click. A tie must not take that
+  // away from them.
+  test('prefers the star when both are equally near', () => {
+    clickWith(1.0, 1.0);
+
+    expect(deps.selectObject).toHaveBeenCalled();
+    expect(deps.showConstellationInfo).not.toHaveBeenCalled();
+  });
+
+  test('still selects a star when no constellation lines are shown', () => {
+    deps.isConstellationLinesVisible.mockReturnValue(false);
+
+    clickWith(4.0, 0.2);
+
+    expect(deps.selectObject).toHaveBeenCalled();
+    expect(deps.showConstellationInfo).not.toHaveBeenCalled();
+  });
+
+  test('answers the game by constellation name when the line wins', () => {
+    deps.isGameActive.mockReturnValue(true);
+
+    clickWith(4.0, 0.2);
+
+    expect(deps.checkGameAnswerByName).toHaveBeenCalledWith('ORI');
   });
 });
