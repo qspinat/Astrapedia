@@ -978,4 +978,45 @@ describe('ClickHandler only selects what is on screen', () => {
 
     expect(deps.selectObject).not.toHaveBeenCalled();
   });
+
+  // ExtendedObjectRenderer.updateSizes fades a halo out as it grows past half
+  // the screen, reaching opacity 0 at full coverage without ever clearing
+  // `visible`. Deep sky objects outrank stars and constellations in the
+  // ladder, so at deep zoom an invisible halo would swallow every click.
+  test('ignores a deep sky object halo that has faded to nothing', () => {
+    deps.getExtendedObjectSprites.mockReturnValue([
+      {visible: true, parent: null,
+        material: {transparent: true, opacity: 0},
+        userData: {dso: {name: 'NGC1', ra: 0, dec: 0, mag: 5, type: 'G',
+          size_major: 10}}},
+    ]);
+
+    handler.handleClick(0, 0);
+
+    expect(deps.selectObject).not.toHaveBeenCalled();
+  });
+
+  test('still selects a halo that is merely dimmed', () => {
+    deps.getExtendedObjectSprites.mockReturnValue([
+      {visible: true, parent: null,
+        material: {transparent: true, opacity: 0.2},
+        userData: {dso: {name: 'NGC1', ra: 0, dec: 0, mag: 5, type: 'G',
+          size_major: 10}}},
+    ]);
+
+    handler.handleClick(0, 0);
+
+    expect(deps.selectObject).toHaveBeenCalled();
+  });
+
+  // Game mode forces every constellation visible and dims the lines to 0.08
+  // rather than hiding them. Those are still the answer the player is meant
+  // to click, so the opacity cutoff has to sit below that.
+  test('still selects a constellation dimmed by game mode', () => {
+    mockLine.material = {transparent: true, opacity: 0.08};
+
+    handler.handleClick(0, 0);
+
+    expect(deps.showConstellationInfo).toHaveBeenCalledWith('ORI');
+  });
 });

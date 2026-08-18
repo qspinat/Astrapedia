@@ -185,6 +185,14 @@ export class ExtendedObjectRenderer {
     const worldPerPixel = (2 * this.radius_ * halfFovTan) / canvasHeight;
 
     for (const sprite of this.sprites_) {
+      // Hidden halos are the overwhelming majority — at the default limit only
+      // 57 of 1,729 pass — and resizing one costs a Vector3.set plus a full
+      // Matrix4.compose. This loop runs on every frame of every zoom gesture,
+      // so skipping them is the difference between ~1,700 and ~57 matrix
+      // recompositions per frame. setMagnitudeLimit re-dirties the FOV, so a
+      // sprite that becomes visible is resized before it is next drawn.
+      if (!sprite.visible) continue;
+
       const userData = sprite.userData;
       if (!userData || !userData.angularSizeArcmin) continue;
 

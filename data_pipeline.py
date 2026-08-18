@@ -47,19 +47,20 @@ def download_catalog(
         return None
 
     # Verify integrity: no-op when no checksum is configured. Runs on the
-    # reused file too, so a previously corrupted catalog is caught.
+    # reused file too, so a previously corrupted catalog is reported.
     #
-    # The result is acted on rather than discarded. A corrupt cached file would
-    # otherwise be reused on every subsequent run — filepath.exists() short
-    # circuits the download — so the pipeline would keep building output from
-    # it until someone deleted it by hand. Discarding the file forces a fresh
-    # download next time.
-    if catalog_name and not Config.verify_checksum(
-        filepath.read_bytes(), catalog_name
-    ):
-        print(f"  Checksum mismatch for {filename}; discarding it")
-        filepath.unlink(missing_ok=True)
-        return None
+    # A mismatch warns but does not abort, matching verify_checksum's
+    # warn_only default. The pinned hashes are a snapshot of catalogs served
+    # from moving refs (HYG's CURRENT/, OpenNGC's master/), so upstream
+    # publishing a routine update is the *expected* cause of a mismatch.
+    # Failing here would delete a perfectly good download and abort the stage
+    # on every run until someone hand-edited the hash.
+    #
+    # Truncated downloads — the realistic corruption mode — are caught by
+    # download_file's Content-Length check before the file is ever committed
+    # to its final path.
+    if catalog_name:
+        Config.verify_checksum(filepath.read_bytes(), catalog_name)
 
     return filepath
 

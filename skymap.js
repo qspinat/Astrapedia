@@ -1169,6 +1169,9 @@ export class AstrapediaApp {
     // Deep sky object halos follow the same limit, so what is drawn matches
     // what can be clicked.
     this.extendedObjectRenderer_?.setMagnitudeLimit(magLimit);
+    // updateSizes skips hidden halos, so anything the new limit reveals still
+    // carries the scale it had when it was last visible. Re-run the pass.
+    this._fovDirty = true;
     this.updateVisibleCount(this.starFieldRenderer_.getVisibleCount());
 
     // Update dynamic star field uniform via DynamicObjectManager
@@ -1542,7 +1545,18 @@ export class AstrapediaApp {
     this.requestRender();
   }
 
-  
+  /**
+   * Get the current simulated time.
+   *
+   * Public because main.js wires it into the UI dependency graph; TimeUI uses
+   * it to prefill the date and time pickers, which must open showing where the
+   * user has travelled to rather than the wall clock.
+   *
+   * @returns {!Date} The simulated time.
+   */
+  getSimulationTime() {
+    return this.timeController_?.getTime() ?? new Date();
+  }
 
   /* ======================================================================
      TOURS & EDUCATION

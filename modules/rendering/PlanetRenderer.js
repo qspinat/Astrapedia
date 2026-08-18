@@ -279,6 +279,28 @@ export class PlanetRenderer {
    * @param {number} phase - Moon phase (0-1)
    * @private
    */
+  /**
+   * Repaint the Moon's canvas texture for a new phase.
+   *
+   * No-op once a photograph has replaced the drawn disc, since the canvas is
+   * no longer what the sprite shows.
+   *
+   * @param {!THREE.Sprite} sprite - The Moon sprite
+   * @param {number} phase - Illuminated fraction, 0..1
+   * @private
+   */
+  redrawMoonPhase_(sprite, phase) {
+    if (sprite.userData.imageLoaded) return;
+
+    const canvas = sprite.material.map?.image;
+    const ctx = canvas?.getContext?.('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.drawMoon_(ctx, canvas.width, phase);
+    sprite.material.map.needsUpdate = true;
+  }
+
   drawMoon_(ctx, size, phase) {
     const cx = size / 2;
     const cy = size / 2;
@@ -303,11 +325,11 @@ export class PlanetRenderer {
     ctx.fill();
 
     // Draw shadow for phase. Near full there is nothing to shade.
-    if (moonShadowGeometry(phase).illuminated < 0.98) {
+    const {illuminated, waxing, semiAxis} = moonShadowGeometry(phase);
+    if (illuminated < 0.98) {
       ctx.fillStyle = 'rgba(10, 15, 28, 0.95)';
       ctx.beginPath();
 
-      const {waxing, semiAxis} = moonShadowGeometry(phase);
       const rx = Math.abs(semiAxis) * r;
 
       if (waxing) {
@@ -391,7 +413,16 @@ export class PlanetRenderer {
         // Update userData
         sprite.userData.ra = pos.ra;
         sprite.userData.dec = pos.dec;
-        if (pos.phase !== undefined) sprite.userData.phase = pos.phase;
+        if (pos.phase !== undefined) {
+          // The Moon's phase is painted into its canvas texture, not derived
+          // from the transform, so repositioning alone leaves the crescent
+          // frozen at whatever it was when create() last ran. At 1000x that
+          // is days of simulated time showing one stale shape.
+          if (name === 'Moon' && pos.phase !== sprite.userData.phase) {
+            this.redrawMoonPhase_(sprite, pos.phase);
+          }
+          sprite.userData.phase = pos.phase;
+        }
       }
     });
 

@@ -93,15 +93,31 @@ describe('per-frame matrix cost', () => {
       }
     });
 
-    test('a resize recomposes the matrices it actually changes', () => {
-      const before = renderer.getSprites()[0].updateMatrixCount;
+    test('a resize recomposes the matrix of a halo that is drawn', () => {
+      renderer.setMagnitudeLimit(12);
+      const sprite = renderer.getSprites()[0];
+      const before = sprite.updateMatrixCount;
 
       renderer.updateSizes(30, 800);
 
-      expect(renderer.getSprites()[0].updateMatrixCount).toBe(before + 1);
+      expect(sprite.updateMatrixCount).toBe(before + 1);
+    });
+
+    // The fixture's DSOs are magnitude 7-9, so the default limit hides all of
+    // them. Resizing what is not drawn is pure waste, and it is the common
+    // case: 1,672 of the 1,729 catalogued halos are hidden at the default.
+    test('a resize skips halos the magnitude limit has hidden', () => {
+      renderer.setMagnitudeLimit(4);
+      const sprites = renderer.getSprites();
+      const before = sprites.map((s) => s.updateMatrixCount);
+
+      renderer.updateSizes(30, 800);
+
+      expect(sprites.map((s) => s.updateMatrixCount)).toEqual(before);
     });
 
     test('the sprites still carry a usable scale after a resize', () => {
+      renderer.setMagnitudeLimit(12);
       renderer.updateSizes(30, 800);
 
       for (const sprite of renderer.getSprites()) {

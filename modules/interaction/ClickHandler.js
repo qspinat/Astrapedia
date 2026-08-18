@@ -32,9 +32,27 @@ const CLICK_THRESHOLD = 5;
  * @param {?THREE.Object3D} object - Object to test
  * @returns {boolean} True if the object and all its ancestors are visible
  */
+/**
+ * Opacity at or below which an object is treated as not drawn, and so not
+ * clickable.
+ * @const {number}
+ */
+const MIN_VISIBLE_OPACITY = 0.01;
+
 function isDisplayed(object) {
   for (let node = object; node; node = node.parent) {
     if (node.visible === false) return false;
+
+    // `visible` is not the only way this app stops drawing something.
+    // ExtendedObjectRenderer fades a halo to opacity 0 once it covers the
+    // whole screen, leaving visible === true; since DSOs outrank stars in the
+    // ladder below, a completely transparent halo would otherwise swallow
+    // every click at deep zoom. The threshold sits under the deliberate
+    // game-mode dimming (0.08), which is faint but still meant to be clickable.
+    const material = node.material;
+    if (material?.transparent && material.opacity <= MIN_VISIBLE_OPACITY) {
+      return false;
+    }
   }
   return true;
 }

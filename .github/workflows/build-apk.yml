@@ -153,8 +153,12 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           echo "$KEYSTORE_BASE64" | base64 --decode > android/release.jks
+          # Absolute path on purpose. app/build.gradle resolves storeFile with
+          # a bare file(), which is relative to the *app module* directory, not
+          # the android/ root that keystore.properties itself is read from — a
+          # relative "release.jks" would be looked for at android/app/.
           cat > android/keystore.properties <<EOF
-          storeFile=release.jks
+          storeFile=${GITHUB_WORKSPACE}/android/release.jks
           storePassword=$STORE_PASSWORD
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD

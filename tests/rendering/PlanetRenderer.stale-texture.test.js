@@ -91,6 +91,48 @@ describe('PlanetRenderer during time playback', () => {
       expect(renderer.sprites_.length).toBeGreaterThan(0);
     });
 
+    // The Moon's crescent is painted into its canvas texture rather than
+    // derived from the transform, so the reposition-instead-of-rebuild change
+    // above would otherwise freeze the drawn phase for the whole session.
+    test('repaints the moon texture when the phase moves', () => {
+      let simTime = new Date(Date.UTC(2026, 0, 15, 22, 0, 0));
+      renderer.getSimulationTime_ = () => simTime;
+      const moon = renderer.sprites_.find((s) => s.userData.name === 'Moon');
+      moon.material.map.needsUpdate = false;
+      const phaseBefore = moon.userData.phase;
+
+      // Ten days on, a waxing crescent has become a waning gibbous.
+      simTime = new Date(Date.UTC(2026, 0, 25, 22, 0, 0));
+      renderer.updatePositions();
+
+      expect(moon.userData.phase).not.toBeCloseTo(phaseBefore, 3);
+      expect(moon.material.map.needsUpdate).toBe(true);
+    });
+
+    test('leaves the texture alone when the phase has not moved', () => {
+      const moon = renderer.sprites_.find((s) => s.userData.name === 'Moon');
+      moon.material.map.needsUpdate = false;
+
+      renderer.updatePositions();
+
+      expect(moon.material.map.needsUpdate).toBe(false);
+    });
+
+    test('does not repaint over a photograph that already replaced the disc',
+        () => {
+          let simTime = new Date(Date.UTC(2026, 0, 15, 22, 0, 0));
+          renderer.getSimulationTime_ = () => simTime;
+          const moon =
+              renderer.sprites_.find((s) => s.userData.name === 'Moon');
+          moon.userData.imageLoaded = true;
+          moon.material.map.needsUpdate = false;
+
+          simTime = new Date(Date.UTC(2026, 0, 25, 22, 0, 0));
+          renderer.updatePositions();
+
+          expect(moon.material.map.needsUpdate).toBe(false);
+        });
+
     test('does not refetch planet textures', () => {
       TextureLoader.reset();
 
