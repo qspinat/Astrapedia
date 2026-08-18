@@ -1,87 +1,27 @@
 /**
- * @fileoverview Application orchestration layer.
+ * @fileoverview Application bootstrap.
  *
- * This module serves as the central orchestration point for the Astrapedia application.
- * It imports all modules, initializes dependencies, and wires EventBus connections.
+ * Constructs the AstrapediaApp, wires the UI layer to it, and registers the
+ * service worker. The scene, renderers and feature modules are owned by
+ * skymap.js; this file only supplies the dependency callbacks that connect
+ * them to the UI, plus the handful of modules the UI needs directly
+ * (TelescopeController, SkyConditionsHandler, PanelManager).
  *
- * Module Architecture:
- * ====================
- *
- * CORE MODULES (modules/core/)
- * - EventBus: Global pub/sub for module communication
- * - Constants: Shared configuration (SPHERE, CAMERA, STARS, TIME, TELESCOPE)
- * - CoordinateUtils: RA/Dec to Cartesian conversions
- * - AstronomyCalculator: LST, altitude/azimuth calculations
- * - SecurityUtils: HTML escaping, Wikipedia fetching
- *
- * DATA MODULES (modules/data/)
- * - CuratedImages: Static database of curated astronomical images
- * - ConstellationNames: Multi-language constellation name translations
- *
- * SERVICE MODULES (modules/services/)
- * - DataLoader: JSON/CSV data loading with caching
- * - LocationManager: Geolocation with fallback
- * - DynamicDataLoader: VizieR API for dynamic star loading
- *
- * RENDERING MODULES (modules/rendering/)
- * - StarFieldRenderer: Star visualization with magnitude filtering
- * - ConstellationRenderer: Constellation lines and labels
- * - PlanetRenderer: Solar system objects
- * - GridRenderer: RA/Dec coordinate grid
- * - HorizonRenderer: Local horizon and cardinal directions
- * - ImageRenderer: Deep sky object images
- *
- * FEATURE MODULES (modules/features/)
- * - SearchManager: Object search with fuzzy matching
- * - TimeController: Time simulation and playback
- * - TourController: Educational tours
- * - GameController: Object identification game
- * - TelescopeController: Telescope mode simulation
- * - SkyConditionsHandler: Constellation visibility helper
- * - SelectionManager: Object selection state
- *
- * Communication: All modules communicate via EventBus (pub/sub pattern)
- * for loose coupling and testability.
+ * Loaded as <script type="module"> from app.html. Nothing imports it.
  */
 
 // Core modules
 import {globalEventBus, Events} from './modules/core/EventBus.js';
 import {CAMERA} from './modules/core/Constants.js';
 
-// Service modules
-import {dataLoader} from './modules/services/DataLoader.js';
-import {locationManager} from './modules/services/LocationManager.js';
-
-// Rendering modules
-import {StarFieldRenderer} from './modules/rendering/StarFieldRenderer.js';
-import {ConstellationRenderer} from './modules/rendering/ConstellationRenderer.js';
-import {PlanetRenderer} from './modules/rendering/PlanetRenderer.js';
-import {GridRenderer} from './modules/rendering/GridRenderer.js';
-import {HorizonRenderer} from './modules/rendering/HorizonRenderer.js';
-import {ImageRenderer} from './modules/rendering/ImageRenderer.js';
-
 // Feature modules
-import {SearchManager} from './modules/features/SearchManager.js';
-import {TimeController} from './modules/features/TimeController.js';
-import {TourController} from './modules/features/TourController.js';
-import {GameController} from './modules/features/GameController.js';
 import {TelescopeController} from './modules/features/TelescopeController.js';
 import {SkyConditionsHandler} from './modules/features/SkyConditionsHandler.js';
-import {SelectionManager} from './modules/features/SelectionManager.js';
 
 // UI modules
 import {initializeUIController} from './modules/ui/UIController.js';
 import {initializeBugReportHandler} from './modules/ui/BugReportHandler.js';
 import {panelManager} from './modules/ui/PanelManager.js';
-
-// Data modules
-import {CURATED_IMAGES, getCuratedImage} from './modules/data/CuratedImages.js';
-import {
-  CONSTELLATION_NAMES,
-  getConstellationName,
-  getConstellationAbbrev,
-  getConstellationNamesForLanguage,
-} from './modules/data/ConstellationNames.js';
 
 // Main application class (to be slimmed down)
 import {AstrapediaApp} from './skymap.js';
@@ -342,41 +282,3 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Export for testing and external access
-export {
-  // Application
-  app,
-  uiController,
-
-  // Core
-  globalEventBus,
-  Events,
-
-  // Services
-  dataLoader,
-  locationManager,
-
-  // Data
-  CURATED_IMAGES,
-  getCuratedImage,
-  CONSTELLATION_NAMES,
-  getConstellationName,
-  getConstellationAbbrev,
-  getConstellationNamesForLanguage,
-
-  // Renderers (classes for custom usage)
-  StarFieldRenderer,
-  ConstellationRenderer,
-  PlanetRenderer,
-  GridRenderer,
-  HorizonRenderer,
-  ImageRenderer,
-
-  // Features (classes for custom usage)
-  SearchManager,
-  TimeController,
-  TourController,
-  GameController,
-  TelescopeController,
-  SkyConditionsHandler,
-  SelectionManager,
-};
