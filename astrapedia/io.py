@@ -37,8 +37,9 @@ def download_file(
     Returns:
         True if download succeeded, False otherwise
     """
-    # Download to a temp file and only move it into place once complete, so a
-    # truncated/failed download never leaves a corrupt file a later run reuses.
+    # Download to a temp file and only move it into place once the byte count
+    # matches Content-Length, so neither an exception nor a silently
+    # truncated response leaves a corrupt file a later run reuses.
     tmp_path = dest_path.with_name(dest_path.name + ".tmp")
     try:
         if show_progress:
@@ -69,6 +70,17 @@ def download_file(
             if show_progress:
                 sys.stdout.write("\n")
                 sys.stdout.flush()
+
+            # http.client does not raise when the connection closes early: the
+            # chunk loop just sees b"" and exits normally. Without this check a
+            # truncated download is promoted to dest_path, and because
+            # download_catalog skips anything that already exists, it is reused
+            # on every later run.
+            if total_size is not None and downloaded != total_size:
+                raise OSError(
+                    f"Incomplete download: got {downloaded} of {total_size} "
+                    f"bytes from {url}"
+                )
 
         tmp_path.replace(dest_path)
 
@@ -111,6 +123,9 @@ def read_json(
 
     if not path.exists():
         if default is not None:
+            # Say so. Falling back silently is how a missing data directory
+            # turns into a plausible-looking but empty output file.
+            logger.warning("JSON file not found, using default: %s", path)
             return default
         raise FileNotFoundError(f"JSON file not found: {path}")
 

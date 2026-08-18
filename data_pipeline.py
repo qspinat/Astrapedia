@@ -46,10 +46,20 @@ def download_catalog(
     elif not download_file(url, filepath, show_progress=True):
         return None
 
-    # Verify integrity: warns on mismatch, no-op when no checksum is configured.
-    # Runs on the reused file too, so a previously corrupted catalog is caught.
-    if catalog_name:
-        Config.verify_checksum(filepath.read_bytes(), catalog_name)
+    # Verify integrity: no-op when no checksum is configured. Runs on the
+    # reused file too, so a previously corrupted catalog is caught.
+    #
+    # The result is acted on rather than discarded. A corrupt cached file would
+    # otherwise be reused on every subsequent run — filepath.exists() short
+    # circuits the download — so the pipeline would keep building output from
+    # it until someone deleted it by hand. Discarding the file forces a fresh
+    # download next time.
+    if catalog_name and not Config.verify_checksum(
+        filepath.read_bytes(), catalog_name
+    ):
+        print(f"  Checksum mismatch for {filename}; discarding it")
+        filepath.unlink(missing_ok=True)
+        return None
 
     return filepath
 
@@ -221,6 +231,15 @@ def process_constellation_lines() -> dict | None:
                         continue
 
     print(f"  Loaded {len(constellations)} constellations")
+
+    # Never overwrite a good file with an empty parse. A download can succeed
+    # and still be unparseable — an upstream format change, or a captive
+    # portal returning HTML with a 200 — and this catalog is fetched without a
+    # catalog_name, so no checksum guards it. Writing {} here would leave the
+    # app with no constellation lines at all.
+    if not constellations:
+        print("  Parsed no constellations; keeping the existing file")
+        return None
 
     # Save to JSON (compact to reduce file size and diff noise)
     output_file = Config.get_data_path("constellations.json")

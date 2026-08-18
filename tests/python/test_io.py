@@ -4,13 +4,95 @@ Tests for astrapedia.io module.
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from astrapedia.io import (
+    download_file,
     read_json,
     write_json,
 )
+
+
+class _FakeResponse:
+    """Minimal stand-in for urlopen's context manager."""
+
+    def __init__(self, body: bytes, content_length: int | None):
+        self._body = body
+        self._offset = 0
+        self.headers = (
+            {} if content_length is None
+            else {"Content-Length": str(content_length)}
+        )
+
+    def read(self, size):
+        chunk = self._body[self._offset:self._offset + size]
+        self._offset += len(chunk)
+        return chunk
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class TestDownloadFile:
+    """Tests for download_file."""
+
+    def test_writes_a_complete_download(self, tmp_path):
+        dest = tmp_path / "catalog.csv"
+        body = b"a,b,c\n1,2,3\n"
+
+        with patch("urllib.request.urlopen",
+                   return_value=_FakeResponse(body, len(body))):
+            assert download_file("http://example.test/x", dest,
+                                 show_progress=False) is True
+
+        assert dest.read_bytes() == body
+
+    def test_rejects_a_truncated_download(self, tmp_path):
+        """http.client returns b"" on an early close instead of raising, so
+        only a byte-count check catches a short read."""
+        dest = tmp_path / "catalog.csv"
+
+        with patch("urllib.request.urlopen",
+                   return_value=_FakeResponse(b"only-200-bytes", 1200)):
+            assert download_file("http://example.test/x", dest,
+                                 show_progress=False) is False
+
+    def test_leaves_no_file_behind_when_truncated(self, tmp_path):
+        """A partial file at dest_path would be reused forever, because
+        download_catalog skips anything that already exists."""
+        dest = tmp_path / "catalog.csv"
+
+        with patch("urllib.request.urlopen",
+                   return_value=_FakeResponse(b"short", 5000)):
+            download_file("http://example.test/x", dest, show_progress=False)
+
+        assert not dest.exists()
+
+    def test_does_not_clobber_a_good_file_with_a_truncated_one(self, tmp_path):
+        dest = tmp_path / "catalog.csv"
+        dest.write_bytes(b"the good copy")
+
+        with patch("urllib.request.urlopen",
+                   return_value=_FakeResponse(b"short", 5000)):
+            download_file("http://example.test/x", dest, show_progress=False)
+
+        assert dest.read_bytes() == b"the good copy"
+
+    def test_accepts_a_response_without_content_length(self, tmp_path):
+        """Chunked responses omit it; there is nothing to verify against."""
+        dest = tmp_path / "catalog.csv"
+
+        with patch("urllib.request.urlopen",
+                   return_value=_FakeResponse(b"body", None)):
+            assert download_file("http://example.test/x", dest,
+                                 show_progress=False) is True
+
+        assert dest.read_bytes() == b"body"
 
 
 class TestReadJson:
