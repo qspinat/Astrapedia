@@ -3,24 +3,10 @@
  * Determines which objects are visible tonight from a given location.
  */
 
-/**
- * Calculate altitude of an object at a given location and time.
- * @param {number} ra - Right ascension in degrees
- * @param {number} dec - Declination in degrees
- * @param {number} lat - Observer latitude in degrees
- * @param {number} lst - Local sidereal time in degrees
- * @returns {number} Altitude in degrees
- */
-export const calculateAltitude = (ra, dec, lat, lst) => {
-  const latRad = lat * Math.PI / 180;
-  const decRad = dec * Math.PI / 180;
-  const haRad = (lst - ra) * Math.PI / 180;
+import {calculateAltitude} from '../core/CoordinateUtils.js';
 
-  const sinAlt = Math.sin(latRad) * Math.sin(decRad) +
-    Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
-
-  return Math.asin(sinAlt) * 180 / Math.PI;
-};
+// Re-exported so visibility callers can take everything from one module.
+export {calculateAltitude};
 
 /**
  * Check if an object is above the horizon.

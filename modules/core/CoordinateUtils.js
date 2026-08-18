@@ -217,6 +217,31 @@ export const calculateLST = (date, longitude) => {
 };
 
 /**
+ * Calculate the altitude of an object above the horizon.
+ *
+ * The canonical implementation: the stateful wrappers in AstronomyCalculator,
+ * LocationManager and VisibilityCalculator all resolve to this, so a change
+ * here (atmospheric refraction, a horizon offset) applies everywhere rather
+ * than to whichever copy the caller happened to reach.
+ *
+ * @param {number} ra - Right ascension in degrees
+ * @param {number} dec - Declination in degrees
+ * @param {number} lat - Observer latitude in degrees
+ * @param {number} lst - Local sidereal time in degrees
+ * @returns {number} Altitude in degrees, -90 to 90
+ */
+export const calculateAltitude = (ra, dec, lat, lst) => {
+  const latRad = lat * Math.PI / 180;
+  const decRad = dec * Math.PI / 180;
+  const haRad = (lst - ra) * Math.PI / 180;
+
+  const sinAlt = Math.sin(latRad) * Math.sin(decRad) +
+    Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
+
+  return Math.asin(sinAlt) * 180 / Math.PI;
+};
+
+/**
  * Compute the center RA/Dec of a constellation from its line star pairs.
  * Uses circular mean for RA to handle wrap-around at 0/360.
  * @param {!Object} constData - Constellation data with `lines` array of star ID pairs
