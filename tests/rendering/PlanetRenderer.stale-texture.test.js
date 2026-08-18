@@ -19,6 +19,7 @@ const mockContext = {
   clearRect: jest.fn(),
   beginPath: jest.fn(),
   arc: jest.fn(),
+  ellipse: jest.fn(),
   fill: jest.fn(),
   save: jest.fn(),
   restore: jest.fn(),

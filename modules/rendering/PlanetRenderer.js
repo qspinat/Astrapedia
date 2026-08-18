@@ -19,6 +19,31 @@ import {createLogger} from '../core/Logger.js';
 const logger = createLogger('PlanetRenderer');
 
 /**
+ * Terminator geometry for a lunar phase.
+ *
+ * `phase` runs 0 at new moon, 0.5 at full, back to 1 at the next new — the
+ * convention SolarSystem.calculateMoonPosition produces.
+ *
+ * `semiAxis` is the terminator ellipse's x semi-axis as a fraction of the
+ * disc radius, signed by which way it bulges:
+ *   -1  new moon      ellipse bulges across the lit side, whole disc shaded
+ *    0  quarter       straight line, exactly half shaded
+ *   +1  full moon     ellipse hugs the shaded limb, nothing shaded
+ *
+ * @param {number} phase - Lunar phase, 0 to 1
+ * @returns {{illuminated: number, waxing: boolean, semiAxis: number}}
+ */
+export function moonShadowGeometry(phase) {
+  // Triangular in phase: 0 at both new moons, 1 at full.
+  const illuminated = 1 - Math.abs(2 * phase - 1);
+  return {
+    illuminated,
+    waxing: phase < 0.5,
+    semiAxis: 2 * illuminated - 1,
+  };
+}
+
+/**
  * PlanetRenderer manages planet sprite visualization.
  */
 export class PlanetRenderer {
@@ -184,7 +209,7 @@ export class PlanetRenderer {
     if (planet.name === 'Sun') {
       this.drawSun_(ctx, canvasSize);
     } else if (planet.name === 'Moon') {
-      this.drawMoon_(ctx, canvasSize, planet.phase || 0.5);
+      this.drawMoon_(ctx, canvasSize, planet.phase ?? 0.5);
     } else {
       this.drawPlanet_(ctx, canvasSize, color);
     }
@@ -277,19 +302,25 @@ export class PlanetRenderer {
     ctx.arc(cx - r * 0.1, cy + r * 0.4, r * 0.1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw shadow for phase
-    if (phase < 0.98) {
+    // Draw shadow for phase. Near full there is nothing to shade.
+    if (moonShadowGeometry(phase).illuminated < 0.98) {
       ctx.fillStyle = 'rgba(10, 15, 28, 0.95)';
       ctx.beginPath();
 
-      if (phase < 0.5) {
-        const terminatorX = cx + r * (1 - phase * 4);
-        ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
-        ctx.quadraticCurveTo(terminatorX, cy, cx, cy - r);
+      const {waxing, semiAxis} = moonShadowGeometry(phase);
+      const rx = Math.abs(semiAxis) * r;
+
+      if (waxing) {
+        // Lit on the right: shade the left limb, top to bottom...
+        ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, true);
+        // ...then close along the terminator. A negative semi-axis bulges the
+        // ellipse into the lit side (crescent), a positive one back toward the
+        // shaded limb (gibbous).
+        ctx.ellipse(cx, cy, rx, r, 0, Math.PI / 2, -Math.PI / 2, semiAxis < 0);
       } else {
-        const terminatorX = cx - r * ((1 - phase) * 4);
-        ctx.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2, false);
-        ctx.quadraticCurveTo(terminatorX, cy, cx, cy - r);
+        // Waning: mirrored, lit on the left.
+        ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
+        ctx.ellipse(cx, cy, rx, r, 0, Math.PI / 2, -Math.PI / 2, semiAxis >= 0);
       }
       ctx.fill();
     }
