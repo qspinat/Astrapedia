@@ -5,6 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {CAMERA} from '../core/Constants.js';
+import {calculateAltitude} from '../core/CoordinateUtils.js';
 import {createLogger} from '../core/Logger.js';
 
 const logger = createLogger('TourController');
@@ -496,26 +497,6 @@ export class TourController {
   }
 
   /**
-   * Calculate altitude of object at location.
-   * @param {number} ra - Right ascension in degrees
-   * @param {number} dec - Declination in degrees
-   * @param {number} lat - Latitude in degrees
-   * @param {number} lst - Local sidereal time in degrees
-   * @returns {number} Altitude in degrees
-   * @private
-   */
-  calculateAltitude_(ra, dec, lat, lst) {
-    const latRad = lat * Math.PI / 180;
-    const decRad = dec * Math.PI / 180;
-    const haRad = (lst - ra) * Math.PI / 180;
-
-    const sinAlt = Math.sin(latRad) * Math.sin(decRad) +
-      Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
-
-    return Math.asin(sinAlt) * 180 / Math.PI;
-  }
-
-  /**
    * Get the best visible objects for tonight.
    * @returns {!Array<!TourStep>} Array of visible objects
    */
@@ -529,7 +510,7 @@ export class TourController {
     const planets = this.getPlanets_?.() || [];
     planets.forEach((planet) => {
       if (planet.name !== 'Sun' && planet.name !== 'Moon') {
-        const altitude = this.calculateAltitude_(
+        const altitude = calculateAltitude(
           planet.ra, planet.dec, location.lat, lst
         );
         if (altitude > minAltitude && planet.mag < 6) {
@@ -552,7 +533,7 @@ export class TourController {
       if (EXCLUDE_STELLAR_TYPES.includes(dso.type)) return;
 
       if (dso.mag && dso.mag < 10) {
-        const altitude = this.calculateAltitude_(
+        const altitude = calculateAltitude(
           dso.ra, dso.dec, location.lat, lst
         );
         if (altitude > minAltitude) {
