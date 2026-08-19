@@ -195,3 +195,9 @@ site/
 data/stars.json
 data/stars_all.json
 data/stars_bright.json
+
+# Local keystore password helper (not for the repo)
+try-keystore-password.sh
+
+# Signed bundles are build artifacts / released via CI
+*.aab
