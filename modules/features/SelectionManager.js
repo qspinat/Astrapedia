@@ -75,6 +75,35 @@ export class SelectionManager {
 
     /** @private {?AbortController} - Controller for image fetch requests */
     this.imageAbortController_ = null;
+
+    /** @private {boolean} - True while selectObject is running, so the panel
+     * close it triggers (to swap panels) is not mistaken for a dismissal. */
+    this.isSelecting_ = false;
+
+    // Dismissing the info panel by any route — the back gesture/button, the
+    // backdrop, or Escape — should also deselect the object, not just hide the
+    // panel. (The ✕ button already routes through selectObject(null).)
+    /** @private {?{unsubscribe: function(): void}} */
+    this.panelClosedSub_ = globalEventBus.on(Events.PANEL_CLOSED, (data) => {
+      if (data?.panelId === 'info-panel') this.handleInfoPanelDismissed_();
+    });
+  }
+
+  /**
+   * Deselect when the info panel is dismissed (not when it's swapped for a new
+   * selection). Does not close panels — they are already closing.
+   * @private
+   */
+  handleInfoPanelDismissed_() {
+    if (this.isSelecting_ || !this.selectedObject_) return;
+    this.selectedObject_ = null;
+    if (this.highlightTimeout_) {
+      clearTimeout(this.highlightTimeout_);
+      this.highlightTimeout_ = null;
+    }
+    this.deps_.unhighlightConstellation?.();
+    this.deps_.hideHighlight?.();
+    globalEventBus.emit(Events.OBJECT_DESELECTED, {});
   }
 
   /**
@@ -90,6 +119,14 @@ export class SelectionManager {
    * @param {?Object} obj - Object to select, or null to deselect
    */
   selectObject(obj) {
+    // Guard the panel swap below: opening the new info panel closes the old
+    // one, which must not be read as a dismissal. Cleared on the next tick,
+    // after this synchronous call (and the close it triggers) has finished.
+    this.isSelecting_ = true;
+    Promise.resolve().then(() => {
+      this.isSelecting_ = false;
+    });
+
     obj = resolveCanonicalObject(obj);
     this.selectedObject_ = obj;
 
@@ -763,6 +800,9 @@ export class SelectionManager {
    * Dispose of resources.
    */
   dispose() {
+    this.panelClosedSub_?.unsubscribe?.();
+    this.panelClosedSub_ = null;
+
     if (this.highlightTimeout_) {
       clearTimeout(this.highlightTimeout_);
       this.highlightTimeout_ = null;

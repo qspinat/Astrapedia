@@ -8,6 +8,7 @@ import {
   SelectionManager,
 } from '../../modules/features/SelectionManager.js';
 import {domCache} from '../../modules/ui/DOMCache.js';
+import {globalEventBus, Events} from '../../modules/core/EventBus.js';
 
 describe('SelectionManager', () => {
   let manager;
@@ -92,6 +93,45 @@ describe('SelectionManager', () => {
       expect(mockDeps.showHighlight).not.toHaveBeenCalled();
     });
   });
+
+  describe('deselect when the info panel is dismissed (back/backdrop/Escape)',
+      () => {
+        it('deselects the object and hides its highlight', async () => {
+          const obj = {name: 'Vega', ra: 279, dec: 38, type: 'Star'};
+          manager.selectObject(obj);
+          expect(manager.getSelectedObject()).toBe(obj);
+          // Let the isSelecting_ guard clear on the next tick.
+          await Promise.resolve();
+          mockDeps.hideHighlight.mockClear();
+
+          globalEventBus.emit(Events.PANEL_CLOSED, {panelId: 'info-panel'});
+
+          expect(manager.getSelectedObject()).toBeNull();
+          expect(mockDeps.hideHighlight).toHaveBeenCalled();
+        });
+
+        it('does NOT deselect during a panel swap to a new object', () => {
+          const obj = {name: 'Vega', ra: 279, dec: 38, type: 'Star'};
+          manager.selectObject(obj);
+          // Simulate the synchronous window while selecting: the panel the swap
+          // closes must not be mistaken for a dismissal.
+          manager.isSelecting_ = true;
+
+          globalEventBus.emit(Events.PANEL_CLOSED, {panelId: 'info-panel'});
+
+          expect(manager.getSelectedObject()).toBe(obj);
+        });
+
+        it('ignores closes of other panels', async () => {
+          const obj = {name: 'Vega', ra: 279, dec: 38, type: 'Star'};
+          manager.selectObject(obj);
+          await Promise.resolve();
+
+          globalEventBus.emit(Events.PANEL_CLOSED, {panelId: 'settings-panel'});
+
+          expect(manager.getSelectedObject()).toBe(obj);
+        });
+      });
 
   describe('selectObject with null (deselect)', () => {
     it('clears selected object', () => {
