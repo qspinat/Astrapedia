@@ -16,8 +16,11 @@ const logger = createLogger('HorizonRenderer');
 const HORIZON_CONFIG = {
   RADIUS: 99,
   CARDINAL_RADIUS: 95,
-  COLOR: 0x1a9a4a,       // Dimmer green for night vision
-  COLOR_CSS: '#1a9a4a',  // Same color as CSS hex for canvas drawing
+  // Dim amber, matching --accent-warm-dim. Green (the previous value) is
+  // among the worst colors for dark adaptation despite the old "night vision"
+  // comment — long-wavelength red/amber is what preserves night vision.
+  COLOR: 0x9a7a3a,
+  COLOR_CSS: '#9a7a3a',  // Same color as CSS hex for canvas drawing
   OPACITY: 0.5,          // Reduced brightness
   SEGMENTS: 128,
   LABEL_SIZE: 10,
@@ -160,7 +163,7 @@ export class HorizonRenderer {
     canvas.height = 128;
     const ctx = canvas.getContext('2d');
 
-    // Draw text with dimmer green color for night vision
+    // Draw cardinal text in the same dim amber as the horizon line.
     ctx.fillStyle = HORIZON_CONFIG.COLOR_CSS;
     ctx.font = 'bold 80px Arial';
     ctx.textAlign = 'center';
