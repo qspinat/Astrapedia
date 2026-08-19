@@ -207,8 +207,8 @@ canvas:active {
 }
 
 .icon-btn {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     border-radius: var(--radius);
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -229,7 +229,7 @@ canvas:active {
 
 .icon-btn svg {
     position: absolute;
-    inset: 8px;
+    inset: 11px;
     width: auto;
     height: auto;
     stroke: currentColor;
@@ -1561,6 +1561,14 @@ select:focus {
 /* Legacy time-controls class (keep for JS compatibility) */
 .time-controls {
     display: contents;
+}
+
+/* Expand the time-transport tap target to >=44px without growing the box
+   (the row packs several buttons; keeping the visual size avoids overflow). */
+.time-btn::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
 }
 
 .time-btn {

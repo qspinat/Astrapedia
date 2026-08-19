@@ -375,8 +375,11 @@ export class LocationManager {
           // Already granted - get location silently
           this.getLocationSilently_();
         } else if (permission.state === 'prompt') {
-          // Not yet asked - show a friendly prompt first
-          this.showLocationPrompt_();
+          // Not yet asked — do NOT prompt on launch. Best practice is to ask
+          // in context, so the request now waits for the user to tap the "My
+          // location" control (requestGeolocationInteractive). This keeps the
+          // first run free of an unsolicited permission dialog.
+          logger.info('Location not yet granted; deferring to first use');
         } else if (permission.state === 'denied') {
           // Previously denied - show how to enable
           logger.info('Location permission was previously denied');
@@ -389,12 +392,13 @@ export class LocationManager {
           }
         });
       } catch (e) {
-        // Permissions API not fully supported, try showing prompt
-        this.showLocationPrompt_();
+        // Permissions API unreliable — still don't prompt on launch; wait for
+        // the user to tap "My location".
+        logger.info('Could not check location permission; deferring to first use');
       }
     } else {
-      // No Permissions API, show prompt
-      this.showLocationPrompt_();
+      // No Permissions API — defer to first use rather than prompting on launch.
+      logger.info('No Permissions API; deferring location to first use');
     }
   }
 
@@ -664,14 +668,18 @@ export class LocationManager {
       navigator.permissions.query({name: 'geolocation'}).then((permission) => {
         if (permission.state === 'denied') {
           this.showLocationDeniedHelp();
-          return;
+        } else if (permission.state === 'prompt') {
+          // First time: prime with the styled explanation, then the OS prompt
+          // fires from the card's "Allow" — contextual, higher grant rate.
+          this.showLocationPrompt_();
+        } else {
+          this.requestGeolocationWithUI_();
         }
-        this.requestGeolocationWithUI_();
       }).catch(() => {
-        this.requestGeolocationWithUI_();
+        this.showLocationPrompt_();
       });
     } else {
-      this.requestGeolocationWithUI_();
+      this.showLocationPrompt_();
     }
   }
 }
