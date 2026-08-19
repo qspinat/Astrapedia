@@ -61,7 +61,7 @@ export class PowerManager {
       this.isPageVisible_ = !document.hidden;
       if (this.isPageVisible_) {
         logger.info('Page visible - resuming rendering');
-        this.startAnimating();
+        this.resume_();
       } else {
         logger.info('Page hidden - pausing rendering');
         this.stopAnimating();
@@ -69,13 +69,31 @@ export class PowerManager {
     };
     document.addEventListener('visibilitychange', this.onVisibilityChange_);
 
-    // Handle window focus for better mobile support
-    this.onFocus_ = () => {
-      if (this.isPageVisible_ && !this.isAnimating_) {
-        this.startAnimating();
-      }
-    };
+    // Belt-and-suspenders resume signals. On Android, locking the screen
+    // (power button) often does NOT fire visibilitychange, yet the WebView
+    // still drops the pending animation frame — so relying on visibility
+    // alone leaves the loop dead on unlock. focus, pageshow, and Capacitor's
+    // resume all cover that path.
+    this.onFocus_ = () => this.resume_();
     window.addEventListener('focus', this.onFocus_);
+    window.addEventListener('pageshow', this.onFocus_);
+    document.addEventListener('resume', this.onFocus_);
+  }
+
+  /**
+   * Force the render loop back on after the app returns to the foreground.
+   *
+   * Unlike startAnimating(), this does not trust isAnimating_: the WebView can
+   * pause with the flag still true, so it re-fires onStartAnimating_
+   * unconditionally, and that callback cancels any stale frame and schedules a
+   * fresh one.
+   * @private
+   */
+  resume_() {
+    this.isPageVisible_ = true;
+    this.isAnimating_ = true;
+    this.resetIdleTimeout();
+    this.onStartAnimating_?.();
   }
 
   /**
@@ -171,6 +189,8 @@ export class PowerManager {
     }
     if (this.onFocus_) {
       window.removeEventListener('focus', this.onFocus_);
+      window.removeEventListener('pageshow', this.onFocus_);
+      document.removeEventListener('resume', this.onFocus_);
       this.onFocus_ = null;
     }
   }

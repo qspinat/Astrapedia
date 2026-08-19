@@ -161,21 +161,37 @@ describe('InputController', () => {
       expect(deps.setTargetFov.mock.calls.at(-1)[0]).toBeGreaterThan(60);
     });
 
-    test('the second tap does not also select an object', () => {
-      tap(200, 400); // first tap selects
-      expect(deps.onClick).toHaveBeenCalledTimes(1);
+    test('the first tap of a zoom does not select an object', () => {
+      jest.useFakeTimers();
+      try {
+        // Selection is deferred, so the first tap has not fired yet.
+        tap(200, 400);
+        expect(deps.onClick).not.toHaveBeenCalled();
 
-      fireTouch('touchstart', [{x: 205, y: 400}]);
-      fireTouch('touchmove', [{x: 205, y: 480}]);
-      fireTouch('touchend', []);
+        // The second tap starts the zoom and must cancel that pending select.
+        fireTouch('touchstart', [{x: 205, y: 400}]);
+        fireTouch('touchmove', [{x: 205, y: 480}]);
+        fireTouch('touchend', []);
+        jest.runAllTimers();
 
-      // Still just the one selection from the first tap.
-      expect(deps.onClick).toHaveBeenCalledTimes(1);
+        expect(deps.onClick).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
-    test('a lone tap still selects normally', () => {
-      tap(200, 400);
-      expect(deps.onClick).toHaveBeenCalledTimes(1);
+    test('a lone tap still selects, after the double-tap window', () => {
+      jest.useFakeTimers();
+      try {
+        tap(200, 400);
+        // Deferred until we know no second tap is coming.
+        expect(deps.onClick).not.toHaveBeenCalled();
+
+        jest.runAllTimers();
+        expect(deps.onClick).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     test('a far-apart second touch pans instead of zooming', () => {

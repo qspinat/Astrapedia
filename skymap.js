@@ -214,6 +214,10 @@ export class AstrapediaApp {
     // Animation loop state (synced with PowerManager via callbacks)
     this._isAnimating = false;
 
+    // Handle of the pending requestAnimationFrame, so a resume can tell a live
+    // loop from a stale flag and re-kick exactly one frame.
+    this._rafId = null;
+
     // === DEVICE DETECTION ===
     // Detect mobile/touch devices for UX adjustments
     this.isMobile = this.detectMobile_();
@@ -518,13 +522,22 @@ export class AstrapediaApp {
   initPowerManager_() {
     this.powerManager_ = new PowerManager({
       onStartAnimating: () => {
-        if (!this._isAnimating) {
-          this._isAnimating = true;
-          requestAnimationFrame(this._boundAnimate);
-        }
+        // Force a fresh frame rather than trusting _isAnimating. When Android
+        // pauses the WebView (screen off / background) it can drop the pending
+        // rAF while the flag stays true, so a guarded `if (!_isAnimating)`
+        // would never re-kick the loop on resume — the sky freezes ("can't
+        // slide") and the next resize paints it black. Cancelling any stale id
+        // and scheduling one guarantees exactly one live frame.
+        this._isAnimating = true;
+        if (this._rafId != null) cancelAnimationFrame(this._rafId);
+        this._rafId = requestAnimationFrame(this._boundAnimate);
       },
       onStopAnimating: () => {
         this._isAnimating = false;
+        if (this._rafId != null) {
+          cancelAnimationFrame(this._rafId);
+          this._rafId = null;
+        }
       },
       shouldKeepAnimating: () =>
         this.timeController_.isPlaying() || this.isCameraConverging_(),
@@ -1905,7 +1918,7 @@ export class AstrapediaApp {
       // Fallback for early initialization
       if (!this._isAnimating) {
         this._isAnimating = true;
-        requestAnimationFrame(this._boundAnimate);
+        this._rafId = requestAnimationFrame(this._boundAnimate);
       }
     }
   }
@@ -1935,9 +1948,12 @@ export class AstrapediaApp {
    */
   animate() {
     // Only continue animation if enabled (power saving)
-    if (!this._isAnimating) return;
+    if (!this._isAnimating) {
+      this._rafId = null;
+      return;
+    }
 
-    requestAnimationFrame(this._boundAnimate);
+    this._rafId = requestAnimationFrame(this._boundAnimate);
 
     this._frameCount++;
     const now = performance.now();
