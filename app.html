@@ -187,6 +187,11 @@
     <!-- Main Canvas -->
     <div id="canvas-container"></div>
 
+    <!-- Red multiply layer for Night Vision mode: sits above the star-field
+         canvas but below the UI, tinting the spectral-colored (often blue-white)
+         stars red so the whole screen preserves dark adaptation. -->
+    <div id="night-vision-overlay" aria-hidden="true"></div>
+
     <!-- UI Overlay -->
     <div id="ui-overlay">
         <!-- Compact Header with Search -->
@@ -211,6 +216,11 @@
                             <path d="M7 14l2.5 1.5-1.5 3.5"/>
                             <path d="M4 19h6"/>
                             <circle cx="22" cy="5" r="2.5" fill="currentColor" opacity="0.5" stroke="currentColor"/>
+                        </svg>
+                    </button>
+                    <button class="icon-btn icon-btn--nightvision" id="night-vision-toggle" aria-label="Night Vision Mode" aria-pressed="false" title="Night Vision Mode">
+                        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <path d="M13 2a9 9 0 108.9 10.5A7.2 7.2 0 0113 2z"/>
                         </svg>
                     </button>
                     <button class="icon-btn icon-btn--settings" id="settings-toggle" aria-label="Settings">

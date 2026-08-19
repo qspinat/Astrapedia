@@ -55,6 +55,7 @@
 
     /* Z-index system */
     --z-canvas: 1;
+    --z-nightvision: 5;
     --z-ui-overlay: 10;
     --z-floating: 50;
     --z-header: 100;
@@ -62,6 +63,57 @@
     --z-backdrop: 199;
     --z-modal: 200;
     --z-loading: 1000;
+}
+
+/*
+ * NIGHT VISION MODE
+ * Deep-red, low-luminance skin for outdoor field use. Only the tokens are
+ * redefined here, so every component that reads them inherits the mode for
+ * free. Single-hue red at low brightness is what preserves dark adaptation —
+ * no green, blue, or white, nothing bright.
+ */
+body.night-vision {
+    --bg-dark: #050000;
+    --bg-primary: rgba(14, 3, 3, 0.96);
+    --bg-secondary: rgba(26, 6, 6, 0.9);
+    --bg-elevated: rgba(36, 9, 9, 0.92);
+
+    --text-primary: #c25a42;
+    --text-secondary: #8a3d2c;
+    --text-muted: #582419;
+
+    --accent: #3a140d;
+    --accent-hover: #4a1a11;
+    --accent-warm: #d05a38;
+    --accent-warm-dim: #9a4026;
+
+    --data-color: #d05a38;
+
+    --success: #b06038;   /* no green in the dark — all status stays red/amber */
+    --warning: #d07a3a;
+    --error: #c04028;
+
+    --border: rgba(180, 70, 48, 0.2);
+    --border-accent: rgba(200, 84, 50, 0.28);
+    --border-focus: rgba(210, 92, 60, 0.5);
+}
+
+/* The star field is a canvas of spectral-colored (often blue-white) points,
+   so tokens can't reach it. A dark-red multiply layer keeps only the red
+   channel, turning the whole sky into red shades. pointer-events:none so it
+   never blocks panning or selection. */
+#night-vision-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-nightvision);
+    background: #7a0000;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    display: none;
+}
+
+body.night-vision #night-vision-overlay {
+    display: block;
 }
 
 * {
@@ -1842,6 +1894,21 @@ select:focus-visible {
 .icon-btn--telescope:not(.active) {
     background: var(--bg-secondary) !important;
     border-color: var(--border) !important;
+}
+
+/* Night Vision quick toggle button. The .active/.icon-btn compound selector
+   already outranks the base .icon-btn rule, so no !important is needed. When
+   the mode is on, the whole UI is red via the token override, so the moon
+   glows red for free. */
+.icon-btn--nightvision.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-warm);
+}
+
+.icon-btn--nightvision:not(.active) {
+    background: var(--bg-secondary);
+    border-color: var(--border);
 }
 
 /* Panel styling */

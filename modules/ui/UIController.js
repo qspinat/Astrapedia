@@ -15,6 +15,7 @@ import {createLogger} from '../core/Logger.js';
 import {PanelManager, panelManager} from './PanelManager.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {addMobileButtonListener} from '../core/Utils.js';
+import {initializeNightVision} from './NightVision.js';
 import {GameUI} from '../features/GameUI.js';
 import {TourUI} from '../features/TourUI.js';
 import {TimeUI} from '../features/TimeUI.js';
@@ -565,6 +566,9 @@ export class UIController {
 
     /** @private {?TelescopeUI} */
     this.telescopeUI_ = null;
+
+    /** @private {!NightVision} */
+    this.nightVision_ = initializeNightVision();
   }
 
   /**
@@ -667,6 +671,16 @@ export class UIController {
     if (compassToggle) {
       addMobileButtonListener(compassToggle, () => {
         this.deps_.toggleCompassMode?.();
+      });
+    }
+
+    // Night Vision toggle — the primary, quick-reach control. NightVision
+    // keeps its aria-pressed/active state in sync via registerToggle.
+    const nightVisionToggle = domCache.get('night-vision-toggle');
+    if (nightVisionToggle) {
+      this.nightVision_.registerToggle(nightVisionToggle);
+      addMobileButtonListener(nightVisionToggle, () => {
+        this.nightVision_.toggle();
       });
     }
 
