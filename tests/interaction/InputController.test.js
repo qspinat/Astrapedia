@@ -126,4 +126,76 @@ describe('InputController', () => {
       expect(deps.setTargetFov).not.toHaveBeenCalled();
     });
   });
+
+  describe('one-handed double-tap-and-slide zoom', () => {
+    // jsdom has no TouchEvent; a plain Event with a `touches` array is enough,
+    // since the handlers only read touches[i].clientX/clientY and length.
+    const fireTouch = (type, points) => {
+      const ev = new Event(type, {bubbles: true, cancelable: true});
+      Object.defineProperty(ev, 'touches', {
+        value: points.map((p) => ({clientX: p.x, clientY: p.y})),
+      });
+      canvas.dispatchEvent(ev);
+    };
+
+    /** A completed tap at (x, y) that primes the double-tap window. */
+    const tap = (x, y) => {
+      fireTouch('touchstart', [{x, y}]);
+      fireTouch('touchend', []);
+    };
+
+    test('a second tap and slide down zooms in', () => {
+      tap(200, 400);
+      fireTouch('touchstart', [{x: 205, y: 400}]); // within the double-tap window
+      fireTouch('touchmove', [{x: 205, y: 500}]); // slide down 100px
+
+      expect(deps.setTargetFov).toHaveBeenCalled();
+      expect(deps.setTargetFov.mock.calls.at(-1)[0]).toBeLessThan(60);
+    });
+
+    test('sliding up zooms out', () => {
+      tap(200, 400);
+      fireTouch('touchstart', [{x: 205, y: 400}]);
+      fireTouch('touchmove', [{x: 205, y: 300}]); // slide up 100px
+
+      expect(deps.setTargetFov.mock.calls.at(-1)[0]).toBeGreaterThan(60);
+    });
+
+    test('the second tap does not also select an object', () => {
+      tap(200, 400); // first tap selects
+      expect(deps.onClick).toHaveBeenCalledTimes(1);
+
+      fireTouch('touchstart', [{x: 205, y: 400}]);
+      fireTouch('touchmove', [{x: 205, y: 480}]);
+      fireTouch('touchend', []);
+
+      // Still just the one selection from the first tap.
+      expect(deps.onClick).toHaveBeenCalledTimes(1);
+    });
+
+    test('a lone tap still selects normally', () => {
+      tap(200, 400);
+      expect(deps.onClick).toHaveBeenCalledTimes(1);
+    });
+
+    test('a far-apart second touch pans instead of zooming', () => {
+      tap(200, 400); // primes the double-tap window at (200, 400)
+
+      // A touch far from the first tap is not a double-tap, so a normal drag.
+      fireTouch('touchstart', [{x: 600, y: 400}]);
+      fireTouch('touchmove', [{x: 600, y: 500}]);
+
+      expect(deps.setTargetFov).not.toHaveBeenCalled();
+      expect(deps.setRotation).toHaveBeenCalled();
+    });
+
+    test('the zoom gesture is suppressed while zoom is locked', () => {
+      deps.isZoomLocked.mockReturnValue(true);
+      tap(200, 400);
+      fireTouch('touchstart', [{x: 205, y: 400}]);
+      fireTouch('touchmove', [{x: 205, y: 500}]);
+
+      expect(deps.setTargetFov).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -95,6 +95,21 @@ export class InputController {
     /** @private {boolean} */
     this.wasPinching_ = false;
 
+    /** @private {number} - Timestamp of the last completed single-finger tap */
+    this.lastTapTime_ = 0;
+
+    /** @private {?{x: number, y: number}} - Position of the last tap */
+    this.lastTapPos_ = null;
+
+    /** @private {boolean} - In a double-tap-and-slide one-handed zoom */
+    this.isDoubleTapZoom_ = false;
+
+    /** @private {number} - Finger Y when the zoom slide began */
+    this.zoomStartY_ = 0;
+
+    /** @private {number} - FOV when the zoom slide began */
+    this.zoomStartFov_ = 0;
+
     /** @private {number} */
     this.lastMoveTime_ = 0;
 
@@ -275,6 +290,22 @@ export class InputController {
    * @param {!TouchEvent} event
    * @private
    */
+  /**
+   * Whether a touch starting now continues a recent nearby tap — the trigger
+   * for the one-handed zoom slide.
+   * @param {!Touch} touch - The starting touch
+   * @returns {boolean}
+   * @private
+   */
+  isDoubleTap_(touch) {
+    if (!this.lastTapPos_) return false;
+    const elapsed = performance.now() - this.lastTapTime_;
+    if (elapsed > INPUT.DOUBLE_TAP_MS) return false;
+    const dx = touch.clientX - this.lastTapPos_.x;
+    const dy = touch.clientY - this.lastTapPos_.y;
+    return Math.sqrt(dx * dx + dy * dy) <= INPUT.DOUBLE_TAP_DIST_PX;
+  }
+
   onTouchStart_(event) {
     // Stop any ongoing inertia animation
     if (this.inertiaAnimationId_) {
@@ -285,11 +316,28 @@ export class InputController {
     this.recentMoves_ = [];
 
     if (event.touches.length === 1) {
+      const touch = event.touches[0];
+
+      // A second tap landing near the first, soon after it, starts a
+      // one-handed zoom: hold and slide vertically to change the FOV. This
+      // takes precedence over panning/selecting so the gesture doesn't also
+      // drag the sky. Suppressed while zoom is locked (telescope mode).
+      if (this.isDoubleTap_(touch) && !this.isZoomLocked_()) {
+        this.isDoubleTapZoom_ = true;
+        this.isDragging_ = false;
+        this.isPinching_ = false;
+        this.zoomStartY_ = touch.clientY;
+        this.zoomStartFov_ = this.getFov_();
+        this.lastTapTime_ = 0;
+        this.requestRender_();
+        return;
+      }
+
       this.isDragging_ = true;
       this.dragMoved_ = false;
       this.isPinching_ = false;
       this.wasPinching_ = false;
-      const touch = event.touches[0];
+      this.isDoubleTapZoom_ = false;
       this.mouseDownPosition_ = {x: touch.clientX, y: touch.clientY};
       this.previousMousePosition_ = {x: touch.clientX, y: touch.clientY};
       this.lastMoveTime_ = performance.now();
@@ -314,7 +362,18 @@ export class InputController {
   onTouchMove_(event) {
     event.preventDefault();
 
-    if (event.touches.length === 1 && this.isDragging_) {
+    if (event.touches.length === 1 && this.isDoubleTapZoom_) {
+      // Slide down to zoom in, up to zoom out. Exponential so each fixed
+      // slide distance multiplies the FOV, matching how pinch feels, and
+      // anchored to where the slide began so it never accumulates drift.
+      const dy = event.touches[0].clientY - this.zoomStartY_;
+      const factor = Math.pow(2, -dy / INPUT.ZOOM_SLIDE_PX_PER_DOUBLING);
+      const newFov = clamp(this.zoomStartFov_ * factor,
+          INPUT.MIN_FOV_EXTREME, CAMERA.MAX_FOV);
+      this.setTargetFov_(newFov);
+      this.requestRender_();
+      return;
+    } else if (event.touches.length === 1 && this.isDragging_) {
       const touch = event.touches[0];
       const deltaX = touch.clientX - this.previousMousePosition_.x;
       const deltaY = touch.clientY - this.previousMousePosition_.y;
@@ -367,8 +426,14 @@ export class InputController {
    */
   onTouchEnd_(event) {
     if (event.touches.length === 0) {
-      // Check for tap (no drag, no pinch)
-      if (this.isDragging_ && !this.dragMoved_ && !this.wasPinching_) {
+      if (this.isDoubleTapZoom_) {
+        // End the one-handed zoom without selecting or flinging.
+        this.isDoubleTapZoom_ = false;
+      } else if (this.isDragging_ && !this.dragMoved_ && !this.wasPinching_) {
+        // A completed tap: remember it so a quick second tap nearby can start
+        // the zoom slide, then dispatch the selection click.
+        this.lastTapTime_ = performance.now();
+        this.lastTapPos_ = {x: this.mouseDownPosition_.x, y: this.mouseDownPosition_.y};
         // Mark that touch handled the click to prevent synthetic click
         this.touchClickHandled_ = true;
         // Simulate click at last position
