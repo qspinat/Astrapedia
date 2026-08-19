@@ -2,7 +2,7 @@
 // responses have no TTL and are evicted only when this name changes, so a
 // returning user otherwise keeps the old JS, the old modules and the old star
 // catalog indefinitely.
-const CACHE_NAME = 'astrapedia-v5';
+const CACHE_NAME = 'astrapedia-v6';
 
 // Cache TTL in milliseconds (24 hours for external resources)
 const EXTERNAL_CACHE_TTL = 24 * 60 * 60 * 1000;
