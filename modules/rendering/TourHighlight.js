@@ -144,9 +144,18 @@ export class TourHighlight {
     const userData = this.highlight_.userData;
     const elapsed = (Date.now() - userData.startTime) / 1000;
 
-    // Pulsing opacity animation
+    // Acquisition "lock": for the first ~350ms the reticle snaps in larger
+    // and settles onto the target (ease-out), fading in over the first 150ms.
+    // After that it holds with a gentle pulse. Reads like a sight acquiring a
+    // target rather than a ring simply appearing.
+    const acqT = Math.min(elapsed / 0.35, 1);
+    const acqEase = 1 - Math.pow(1 - acqT, 3);
+    const acquireScale = 1 + (1 - acqEase) * 0.7;
+    const fadeIn = Math.min(elapsed / 0.15, 1);
+
+    // Pulsing opacity animation, gated by the fade-in.
     const pulse = 0.7 + 0.3 * Math.sin(elapsed * 3);
-    this.highlight_.material.opacity = pulse;
+    this.highlight_.material.opacity = pulse * fadeIn;
 
     // Calculate size based on FOV
     // When zoomed out (large FOV), show large highlight
@@ -168,9 +177,10 @@ export class TourHighlight {
     const worldSize = (targetPixels / canvasHeight) * 2 * radius *
         Math.tan(THREE.MathUtils.degToRad(fov / 2));
 
-    // Clamp to reasonable range and add slight pulse
+    // Clamp to reasonable range, add the settle-in acquisition scale and a
+    // slight steady pulse.
     const clampedSize = clamp(worldSize, userData.realWorldSize * 1.2, userData.maxWorldSize);
-    const pulsedSize = clampedSize * (1 + 0.1 * Math.sin(elapsed * 2));
+    const pulsedSize = clampedSize * (1 + 0.1 * Math.sin(elapsed * 2)) * acquireScale;
 
     this.highlight_.scale.set(pulsedSize, pulsedSize, 1);
   }

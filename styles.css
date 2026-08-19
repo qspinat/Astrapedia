@@ -434,7 +434,7 @@ body.panel-open .info-badge {
     height: 100dvh;
     background: var(--bg-dark);
     transform: translateX(-100%);
-    transition: transform 0.25s ease-out;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: var(--z-modal);
     overflow-y: auto;
     border-right: 1px solid var(--border);
@@ -1480,6 +1480,7 @@ select:focus {
 
 .bottom-nav__item.is-active {
     color: var(--accent-warm);
+    box-shadow: inset 0 2px 0 var(--accent-warm);
 }
 
 .bottom-nav__item:focus-visible {
@@ -1866,16 +1867,31 @@ select:focus {
     transition: opacity 0.4s, visibility 0.4s;
 }
 
+/* Orbit loader: a lit point tracking a faint ring — on-theme for a sky app,
+   rather than a generic border spinner. */
 .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 2px solid var(--border);
-    border-top-color: var(--data-color);
-    border-radius: var(--radius);
-    animation: spin 1s linear infinite;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    position: relative;
+    animation: orbit 1.4s linear infinite;
 }
 
-@keyframes spin {
+.loading-spinner::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: 50%;
+    margin-left: -3.5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--data-color);
+    box-shadow: 0 0 6px var(--data-color);
+}
+
+@keyframes orbit {
     to { transform: rotate(360deg); }
 }
 
@@ -2797,4 +2813,38 @@ body.panel-open .control-bar {
 /* Slide-panel content clears the bottom nav (which sits above panels). */
 .slide-panel {
     padding-bottom: calc(16px + var(--nav-height) + var(--safe-bottom));
+}
+
+/* ==========================================================================
+   BUTTON POLISH — engraved bezel, tactile press, warm focus backlight.
+   Kept subtle and derived from tokens, so it stays night-safe.
+   ========================================================================== */
+.icon-btn,
+.action-btn,
+.tour-btn,
+.time-btn,
+.telescope-preset-btn,
+.game-select-btn {
+    box-shadow: inset 0 1px 0 rgba(212, 168, 75, 0.05);
+}
+
+.icon-btn:active,
+.action-btn:active,
+.tour-btn:active,
+.time-btn:active,
+.telescope-preset-btn:active,
+.game-select-btn:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.icon-btn:focus-visible,
+.action-btn:focus-visible,
+.tour-btn:focus-visible,
+.time-btn:focus-visible,
+.telescope-preset-btn:focus-visible,
+.game-select-btn:focus-visible,
+.bottom-nav__item:focus-visible {
+    outline: 1px solid var(--accent-warm-dim);
+    outline-offset: 1px;
+    box-shadow: 0 0 8px rgba(212, 168, 75, 0.18);
 }
