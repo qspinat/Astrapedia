@@ -1,6 +1,6 @@
 {
   "name": "astrapedia",
-  "version": "0.1.1-alpha",
+  "version": "0.2.0-alpha",
   "description": "An interactive 3D celestial sphere application for learning astronomical coordinates and finding celestial objects. Built with Three.js and real astronomical data.",
   "main": "skymap.js",
   "scripts": {
