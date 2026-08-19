@@ -704,6 +704,7 @@ export class UIController {
     this.panelManager_.setupCloseButton('events-close-btn');
 
     this.setupBottomNav_();
+    this.setupDailyHighlight_();
 
     // Info panel close button
     const infoCloseBtn = domCache.get('info-close-btn');
@@ -767,6 +768,53 @@ export class UIController {
    */
   hideGameModal_() {
     domCache.gameSelectModal?.classList.remove('visible');
+  }
+
+  /**
+   * Wire "Tonight's Highlight": recompute it each time the Tours panel opens
+   * (so it reflects the current date and location), and fly to the object when
+   * the card is tapped.
+   * @private
+   */
+  setupDailyHighlight_() {
+    const card = document.getElementById('daily-highlight');
+    if (!card) return;
+
+    /** @private {?Object} */
+    this.currentHighlight_ = null;
+
+    addMobileButtonListener(card, () => {
+      const obj = this.currentHighlight_?.object;
+      if (!obj) return;
+      this.panelManager_.closeAll();
+      this.deps_.selectObject?.(obj);
+    });
+
+    globalEventBus.on(Events.PANEL_OPENED, (data) => {
+      if (data?.panelId === 'tours-panel') this.populateDailyHighlight_();
+    });
+  }
+
+  /**
+   * Fill (or hide) the highlight card from the current day's pick.
+   * @private
+   */
+  populateDailyHighlight_() {
+    const card = document.getElementById('daily-highlight');
+    const nameEl = document.getElementById('daily-highlight-name');
+    const labelEl = document.getElementById('daily-highlight-label');
+    if (!card || !nameEl || !labelEl) return;
+
+    const highlight = this.deps_.getDailyHighlight?.();
+    this.currentHighlight_ = highlight || null;
+
+    if (highlight && highlight.object) {
+      nameEl.textContent = highlight.name;
+      labelEl.textContent = highlight.label;
+      card.hidden = false;
+    } else {
+      card.hidden = true;
+    }
   }
 
   /**

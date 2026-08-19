@@ -56,6 +56,7 @@ import {GameController} from './modules/features/GameController.js';
 import {TimeController} from './modules/features/TimeController.js';
 import {SelectionManager} from './modules/features/SelectionManager.js';
 import {VisibilityCalculator} from './modules/features/VisibilityCalculator.js';
+import {initializeDailyHighlight} from './modules/features/DailyHighlight.js';
 import {panelManager} from './modules/ui/PanelManager.js';
 import {eventsCalendar} from './modules/features/EventsCalendar.js';
 import {locationManager} from './modules/services/LocationManager.js';
@@ -473,6 +474,26 @@ export class AstrapediaApp {
       getDSOs: () => this.deepSkyObjects || [],
       getStars: () => this.stars || [],
     });
+
+    this.dailyHighlight_ = initializeDailyHighlight({
+      getVisibleObjects: (lst) =>
+        this.visibilityCalculator_.getBestVisibleObjectsTonight(20, 8, 40, lst),
+      // Real location or null — null triggers the famous-object fallback,
+      // rather than the calculator's {45,0} placeholder.
+      getLocation: () => this.observerLocation || null,
+      getFamousObjects: () => (this.deepSkyObjects || []).filter((d) =>
+        d.mag != null && d.mag < 8 &&
+        (d.common_names || (d.messier !== null && d.messier !== undefined))),
+      calculateLST,
+    });
+  }
+
+  /**
+   * The day's featured object (Tonight's Highlight), or null.
+   * @returns {?{object: !Object, name: string, label: string}}
+   */
+  getDailyHighlight() {
+    return this.dailyHighlight_?.getHighlight();
   }
 
   /**

@@ -134,6 +134,7 @@ function initializeUI_(appInstance) {
     // Search
     performSearch: (query) => appInstance.performSearch(query),
     selectObject: (obj) => appInstance.selectObject(obj),
+    getDailyHighlight: () => appInstance.getDailyHighlight?.(),
 
     // Settings
     setConstellationLines: (visible) => {

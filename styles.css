@@ -2848,3 +2848,48 @@ body.panel-open .control-bar {
     outline-offset: 1px;
     box-shadow: 0 0 8px rgba(212, 168, 75, 0.18);
 }
+
+/* Tonight's Highlight — a featured object at the top of the Tours panel. */
+.daily-highlight {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    text-align: left;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-warm);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(212, 168, 75, 0.05);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.daily-highlight:hover {
+    background: var(--bg-elevated);
+    border-color: var(--border-focus);
+}
+
+.daily-highlight:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.daily-highlight__eyebrow {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent-warm-dim);
+}
+
+.daily-highlight__name {
+    font-size: 15px;
+    color: var(--accent-warm);
+    letter-spacing: 0.5px;
+}
+
+.daily-highlight__label {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
