@@ -64,6 +64,25 @@ export class PanelManager {
     this.setupBackdropListener_();
     this.setupPanelTouchHandlers_();
     this.setupBackButtonHandler_();
+    this.setupKeyboardHandler_();
+  }
+
+  /**
+   * Close the open panel on Escape, matching the browser/phone back button.
+   * @private
+   */
+  setupKeyboardHandler_() {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.currentPanel_) {
+        e.preventDefault();
+        // Mirror the back-button path so history stays consistent.
+        if (history.state?.panelOpen) {
+          history.back();
+        } else {
+          this.closeAll();
+        }
+      }
+    });
   }
 
   /**
@@ -178,6 +197,12 @@ export class PanelManager {
     document.body.classList.remove('panel-open');
     this.currentPanel_ = null;
 
+    // Return focus to whatever opened the panel.
+    if (this.previousFocus_?.focus) {
+      this.previousFocus_.focus();
+    }
+    this.previousFocus_ = null;
+
     if (previousPanel) {
       this.triggerCloseCallbacks_(previousPanel);
 
@@ -185,6 +210,19 @@ export class PanelManager {
         panelId: previousPanel,
       });
     }
+  }
+
+  /**
+   * Move focus to the first focusable element in a panel (its close button,
+   * usually), so keyboard users land inside the dialog rather than behind it.
+   * @param {!Element} panel
+   * @private
+   */
+  focusFirstElement_(panel) {
+    if (!panel.querySelector) return;
+    const focusable = panel.querySelector(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    focusable?.focus?.();
   }
 
   /**
@@ -204,6 +242,14 @@ export class PanelManager {
     }
 
     panel.classList.add('visible');
+
+    // Dialog semantics + focus management for keyboard and screen-reader users.
+    if (panel.setAttribute) {
+      if (!panel.getAttribute('role')) panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-modal', 'true');
+      this.previousFocus_ = document.activeElement;
+      this.focusFirstElement_(panel);
+    }
 
     if (this.backdrop_) {
       this.backdrop_.classList.add('visible');
