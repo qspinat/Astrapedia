@@ -17,6 +17,7 @@ import {escapeHtml} from '../core/SecurityUtils.js';
 import {addMobileButtonListener} from '../core/Utils.js';
 import {initializeNightVision} from './NightVision.js';
 import {initializeLocationDialog} from './LocationDialog.js';
+import {initializeOnboarding, getOnboarding} from './Onboarding.js';
 import {GameUI} from '../features/GameUI.js';
 import {TourUI} from '../features/TourUI.js';
 import {TimeUI} from '../features/TimeUI.js';
@@ -582,6 +583,9 @@ export class UIController {
     // Styled observer-location dialog (replaces the native prompt).
     initializeLocationDialog();
 
+    // First-run onboarding (shows once, reopenable from Settings).
+    initializeOnboarding();
+
     // Create and initialize all handlers
     this.searchController_ = new SearchController({
       performSearch: this.deps_.performSearch,
@@ -685,6 +689,15 @@ export class UIController {
       this.nightVision_.registerToggle(nightVisionToggle);
       addMobileButtonListener(nightVisionToggle, () => {
         this.nightVision_.toggle();
+      });
+    }
+
+    // "How to use" reopens the onboarding overlay.
+    const showOnboardingBtn = domCache.get('show-onboarding-btn');
+    if (showOnboardingBtn) {
+      addMobileButtonListener(showOnboardingBtn, () => {
+        this.panelManager_.closeAll();
+        getOnboarding()?.show();
       });
     }
 

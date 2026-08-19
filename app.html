@@ -192,6 +192,21 @@
          stars red so the whole screen preserves dark adaptation. -->
     <div id="night-vision-overlay" aria-hidden="true"></div>
 
+    <!-- First-run onboarding -->
+    <div id="onboarding-overlay" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+        <div class="onboarding-card">
+            <h2 id="onboarding-title">Welcome to Astrapedia</h2>
+            <p class="onboarding-lede">A live map of the real sky above you. Here's how to explore it.</p>
+            <ul class="onboarding-gestures">
+                <li><span class="onboarding-gesture">Drag</span> to look around the sky</li>
+                <li><span class="onboarding-gesture">Pinch</span>, or double-tap and slide, to zoom</li>
+                <li><span class="onboarding-gesture">Tap</span> a star or object to identify it</li>
+            </ul>
+            <p class="onboarding-hint">Up top: constellation lines, compass, telescope, night vision, and settings. Along the bottom: how faint to show, and a time machine. Stargazing outside? Turn on night vision to protect your dark-adapted eyes.</p>
+            <button id="onboarding-dismiss" class="action-btn">Start exploring</button>
+        </div>
+    </div>
+
     <!-- UI Overlay -->
     <div id="ui-overlay">
         <!-- Compact Header with Search -->
@@ -493,6 +508,7 @@
                     </button>
                 </div>
                 <div class="panel-footer">
+                    <button type="button" id="show-onboarding-btn" class="footer-link footer-link--button">How to use</button>
                     <a href="PRIVACY_POLICY.md" target="_blank" rel="noopener" class="footer-link">Privacy Policy</a>
                 </div>
             </div>

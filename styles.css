@@ -783,10 +783,22 @@ select:focus {
 }
 
 .panel-footer {
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
     margin-top: 10px;
     padding-top: 8px;
     border-top: 1px solid var(--border);
+}
+
+/* A footer link that is a real button (re-open onboarding) — strip the UA
+   button chrome so it matches the anchor beside it. */
+.footer-link--button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 .footer-link {
@@ -1014,6 +1026,84 @@ select:focus {
     overflow-y: auto;
     border: 1px solid var(--border);
     border-top: 2px solid var(--accent-warm-dim);
+}
+
+/* First-run onboarding overlay. Deliberately dim and warm — a new user's
+   first screen should not flash bright light at a dark-adapted eye. */
+#onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 4, 8, 0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    padding: 20px;
+}
+
+#onboarding-overlay.visible {
+    display: flex;
+}
+
+.onboarding-card {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--accent-warm-dim);
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 380px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.onboarding-card h2 {
+    color: var(--accent-warm);
+    font-size: 16px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.onboarding-lede {
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.onboarding-gestures {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.onboarding-gestures li {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.onboarding-gesture {
+    display: inline-block;
+    min-width: 64px;
+    color: var(--accent-warm);
+    letter-spacing: 0.5px;
+}
+
+.onboarding-hint {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.onboarding-card .action-btn {
+    margin-top: 4px;
 }
 
 /* Observer location dialog — same centered-modal shell as the game select. */
