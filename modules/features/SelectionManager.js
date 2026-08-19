@@ -225,6 +225,10 @@ export class SelectionManager {
     const titleEl = domCache.objectTitle;
     if (titleEl) titleEl.textContent = displayName;
 
+    const typeFullName = this.getTypeFullName(obj.type);
+    const subtype = obj.subtype ?
+        ` · ${escapeHtml(this.getTypeFullName(obj.subtype))}` : '';
+
     let html = '';
 
     // Image container - will be populated with best available image
@@ -234,47 +238,52 @@ export class SelectionManager {
     html += `</div>`;
     html += `</div>`;
 
-    // Object details
-    const typeFullName = this.getTypeFullName(obj.type);
-    html += `<p><strong>Type:</strong> ${escapeHtml(typeFullName)}</p>`;
+    // Lead with what it is and a plain-language description, not coordinates.
+    // A newcomer meets the object before the astronomer-grade numbers.
+    html += `<p class="info-type">${escapeHtml(typeFullName)}${subtype}</p>`;
+    html += `<div id="object-description" class="object-description">`;
+    html += `<em>Loading description...</em></div>`;
 
-    if (obj.subtype) {
-      html += `<p><strong>Subtype:</strong> ${escapeHtml(this.getTypeFullName(obj.subtype))}</p>`;
-    }
-
-    html += `<p><strong>RA:</strong> ${obj.ra.toFixed(4)}°</p>`;
-    html += `<p><strong>Dec:</strong> ${obj.dec.toFixed(4)}°</p>`;
-
+    // The facts a casual observer actually wants, in human units.
+    html += `<div class="info-facts">`;
     if (obj.mag !== undefined && obj.mag !== null) {
-      html += `<p><strong>Magnitude:</strong> ${obj.mag.toFixed(1)}</p>`;
+      html += this.factRow_('Magnitude', obj.mag.toFixed(1));
     }
-
-    // Angular size
-    if (obj.size_major) {
-      const sizeStr = this.formatAngularSize_(obj.size_major, obj.size_minor);
-      html += `<p><strong>Angular Size:</strong> ${sizeStr}</p>`;
-    }
-
-    // Distance
     if (obj.dist) {
-      html += `<p><strong>Distance:</strong> ${obj.dist.toFixed(1)} parsecs</p>`;
+      html += this.factRow_('Distance',
+          `${this.formatLightYears_(obj.dist * 3.26156)} ly`);
     }
-
-    // Spectral type
-    if (obj.spect) {
-      html += `<p><strong>Spectral Type:</strong> ${escapeHtml(obj.spect)}</p>`;
+    const constName = this.deps_.getConstellation?.(obj.ra, obj.dec);
+    if (constName) html += this.factRow_('Constellation', escapeHtml(constName));
+    if (obj.name === 'Moon' && obj.phase !== undefined) {
+      html += this.factRow_('Phase', this.moonPhaseLabel_(obj.phase));
     }
-
-    // Alternative names
     if (obj.common_names) {
-      const names = obj.common_names;
-      html += `<p><strong>Also known as:</strong> ${escapeHtml(names)}</p>`;
+      html += this.factRow_('Also known as', escapeHtml(obj.common_names));
     }
-
-    // Messier number
     if (obj.messier) {
-      html += `<p><strong>Messier:</strong> M${obj.messier}</p>`;
+      html += this.factRow_('Messier', `M${Math.floor(obj.messier)}`);
     }
+    html += `</div>`;
+
+    // Precise coordinates and catalog data — kept, but folded away so they
+    // don't dominate. Open on demand.
+    html += `<details class="info-technical">`;
+    html += `<summary>Technical data</summary>`;
+    html += `<div class="info-facts">`;
+    html += this.factRow_('RA', `${obj.ra.toFixed(4)}°`);
+    html += this.factRow_('Dec', `${obj.dec.toFixed(4)}°`);
+    if (obj.size_major) {
+      html += this.factRow_('Angular size',
+          this.formatAngularSize_(obj.size_major, obj.size_minor));
+    }
+    if (obj.spect) {
+      html += this.factRow_('Spectral type', escapeHtml(obj.spect));
+    }
+    if (obj.dist) {
+      html += this.factRow_('Distance', `${obj.dist.toFixed(1)} pc`);
+    }
+    html += `</div></details>`;
 
     // Wikipedia link - use internal/English name for en.wikipedia lookup
     const wikiName = obj.internalName || displayName;
@@ -286,8 +295,54 @@ export class SelectionManager {
 
     content.innerHTML = html;
 
-    // Add extra object info (Moon phase, constellation, description)
+    // Async extras: the description fetch fills the placeholder above, and the
+    // best image loads into #main-image.
     this.addExtraObjectInfo_(obj);
+  }
+
+  /**
+   * One label/value row in the info panel.
+   * @param {string} label - Field label (a literal, not user input)
+   * @param {string} value - Already-escaped value
+   * @returns {string} HTML for the row
+   * @private
+   */
+  factRow_(label, value) {
+    return `<p class="info-fact"><span class="info-fact-label">${label}</span>` +
+        `<span class="info-fact-value">${value}</span></p>`;
+  }
+
+  /**
+   * Format a light-year distance for humans: a decimal when nearby, whole
+   * thousands-separated when far.
+   * @param {number} ly - Distance in light-years
+   * @returns {string}
+   * @private
+   */
+  formatLightYears_(ly) {
+    if (ly < 100) return ly.toFixed(1);
+    return Math.round(ly).toLocaleString();
+  }
+
+  /**
+   * Human label for a moon phase fraction, e.g. "Waxing Gibbous (63%)".
+   * @param {number} phase - Illuminated fraction 0..1
+   * @returns {string}
+   * @private
+   */
+  moonPhaseLabel_(phase) {
+    const phases = ['New Moon', 'Waxing Crescent', 'First Quarter',
+      'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter',
+      'Waning Crescent'];
+    const thresholds = [0.03, 0.22, 0.28, 0.47, 0.53, 0.72, 0.78, 0.97];
+    let name = 'New Moon';
+    for (let i = 0; i < thresholds.length; i++) {
+      if (phase < thresholds[i]) {
+        name = phases[i];
+        break;
+      }
+    }
+    return `${name} (${(phase * 100).toFixed(0)}% lit)`;
   }
 
   /**
@@ -299,44 +354,11 @@ export class SelectionManager {
     const content = domCache.infoContent;
     if (!content) return;
 
-    // Add Moon phase info
-    if (obj.name === 'Moon' && obj.phase !== undefined) {
-      const phasePercent = (obj.phase * 100).toFixed(0);
-      const phases = ['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous',
-        'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent'];
-      const thresholds = [0.03, 0.22, 0.28, 0.47, 0.53, 0.72, 0.78, 0.97];
-      let phaseName = 'New Moon';
-      for (let i = 0; i < thresholds.length; i++) {
-        if (obj.phase < thresholds[i]) {
-          phaseName = phases[i];
-          break;
-        }
-      }
-      const phaseEl = document.createElement('p');
-      phaseEl.innerHTML = `<strong>Phase:</strong> ${phaseName} (${phasePercent}% illuminated)`;
-      content.appendChild(phaseEl);
-    }
-
-    // Add constellation info
-    const constName = this.deps_.getConstellation?.(obj.ra, obj.dec);
-    if (constName) {
-      const constEl = document.createElement('p');
-      constEl.innerHTML = `<strong>Constellation:</strong> ${escapeHtml(constName)}`;
-      content.appendChild(constEl);
-    }
-
-    // Add description placeholder and fetch
-    let descEl = document.getElementById('object-description');
-    if (!descEl) {
-      descEl = document.createElement('div');
-      descEl.id = 'object-description';
-      descEl.className = 'object-description';
-      descEl.innerHTML = '<em>Loading description...</em>';
-      content.appendChild(descEl);
-    }
+    // Moon phase and constellation are now rendered synchronously in
+    // showObjectInfo_, so this handles only the asynchronous work: the
+    // description (fills the #object-description placeholder) and the image.
     this.fetchObjectDescription_(obj);
 
-    // Load best image
     const curatedImageUrl = this.deps_.getImageUrl?.(obj);
     this.loadBestImage_(obj, curatedImageUrl);
   }

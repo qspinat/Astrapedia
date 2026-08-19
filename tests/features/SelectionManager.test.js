@@ -7,6 +7,7 @@ import {jest} from '@jest/globals';
 import {
   SelectionManager,
 } from '../../modules/features/SelectionManager.js';
+import {domCache} from '../../modules/ui/DOMCache.js';
 
 describe('SelectionManager', () => {
   let manager;
@@ -122,6 +123,57 @@ describe('SelectionManager', () => {
       manager.selectObject(obj);
       manager.clearSelection();
       expect(manager.getSelectedObject()).toBeNull();
+    });
+  });
+
+  describe('info panel layout', () => {
+    const star = {
+      name: 'Vega', type: 'Star', ra: 279.2347, dec: 38.7837,
+      mag: 0.03, spect: 'A0V', dist: 7.68, internalName: 'Vega',
+    };
+
+    /**
+     * Render the star's info and return the written HTML. Reads through the
+     * same domCache reference the code writes to, so it is unaffected by cache
+     * staleness across tests.
+     * @return {string}
+     */
+    function render() {
+      manager.showObjectInfo_(star);
+      return domCache.infoContent.innerHTML;
+    }
+
+    it('leads with the description before the technical data', () => {
+      const html = render();
+
+      expect(html.indexOf('object-description'))
+          .toBeLessThan(html.indexOf('info-technical'));
+    });
+
+    it('keeps 4-decimal RA/Dec inside the technical section, not up front',
+        () => {
+          const html = render();
+
+          expect(html.indexOf('279.2347'))
+              .toBeGreaterThan(html.indexOf('info-technical'));
+        });
+
+    it('shows distance in light-years in the primary facts', () => {
+      // 7.68 pc x 3.26156 is about 25.0 light-years.
+      const html = render();
+      const facts = html.slice(0, html.indexOf('info-technical'));
+
+      expect(facts).toContain('25.0 ly');
+    });
+
+    it('shows parsecs only in the technical section', () => {
+      const html = render();
+
+      expect(html.indexOf(' pc')).toBeGreaterThan(html.indexOf('info-technical'));
+    });
+
+    it('leads with a type headline', () => {
+      expect(render()).toContain('info-type');
     });
   });
 

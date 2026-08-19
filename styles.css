@@ -1241,6 +1241,73 @@ select:focus {
     text-transform: uppercase;
 }
 
+/* Info panel hierarchy: the type headline and the plain-language description
+   lead; the facts sit in an even label/value grid; precise coordinates fold
+   away in a <details>. */
+.info-type {
+    color: var(--accent-warm);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    margin: 10px 0 8px;
+}
+
+.info-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 10px 0;
+}
+
+.info-fact {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    font-size: 13px;
+}
+
+.info-fact-label {
+    color: var(--text-secondary);
+}
+
+.info-fact-value {
+    color: var(--text-primary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.info-technical {
+    margin: 10px 0;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+}
+
+.info-technical summary {
+    cursor: pointer;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    list-style: none;
+}
+
+.info-technical summary::-webkit-details-marker {
+    display: none;
+}
+
+.info-technical summary::after {
+    content: ' +';
+    color: var(--accent-warm-dim);
+}
+
+.info-technical[open] summary::after {
+    content: ' –';
+}
+
+.info-technical .info-facts {
+    margin-bottom: 0;
+}
+
 .object-description {
     background: var(--bg-secondary);
     border-radius: var(--radius-sm);
