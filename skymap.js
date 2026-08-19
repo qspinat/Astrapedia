@@ -59,6 +59,7 @@ import {VisibilityCalculator} from './modules/features/VisibilityCalculator.js';
 import {panelManager} from './modules/ui/PanelManager.js';
 import {eventsCalendar} from './modules/features/EventsCalendar.js';
 import {locationManager} from './modules/services/LocationManager.js';
+import {getLocationDialog} from './modules/ui/LocationDialog.js';
 import {CompassController} from './modules/interaction/CompassController.js';
 import {DynamicObjectManager} from './modules/rendering/DynamicObjectManager.js';
 import {initializeInputController} from './modules/interaction/InputController.js';
@@ -1715,30 +1716,12 @@ export class AstrapediaApp {
   }
 
   setObserverLocation() {
-    // Cancelling either prompt aborts; note the explicit null checks — the
-    // previous `if (lat && lon)` also rejected "0", so nobody on the equator
-    // or the prime meridian could set their location.
-    const lat = prompt('Enter latitude (degrees, -90 to 90):', '48.8566');
-    if (lat === null) return;
-    const lon = prompt('Enter longitude (degrees, -180 to 180):', '2.3522');
-    if (lon === null) return;
-
-    const latValue = parseFloat(lat);
-    const lonValue = parseFloat(lon);
-    if (!Number.isFinite(latValue) || !Number.isFinite(lonValue)) {
-      alert('Please enter numeric coordinates, for example 48.8566 and 2.3522.');
-      return;
-    }
-
-    // LocationManager is the owner: it clamps latitude, normalizes longitude,
-    // persists to localStorage and emits LOCATION_CHANGED. The handler in
-    // setupCommandListeners_ then applies it to the scene — including the
-    // horizon renderer and a re-render, which this method used to omit.
-    locationManager.setLocation(latValue, lonValue);
-
-    const applied = locationManager.getLocation();
-    alert(`Observer location set to: ${applied.lat}°, ${applied.lon}°\n` +
-        'Sky now shows correct position for your location and time.');
+    // Open the styled dialog rather than the native prompt(), which broke the
+    // visual language and ignored the night-vision palette. The dialog does
+    // the parsing/validation and routes through LocationManager — the owner
+    // that clamps, normalizes, persists, and emits LOCATION_CHANGED (whose
+    // handler applies it to the scene, horizon renderer included).
+    getLocationDialog()?.show();
   }
 
   /* ======================================================================

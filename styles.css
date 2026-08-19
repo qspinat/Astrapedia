@@ -1016,6 +1016,83 @@ select:focus {
     border-top: 2px solid var(--accent-warm-dim);
 }
 
+/* Observer location dialog — same centered-modal shell as the game select. */
+.location-dialog {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    padding: 16px;
+}
+
+.location-dialog.visible {
+    display: flex;
+}
+
+.location-dialog-content {
+    background: var(--bg-dark);
+    border-radius: var(--radius);
+    padding: 20px;
+    max-width: 320px;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--accent-warm-dim);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.location-dialog-content h3 {
+    color: var(--accent-warm);
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.location-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.location-field label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+}
+
+/* Hide the native number spinner — its UA styling ignores the palette (and
+   the night-vision skin). inputmode=decimal still gives mobile a number pad. */
+.location-field input {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.location-field input::-webkit-outer-spin-button,
+.location-field input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.location-dialog-error {
+    color: var(--error);
+    font-size: 12px;
+    margin: 0;
+}
+
+.location-dialog-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.location-dialog-actions .action-btn {
+    flex: 1;
+}
+
 .game-select-content h3 {
     text-align: center;
     margin-bottom: 14px;

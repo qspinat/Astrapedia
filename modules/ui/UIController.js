@@ -16,6 +16,7 @@ import {PanelManager, panelManager} from './PanelManager.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {addMobileButtonListener} from '../core/Utils.js';
 import {initializeNightVision} from './NightVision.js';
+import {initializeLocationDialog} from './LocationDialog.js';
 import {GameUI} from '../features/GameUI.js';
 import {TourUI} from '../features/TourUI.js';
 import {TimeUI} from '../features/TimeUI.js';
@@ -577,6 +578,9 @@ export class UIController {
   initialize() {
     // Initialize panel manager
     this.panelManager_.initialize();
+
+    // Styled observer-location dialog (replaces the native prompt).
+    initializeLocationDialog();
 
     // Create and initialize all handlers
     this.searchController_ = new SearchController({
