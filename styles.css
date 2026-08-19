@@ -1468,6 +1468,11 @@ select:focus {
     fill: currentColor;
 }
 
+/* Line-style nav icons (e.g. the telescope) render as strokes, not fills. */
+.bottom-nav__icon--line {
+    fill: none !important;
+}
+
 .bottom-nav__label {
     font-size: 10px;
     letter-spacing: 0.5px;

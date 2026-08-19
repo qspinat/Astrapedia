@@ -100,6 +100,13 @@
                 <circle cx="12" cy="12" r="6"/>
                 <ellipse cx="12" cy="12" rx="10" ry="3" transform="rotate(-20 12 12)"/>
             </symbol>
+            <!-- Telescope icon -->
+            <symbol id="icon-telescope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 5L7 14l-2-.9a1 1 0 01-.3-1.6l3.5-3.8a1 1 0 011.2-.2L22 5z"/>
+                <path d="M7 14l2.5 1.5-1.5 3.5"/>
+                <path d="M4 19h6"/>
+                <circle cx="21.5" cy="5" r="2.2"/>
+            </symbol>
             <!-- Snowflake/Winter icon -->
             <symbol id="icon-winter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M12 2v20M2 12h20"/>
@@ -783,7 +790,7 @@
                 <span class="bottom-nav__label">Tours</span>
             </button>
             <button class="bottom-nav__item" id="nav-telescope" data-panel="telescope-panel">
-                <svg class="bottom-nav__icon"><use href="#icon-planet"/></svg>
+                <svg class="bottom-nav__icon bottom-nav__icon--line"><use href="#icon-telescope"/></svg>
                 <span class="bottom-nav__label">Telescope</span>
             </button>
             <button class="bottom-nav__item" id="nav-quiz" data-panel="game-select-modal">
