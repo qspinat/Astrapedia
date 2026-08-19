@@ -106,6 +106,10 @@ jobs:
     # worth publishing — so skip rather than emit something unusable.
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    # This job publishes a GitHub Release, which writes to the repo. Scoped
+    # here rather than at the top level so test/ and build/ keep read-only.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -180,3 +184,16 @@ jobs:
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 90
+
+      # Attach the signed bundle to a permanent GitHub Release on this tag.
+      # No signing material here — the AAB is already built and signed by the
+      # step above; this only publishes the finished file, so it needs the
+      # automatic GITHUB_TOKEN and none of the keystore secrets. Named the AAB
+      # explicitly so a stray file in the build dir can never be published.
+      - name: Publish GitHub Release
+        if: steps.secrets.outputs.present == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/app/build/outputs/bundle/release/app-release.aab
+          fail_on_unmatched_files: true
+          generate_release_notes: true
