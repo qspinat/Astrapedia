@@ -933,6 +933,39 @@ export class AstrapediaApp {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(this.renderer.domElement);
+    this.setupContextLossHandling_();
+  }
+
+  /**
+   * Recover from WebGL context loss.
+   *
+   * On Android (Capacitor WebView) the GPU surface is reclaimed when the app
+   * is backgrounded for a while or the screen sleeps, which loses the WebGL
+   * context and leaves the sky black on return. Two things are needed:
+   * preventDefault() on the loss event, without which the browser will not
+   * restore the context at all; and, once restored, a forced repaint — the
+   * render loop may have been paused, and Three.js re-uploads its GPU
+   * resources lazily on the next render, so nothing reappears until we ask
+   * for a frame.
+   * @private
+   */
+  setupContextLossHandling_() {
+    const canvas = this.renderer.domElement;
+
+    canvas.addEventListener('webglcontextlost', (event) => {
+      event.preventDefault();
+      logger.warn('WebGL context lost; pausing until it is restored');
+      this.stopAnimating();
+    }, false);
+
+    canvas.addEventListener('webglcontextrestored', () => {
+      logger.info('WebGL context restored; repainting the sky');
+      // FOV-derived sizes (halos, images) are recomputed only when dirty, so
+      // mark them stale before forcing frames back on.
+      this._fovDirty = true;
+      this.requestRender();
+      this.startAnimating();
+    }, false);
   }
 
   setupLights() {
