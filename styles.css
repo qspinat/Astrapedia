@@ -51,6 +51,7 @@
     --radius-sm: 3px;
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --nav-height: 56px;
 
     /* Z-index system */
     --z-canvas: 1;
@@ -1429,9 +1430,61 @@ select:focus {
    UNIFIED CONTROL BAR (Time + Magnitude - Stacked)
    ========================================================================== */
 
+/* Bottom navigation — the app's primary sections, in the thumb zone. Stays
+   above panels and the backdrop so you can switch tabs or return to the Sky
+   from anywhere. */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--nav-height) + var(--safe-bottom));
+    padding-bottom: var(--safe-bottom);
+    display: flex;
+    background: var(--bg-primary);
+    border-top: 2px solid var(--accent-warm-dim);
+    z-index: calc(var(--z-modal) + 1);
+}
+
+.bottom-nav__item {
+    flex: 1;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.15s;
+}
+
+.bottom-nav__item .bottom-nav__icon {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor;
+    fill: currentColor;
+}
+
+.bottom-nav__label {
+    font-size: 10px;
+    letter-spacing: 0.5px;
+}
+
+.bottom-nav__item.is-active {
+    color: var(--accent-warm);
+}
+
+.bottom-nav__item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
 .control-bar {
     position: fixed;
-    bottom: calc(16px + var(--safe-bottom));
+    bottom: calc(16px + var(--nav-height) + var(--safe-bottom));
     left: 50%;
     transform: translateX(-50%);
     background: var(--bg-primary);
@@ -1997,7 +2050,7 @@ button.secondary:hover {
     }
 
     .control-bar {
-        bottom: calc(20px + var(--safe-bottom));
+        bottom: calc(20px + var(--nav-height) + var(--safe-bottom));
     }
 
     .control-bar__magnitude input[type="range"] {
@@ -2721,4 +2774,14 @@ body.telescope-mode::after {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
+}
+
+/* The mag/time bar is Sky-view chrome; hide it while a panel is open. */
+body.panel-open .control-bar {
+    display: none;
+}
+
+/* Slide-panel content clears the bottom nav (which sits above panels). */
+.slide-panel {
+    padding-bottom: calc(16px + var(--nav-height) + var(--safe-bottom));
 }

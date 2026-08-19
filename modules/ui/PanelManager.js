@@ -15,6 +15,8 @@ const logger = createLogger('PanelManager');
  */
 const PANEL_IDS = [
   'settings-panel',
+  'tours-panel',
+  'telescope-panel',
   'info-panel',
   'visible-tonight-panel',
   'events-panel',
