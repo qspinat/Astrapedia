@@ -308,7 +308,9 @@ export class EventsCalendar {
     events.forEach((event) => {
       const daysUntil = Math.ceil((event.date - new Date()) / (1000 * 60 * 60 * 24));
       const icon = TYPE_ICONS[event.type] || '⭐';
-      const dateStr = event.date.toLocaleDateString(undefined, {
+      // The app UI is English regardless of device locale, so pin the date to
+      // en-US rather than letting it render as e.g. "ven. 28 août 2026".
+      const dateStr = event.date.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric',

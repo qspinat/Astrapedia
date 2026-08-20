@@ -127,24 +127,23 @@ describe('CSS Layout Rules', () => {
       expect(cssContent).toMatch(/\.time-picker-panel\s*\{[^}]*position:\s*fixed/);
     });
 
-    test('time-picker-panel is positioned above the sky dock', () => {
-      // The bottom Sky-view chrome (next-event pill + control bar) is
-      // anchored by .sky-dock; the time picker must open above it.
+    test('time-picker-panel is positioned above control-bar', () => {
+      // Extract bottom values
       const timePickerMatch = cssContent.match(
         /\.time-picker-panel\s*\{[^}]*bottom:\s*calc\((\d+)px/
       );
-      const skyDockMatch = cssContent.match(
-        /\.sky-dock\s*\{[^}]*bottom:\s*calc\((\d+)px/
+      const controlBarMatch = cssContent.match(
+        /\.control-bar\s*\{[^}]*bottom:\s*calc\((\d+)px/
       );
 
       expect(timePickerMatch).not.toBeNull();
-      expect(skyDockMatch).not.toBeNull();
+      expect(controlBarMatch).not.toBeNull();
 
       const timePickerBottom = parseInt(timePickerMatch[1], 10);
-      const skyDockBottom = parseInt(skyDockMatch[1], 10);
+      const controlBarBottom = parseInt(controlBarMatch[1], 10);
 
-      // Time picker should be higher (larger bottom value) than the dock.
-      expect(timePickerBottom).toBeGreaterThan(skyDockBottom);
+      // Time picker should be higher (larger bottom value) than control bar
+      expect(timePickerBottom).toBeGreaterThan(controlBarBottom);
     });
 
     test('time-picker-panel has z-index defined', () => {
@@ -192,15 +191,15 @@ describe('Panel non-overlap validation', () => {
 
   test('bottom UI elements have distinct vertical positions', () => {
     // Get bottom positions of key elements
-    const skyDockBottom = extractBottomValue('\\.sky-dock');
+    const controlBarBottom = extractBottomValue('\\.control-bar');
     const timePickerBottom = extractBottomValue('\\.time-picker-panel');
 
     // Both should be defined
-    expect(skyDockBottom).not.toBeNull();
+    expect(controlBarBottom).not.toBeNull();
     expect(timePickerBottom).not.toBeNull();
 
-    // Time picker should be higher (larger bottom value) than the sky dock
-    expect(timePickerBottom).toBeGreaterThan(skyDockBottom);
+    // Time picker should be higher (larger bottom value) than control bar
+    expect(timePickerBottom).toBeGreaterThan(controlBarBottom);
   });
 
   test('game panel has fixed positioning', () => {

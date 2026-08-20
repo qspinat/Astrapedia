@@ -820,34 +820,36 @@ export class UIController {
   }
 
   /**
-   * Wire the Sky-view "Next event" pill: fill it from the next upcoming
-   * celestial event, and open the full calendar when tapped.
+   * Wire the Tours-panel "Next event" card: fill it when the panel opens
+   * (alongside Tonight's Highlight), and open the full calendar when tapped.
    * @private
    */
   setupNextEvent_() {
-    const pill = document.getElementById('next-event');
-    if (!pill) return;
+    const card = document.getElementById('next-event');
+    if (!card) return;
 
-    addMobileButtonListener(pill, () => {
+    addMobileButtonListener(card, () => {
       this.deps_.showEventsCalendar?.();
     });
 
-    this.populateNextEvent_();
+    globalEventBus.on(Events.PANEL_OPENED, (data) => {
+      if (data?.panelId === 'tours-panel') this.populateNextEvent_();
+    });
   }
 
   /**
-   * Fill (or hide) the next-event pill from the soonest upcoming event.
+   * Fill (or hide) the next-event card from the soonest upcoming event.
    * @private
    */
   populateNextEvent_() {
-    const pill = document.getElementById('next-event');
+    const card = document.getElementById('next-event');
     const nameEl = document.getElementById('next-event-name');
     const whenEl = document.getElementById('next-event-when');
-    if (!pill || !nameEl || !whenEl) return;
+    if (!card || !nameEl || !whenEl) return;
 
     const event = this.deps_.getNextEvent?.();
     if (!event || !event.date) {
-      pill.hidden = true;
+      card.hidden = true;
       return;
     }
 
@@ -861,9 +863,16 @@ export class UIController {
       when = `in ${days} days`;
     }
 
+    // The app UI is English regardless of device locale, so pin the date to
+    // en-US rather than letting it render as e.g. "28 août".
+    const dateStr = event.date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+
     nameEl.textContent = event.name;
-    whenEl.textContent = `· ${when}`;
-    pill.hidden = false;
+    whenEl.textContent = `${dateStr} · ${when}`;
+    card.hidden = false;
   }
 
   /**

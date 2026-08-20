@@ -399,6 +399,11 @@
                 <span class="daily-highlight__name" id="daily-highlight-name"></span>
                 <span class="daily-highlight__label" id="daily-highlight-label"></span>
             </button>
+            <button type="button" id="next-event" class="daily-highlight" hidden>
+                <span class="daily-highlight__eyebrow">Next event</span>
+                <span class="daily-highlight__name" id="next-event-name"></span>
+                <span class="daily-highlight__label" id="next-event-when"></span>
+            </button>
             <div class="panel-section">
                 <div class="tour-grid">
                     <button class="tour-btn" id="tour-tonight-btn">
@@ -615,16 +620,6 @@
             <div id="info-content"></div>
         </div>
 
-        <!-- Bottom Sky-view chrome: next celestial event + control bar -->
-        <div class="sky-dock">
-
-        <!-- Next celestial event — a compact chip that taps through to the calendar -->
-        <button type="button" id="next-event" class="next-event" aria-label="Upcoming celestial events" hidden>
-            <svg class="next-event__icon" aria-hidden="true"><use href="#icon-calendar"/></svg>
-            <span class="next-event__name" id="next-event-name"></span>
-            <span class="next-event__when" id="next-event-when"></span>
-        </button>
-
         <!-- Observatory Control Bar (unified time + magnitude) -->
         <div class="control-bar">
             <!-- Magnitude Row (top) -->
@@ -672,7 +667,6 @@
                 </button>
             </div>
         </div>
-        </div><!-- /.sky-dock -->
 
         <!-- Date/Time Picker Panel -->
         <div class="time-picker-panel" id="time-picker-panel">
