@@ -1520,20 +1520,18 @@ select:focus {
    for free; the calendar glyph is a monochrome stroke icon, never a bright
    emoji that would break dark adaptation. */
 .next-event {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 9px;
-    width: 100%;
-    text-align: left;
+    gap: 7px;
+    align-self: center;
+    max-width: 100%;
     background: var(--bg-primary);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--accent-warm);
+    border-left: 2px solid var(--accent-warm);
     border-radius: var(--radius);
-    padding: 7px 12px;
+    padding: 5px 11px 5px 10px;
     cursor: pointer;
     font-family: inherit;
-    color: var(--text-secondary);
-    box-shadow: inset 0 1px 0 rgba(212, 168, 75, 0.05);
     transition: background 0.15s, border-color 0.15s;
 }
 
@@ -1547,31 +1545,10 @@ select:focus {
 }
 
 .next-event__icon {
-    width: 16px;
-    height: 16px;
+    width: 13px;
+    height: 13px;
     flex-shrink: 0;
     color: var(--accent-warm-dim);
-}
-
-.next-event__text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    min-width: 0;
-}
-
-.next-event__eyebrow {
-    font-size: 8px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--accent-warm-dim);
-}
-
-.next-event__line {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    min-width: 0;
 }
 
 .next-event__name {
@@ -1580,6 +1557,7 @@ select:focus {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .next-event__when {
