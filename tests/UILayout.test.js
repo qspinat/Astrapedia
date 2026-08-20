@@ -25,6 +25,40 @@ describe('UI Layout - HTML Structure', () => {
       expect(htmlContent).toContain('id="settings-panel"');
     });
 
+    test('bottom navigation exists with the five feature tabs', () => {
+      expect(htmlContent).toContain('class="bottom-nav"');
+      for (const id of ['nav-sky', 'nav-tours', 'nav-telescope',
+        'nav-quiz', 'nav-settings']) {
+        expect(htmlContent).toContain(`id="${id}"`);
+      }
+    });
+
+    test('nav tabs point at the right panels', () => {
+      expect(htmlContent).toContain('id="nav-tours" data-panel="tours-panel"');
+      expect(htmlContent).toContain(
+          'id="nav-telescope" data-panel="telescope-panel"');
+      expect(htmlContent).toContain(
+          'id="nav-quiz" data-panel="game-select-modal"');
+      expect(htmlContent).toContain(
+          'id="nav-settings" data-panel="settings-panel"');
+    });
+
+    test('Tours and Telescope are their own panels, not inside Settings', () => {
+      expect(htmlContent).toContain('id="tours-panel"');
+      expect(htmlContent).toContain('id="telescope-panel"');
+      // The tour buttons and telescope inputs live outside #settings-panel now.
+      const settingsStart = htmlContent.indexOf('id="settings-panel"');
+      const settingsEnd = htmlContent.indexOf('id="tours-panel"');
+      const settingsMarkup = htmlContent.slice(settingsStart, settingsEnd);
+      expect(settingsMarkup).not.toContain('tour-tonight-btn');
+      expect(settingsMarkup).not.toContain('telescope-diameter');
+    });
+
+    test('the overloaded header buttons were removed', () => {
+      expect(htmlContent).not.toContain('id="settings-toggle"');
+      expect(htmlContent).not.toContain('id="telescope-quick-toggle"');
+    });
+
     test('control bar exists (unified time + magnitude)', () => {
       expect(htmlContent).toContain('class="control-bar"');
     });

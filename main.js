@@ -134,6 +134,7 @@ function initializeUI_(appInstance) {
     // Search
     performSearch: (query) => appInstance.performSearch(query),
     selectObject: (obj) => appInstance.selectObject(obj),
+    getDailyHighlight: () => appInstance.getDailyHighlight?.(),
 
     // Settings
     setConstellationLines: (visible) => {
@@ -150,6 +151,7 @@ function initializeUI_(appInstance) {
     requestGeolocation: () => appInstance.requestGeolocation?.(),
     resetCamera: () => appInstance.resetView?.(),
     showEventsCalendar: () => appInstance.showEventsCalendar?.(),
+    getNextEvent: () => appInstance.getNextEvent?.(),
     setMaxDynamicStars: (val) => {
       // DSOs limit is ~1/6 of stars limit
       const maxDSOs = Math.max(1000, Math.floor(val / 6));

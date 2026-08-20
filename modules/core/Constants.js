@@ -302,6 +302,12 @@ export const INPUT = {
   PHI_MAX_RAD: Math.PI - 0.1,
   /** Time window (ms) for inertia velocity calculation. */
   INERTIA_HISTORY_MS: 100,
+  /** Max gap (ms) between taps to count as a double-tap. */
+  DOUBLE_TAP_MS: 300,
+  /** Max distance (px) between taps to count as a double-tap. */
+  DOUBLE_TAP_DIST_PX: 40,
+  /** Vertical drag (px) that halves or doubles the FOV in one-handed zoom. */
+  ZOOM_SLIDE_PX_PER_DOUBLING: 180,
   /** Frame time factor for velocity (assumes ~60fps). */
   VELOCITY_FRAME_MS: 16,
   /** Friction coefficient for inertia (0-1). */

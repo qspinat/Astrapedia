@@ -279,6 +279,14 @@ export class EventsCalendar {
   }
 
   /**
+   * Get the single soonest upcoming event, for the Sky-view chrome.
+   * @returns {?Object} The next event, or null if none are upcoming.
+   */
+  getNextEvent() {
+    return this.getUpcomingEvents()[0] || null;
+  }
+
+  /**
    * Show events calendar in the events panel.
    * @param {function(string): void=} openPanel - Function to open panel
    */
@@ -300,7 +308,9 @@ export class EventsCalendar {
     events.forEach((event) => {
       const daysUntil = Math.ceil((event.date - new Date()) / (1000 * 60 * 60 * 24));
       const icon = TYPE_ICONS[event.type] || '⭐';
-      const dateStr = event.date.toLocaleDateString(undefined, {
+      // The app UI is English regardless of device locale, so pin the date to
+      // en-US rather than letting it render as e.g. "ven. 28 août 2026".
+      const dateStr = event.date.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric',

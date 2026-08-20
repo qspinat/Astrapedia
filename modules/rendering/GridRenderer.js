@@ -16,7 +16,10 @@ const logger = createLogger('GridRenderer');
  */
 const GRID_CONFIG = {
   RADIUS: 99,
-  COLOR: 0x2a4a6a,
+  // Dim warm grey. The previous value (0x2a4a6a) was blue, which — like green —
+  // disrupts dark adaptation; a warm low-luminance tone keeps the grid
+  // readable without hurting night vision. The equator stays warm orange.
+  COLOR: 0x5a4a3a,
   OPACITY: 0.25,
   EQUATOR_COLOR: 0xCC5530,
   EQUATOR_OPACITY: 0.5,

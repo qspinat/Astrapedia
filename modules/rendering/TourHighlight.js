@@ -46,28 +46,48 @@ export class TourHighlight {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
 
-    // Draw a glowing ring
+    // A graduated-dial reticle: two concentric thin rings with tick marks
+    // between them, and a clear centre so the object stays visible. Amber
+    // (matching --accent-warm) on additive blending, so it reads like an
+    // instrument sight. It's part of the 3D scene, so the night-vision canvas
+    // overlay tints it red in the dark.
     ctx.clearRect(0, 0, size, size);
     const centerX = size / 2;
     const centerY = size / 2;
-    const outerRadius = size / 2 - 4;
-    const innerRadius = outerRadius - 12;
+    const outerRadius = 58;
+    const innerRadius = 42;
 
-    // Outer glow
-    const gradient = ctx.createRadialGradient(
-      centerX, centerY, innerRadius - 10,
-      centerX, centerY, outerRadius + 10
-    );
-    gradient.addColorStop(0, 'rgba(255, 215, 0, 0)');
-    gradient.addColorStop(0.4, 'rgba(255, 215, 0, 0.8)');
-    gradient.addColorStop(0.6, 'rgba(255, 215, 0, 0.8)');
-    gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+    ctx.shadowColor = 'rgba(212, 168, 75, 0.5)';
+    ctx.shadowBlur = 4;
 
+    // Outer ring (dim)
+    ctx.strokeStyle = 'rgba(154, 122, 58, 0.85)';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(centerX, centerY, outerRadius, 0, Math.PI * 2);
-    ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2, true);
-    ctx.fillStyle = gradient;
-    ctx.fill();
+    ctx.stroke();
+
+    // Inner ring (bright amber)
+    ctx.strokeStyle = 'rgba(212, 168, 75, 0.95)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Graduation ticks every 30 degrees, spanning the gap between the rings.
+    ctx.shadowBlur = 2;
+    ctx.strokeStyle = 'rgba(154, 122, 58, 0.9)';
+    ctx.lineWidth = 2.5;
+    for (let a = 0; a < 360; a += 30) {
+      const r = (a * Math.PI) / 180;
+      ctx.beginPath();
+      ctx.moveTo(centerX + Math.cos(r) * outerRadius,
+          centerY + Math.sin(r) * outerRadius);
+      ctx.lineTo(centerX + Math.cos(r) * innerRadius,
+          centerY + Math.sin(r) * innerRadius);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
 
     // Create sprite
     const texture = new THREE.CanvasTexture(canvas);
@@ -144,9 +164,21 @@ export class TourHighlight {
     const userData = this.highlight_.userData;
     const elapsed = (Date.now() - userData.startTime) / 1000;
 
-    // Pulsing opacity animation
+    // Acquisition "lock": for the first ~350ms the reticle snaps in larger
+    // and settles onto the target (ease-out), fading in over the first 150ms.
+    // After that it holds with a gentle pulse. Reads like a sight acquiring a
+    // target rather than a ring simply appearing.
+    const acqT = Math.min(elapsed / 0.35, 1);
+    const acqEase = 1 - Math.pow(1 - acqT, 3);
+    const acquireScale = 1 + (1 - acqEase) * 0.7;
+    const fadeIn = Math.min(elapsed / 0.15, 1);
+
+    // Pulsing opacity animation, gated by the fade-in.
     const pulse = 0.7 + 0.3 * Math.sin(elapsed * 3);
-    this.highlight_.material.opacity = pulse;
+    this.highlight_.material.opacity = pulse * fadeIn;
+
+    // Slow surveying rotation of the dial (SpriteMaterial rotates the texture).
+    this.highlight_.material.rotation = elapsed * 0.25;
 
     // Calculate size based on FOV
     // When zoomed out (large FOV), show large highlight
@@ -168,9 +200,10 @@ export class TourHighlight {
     const worldSize = (targetPixels / canvasHeight) * 2 * radius *
         Math.tan(THREE.MathUtils.degToRad(fov / 2));
 
-    // Clamp to reasonable range and add slight pulse
+    // Clamp to reasonable range, add the settle-in acquisition scale and a
+    // slight steady pulse.
     const clampedSize = clamp(worldSize, userData.realWorldSize * 1.2, userData.maxWorldSize);
-    const pulsedSize = clampedSize * (1 + 0.1 * Math.sin(elapsed * 2));
+    const pulsedSize = clampedSize * (1 + 0.1 * Math.sin(elapsed * 2)) * acquireScale;
 
     this.highlight_.scale.set(pulsedSize, pulsedSize, 1);
   }

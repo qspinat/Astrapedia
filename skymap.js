@@ -56,9 +56,11 @@ import {GameController} from './modules/features/GameController.js';
 import {TimeController} from './modules/features/TimeController.js';
 import {SelectionManager} from './modules/features/SelectionManager.js';
 import {VisibilityCalculator} from './modules/features/VisibilityCalculator.js';
+import {initializeDailyHighlight} from './modules/features/DailyHighlight.js';
 import {panelManager} from './modules/ui/PanelManager.js';
 import {eventsCalendar} from './modules/features/EventsCalendar.js';
 import {locationManager} from './modules/services/LocationManager.js';
+import {getLocationDialog} from './modules/ui/LocationDialog.js';
 import {CompassController} from './modules/interaction/CompassController.js';
 import {DynamicObjectManager} from './modules/rendering/DynamicObjectManager.js';
 import {initializeInputController} from './modules/interaction/InputController.js';
@@ -212,6 +214,10 @@ export class AstrapediaApp {
 
     // Animation loop state (synced with PowerManager via callbacks)
     this._isAnimating = false;
+
+    // Handle of the pending requestAnimationFrame, so a resume can tell a live
+    // loop from a stale flag and re-kick exactly one frame.
+    this._rafId = null;
 
     // === DEVICE DETECTION ===
     // Detect mobile/touch devices for UX adjustments
@@ -468,6 +474,26 @@ export class AstrapediaApp {
       getDSOs: () => this.deepSkyObjects || [],
       getStars: () => this.stars || [],
     });
+
+    this.dailyHighlight_ = initializeDailyHighlight({
+      getVisibleObjects: (lst) =>
+        this.visibilityCalculator_.getBestVisibleObjectsTonight(20, 8, 40, lst),
+      // Real location or null — null triggers the famous-object fallback,
+      // rather than the calculator's {45,0} placeholder.
+      getLocation: () => this.observerLocation || null,
+      getFamousObjects: () => (this.deepSkyObjects || []).filter((d) =>
+        d.mag != null && d.mag < 8 &&
+        (d.common_names || (d.messier !== null && d.messier !== undefined))),
+      calculateLST,
+    });
+  }
+
+  /**
+   * The day's featured object (Tonight's Highlight), or null.
+   * @returns {?{object: !Object, name: string, label: string}}
+   */
+  getDailyHighlight() {
+    return this.dailyHighlight_?.getHighlight();
   }
 
   /**
@@ -517,13 +543,22 @@ export class AstrapediaApp {
   initPowerManager_() {
     this.powerManager_ = new PowerManager({
       onStartAnimating: () => {
-        if (!this._isAnimating) {
-          this._isAnimating = true;
-          requestAnimationFrame(this._boundAnimate);
-        }
+        // Force a fresh frame rather than trusting _isAnimating. When Android
+        // pauses the WebView (screen off / background) it can drop the pending
+        // rAF while the flag stays true, so a guarded `if (!_isAnimating)`
+        // would never re-kick the loop on resume — the sky freezes ("can't
+        // slide") and the next resize paints it black. Cancelling any stale id
+        // and scheduling one guarantees exactly one live frame.
+        this._isAnimating = true;
+        if (this._rafId != null) cancelAnimationFrame(this._rafId);
+        this._rafId = requestAnimationFrame(this._boundAnimate);
       },
       onStopAnimating: () => {
         this._isAnimating = false;
+        if (this._rafId != null) {
+          cancelAnimationFrame(this._rafId);
+          this._rafId = null;
+        }
       },
       shouldKeepAnimating: () =>
         this.timeController_.isPlaying() || this.isCameraConverging_(),
@@ -932,6 +967,39 @@ export class AstrapediaApp {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(this.renderer.domElement);
+    this.setupContextLossHandling_();
+  }
+
+  /**
+   * Recover from WebGL context loss.
+   *
+   * On Android (Capacitor WebView) the GPU surface is reclaimed when the app
+   * is backgrounded for a while or the screen sleeps, which loses the WebGL
+   * context and leaves the sky black on return. Two things are needed:
+   * preventDefault() on the loss event, without which the browser will not
+   * restore the context at all; and, once restored, a forced repaint — the
+   * render loop may have been paused, and Three.js re-uploads its GPU
+   * resources lazily on the next render, so nothing reappears until we ask
+   * for a frame.
+   * @private
+   */
+  setupContextLossHandling_() {
+    const canvas = this.renderer.domElement;
+
+    canvas.addEventListener('webglcontextlost', (event) => {
+      event.preventDefault();
+      logger.warn('WebGL context lost; pausing until it is restored');
+      this.stopAnimating();
+    }, false);
+
+    canvas.addEventListener('webglcontextrestored', () => {
+      logger.info('WebGL context restored; repainting the sky');
+      // FOV-derived sizes (halos, images) are recomputed only when dirty, so
+      // mark them stale before forcing frames back on.
+      this._fovDirty = true;
+      this.requestRender();
+      this.startAnimating();
+    }, false);
   }
 
   setupLights() {
@@ -1641,6 +1709,15 @@ export class AstrapediaApp {
     eventsCalendar.showEventsCalendar();
   }
 
+  /**
+   * Get the next upcoming celestial event, for the Sky-view chrome.
+   * Delegates to EventsCalendar module.
+   * @returns {?Object} The next event, or null if none.
+   */
+  getNextEvent() {
+    return eventsCalendar.getNextEvent();
+  }
+
   /* ======================================================================
      CAMERA & INTERACTION
      Mouse, touch, and keyboard event handling
@@ -1715,30 +1792,12 @@ export class AstrapediaApp {
   }
 
   setObserverLocation() {
-    // Cancelling either prompt aborts; note the explicit null checks — the
-    // previous `if (lat && lon)` also rejected "0", so nobody on the equator
-    // or the prime meridian could set their location.
-    const lat = prompt('Enter latitude (degrees, -90 to 90):', '48.8566');
-    if (lat === null) return;
-    const lon = prompt('Enter longitude (degrees, -180 to 180):', '2.3522');
-    if (lon === null) return;
-
-    const latValue = parseFloat(lat);
-    const lonValue = parseFloat(lon);
-    if (!Number.isFinite(latValue) || !Number.isFinite(lonValue)) {
-      alert('Please enter numeric coordinates, for example 48.8566 and 2.3522.');
-      return;
-    }
-
-    // LocationManager is the owner: it clamps latitude, normalizes longitude,
-    // persists to localStorage and emits LOCATION_CHANGED. The handler in
-    // setupCommandListeners_ then applies it to the scene — including the
-    // horizon renderer and a re-render, which this method used to omit.
-    locationManager.setLocation(latValue, lonValue);
-
-    const applied = locationManager.getLocation();
-    alert(`Observer location set to: ${applied.lat}°, ${applied.lon}°\n` +
-        'Sky now shows correct position for your location and time.');
+    // Open the styled dialog rather than the native prompt(), which broke the
+    // visual language and ignored the night-vision palette. The dialog does
+    // the parsing/validation and routes through LocationManager — the owner
+    // that clamps, normalizes, persists, and emits LOCATION_CHANGED (whose
+    // handler applies it to the scene, horizon renderer included).
+    getLocationDialog()?.show();
   }
 
   /* ======================================================================
@@ -1889,7 +1948,7 @@ export class AstrapediaApp {
       // Fallback for early initialization
       if (!this._isAnimating) {
         this._isAnimating = true;
-        requestAnimationFrame(this._boundAnimate);
+        this._rafId = requestAnimationFrame(this._boundAnimate);
       }
     }
   }
@@ -1919,9 +1978,12 @@ export class AstrapediaApp {
    */
   animate() {
     // Only continue animation if enabled (power saving)
-    if (!this._isAnimating) return;
+    if (!this._isAnimating) {
+      this._rafId = null;
+      return;
+    }
 
-    requestAnimationFrame(this._boundAnimate);
+    this._rafId = requestAnimationFrame(this._boundAnimate);
 
     this._frameCount++;
     const now = performance.now();

@@ -32,7 +32,13 @@
 
     /* Data display color */
     --data-color: #d4a84b;
-    --accent-blue: #5889a8;
+
+    /* Semantic status — kept in the warm/red night-safe gamut. No bright
+       green or blue: those disrupt dark adaptation. Night-vision mode dims
+       these further. */
+    --success: #7a9a5a;   /* dim sage — "good/visible", not Bootstrap green */
+    --warning: #d4a84b;   /* amber */
+    --error: #b0503c;     /* dim warm red */
 
     /* Borders - crisp, precise lines */
     --border: rgba(90, 110, 130, 0.18);
@@ -43,12 +49,13 @@
     --shadow: rgba(0, 0, 0, 0.5);
     --radius: 4px;
     --radius-sm: 3px;
-    --radius-lg: 6px;
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --nav-height: 56px;
 
     /* Z-index system */
     --z-canvas: 1;
+    --z-nightvision: 5;
     --z-ui-overlay: 10;
     --z-floating: 50;
     --z-header: 100;
@@ -56,6 +63,57 @@
     --z-backdrop: 199;
     --z-modal: 200;
     --z-loading: 1000;
+}
+
+/*
+ * NIGHT VISION MODE
+ * Deep-red, low-luminance skin for outdoor field use. Only the tokens are
+ * redefined here, so every component that reads them inherits the mode for
+ * free. Single-hue red at low brightness is what preserves dark adaptation —
+ * no green, blue, or white, nothing bright.
+ */
+body.night-vision {
+    --bg-dark: #050000;
+    --bg-primary: rgba(14, 3, 3, 0.96);
+    --bg-secondary: rgba(26, 6, 6, 0.9);
+    --bg-elevated: rgba(36, 9, 9, 0.92);
+
+    --text-primary: #c25a42;
+    --text-secondary: #8a3d2c;
+    --text-muted: #582419;
+
+    --accent: #3a140d;
+    --accent-hover: #4a1a11;
+    --accent-warm: #d05a38;
+    --accent-warm-dim: #9a4026;
+
+    --data-color: #d05a38;
+
+    --success: #b06038;   /* no green in the dark — all status stays red/amber */
+    --warning: #d07a3a;
+    --error: #c04028;
+
+    --border: rgba(180, 70, 48, 0.2);
+    --border-accent: rgba(200, 84, 50, 0.28);
+    --border-focus: rgba(210, 92, 60, 0.5);
+}
+
+/* The star field is a canvas of spectral-colored (often blue-white) points,
+   so tokens can't reach it. A dark-red multiply layer keeps only the red
+   channel, turning the whole sky into red shades. pointer-events:none so it
+   never blocks panning or selection. */
+#night-vision-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-nightvision);
+    background: #7a0000;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    display: none;
+}
+
+body.night-vision #night-vision-overlay {
+    display: block;
 }
 
 * {
@@ -149,8 +207,8 @@ canvas:active {
 }
 
 .icon-btn {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     border-radius: var(--radius);
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -171,7 +229,7 @@ canvas:active {
 
 .icon-btn svg {
     position: absolute;
-    inset: 8px;
+    inset: 11px;
     width: auto;
     height: auto;
     stroke: currentColor;
@@ -376,7 +434,7 @@ body.panel-open .info-badge {
     height: 100dvh;
     background: var(--bg-dark);
     transform: translateX(-100%);
-    transition: transform 0.25s ease-out;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: var(--z-modal);
     overflow-y: auto;
     border-right: 1px solid var(--border);
@@ -709,12 +767,12 @@ select:focus {
 .tour-icon {
     width: 28px;
     height: 28px;
-    stroke: #446688;
+    stroke: var(--accent-warm-dim);
     flex-shrink: 0;
 }
 
 .tour-btn:hover .tour-icon {
-    stroke: #99aabb;
+    stroke: var(--accent-warm);
 }
 
 /* Quick Actions Section */
@@ -725,10 +783,22 @@ select:focus {
 }
 
 .panel-footer {
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
     margin-top: 10px;
     padding-top: 8px;
     border-top: 1px solid var(--border);
+}
+
+/* A footer link that is a real button (re-open onboarding) — strip the UA
+   button chrome so it matches the anchor beside it. */
+.footer-link--button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 .footer-link {
@@ -780,7 +850,7 @@ select:focus {
 }
 
 .action-btn.secondary:hover {
-    background: #1a2535;
+    background: var(--accent);
 }
 
 .action-btn__icon {
@@ -958,6 +1028,161 @@ select:focus {
     border-top: 2px solid var(--accent-warm-dim);
 }
 
+/* First-run onboarding overlay. Deliberately dim and warm — a new user's
+   first screen should not flash bright light at a dark-adapted eye. */
+#onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 4, 8, 0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    padding: 20px;
+}
+
+#onboarding-overlay.visible {
+    display: flex;
+}
+
+.onboarding-card {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--accent-warm-dim);
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 380px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.onboarding-card h2 {
+    color: var(--accent-warm);
+    font-size: 16px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.onboarding-lede {
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.onboarding-gestures {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.onboarding-gestures li {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.onboarding-gesture {
+    display: inline-block;
+    min-width: 64px;
+    color: var(--accent-warm);
+    letter-spacing: 0.5px;
+}
+
+.onboarding-hint {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.onboarding-card .action-btn {
+    margin-top: 4px;
+}
+
+/* Observer location dialog — same centered-modal shell as the game select. */
+.location-dialog {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    padding: 16px;
+}
+
+.location-dialog.visible {
+    display: flex;
+}
+
+.location-dialog-content {
+    background: var(--bg-dark);
+    border-radius: var(--radius);
+    padding: 20px;
+    max-width: 320px;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--accent-warm-dim);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.location-dialog-content h3 {
+    color: var(--accent-warm);
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.location-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.location-field label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+}
+
+/* Hide the native number spinner — its UA styling ignores the palette (and
+   the night-vision skin). inputmode=decimal still gives mobile a number pad. */
+.location-field input {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.location-field input::-webkit-outer-spin-button,
+.location-field input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.location-dialog-error {
+    color: var(--error);
+    font-size: 12px;
+    margin: 0;
+}
+
+.location-dialog-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.location-dialog-actions .action-btn {
+    flex: 1;
+}
+
 .game-select-content h3 {
     text-align: center;
     margin-bottom: 14px;
@@ -1106,6 +1331,73 @@ select:focus {
     text-transform: uppercase;
 }
 
+/* Info panel hierarchy: the type headline and the plain-language description
+   lead; the facts sit in an even label/value grid; precise coordinates fold
+   away in a <details>. */
+.info-type {
+    color: var(--accent-warm);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    margin: 10px 0 8px;
+}
+
+.info-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 10px 0;
+}
+
+.info-fact {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    font-size: 13px;
+}
+
+.info-fact-label {
+    color: var(--text-secondary);
+}
+
+.info-fact-value {
+    color: var(--text-primary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.info-technical {
+    margin: 10px 0;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+}
+
+.info-technical summary {
+    cursor: pointer;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    list-style: none;
+}
+
+.info-technical summary::-webkit-details-marker {
+    display: none;
+}
+
+.info-technical summary::after {
+    content: ' +';
+    color: var(--accent-warm-dim);
+}
+
+.info-technical[open] summary::after {
+    content: ' –';
+}
+
+.info-technical .info-facts {
+    margin-bottom: 0;
+}
+
 .object-description {
     background: var(--bg-secondary);
     border-radius: var(--radius-sm);
@@ -1113,6 +1405,21 @@ select:focus {
     font-size: 13px;
     line-height: 1.6;
     margin-top: 12px;
+}
+
+/* The Wikipedia link had no rule, so it fell back to the browser default
+   blue (#00e / rgb(0,0,238)) — the single worst color for night vision.
+   The info panel is .slide-panel, not .side-panel, so the .side-panel a rule
+   never reached it. Amber, dim-to-bright on hover. */
+.wiki-link {
+    color: var(--accent-warm-dim);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: color 0.15s;
+}
+
+.wiki-link:hover {
+    color: var(--accent-warm);
 }
 
 /* ==========================================================================
@@ -1123,9 +1430,67 @@ select:focus {
    UNIFIED CONTROL BAR (Time + Magnitude - Stacked)
    ========================================================================== */
 
+/* Bottom navigation — the app's primary sections, in the thumb zone. Stays
+   above panels and the backdrop so you can switch tabs or return to the Sky
+   from anywhere. */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--nav-height) + var(--safe-bottom));
+    padding-bottom: var(--safe-bottom);
+    display: flex;
+    background: var(--bg-primary);
+    border-top: 2px solid var(--accent-warm-dim);
+    z-index: calc(var(--z-modal) + 1);
+}
+
+.bottom-nav__item {
+    flex: 1;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.15s;
+}
+
+.bottom-nav__item .bottom-nav__icon {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor;
+    fill: currentColor;
+}
+
+/* Line-style nav icons (e.g. the telescope) render as strokes, not fills. */
+.bottom-nav__icon--line {
+    fill: none !important;
+}
+
+.bottom-nav__label {
+    font-size: 10px;
+    letter-spacing: 0.5px;
+}
+
+.bottom-nav__item.is-active {
+    color: var(--accent-warm);
+    box-shadow: inset 0 2px 0 var(--accent-warm);
+}
+
+.bottom-nav__item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
 .control-bar {
     position: fixed;
-    bottom: calc(16px + var(--safe-bottom));
+    bottom: calc(16px + var(--nav-height) + var(--safe-bottom));
     left: 50%;
     transform: translateX(-50%);
     background: var(--bg-primary);
@@ -1204,6 +1569,14 @@ select:focus {
     display: contents;
 }
 
+/* Expand the time-transport tap target to >=44px without growing the box
+   (the row packs several buttons; keeping the visual size avoids overflow). */
+.time-btn::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+}
+
 .time-btn {
     width: 36px;
     height: 36px;
@@ -1240,7 +1613,7 @@ select:focus {
 }
 
 .time-btn.small.secondary:hover {
-    background: #1a2535;
+    background: var(--accent);
 }
 
 /* Date/Time Picker Panel */
@@ -1387,15 +1760,15 @@ select:focus {
 .quick-btn .btn-label {
     font-size: 11px;
     font-weight: 500;
-    color: #8899aa;
+    color: var(--text-secondary);
 }
 
 .quick-btn svg {
-    stroke: #446688;
+    stroke: var(--accent-warm-dim);
 }
 
 .quick-btn:hover svg {
-    stroke: #99aabb;
+    stroke: var(--accent-warm);
 }
 
 /* ==========================================================================
@@ -1494,16 +1867,31 @@ select:focus {
     transition: opacity 0.4s, visibility 0.4s;
 }
 
+/* Orbit loader: a lit point tracking a faint ring — on-theme for a sky app,
+   rather than a generic border spinner. */
 .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 2px solid var(--border);
-    border-top-color: var(--data-color);
-    border-radius: var(--radius);
-    animation: spin 1s linear infinite;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    position: relative;
+    animation: orbit 1.4s linear infinite;
 }
 
-@keyframes spin {
+.loading-spinner::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: 50%;
+    margin-left: -3.5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--data-color);
+    box-shadow: 0 0 6px var(--data-color);
+}
+
+@keyframes orbit {
     to { transform: rotate(360deg); }
 }
 
@@ -1535,7 +1923,7 @@ select:focus {
     display: flex;
     gap: 12px;
     padding: 12px;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-secondary);
     border-radius: 8px;
     border-left: 3px solid var(--accent);
 }
@@ -1577,7 +1965,7 @@ select:focus {
 .events-source {
     margin-top: 16px;
     padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--border);
     font-size: 11px;
     color: var(--text-secondary);
     text-align: center;
@@ -1612,11 +2000,11 @@ select:focus {
 }
 
 .side-panel li:hover {
-    background: rgba(59, 130, 246, 0.2);
+    background: rgba(212, 168, 75, 0.15);
 }
 
 .side-panel a {
-    color: #446688;
+    color: var(--accent-warm-dim);
     text-decoration: none;
 }
 
@@ -1691,7 +2079,7 @@ button.secondary:hover {
     }
 
     .control-bar {
-        bottom: calc(20px + var(--safe-bottom));
+        bottom: calc(20px + var(--nav-height) + var(--safe-bottom));
     }
 
     .control-bar__magnitude input[type="range"] {
@@ -1781,8 +2169,8 @@ select:focus-visible {
 }
 
 @keyframes compass-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
-    50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(212, 168, 75, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(212, 168, 75, 0); }
 }
 
 /* Constellation lines quick toggle button */
@@ -1796,7 +2184,7 @@ select:focus-visible {
 .icon-btn--constellations.active {
     background: var(--accent) !important;
     border-color: var(--accent) !important;
-    color: #aabbcc;
+    color: var(--text-primary);
 }
 
 .icon-btn--constellations:not(.active) {
@@ -1815,7 +2203,7 @@ select:focus-visible {
 .icon-btn--telescope.active {
     background: var(--accent) !important;
     border-color: var(--accent) !important;
-    color: #aabbcc;
+    color: var(--text-primary);
 }
 
 .icon-btn--telescope:not(.active) {
@@ -1823,9 +2211,24 @@ select:focus-visible {
     border-color: var(--border) !important;
 }
 
+/* Night Vision quick toggle button. The .active/.icon-btn compound selector
+   already outranks the base .icon-btn rule, so no !important is needed. When
+   the mode is on, the whole UI is red via the token override, so the moon
+   glows red for free. */
+.icon-btn--nightvision.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-warm);
+}
+
+.icon-btn--nightvision:not(.active) {
+    background: var(--bg-secondary);
+    border-color: var(--border);
+}
+
 /* Panel styling */
 .panel-title--accent {
-    color: var(--accent-blue);
+    color: var(--accent-warm);
 }
 
 .panel-section__title {
@@ -1855,7 +2258,7 @@ select:focus-visible {
 }
 
 .performance-value {
-    color: var(--accent-blue);
+    color: var(--accent-warm);
     font-size: 12px;
     font-weight: bold;
 }
@@ -1960,7 +2363,7 @@ select:focus-visible {
 
 .sky-condition-item--highlight .sky-condition-value {
     font-size: 15px;
-    color: var(--accent-blue);
+    color: var(--accent-warm);
 }
 
 /* Telescope presets row */
@@ -2070,7 +2473,7 @@ select:focus-visible {
 .computed-value {
     font-size: 16px;
     font-weight: 600;
-    color: var(--accent-blue);
+    color: var(--accent-warm);
     font-family: 'Monaco', 'Menlo', monospace;
 }
 
@@ -2078,10 +2481,10 @@ select:focus-visible {
 .telescope-warning {
     margin-top: 12px;
     padding: 10px 12px;
-    background: rgba(239, 68, 68, 0.15);
-    border: 1px solid rgba(239, 68, 68, 0.4);
+    background: rgba(176, 80, 60, 0.15);
+    border: 1px solid rgba(176, 80, 60, 0.4);
     border-radius: var(--radius-sm);
-    color: #8B3030;
+    color: var(--error);
     font-size: 12px;
     font-weight: 500;
     display: none;
@@ -2264,7 +2667,7 @@ select:focus-visible {
 }
 
 .telescope-visibility__status--visible {
-    color: #5cb85c;
+    color: var(--success);
 }
 
 .telescope-visibility__status--barely {
@@ -2272,7 +2675,7 @@ select:focus-visible {
 }
 
 .telescope-visibility__status--not-visible {
-    color: #8B3030;
+    color: var(--error);
 }
 
 /* Telescope detail section (telescope mode only) */
@@ -2294,7 +2697,7 @@ select:focus-visible {
 }
 
 .telescope-visibility__row-value {
-    color: var(--accent-blue);
+    color: var(--accent-warm);
     font-family: 'Monaco', 'Menlo', monospace;
 }
 
@@ -2400,4 +2803,93 @@ body.telescope-mode::after {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
+}
+
+/* The mag/time bar is Sky-view chrome; hide it while a panel is open. */
+body.panel-open .control-bar {
+    display: none;
+}
+
+/* Slide-panel content clears the bottom nav (which sits above panels). */
+.slide-panel {
+    padding-bottom: calc(16px + var(--nav-height) + var(--safe-bottom));
+}
+
+/* ==========================================================================
+   BUTTON POLISH — engraved bezel, tactile press, warm focus backlight.
+   Kept subtle and derived from tokens, so it stays night-safe.
+   ========================================================================== */
+.icon-btn,
+.action-btn,
+.tour-btn,
+.time-btn,
+.telescope-preset-btn,
+.game-select-btn {
+    box-shadow: inset 0 1px 0 rgba(212, 168, 75, 0.05);
+}
+
+.icon-btn:active,
+.action-btn:active,
+.tour-btn:active,
+.time-btn:active,
+.telescope-preset-btn:active,
+.game-select-btn:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.icon-btn:focus-visible,
+.action-btn:focus-visible,
+.tour-btn:focus-visible,
+.time-btn:focus-visible,
+.telescope-preset-btn:focus-visible,
+.game-select-btn:focus-visible,
+.bottom-nav__item:focus-visible {
+    outline: 1px solid var(--accent-warm-dim);
+    outline-offset: 1px;
+    box-shadow: 0 0 8px rgba(212, 168, 75, 0.18);
+}
+
+/* Tonight's Highlight — a featured object at the top of the Tours panel. */
+.daily-highlight {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    text-align: left;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-warm);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(212, 168, 75, 0.05);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.daily-highlight:hover {
+    background: var(--bg-elevated);
+    border-color: var(--border-focus);
+}
+
+.daily-highlight:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.daily-highlight__eyebrow {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent-warm-dim);
+}
+
+.daily-highlight__name {
+    font-size: 15px;
+    color: var(--accent-warm);
+    letter-spacing: 0.5px;
+}
+
+.daily-highlight__label {
+    font-size: 11px;
+    color: var(--text-secondary);
 }

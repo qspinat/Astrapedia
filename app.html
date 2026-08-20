@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="referrer" content="no-referrer">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
@@ -100,6 +100,13 @@
                 <circle cx="12" cy="12" r="6"/>
                 <ellipse cx="12" cy="12" rx="10" ry="3" transform="rotate(-20 12 12)"/>
             </symbol>
+            <!-- Telescope icon -->
+            <symbol id="icon-telescope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 5L7 14l-2-.9a1 1 0 01-.3-1.6l3.5-3.8a1 1 0 011.2-.2L22 5z"/>
+                <path d="M7 14l2.5 1.5-1.5 3.5"/>
+                <path d="M4 19h6"/>
+                <circle cx="21.5" cy="5" r="2.2"/>
+            </symbol>
             <!-- Snowflake/Winter icon -->
             <symbol id="icon-winter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M12 2v20M2 12h20"/>
@@ -187,6 +194,26 @@
     <!-- Main Canvas -->
     <div id="canvas-container"></div>
 
+    <!-- Red multiply layer for Night Vision mode: sits above the star-field
+         canvas but below the UI, tinting the spectral-colored (often blue-white)
+         stars red so the whole screen preserves dark adaptation. -->
+    <div id="night-vision-overlay" aria-hidden="true"></div>
+
+    <!-- First-run onboarding -->
+    <div id="onboarding-overlay" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+        <div class="onboarding-card">
+            <h2 id="onboarding-title">Welcome to Astrapedia</h2>
+            <p class="onboarding-lede">A live map of the real sky above you. Here's how to explore it.</p>
+            <ul class="onboarding-gestures">
+                <li><span class="onboarding-gesture">Drag</span> to look around the sky</li>
+                <li><span class="onboarding-gesture">Pinch</span>, or double-tap and slide, to zoom</li>
+                <li><span class="onboarding-gesture">Tap</span> a star or object to identify it</li>
+            </ul>
+            <p class="onboarding-hint">Along the bottom: the Sky, guided Tours, the Telescope simulator, a Quiz, and Settings. Up top: constellation lines, compass, and night vision. Stargazing outside? Turn on night vision to protect your dark-adapted eyes.</p>
+            <button id="onboarding-dismiss" class="action-btn">Start exploring</button>
+        </div>
+    </div>
+
     <!-- UI Overlay -->
     <div id="ui-overlay">
         <!-- Compact Header with Search -->
@@ -205,16 +232,10 @@
                             <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/>
                         </svg>
                     </button>
-                    <button class="icon-btn icon-btn--telescope" id="telescope-quick-toggle" aria-label="Telescope Mode" title="Telescope Mode">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M22 5L7 14l-2-.9a1 1 0 01-.3-1.6l3.5-3.8a1 1 0 011.2-.2L22 5z" fill="currentColor" opacity="0.3" stroke="currentColor"/>
-                            <path d="M7 14l2.5 1.5-1.5 3.5"/>
-                            <path d="M4 19h6"/>
-                            <circle cx="22" cy="5" r="2.5" fill="currentColor" opacity="0.5" stroke="currentColor"/>
+                    <button class="icon-btn icon-btn--nightvision" id="night-vision-toggle" aria-label="Night Vision Mode" aria-pressed="false" title="Night Vision Mode">
+                        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <path d="M13 2a9 9 0 108.9 10.5A7.2 7.2 0 0113 2z"/>
                         </svg>
-                    </button>
-                    <button class="icon-btn icon-btn--settings" id="settings-toggle" aria-label="Settings">
-                        ⚙
                     </button>
                 </div>
             </div>
@@ -255,7 +276,7 @@
         <div id="settings-panel" class="slide-panel">
             <div class="panel-header">
                 <h2 class="panel-title--accent">Settings</h2>
-                <button class="close-btn close-btn--panel" id="settings-close-btn">✕</button>
+                <button class="close-btn close-btn--panel" id="settings-close-btn" aria-label="Close">✕</button>
             </div>
 
             <!-- DISPLAY SECTION - Always visible (most used) -->
@@ -271,51 +292,6 @@
                     <span class="toggle-switch"></span>
                 </label>
             </div>
-
-            <!-- GUIDED TOURS - Collapsible -->
-            <details class="panel-accordion" open>
-                <summary class="panel-accordion__header">
-                    <svg class="panel-accordion__icon"><use href="#icon-moon"/></svg>
-                    <span>Guided Tours</span>
-                    <svg class="panel-accordion__chevron"><use href="#icon-chevron"/></svg>
-                </summary>
-                <div class="panel-accordion__content">
-                    <div class="tour-grid">
-                    <button class="tour-btn" id="tour-tonight-btn">
-                        <svg class="tour-btn__icon"><use href="#icon-moon"/></svg>
-                        <span class="tour-btn__text">Tonight</span>
-                    </button>
-                    <button class="tour-btn" id="tour-messier-btn">
-                        <svg class="tour-btn__icon"><use href="#icon-clipboard"/></svg>
-                        <span class="tour-btn__text">Messier</span>
-                    </button>
-                    <button class="tour-btn" id="tour-nebulae-btn">
-                        <svg class="tour-btn__icon"><use href="#icon-nebula"/></svg>
-                        <span class="tour-btn__text">Nebulae</span>
-                    </button>
-                    <button class="tour-btn" id="tour-galaxies-btn">
-                        <svg class="tour-btn__icon"><use href="#icon-galaxy"/></svg>
-                        <span class="tour-btn__text">Galaxies</span>
-                    </button>
-                    <button class="tour-btn" id="tour-clusters-btn">
-                        <svg class="tour-btn__icon"><use href="#icon-cluster"/></svg>
-                        <span class="tour-btn__text">Clusters</span>
-                    </button>
-                    <button class="tour-btn" id="tour-constellations-btn">
-                        <svg class="tour-btn__icon"><use href="#icon-constellation"/></svg>
-                        <span class="tour-btn__text">Constellations</span>
-                    </button>
-                    <button class="tour-btn" id="tour-planets-btn">
-                        <svg class="tour-btn__icon"><use href="#icon-planet"/></svg>
-                        <span class="tour-btn__text">Planets</span>
-                    </button>
-                    <button class="tour-btn" id="tour-winter-btn">
-                        <svg class="tour-btn__icon"><use href="#icon-winter"/></svg>
-                        <span class="tour-btn__text">Winter Sky</span>
-                    </button>
-                    </div>
-                </div>
-            </details>
 
             <!-- SKY CONDITIONS - Collapsible -->
             <details class="panel-accordion">
@@ -352,14 +328,128 @@
                 </div>
             </details>
 
-            <!-- TELESCOPE - Collapsible -->
+            <!-- PREFERENCES - Collapsible -->
             <details class="panel-accordion">
                 <summary class="panel-accordion__header">
-                    <svg class="panel-accordion__icon"><use href="#icon-planet"/></svg>
-                    <span>Telescope Simulation</span>
+                    <svg class="panel-accordion__icon"><use href="#icon-settings"/></svg>
+                    <span>Preferences</span>
                     <svg class="panel-accordion__chevron"><use href="#icon-chevron"/></svg>
                 </summary>
                 <div class="panel-accordion__content">
+                    <div class="input-row">
+                        <label for="constellation-language">Language</label>
+                        <select id="constellation-language" class="language-select">
+                            <option value="en">English</option>
+                            <option value="la">Latin (Scientific)</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="es">Spanish</option>
+                            <option value="zh">Chinese</option>
+                            <option value="ja">Japanese</option>
+                            <option value="ar">Arabic</option>
+                        </select>
+                    </div>
+                    <div class="performance-settings">
+                        <div class="performance-header">
+                            <span class="performance-label">Max Dynamic Objects</span>
+                            <span id="max-dynamic-stars-value" class="performance-value">30K</span>
+                        </div>
+                        <input type="range" id="max-dynamic-stars" min="5000" max="100000" step="5000" value="30000" class="performance-slider">
+                        <span class="performance-hint">Stars loaded when zooming</span>
+                    </div>
+                </div>
+            </details>
+
+            <!-- QUICK ACTIONS - Always visible at bottom -->
+            <div class="panel-section panel-section--actions">
+                <div class="action-buttons">
+                    <button class="action-btn secondary" id="set-location-btn">
+                        <svg class="action-btn__icon"><use href="#icon-location"/></svg>
+                        Location
+                    </button>
+                    <button class="action-btn secondary" id="reset-view-btn">
+                        <svg class="action-btn__icon"><use href="#icon-reset"/></svg>
+                        Reset
+                    </button>
+                    <button class="action-btn secondary" id="events-btn">
+                        <svg class="action-btn__icon"><use href="#icon-calendar"/></svg>
+                        Events
+                    </button>
+                    <button class="action-btn secondary" id="bug-report-btn">
+                        <svg class="action-btn__icon"><use href="#icon-bug"/></svg>
+                        Bug
+                    </button>
+                </div>
+                <div class="panel-footer">
+                    <button type="button" id="show-onboarding-btn" class="footer-link footer-link--button">How to use</button>
+                    <a href="PRIVACY_POLICY.md" target="_blank" rel="noopener" class="footer-link">Privacy Policy</a>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Tours Panel (feature, promoted from Settings) -->
+        <div id="tours-panel" class="slide-panel" aria-labelledby="tours-panel-title">
+            <div class="panel-header">
+                <h2 class="panel-title--accent" id="tours-panel-title">Guided Tours</h2>
+                <button class="close-btn close-btn--panel" id="tours-close-btn" aria-label="Close">✕</button>
+            </div>
+            <button type="button" id="daily-highlight" class="daily-highlight" hidden>
+                <span class="daily-highlight__eyebrow">Tonight's Highlight</span>
+                <span class="daily-highlight__name" id="daily-highlight-name"></span>
+                <span class="daily-highlight__label" id="daily-highlight-label"></span>
+            </button>
+            <button type="button" id="next-event" class="daily-highlight" hidden>
+                <span class="daily-highlight__eyebrow">Next event</span>
+                <span class="daily-highlight__name" id="next-event-name"></span>
+                <span class="daily-highlight__label" id="next-event-when"></span>
+            </button>
+            <div class="panel-section">
+                <div class="tour-grid">
+                    <button class="tour-btn" id="tour-tonight-btn">
+                        <svg class="tour-btn__icon"><use href="#icon-moon"/></svg>
+                        <span class="tour-btn__text">Tonight</span>
+                    </button>
+                    <button class="tour-btn" id="tour-messier-btn">
+                        <svg class="tour-btn__icon"><use href="#icon-clipboard"/></svg>
+                        <span class="tour-btn__text">Messier</span>
+                    </button>
+                    <button class="tour-btn" id="tour-nebulae-btn">
+                        <svg class="tour-btn__icon"><use href="#icon-nebula"/></svg>
+                        <span class="tour-btn__text">Nebulae</span>
+                    </button>
+                    <button class="tour-btn" id="tour-galaxies-btn">
+                        <svg class="tour-btn__icon"><use href="#icon-galaxy"/></svg>
+                        <span class="tour-btn__text">Galaxies</span>
+                    </button>
+                    <button class="tour-btn" id="tour-clusters-btn">
+                        <svg class="tour-btn__icon"><use href="#icon-cluster"/></svg>
+                        <span class="tour-btn__text">Clusters</span>
+                    </button>
+                    <button class="tour-btn" id="tour-constellations-btn">
+                        <svg class="tour-btn__icon"><use href="#icon-constellation"/></svg>
+                        <span class="tour-btn__text">Constellations</span>
+                    </button>
+                    <button class="tour-btn" id="tour-planets-btn">
+                        <svg class="tour-btn__icon"><use href="#icon-planet"/></svg>
+                        <span class="tour-btn__text">Planets</span>
+                    </button>
+                    <button class="tour-btn" id="tour-winter-btn">
+                        <svg class="tour-btn__icon"><use href="#icon-winter"/></svg>
+                        <span class="tour-btn__text">Winter Sky</span>
+                    </button>
+                    </div>
+            </div>
+        </div>
+
+        <!-- Telescope Panel (full feature, its own surface) -->
+        <div id="telescope-panel" class="slide-panel" aria-labelledby="telescope-panel-title">
+            <div class="panel-header">
+                <h2 class="panel-title--accent" id="telescope-panel-title">Telescope</h2>
+                <button class="close-btn close-btn--panel" id="telescope-close-btn" aria-label="Close">✕</button>
+            </div>
+            <div class="panel-section">
+                
                 <label class="toggle-row">
                     <span class="toggle-row__label">Telescope Mode</span>
                     <input type="checkbox" id="telescope-mode-toggle">
@@ -427,76 +517,10 @@
                 <div class="telescope-warning" id="telescope-warning">
                     Over-magnified! Image quality will be reduced.
                 </div>
-                </div>
-            </details>
-
-            <!-- PREFERENCES - Collapsible -->
-            <details class="panel-accordion">
-                <summary class="panel-accordion__header">
-                    <svg class="panel-accordion__icon"><use href="#icon-settings"/></svg>
-                    <span>Preferences</span>
-                    <svg class="panel-accordion__chevron"><use href="#icon-chevron"/></svg>
-                </summary>
-                <div class="panel-accordion__content">
-                    <div class="input-row">
-                        <label for="constellation-language">Language</label>
-                        <select id="constellation-language" class="language-select">
-                            <option value="en">English</option>
-                            <option value="la">Latin (Scientific)</option>
-                            <option value="fr">French</option>
-                            <option value="de">German</option>
-                            <option value="es">Spanish</option>
-                            <option value="zh">Chinese</option>
-                            <option value="ja">Japanese</option>
-                            <option value="ar">Arabic</option>
-                        </select>
-                    </div>
-                    <div class="performance-settings">
-                        <div class="performance-header">
-                            <span class="performance-label">Max Dynamic Objects</span>
-                            <span id="max-dynamic-stars-value" class="performance-value">30K</span>
-                        </div>
-                        <input type="range" id="max-dynamic-stars" min="5000" max="100000" step="5000" value="30000" class="performance-slider">
-                        <span class="performance-hint">Stars loaded when zooming</span>
-                    </div>
-                </div>
-            </details>
-
-            <!-- QUICK ACTIONS - Always visible at bottom -->
-            <div class="panel-section panel-section--actions">
-                <div class="action-buttons">
-                    <button class="action-btn secondary" id="set-location-btn">
-                        <svg class="action-btn__icon"><use href="#icon-location"/></svg>
-                        Location
-                    </button>
-                    <button class="action-btn secondary" id="reset-view-btn">
-                        <svg class="action-btn__icon"><use href="#icon-reset"/></svg>
-                        Reset
-                    </button>
-                    <button class="action-btn secondary" id="events-btn">
-                        <svg class="action-btn__icon"><use href="#icon-calendar"/></svg>
-                        Events
-                    </button>
-                    <button class="action-btn secondary" id="bug-report-btn">
-                        <svg class="action-btn__icon"><use href="#icon-bug"/></svg>
-                        Bug
-                    </button>
-                </div>
-                <div class="panel-footer">
-                    <a href="PRIVACY_POLICY.md" target="_blank" rel="noopener" class="footer-link">Privacy Policy</a>
-                </div>
+                
             </div>
         </div>
 
-        <!-- Game Controls (minimal floating) -->
-        <div class="controls-panel" id="controls-panel">
-            <button id="start-game-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-                Play
-            </button>
-        </div>
 
         <!-- Game Selection Modal -->
         <div class="game-select-modal" id="game-select-modal">
@@ -591,7 +615,7 @@
         <div id="info-panel" class="slide-panel right">
             <div class="panel-header">
                 <h2 id="object-title">Object</h2>
-                <button class="close-btn close-btn--panel" id="info-close-btn">✕</button>
+                <button class="close-btn close-btn--panel" id="info-close-btn" aria-label="Close">✕</button>
             </div>
             <div id="info-content"></div>
         </div>
@@ -656,11 +680,31 @@
             </div>
         </div>
 
+        <!-- Observer Location Dialog (styled replacement for the native prompt) -->
+        <div id="location-dialog" class="location-dialog" role="dialog" aria-modal="true" aria-labelledby="location-dialog-title">
+            <div class="location-dialog-content">
+                <h3 id="location-dialog-title">Set Location</h3>
+                <div class="location-field">
+                    <label for="location-lat">Latitude (-90 to 90)</label>
+                    <input type="number" id="location-lat" class="time-input" step="0.0001" min="-90" max="90" inputmode="decimal" placeholder="48.8566">
+                </div>
+                <div class="location-field">
+                    <label for="location-lon">Longitude (-180 to 180)</label>
+                    <input type="number" id="location-lon" class="time-input" step="0.0001" min="-180" max="180" inputmode="decimal" placeholder="2.3522">
+                </div>
+                <p class="location-dialog-error" id="location-dialog-error" role="alert" hidden></p>
+                <div class="location-dialog-actions">
+                    <button class="action-btn" id="location-set-btn">Set location</button>
+                    <button class="action-btn secondary" id="location-cancel-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Visible Tonight Panel -->
         <div id="visible-tonight-panel" class="slide-panel">
             <div class="panel-header">
                 <h2>Visible Tonight</h2>
-                <button class="close-btn close-btn--panel" id="visible-tonight-close-btn">✕</button>
+                <button class="close-btn close-btn--panel" id="visible-tonight-close-btn" aria-label="Close">✕</button>
             </div>
             <div class="panel-content"></div>
         </div>
@@ -669,7 +713,7 @@
         <div id="events-panel" class="slide-panel right">
             <div class="panel-header">
                 <h2>Events</h2>
-                <button class="close-btn close-btn--panel" id="events-close-btn">✕</button>
+                <button class="close-btn close-btn--panel" id="events-close-btn" aria-label="Close">✕</button>
             </div>
             <div class="panel-content"></div>
         </div>
@@ -744,6 +788,30 @@
                 <span class="reticle-dso-eyepiece" id="reticle-dso-eyepiece"></span>
             </div>
         </div>
+
+        <!-- Bottom navigation: the app's primary sections, in the thumb zone -->
+        <nav class="bottom-nav" id="bottom-nav" aria-label="Main">
+            <button class="bottom-nav__item is-active" id="nav-sky" data-panel="" aria-current="page">
+                <svg class="bottom-nav__icon"><use href="#icon-star"/></svg>
+                <span class="bottom-nav__label">Sky</span>
+            </button>
+            <button class="bottom-nav__item" id="nav-tours" data-panel="tours-panel">
+                <svg class="bottom-nav__icon"><use href="#icon-moon"/></svg>
+                <span class="bottom-nav__label">Tours</span>
+            </button>
+            <button class="bottom-nav__item" id="nav-telescope" data-panel="telescope-panel">
+                <svg class="bottom-nav__icon bottom-nav__icon--line"><use href="#icon-telescope"/></svg>
+                <span class="bottom-nav__label">Telescope</span>
+            </button>
+            <button class="bottom-nav__item" id="nav-quiz" data-panel="game-select-modal">
+                <svg class="bottom-nav__icon"><use href="#icon-famous"/></svg>
+                <span class="bottom-nav__label">Quiz</span>
+            </button>
+            <button class="bottom-nav__item" id="nav-settings" data-panel="settings-panel">
+                <svg class="bottom-nav__icon"><use href="#icon-settings"/></svg>
+                <span class="bottom-nav__label">Settings</span>
+            </button>
+        </nav>
 
     </div>
 

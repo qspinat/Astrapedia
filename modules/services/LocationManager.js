@@ -375,8 +375,11 @@ export class LocationManager {
           // Already granted - get location silently
           this.getLocationSilently_();
         } else if (permission.state === 'prompt') {
-          // Not yet asked - show a friendly prompt first
-          this.showLocationPrompt_();
+          // Not yet asked — do NOT prompt on launch. Best practice is to ask
+          // in context, so the request now waits for the user to tap the "My
+          // location" control (requestGeolocationInteractive). This keeps the
+          // first run free of an unsolicited permission dialog.
+          logger.info('Location not yet granted; deferring to first use');
         } else if (permission.state === 'denied') {
           // Previously denied - show how to enable
           logger.info('Location permission was previously denied');
@@ -389,12 +392,13 @@ export class LocationManager {
           }
         });
       } catch (e) {
-        // Permissions API not fully supported, try showing prompt
-        this.showLocationPrompt_();
+        // Permissions API unreliable — still don't prompt on launch; wait for
+        // the user to tap "My location".
+        logger.info('Could not check location permission; deferring to first use');
       }
     } else {
-      // No Permissions API, show prompt
-      this.showLocationPrompt_();
+      // No Permissions API — defer to first use rather than prompting on launch.
+      logger.info('No Permissions API; deferring location to first use');
     }
   }
 
@@ -403,6 +407,23 @@ export class LocationManager {
    * @private
    */
   showLocationPrompt_() {
+    // On first run the onboarding overlay is up; wait for it to close so the
+    // two dialogs don't stack. Reads the DOM only — no coupling to Onboarding.
+    const onboarding = document.getElementById('onboarding-overlay');
+    if (onboarding && onboarding.classList.contains('visible')) {
+      const observer = new MutationObserver(() => {
+        if (!onboarding.classList.contains('visible')) {
+          observer.disconnect();
+          this.showLocationPrompt_();
+        }
+      });
+      observer.observe(onboarding, {
+        attributes: true,
+        attributeFilter: ['class'],
+      });
+      return;
+    }
+
     // Create a non-blocking prompt dialog
     const dialog = document.createElement('div');
     dialog.className = 'location-prompt-dialog';
@@ -471,6 +492,9 @@ export class LocationManager {
 
     const style = document.createElement('style');
     style.id = 'location-prompt-styles';
+    // Uses the shared design tokens (so it inherits the night-vision skin)
+    // instead of the previous hard-coded blue/white island, whose blue button
+    // was a dark-adaptation hazard.
     style.textContent = `
       .location-prompt-dialog {
         position: fixed;
@@ -478,36 +502,38 @@ export class LocationManager {
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
+        background: rgba(0, 0, 0, 0.8);
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 1001;
+        z-index: var(--z-modal, 200);
         padding: 20px;
       }
       .location-prompt-content {
-        background: rgba(30, 30, 40, 0.95);
-        border-radius: 16px;
+        background: var(--bg-dark);
+        border-radius: var(--radius);
         padding: 24px;
         max-width: 300px;
         text-align: center;
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid var(--border);
+        border-top: 2px solid var(--accent-warm-dim);
       }
       .location-prompt-icon {
-        font-size: 48px;
+        font-size: 40px;
         margin-bottom: 12px;
+        filter: saturate(0.5) brightness(0.85);
       }
       .location-prompt-content h3 {
         margin: 0 0 8px 0;
-        color: #99aabb;
-        font-size: 18px;
+        color: var(--accent-warm);
+        font-size: 16px;
+        letter-spacing: 1px;
       }
       .location-prompt-content p {
         margin: 0 0 20px 0;
-        color: rgba(150, 160, 170, 0.8);
-        font-size: 14px;
-        line-height: 1.4;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.5;
       }
       .location-prompt-buttons {
         display: flex;
@@ -516,19 +542,20 @@ export class LocationManager {
       .location-prompt-btn {
         flex: 1;
         padding: 12px 16px;
-        border: none;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 600;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-family: inherit;
         cursor: pointer;
       }
       .location-prompt-btn--secondary {
-        background: rgba(100, 120, 140, 0.2);
-        color: rgba(150, 160, 170, 0.8);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
       }
       .location-prompt-btn--primary {
-        background: #2a5080;
-        color: #99aabb;
+        background: var(--accent);
+        color: var(--text-primary);
+        border-color: var(--border-accent);
       }
     `;
     document.head.appendChild(style);
@@ -641,14 +668,18 @@ export class LocationManager {
       navigator.permissions.query({name: 'geolocation'}).then((permission) => {
         if (permission.state === 'denied') {
           this.showLocationDeniedHelp();
-          return;
+        } else if (permission.state === 'prompt') {
+          // First time: prime with the styled explanation, then the OS prompt
+          // fires from the card's "Allow" — contextual, higher grant rate.
+          this.showLocationPrompt_();
+        } else {
+          this.requestGeolocationWithUI_();
         }
-        this.requestGeolocationWithUI_();
       }).catch(() => {
-        this.requestGeolocationWithUI_();
+        this.showLocationPrompt_();
       });
     } else {
-      this.requestGeolocationWithUI_();
+      this.showLocationPrompt_();
     }
   }
 }

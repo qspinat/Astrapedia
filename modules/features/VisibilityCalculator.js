@@ -108,10 +108,13 @@ export class VisibilityCalculator {
    * @param {number=} maxObjects - Maximum number of objects to return (default 50)
    * @returns {!Array<!Object>} Array of visible objects sorted by magnitude
    */
-  getBestVisibleObjectsTonight(minAltitude = 15, maxMagnitude = 10, maxObjects = 50) {
+  getBestVisibleObjectsTonight(minAltitude = 15, maxMagnitude = 10,
+      maxObjects = 50, lst = null) {
     const objects = [];
     const location = this.getLocation_() || {lat: 45, lon: 0};
-    const lst = this.getLST_() || 0;
+    // A caller can pin the sidereal time (e.g. to a fixed evening reference)
+    // so the result is stable across the night; otherwise use "now".
+    if (lst === null) lst = this.getLST_() || 0;
 
     // Add visible planets
     const planets = this.getPlanets_() || [];
