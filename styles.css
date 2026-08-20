@@ -1488,20 +1488,105 @@ select:focus {
     outline-offset: -2px;
 }
 
-.control-bar {
+/* Bottom Sky-view chrome: stacks the next-event pill above the control bar as
+   one instrument cluster, anchored just above the bottom nav + safe area. */
+.sky-dock {
     position: fixed;
     bottom: calc(16px + var(--nav-height) + var(--safe-bottom));
     left: 50%;
     transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    z-index: var(--z-header);
+    width: max-content;
+    max-width: calc(100vw - 24px);
+}
+
+.control-bar {
     background: var(--bg-primary);
     padding: 8px 10px;
     border-radius: var(--radius);
     display: flex;
     flex-direction: column;
     gap: 6px;
-    z-index: var(--z-header);
     border: 1px solid var(--border);
     border-top: 2px solid var(--accent-warm-dim);
+}
+
+/* Next celestial event pill — glanceable info that taps into the calendar.
+   Colors come only from the amber tokens, so night-vision recolors it to red
+   for free; the calendar glyph is a monochrome stroke icon, never a bright
+   emoji that would break dark adaptation. */
+.next-event {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    text-align: left;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-warm);
+    border-radius: var(--radius);
+    padding: 7px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-secondary);
+    box-shadow: inset 0 1px 0 rgba(212, 168, 75, 0.05);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.next-event:hover {
+    background: var(--bg-elevated);
+    border-color: var(--border-focus);
+}
+
+.next-event:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.next-event__icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--accent-warm-dim);
+}
+
+.next-event__text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.next-event__eyebrow {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent-warm-dim);
+}
+
+.next-event__line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+.next-event__name {
+    font-size: 11px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.next-event__when {
+    font-size: 9px;
+    flex-shrink: 0;
+    color: var(--accent-warm-dim);
+    font-variant-numeric: tabular-nums;
 }
 
 .control-bar__row {
@@ -2806,7 +2891,7 @@ body.telescope-mode::after {
 }
 
 /* The mag/time bar is Sky-view chrome; hide it while a panel is open. */
-body.panel-open .control-bar {
+body.panel-open .sky-dock {
     display: none;
 }
 

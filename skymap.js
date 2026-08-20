@@ -1709,6 +1709,15 @@ export class AstrapediaApp {
     eventsCalendar.showEventsCalendar();
   }
 
+  /**
+   * Get the next upcoming celestial event, for the Sky-view chrome.
+   * Delegates to EventsCalendar module.
+   * @returns {?Object} The next event, or null if none.
+   */
+  getNextEvent() {
+    return eventsCalendar.getNextEvent();
+  }
+
   /* ======================================================================
      CAMERA & INTERACTION
      Mouse, touch, and keyboard event handling

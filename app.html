@@ -615,6 +615,21 @@
             <div id="info-content"></div>
         </div>
 
+        <!-- Bottom Sky-view chrome: next celestial event + control bar -->
+        <div class="sky-dock">
+
+        <!-- Next celestial event — glanceable, taps through to the full calendar -->
+        <button type="button" id="next-event" class="next-event" aria-label="Upcoming celestial events" hidden>
+            <svg class="next-event__icon" aria-hidden="true"><use href="#icon-calendar"/></svg>
+            <span class="next-event__text">
+                <span class="next-event__eyebrow">Next event</span>
+                <span class="next-event__line">
+                    <span class="next-event__name" id="next-event-name"></span>
+                    <span class="next-event__when" id="next-event-when"></span>
+                </span>
+            </span>
+        </button>
+
         <!-- Observatory Control Bar (unified time + magnitude) -->
         <div class="control-bar">
             <!-- Magnitude Row (top) -->
@@ -662,6 +677,7 @@
                 </button>
             </div>
         </div>
+        </div><!-- /.sky-dock -->
 
         <!-- Date/Time Picker Panel -->
         <div class="time-picker-panel" id="time-picker-panel">

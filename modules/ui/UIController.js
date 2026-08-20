@@ -226,6 +226,7 @@ export class SettingsHandler {
    * @param {function(): void=} dependencies.requestGeolocation - Request geolocation
    * @param {function(): void=} dependencies.resetCamera - Reset camera
    * @param {function(): void=} dependencies.showEventsCalendar - Show events
+   * @param {function(): ?Object=} dependencies.getNextEvent - Next upcoming event
    * @param {function(number): void=} dependencies.setMaxDynamicStars - Set max stars
    */
   constructor(dependencies) {
@@ -705,6 +706,7 @@ export class UIController {
 
     this.setupBottomNav_();
     this.setupDailyHighlight_();
+    this.setupNextEvent_();
 
     // Info panel close button
     const infoCloseBtn = domCache.get('info-close-btn');
@@ -815,6 +817,53 @@ export class UIController {
     } else {
       card.hidden = true;
     }
+  }
+
+  /**
+   * Wire the Sky-view "Next event" pill: fill it from the next upcoming
+   * celestial event, and open the full calendar when tapped.
+   * @private
+   */
+  setupNextEvent_() {
+    const pill = document.getElementById('next-event');
+    if (!pill) return;
+
+    addMobileButtonListener(pill, () => {
+      this.deps_.showEventsCalendar?.();
+    });
+
+    this.populateNextEvent_();
+  }
+
+  /**
+   * Fill (or hide) the next-event pill from the soonest upcoming event.
+   * @private
+   */
+  populateNextEvent_() {
+    const pill = document.getElementById('next-event');
+    const nameEl = document.getElementById('next-event-name');
+    const whenEl = document.getElementById('next-event-when');
+    if (!pill || !nameEl || !whenEl) return;
+
+    const event = this.deps_.getNextEvent?.();
+    if (!event || !event.date) {
+      pill.hidden = true;
+      return;
+    }
+
+    const days = Math.ceil((event.date - new Date()) / (1000 * 60 * 60 * 24));
+    let when;
+    if (days <= 0) {
+      when = 'today';
+    } else if (days === 1) {
+      when = 'tomorrow';
+    } else {
+      when = `in ${days} days`;
+    }
+
+    nameEl.textContent = event.name;
+    whenEl.textContent = `· ${when}`;
+    pill.hidden = false;
   }
 
   /**

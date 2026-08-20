@@ -279,6 +279,14 @@ export class EventsCalendar {
   }
 
   /**
+   * Get the single soonest upcoming event, for the Sky-view chrome.
+   * @returns {?Object} The next event, or null if none are upcoming.
+   */
+  getNextEvent() {
+    return this.getUpcomingEvents()[0] || null;
+  }
+
+  /**
    * Show events calendar in the events panel.
    * @param {function(string): void=} openPanel - Function to open panel
    */
