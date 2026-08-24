@@ -5,7 +5,7 @@
   "main": "skymap.js",
   "scripts": {
     "clean": "rm -rf www",
-    "build:web": "rm -rf www && mkdir -p www/data && cp app.html www/index.html && cp app.html www/app.html && cp skymap.js main.js debug.js styles.css sw.js manifest.json favicon.svg icon-192.png icon-512.png www/ && cp -r modules www/ && cp -r lib www/ && cp data/stars_medium.json data/constellations.json data/deep_sky_objects.json data/named_objects.json data/LICENSE www/data/ && node scripts/verify-precache.mjs",
+    "build:web": "rm -rf www && mkdir -p www/data && cp app.html www/index.html && cp app.html www/app.html && cp skymap.js main.js debug.js styles.css sw.js manifest.json favicon.svg icon-192.png icon-512.png www/ && cp -r modules www/ && cp -r vendor www/ && cp data/stars_medium.json data/constellations.json data/deep_sky_objects.json data/named_objects.json data/LICENSE www/data/ && node scripts/verify-precache.mjs",
     "build:android": "npm run build:web && npx cap sync android && cd android && ./gradlew assembleDebug",
     "build:android:release": "npm run build:web && npx cap sync android && cd android && ./gradlew bundleRelease",
     "dev": "python3 -m http.server 8000",

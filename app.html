@@ -6,7 +6,7 @@
     <meta name="referrer" content="no-referrer">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
-        script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;
+        script-src 'self';
         style-src 'self' 'unsafe-inline';
         img-src 'self' https: data: blob:;
         connect-src 'self'
@@ -817,11 +817,11 @@
 
     <!-- Three.js Library (vendored locally so launch never needs the network;
          SRI hash still verifies the bytes match the r128 release) -->
-    <script src="lib/three.min.js"
+    <script src="vendor/three.min.js"
             integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ=="></script>
 
     <!-- Astronomy Engine - High-precision planetary positions (VSOP87), vendored -->
-    <script src="lib/astronomy.browser.min.js"
+    <script src="vendor/astronomy.browser.min.js"
             integrity="sha384-LTVHvxfbG3XHla4Lu0C0s9U18B2sBOuzJIeOoVHm2t05SOOORvMbBMEVjXrGau9g"></script>
 
     <!-- Debug script (checks libraries and catches errors) -->
