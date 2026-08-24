@@ -815,17 +815,14 @@
 
     </div>
 
-    <!-- Three.js Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
-            integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ=="
-            crossorigin="anonymous"
-            referrerpolicy="no-referrer"></script>
+    <!-- Three.js Library (vendored locally so launch never needs the network;
+         SRI hash still verifies the bytes match the r128 release) -->
+    <script src="lib/three.min.js"
+            integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ=="></script>
 
-    <!-- Astronomy Engine - High-precision planetary positions (VSOP87) -->
-    <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"
-            integrity="sha384-LTVHvxfbG3XHla4Lu0C0s9U18B2sBOuzJIeOoVHm2t05SOOORvMbBMEVjXrGau9g"
-            crossorigin="anonymous"
-            referrerpolicy="no-referrer"></script>
+    <!-- Astronomy Engine - High-precision planetary positions (VSOP87), vendored -->
+    <script src="lib/astronomy.browser.min.js"
+            integrity="sha384-LTVHvxfbG3XHla4Lu0C0s9U18B2sBOuzJIeOoVHm2t05SOOORvMbBMEVjXrGau9g"></script>
 
     <!-- Debug script (checks libraries and catches errors) -->
     <script src="debug.js"></script>
