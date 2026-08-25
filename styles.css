@@ -910,61 +910,49 @@ select:focus {
    9b. GAME SELECTION MODAL
    ========================================================================== */
 
-.game-select-modal {
+/* Shared modal shell for the full-screen dialogs (game select, onboarding,
+   location). Each dialog element also carries its own class for the few
+   properties it overrides (padding, max-width, backdrop tint, layout). */
+.modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
+    inset: 0;
     display: none;
     align-items: center;
     justify-content: center;
     z-index: var(--z-modal);
     padding: 16px;
+    background: rgba(0, 0, 0, 0.8);
 }
 
-.game-select-modal.visible {
+.modal-overlay.visible {
     display: flex;
 }
 
-.game-select-content {
+.modal-card {
     background: var(--bg-dark);
-    border-radius: var(--radius);
-    padding: 16px;
-    max-width: 360px;
-    width: 100%;
-    max-height: 80vh;
-    overflow-y: auto;
     border: 1px solid var(--border);
     border-top: 2px solid var(--accent-warm-dim);
+    border-radius: var(--radius);
+    width: 100%;
+}
+
+.game-select-content {
+    padding: 16px;
+    max-width: 360px;
+    max-height: 80vh;
+    overflow-y: auto;
 }
 
 /* First-run onboarding overlay. Deliberately dim and warm — a new user's
    first screen should not flash bright light at a dark-adapted eye. */
 #onboarding-overlay {
-    position: fixed;
-    inset: 0;
     background: rgba(3, 4, 8, 0.92);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: var(--z-modal);
     padding: 20px;
 }
 
-#onboarding-overlay.visible {
-    display: flex;
-}
-
 .onboarding-card {
-    background: var(--bg-dark);
-    border: 1px solid var(--border);
-    border-top: 2px solid var(--accent-warm-dim);
-    border-radius: var(--radius);
     padding: 24px;
     max-width: 380px;
-    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -1019,29 +1007,9 @@ select:focus {
 }
 
 /* Observer location dialog — same centered-modal shell as the game select. */
-.location-dialog {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.8);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: var(--z-modal);
-    padding: 16px;
-}
-
-.location-dialog.visible {
-    display: flex;
-}
-
 .location-dialog-content {
-    background: var(--bg-dark);
-    border-radius: var(--radius);
     padding: 20px;
     max-width: 320px;
-    width: 100%;
-    border: 1px solid var(--border);
-    border-top: 2px solid var(--accent-warm-dim);
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -1558,7 +1526,7 @@ select:focus {
 }
 
 .time-input:focus {
-    border-color: var(--accent);
+    border-color: var(--border-focus);
 }
 
 .time-picker-actions {
@@ -2220,7 +2188,7 @@ select:focus-visible {
 }
 
 .input-row input[type="number"]:focus {
-    border-color: var(--accent);
+    border-color: var(--border-focus);
 }
 
 /* Computed values grid */
@@ -2521,7 +2489,7 @@ body.telescope-mode::after {
 }
 
 .bug-textarea:focus {
-    border-color: var(--accent);
+    border-color: var(--border-focus);
 }
 
 .bug-textarea::placeholder {
@@ -2540,7 +2508,7 @@ body.telescope-mode::after {
 }
 
 .bug-input:focus {
-    border-color: var(--accent);
+    border-color: var(--border-focus);
 }
 
 .bug-input::placeholder {
