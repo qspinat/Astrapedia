@@ -283,7 +283,12 @@ export class DynamicDataLoader {
    * @returns {!Promise<!Array<!StarData>>} Array of star data
    */
   async queryStars(ra, dec, fov, magLimit) {
-    if (this.isQueryingStars_) return [];
+    // Return null (not []) when the query does NOT actually run, so the caller
+    // can tell "region is empty" (mark it, don't re-ask) apart from "we were
+    // rate-limited/busy" (leave it, retry later). Re-querying an empty region
+    // every tick floods the API and trips the rate limiter for everything.
+    if (this.isQueryingStars_) return null;
+    if (this.shouldRateLimit_('vizier')) return null;
     this.isQueryingStars_ = true;
 
     const regionKey = this.getRegionKey(ra, dec, fov, magLimit);
@@ -512,13 +517,14 @@ export class DynamicDataLoader {
    * @returns {!Promise<!Array<!DSOData>>} Array of DSO data
    */
   async queryDSOs(ra, dec, fov, magLimit) {
-    if (fov > 10) return [];
-    if (this.isQueryingDSOs_) return [];
+    // null = "did not run" (see queryStars); [] = "ran, nothing here".
+    if (fov > 10) return null;
+    if (this.isQueryingDSOs_) return null;
 
     // Check rate limit before querying
     if (this.shouldRateLimit_('vizier')) {
       logger.debug('DSO query rate limited');
-      return [];
+      return null;
     }
 
     this.isQueryingDSOs_ = true;
