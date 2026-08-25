@@ -677,38 +677,6 @@ body.panel-open .info-badge {
     background: var(--data-color);
 }
 
-/* Slider */
-.slider-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.slider-row input[type="range"] {
-    flex: 1;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--bg-secondary);
-    outline: none;
-    -webkit-appearance: none;
-}
-
-.slider-row input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-}
-
-.slider-row span {
-    min-width: 40px;
-    text-align: right;
-    font-family: 'Monaco', monospace;
-    color: var(--accent);
-}
-
 /* Select */
 select {
     width: 100%;
@@ -761,17 +729,6 @@ select:focus {
 
 .tour-btn:active {
     background: var(--bg-secondary);
-}
-
-.tour-icon {
-    width: 28px;
-    height: 28px;
-    stroke: var(--accent-warm-dim);
-    flex-shrink: 0;
-}
-
-.tour-btn:hover .tour-icon {
-    stroke: var(--accent-warm);
 }
 
 /* Quick Actions Section */
@@ -1515,11 +1472,6 @@ select:focus {
     gap: 3px;
 }
 
-/* Legacy time-controls class (keep for JS compatibility) */
-.time-controls {
-    display: contents;
-}
-
 /* Expand the time-transport tap target to >=44px without growing the box
    (the row packs several buttons; keeping the visual size avoids overflow). */
 .time-btn::after {
@@ -1671,56 +1623,6 @@ select:focus {
 /* ==========================================================================
    11b. MAGNITUDE CONTROL (floating above time)
    ========================================================================== */
-
-/* ==========================================================================
-   12. BOTTOM BAR
-   ========================================================================== */
-
-.bottom-bar {
-    position: fixed;
-    bottom: calc(12px + var(--safe-bottom));
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 10px;
-    z-index: var(--z-header);
-}
-
-.quick-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 20px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text-primary);
-    font-size: 18px;
-    cursor: pointer;
-    transition: all 0.2s;
-    backdrop-filter: blur(10px);
-}
-
-.quick-btn:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    transform: translateY(-2px);
-}
-
-.quick-btn .btn-label {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-secondary);
-}
-
-.quick-btn svg {
-    stroke: var(--accent-warm-dim);
-}
-
-.quick-btn:hover svg {
-    stroke: var(--accent-warm);
-}
 
 /* ==========================================================================
    13. TOUR PANEL (During active tour)
@@ -1907,12 +1809,6 @@ select:focus {
     line-height: 1.4;
 }
 
-.events-loading {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--text-secondary);
-}
-
 .events-source {
     margin-top: 16px;
     padding-top: 12px;
@@ -1921,42 +1817,6 @@ select:focus {
     color: var(--text-secondary);
     text-align: center;
     opacity: 0.7;
-}
-
-.side-panel .panel-content {
-    padding: 16px;
-}
-
-.side-panel h3 {
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin: 16px 0 8px;
-}
-
-.side-panel h3:first-child {
-    margin-top: 0;
-}
-
-.side-panel ul {
-    list-style: none;
-}
-
-.side-panel li {
-    padding: 12px;
-    margin-bottom: 8px;
-    background: var(--bg-secondary);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.side-panel li:hover {
-    background: rgba(212, 168, 75, 0.15);
-}
-
-.side-panel a {
-    color: var(--accent-warm-dim);
-    text-decoration: none;
 }
 
 /* ==========================================================================
@@ -2085,11 +1945,6 @@ select:focus-visible {
    ========================================================================== */
 
 /* Icon button variants */
-.icon-btn--settings {
-    font-size: 20px;
-    color: var(--text-primary);
-}
-
 .icon-btn--location {
     color: var(--text-primary);
 }
@@ -2165,10 +2020,6 @@ select:focus-visible {
     color: var(--accent-warm);
 }
 
-.panel-section__title {
-    color: var(--text-secondary);
-}
-
 .toggle-row__label {
     color: var(--text-primary);
 }
@@ -2233,15 +2084,6 @@ select:focus-visible {
 .language-select {
     color: var(--text-primary);
     background: #151c28;
-}
-
-/* Magnitude control labels (legacy, now in control-bar) */
-.mag-label {
-    font-size: 9px;
-    color: var(--accent-warm-dim);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    font-weight: 600;
 }
 
 .mag-value {
@@ -2391,10 +2233,6 @@ select:focus-visible {
     display: flex;
     flex-direction: column;
     gap: 2px;
-}
-
-.computed-item--wide {
-    grid-column: span 2;
 }
 
 .computed-label {

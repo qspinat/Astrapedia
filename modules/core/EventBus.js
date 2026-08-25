@@ -236,7 +236,6 @@ export const Events = {
   GAME_QUESTION: 'game:question',
   GAME_CORRECT: 'game:correct',
   GAME_PASSED: 'game:passed',
-  GAME_SCORE: 'game:score',
   GAME_SCORE_UPDATED: 'game:score:updated',
 
   // Tour events
@@ -253,9 +252,6 @@ export const Events = {
   // Search events
   SEARCH_RESULTS: 'search:results',
   SEARCH_RESULT_SELECTED: 'search:result:selected',
-
-  // Image events
-  IMAGE_LOADED: 'image:loaded',
 
   // Dynamic data events
   DYNAMIC_STARS_LOADED: 'dynamic:stars:loaded',

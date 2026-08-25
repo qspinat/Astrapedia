@@ -40,7 +40,6 @@ const DOM_ELEMENT_IDS = {
     'search-input',
     'magnitude-slider',
     'mag-value',
-    'constellation-lines-toggle',
     'constellation-language',
     'max-dynamic-stars',
     'max-dynamic-stars-value',
