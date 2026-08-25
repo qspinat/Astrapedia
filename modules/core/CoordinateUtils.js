@@ -214,10 +214,10 @@ export const calculateLST = (date, longitude) => {
 /**
  * Calculate the altitude of an object above the horizon.
  *
- * The canonical implementation: the stateful wrappers in AstronomyCalculator,
- * LocationManager and VisibilityCalculator all resolve to this, so a change
- * here (atmospheric refraction, a horizon offset) applies everywhere rather
- * than to whichever copy the caller happened to reach.
+ * The canonical implementation: the stateful wrappers in LocationManager and
+ * VisibilityCalculator all resolve to this, so a change here (atmospheric
+ * refraction, a horizon offset) applies everywhere rather than to whichever
+ * copy the caller happened to reach.
  *
  * @param {number} ra - Right ascension in degrees
  * @param {number} dec - Declination in degrees

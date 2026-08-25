@@ -119,6 +119,14 @@ export class ConstellationRenderer {
   }
 
   /**
+   * Get the current display mode.
+   * @returns {string} One of CONSTELLATIONS.MODE_OFF/MODE_FOCUS/MODE_ALL
+   */
+  getMode() {
+    return this.mode_;
+  }
+
+  /**
    * Create constellation lines from star data.
    */
   createLines() {

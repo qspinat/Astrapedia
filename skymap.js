@@ -76,7 +76,6 @@ import {
 import {CAMERA, STARS, CONSTELLATIONS} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
 import {dataLoader} from './modules/services/DataLoader.js';
-import {astronomyCalculator} from './modules/core/AstronomyCalculator.js';
 import {clamp} from './modules/core/Utils.js';
 import {createLogger} from './modules/core/Logger.js';
 
@@ -135,19 +134,13 @@ export class AstrapediaApp {
     // State
     this.currentMagnitude = STARS.DEFAULT_MAGNITUDE;
 
-    // Observer location is managed by LocationManager singleton
-    this.observerLocation = locationManager.getLocation();
-    astronomyCalculator.setObserverLocation(
-      this.observerLocation.lat,
-      this.observerLocation.lon,
-      this.observerLocation.height
-    );
+    // Observer location is owned by the LocationManager singleton; read it
+    // through the observerLocation getter below (no local copy to keep in sync).
 
     this.latitudeTiltGroup = null;
     this.planets = [];
     this.planetSprites = [];
     this.constellationLinesGroup = null;
-    this.constellationLinesMode = CONSTELLATIONS.MODE_ALL;
     // Default language from browser locale (e.g., 'fr-FR' -> 'fr')
     // Validate against supported languages, fallback to English
     const browserLang = (navigator.language || 'en').split('-')[0];
@@ -155,11 +148,16 @@ export class AstrapediaApp {
     this.constellationLanguage = supportedLangs.includes(browserLang)
       ? browserLang
       : 'en';
-    this.telescopeModeActive = false;  // Telescope simulation mode blocks zoom
+    /**
+     * Whether the telescope simulation is active (it blocks zoom). Assigned
+     * by main.js to query TelescopeController.isActive() on demand, so there
+     * is one source of truth rather than a mirrored flag.
+     * @type {?function(): boolean}
+     */
+    this.isTelescopeActive = null;
     /**
      * Leaves telescope mode. Assigned by main.js, which owns
-     * TelescopeController, alongside the lockZoom/unlockZoom wiring that sets
-     * telescopeModeActive.
+     * TelescopeController.
      * @type {?function(): void}
      */
     this.exitTelescopeMode = null;
@@ -617,7 +615,7 @@ export class AstrapediaApp {
       requestRender: () => this.requestRender(),
       getCanvasHeight: () => this.renderer.domElement.clientHeight,
       getAspect: () => this.camera.aspect,
-      isZoomLocked: () => this.telescopeModeActive,
+      isZoomLocked: () => this.isTelescopeActive?.() ?? false,
       onDragStart: () => {
         // Disable compass mode when user manually drags
         if (this.isCompassModeEnabled()) {
@@ -646,7 +644,8 @@ export class AstrapediaApp {
       getExtendedObjectSprites: () => this.extendedObjectSprites || [],
       getConstellationLinesGroup: () => this.constellationLinesGroup,
       getDynamicObjectManager: () => this.dynamicObjectManager_,
-      isConstellationLinesVisible: () => this.constellationLinesMode !== CONSTELLATIONS.MODE_OFF,
+      isConstellationLinesVisible: () =>
+        (this.constellationRenderer_?.getMode() ?? CONSTELLATIONS.MODE_ALL) !== CONSTELLATIONS.MODE_OFF,
       isGameActive: () => this.isGameActive(),
       checkGameAnswer: (obj) => this.checkGameAnswer(obj),
       checkGameAnswerByName: (name) => this.checkGameAnswerByName(name),
@@ -738,12 +737,8 @@ export class AstrapediaApp {
     // Listen for location changes to update sky rotation
     globalEventBus.on(Events.LOCATION_CHANGED, (data) => {
       if (data?.location) {
-        this.observerLocation = data.location;
-        astronomyCalculator.setObserverLocation(
-          this.observerLocation.lat,
-          this.observerLocation.lon,
-          this.observerLocation.height
-        );
+        // LocationManager has already stored the new location (it emitted this
+        // event), so this.observerLocation now reflects it.
         // Update all sky elements for new location
         this.updateLatitudeTilt();
         this.timeController_.refreshCelestialRotation();
@@ -1091,7 +1086,7 @@ export class AstrapediaApp {
     this.constellationLinesGroup = this.constellationRenderer_.getLinesGroup();
     if (this.constellationLinesGroup) {
       this.constellationLinesGroup.visible =
-        this.constellationLinesMode !== CONSTELLATIONS.MODE_OFF;
+        (this.constellationRenderer_?.getMode() ?? CONSTELLATIONS.MODE_ALL) !== CONSTELLATIONS.MODE_OFF;
     }
   }
 
@@ -1100,7 +1095,6 @@ export class AstrapediaApp {
    * @param {string} mode - One of CONSTELLATIONS.MODE_OFF/MODE_FOCUS/MODE_ALL
    */
   setConstellationLinesMode(mode) {
-    this.constellationLinesMode = mode;
     this.constellationRenderer_?.setMode(mode);
     if (!this.constellationLinesGroup) return;
 
@@ -1645,14 +1639,22 @@ export class AstrapediaApp {
 
   /**
    * Calculate if an object at given RA/Dec is above the horizon.
-   * Delegates to AstronomyCalculator module.
+   * Delegates to the LocationManager (single owner of observer location).
    * @param {number} ra - Right Ascension in degrees
    * @param {number} dec - Declination in degrees
    * @returns {number} Altitude in degrees (positive = above horizon)
    */
   calculateAltitude(ra, dec) {
     const simTime = this.timeController_.getTime();
-    return astronomyCalculator.calculateAltitude(ra, dec, simTime);
+    return locationManager.calculateAltitude(ra, dec, simTime);
+  }
+
+  /**
+   * The observer location, owned by the LocationManager singleton.
+   * @returns {!Object} {lat, lon, height}
+   */
+  get observerLocation() {
+    return locationManager.getLocation();
   }
 
   /**
@@ -1902,7 +1904,7 @@ export class AstrapediaApp {
     // reticle still up, the magnitude slider still disabled, and no way to
     // zoom back in. Leave the telescope first — "reset view" plainly means
     // "give me the default sky back".
-    if (this.telescopeModeActive) {
+    if (this.isTelescopeActive?.()) {
       this.exitTelescopeMode?.();
     }
 
@@ -2049,7 +2051,7 @@ export class AstrapediaApp {
     }
 
     // Constellation focus mode - fade nearest constellation
-    if (this.constellationLinesMode === CONSTELLATIONS.MODE_FOCUS) {
+    if (this.constellationRenderer_?.getMode() === CONSTELLATIONS.MODE_FOCUS) {
       const viewCenter = this.getViewCenterRaDec();
       const stillFading = this.constellationRenderer_?.updateFocusMode(
         viewCenter.ra, viewCenter.dec

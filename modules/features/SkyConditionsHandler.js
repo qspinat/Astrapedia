@@ -12,7 +12,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {astronomyCalculator} from '../core/AstronomyCalculator.js';
+import {locationManager} from '../services/LocationManager.js';
 import {moonPhaseName} from '../core/MoonPhase.js';
 
 /**
@@ -108,7 +108,7 @@ export class SkyConditionsHandler {
         if (data.moon) {
           this.cachedMoonData_ = data.moon;
           this.moonPhase_ = data.moon.phase || 0;
-          this.moonAltitude_ = astronomyCalculator.calculateAltitude(
+          this.moonAltitude_ = locationManager.calculateAltitude(
             data.moon.ra, data.moon.dec, this.simulationTime_
           );
         }

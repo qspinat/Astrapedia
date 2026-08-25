@@ -186,7 +186,7 @@ describe('camera convergence', () => {
     test('leaves telescope mode before resetting', () => {
       const exitTelescopeMode = jest.fn();
       const app = resettableApp({
-        telescopeModeActive: true,
+        isTelescopeActive: () => true,
         exitTelescopeMode,
       });
 
@@ -198,7 +198,7 @@ describe('camera convergence', () => {
     test('does not touch telescope mode when it is not active', () => {
       const exitTelescopeMode = jest.fn();
       const app = resettableApp({
-        telescopeModeActive: false,
+        isTelescopeActive: () => false,
         exitTelescopeMode,
       });
 
@@ -209,7 +209,7 @@ describe('camera convergence', () => {
 
     test('still resets when no telescope wiring is present', () => {
       const app = resettableApp({
-        telescopeModeActive: true,
+        isTelescopeActive: () => true,
         exitTelescopeMode: null,
       });
 

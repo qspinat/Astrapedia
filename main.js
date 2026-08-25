@@ -95,12 +95,6 @@ function initializeUI_(appInstance) {
     getCurrentMagnitude: () => appInstance.currentMagnitude,
     setMagnitudeLimit: (mag) => appInstance.setMagnitudeLimit?.(mag),
     getSkyLimitingMagnitude: () => skyConditionsHandler?.getNakedEyeLimit(),
-    lockZoom: () => {
-      appInstance.telescopeModeActive = true;
-    },
-    unlockZoom: () => {
-      appInstance.telescopeModeActive = false;
-    },
     getViewCenterRaDec: () => appInstance.getViewCenterRaDec(),
     getDSOs: () => appInstance.deepSkyObjects || [],
   });
@@ -110,6 +104,10 @@ function initializeUI_(appInstance) {
   // reset FOV, a locked zoom and the reticle still showing.
   appInstance.exitTelescopeMode = () =>
     telescopeController.deactivateTelescopeMode();
+
+  // Single source of truth for "is the telescope active": the controller's
+  // own state, queried on demand rather than mirrored into an app flag.
+  appInstance.isTelescopeActive = () => telescopeController.isActive();
 
   // Initialize bug report handler
   initializeBugReportHandler({
