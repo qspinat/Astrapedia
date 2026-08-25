@@ -5,6 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {createLogger} from '../core/Logger.js';
+import {clamp} from '../core/Utils.js';
 
 const logger = createLogger('CompassController');
 
@@ -283,11 +284,11 @@ export class CompassController {
     const targetTheta = -Math.atan2(vx, vz) + Math.PI / 2;
 
     // Altitude angle from vertical component
-    const clampedVy = Math.max(-1, Math.min(1, -vy));
+    const clampedVy = clamp(-vy, -1, 1);
     const targetPhi = Math.acos(clampedVy);
 
     // Clamp phi to prevent flipping at poles
-    const clampedPhi = Math.max(0.1, Math.min(Math.PI - 0.1, targetPhi));
+    const clampedPhi = clamp(targetPhi, 0.1, Math.PI - 0.1);
 
     // Handle theta wraparound for smooth interpolation
     let thetaDiff = targetTheta - this.compassHeading_;

@@ -178,14 +178,11 @@ export class DynamicObjectManager {
 
     const raDec = cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
 
-    // Create region key for caching (finer grid for deeper zoom)
-    const gridSize = Math.max(1, camera.fov);
-    const raBucket = Math.floor(raDec.ra / gridSize) * gridSize;
-    const decBucket = Math.floor(raDec.dec / gridSize) * gridSize;
-    const fovBucket = camera.fov < 1 ? 'deep' : (camera.fov < 5 ? 'medium' : 'wide');
+    // Region key for caching (finer grid for deeper zoom) — shared formula
+    // with DynamicDataLoader so the two dedup caches agree.
     const magLimit = this.callbacks_.getMagnitude();
-    const magBucket = Math.floor(magLimit / 2) * 2;
-    const regionKey = `${raBucket.toFixed(0)}_${decBucket.toFixed(0)}_${fovBucket}_mag${magBucket}`;
+    const regionKey = dynamicDataLoader.getRegionKey(
+        raDec.ra, raDec.dec, camera.fov, magLimit);
 
     // Skip if already queried this region at this magnitude
     if (this.queriedRegions.has(regionKey)) return;

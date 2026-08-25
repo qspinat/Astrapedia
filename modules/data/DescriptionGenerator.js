@@ -102,20 +102,7 @@ export class DescriptionGenerator {
     // Magnitude description
     if (obj.mag !== undefined && obj.mag !== null) {
       const mag = obj.mag;
-      let magDesc;
-      if (mag < 0) {
-        magDesc = 'one of the brightest stars in the sky';
-      } else if (mag < 1) {
-        magDesc = 'a very bright star, easily visible to the naked eye';
-      } else if (mag < 3) {
-        magDesc = 'a bright star visible to the naked eye';
-      } else if (mag < 6) {
-        magDesc = 'visible to the naked eye under good conditions';
-      } else if (mag < 8) {
-        magDesc = 'visible with binoculars';
-      } else {
-        magDesc = 'visible with a telescope';
-      }
+      const magDesc = this.getMagnitudeDescription(mag);
       parts.push(`With an apparent magnitude of ${mag.toFixed(2)}, it is ${magDesc}.`);
     }
 

@@ -8,6 +8,8 @@ import {DEFAULT_LOCATION} from '../core/Constants.js';
 import {
   calculateAltitude as computeAltitude,
   calculateLST as computeLST,
+  clampDec,
+  normalizeLongitude,
 } from '../core/CoordinateUtils.js';
 import {createLogger} from '../core/Logger.js';
 
@@ -105,7 +107,7 @@ export class LocationManager {
    */
   setLocation(lat, lon, height = 0) {
     // Validate latitude
-    const safeLat = Math.max(-90, Math.min(90, parseFloat(lat)));
+    const safeLat = clampDec(parseFloat(lat));
     if (isNaN(safeLat)) {
       logger.error('Invalid latitude:', lat);
       return;
@@ -113,16 +115,13 @@ export class LocationManager {
 
     // Validate longitude (Number.isFinite also rejects Infinity, which would
     // spin the old while-loop normalization forever)
-    let safeLon = parseFloat(lon);
-    if (!Number.isFinite(safeLon)) {
+    const parsedLon = parseFloat(lon);
+    if (!Number.isFinite(parsedLon)) {
       logger.error('Invalid longitude:', lon);
       return;
     }
-    // Normalize longitude to -180..180. Only touch out-of-range values, so
-    // in-range values stay exact; modulo (not a loop) keeps huge inputs O(1).
-    if (safeLon < -180 || safeLon > 180) {
-      safeLon = ((safeLon % 360) + 540) % 360 - 180;
-    }
+    // Normalize longitude to -180..180 (leaves in-range values exact).
+    const safeLon = normalizeLongitude(parsedLon);
 
     // Validate height
     const safeHeight = parseFloat(height);
@@ -307,13 +306,9 @@ export class LocationManager {
         if (Number.isFinite(location.lat) && Number.isFinite(location.lon)) {
           // Sanitize: clamp latitude and normalize longitude, matching
           // setLocation, so tampered/out-of-range storage can't leak through.
-          let lon = location.lon;
-          if (lon < -180 || lon > 180) {
-            lon = ((lon % 360) + 540) % 360 - 180;
-          }
           return {
-            lat: Math.max(-90, Math.min(90, location.lat)),
-            lon,
+            lat: clampDec(location.lat),
+            lon: normalizeLongitude(location.lon),
             height: Number.isFinite(location.height) ? location.height : 0,
           };
         }

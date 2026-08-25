@@ -234,6 +234,8 @@ export const API_ENDPOINTS = {
   NASA_IMAGES: 'https://images-api.nasa.gov/search',
   WIKIMEDIA: 'https://commons.wikimedia.org/w/api.php',
   CDS_HIPS: 'https://alasky.cds.unistra.fr/hips-image-services/hips2fits',
+  VIZIER_VOTABLE: 'https://vizier.cds.unistra.fr/viz-bin/votable',
+  WIKIPEDIA_SUMMARY: 'https://en.wikipedia.org/api/rest_v1/page/summary/',
 };
 
 /**

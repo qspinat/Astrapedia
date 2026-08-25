@@ -6,6 +6,7 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {DYNAMIC_DATA, API_ENDPOINTS} from '../core/Constants.js';
 import {createLogger} from '../core/Logger.js';
+import {clamp} from '../core/Utils.js';
 
 const logger = createLogger('DynamicDataLoader');
 
@@ -249,14 +250,7 @@ export class DynamicDataLoader {
     if (fov > DYNAMIC_DATA.LOAD_FOV_THRESHOLD) return false;
     if (this.isQueryingStars_ || this.isQueryingDSOs_) return false;
 
-    const gridSize = Math.max(1, fov);
-    const raBucket = Math.floor(ra / gridSize) * gridSize;
-    const decBucket = Math.floor(dec / gridSize) * gridSize;
-    const fovBucket = fov < 1 ? 'deep' : (fov < 5 ? 'medium' : 'wide');
-    const magBucket = Math.floor(magLimit / 2) * 2;
-    const regionKey = `${raBucket.toFixed(0)}_${decBucket.toFixed(0)}_` +
-                      `${fovBucket}_mag${magBucket}`;
-
+    const regionKey = this.getRegionKey(ra, dec, fov, magLimit);
     if (this.queriedRegions_.has(regionKey)) return false;
 
     return true;
@@ -359,7 +353,7 @@ export class DynamicDataLoader {
     const params = this.validateParams_(ra, dec, radius, mag);
     if (!params) return [];
 
-    const url = 'https://vizier.cds.unistra.fr/viz-bin/votable' +
+    const url = API_ENDPOINTS.VIZIER_VOTABLE +
       `?-source=I/259/tyc2` +
       `&-c=${encodeURIComponent(params.ra.toFixed(6) + ' ' + params.dec.toFixed(6))}` +
       `&-c.rd=${encodeURIComponent(params.radius.toFixed(4))}` +
@@ -409,7 +403,7 @@ export class DynamicDataLoader {
     const params = this.validateParams_(ra, dec, radius, mag);
     if (!params) return [];
 
-    const url = 'https://vizier.cds.unistra.fr/viz-bin/votable' +
+    const url = API_ENDPOINTS.VIZIER_VOTABLE +
       `?-source=I/322A/out` +
       `&-c=${encodeURIComponent(params.ra.toFixed(6) + ' ' + params.dec.toFixed(6))}` +
       `&-c.rd=${encodeURIComponent(params.radius.toFixed(4))}` +
@@ -538,7 +532,7 @@ export class DynamicDataLoader {
       const params = this.validateParams_(ra, dec, radius, mag);
       if (!params) return [];
 
-      const url = 'https://vizier.cds.unistra.fr/viz-bin/votable' +
+      const url = API_ENDPOINTS.VIZIER_VOTABLE +
         `?-source=VII/118/ngc2000` +
         `&-c=${encodeURIComponent(params.ra.toFixed(6) + ' ' + params.dec.toFixed(6))}` +
         `&-c.rd=${encodeURIComponent(params.radius.toFixed(4))}` +
@@ -595,7 +589,7 @@ export class DynamicDataLoader {
           // Calculate B-V color index
           let ci = 0.6; // Default sun-like
           if (!isNaN(bMag) && !isNaN(vMag)) {
-            ci = Math.max(-0.5, Math.min(2.5, bMag - vMag));
+            ci = clamp(bMag - vMag, -0.5, 2.5);
           }
 
           if (!isNaN(ra) && !isNaN(dec) && !isNaN(vMag)) {

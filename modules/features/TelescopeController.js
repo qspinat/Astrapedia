@@ -7,6 +7,7 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TELESCOPE} from '../core/Constants.js';
 import {angularDistance} from '../core/CoordinateUtils.js';
+import {telescopeLimitingMagnitude, telescopeGain} from '../core/MagnitudeUtils.js';
 import {createLogger} from '../core/Logger.js';
 
 const logger = createLogger('TelescopeController');
@@ -337,16 +338,15 @@ export class TelescopeController {
     // Real field of view = Apparent FOV / Magnification
     const realFieldOfView = apparentFov / magnification;
 
-    // Theoretical limiting magnitude = 2.7 + 5 × log10(Diameter_mm)
-    // This is the telescope's optical limit under perfect conditions
-    const theoreticalLimitingMag = 2.7 + 5 * Math.log10(diameter);
+    // Theoretical limiting magnitude — the telescope's optical limit under
+    // perfect conditions.
+    const theoreticalLimitingMag = telescopeLimitingMagnitude(diameter);
 
     // Sky-limited magnitude: min(theoretical, sky NELM + telescope gain)
     let limitingMagnitude = theoreticalLimitingMag;
     const skyNelm = this.deps_.getSkyLimitingMagnitude?.();
     if (skyNelm != null) {
-      const telescopeGain = 5 * Math.log10(diameter / 7);
-      const skyLimitedMag = skyNelm + telescopeGain;
+      const skyLimitedMag = skyNelm + telescopeGain(diameter);
       limitingMagnitude = Math.min(theoreticalLimitingMag, skyLimitedMag);
     }
 

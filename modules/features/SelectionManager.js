@@ -10,6 +10,7 @@ import {descriptionGenerator} from '../data/DescriptionGenerator.js';
 import {getConstellationStory} from '../data/ConstellationStories.js';
 import {catalogDesignation} from '../data/CuratedImages.js';
 import {createLogger} from '../core/Logger.js';
+import {API_ENDPOINTS} from '../core/Constants.js';
 import {domCache} from '../ui/DOMCache.js';
 import {moonPhaseName} from '../core/MoonPhase.js';
 
@@ -430,7 +431,7 @@ export class SelectionManager {
     for (const term of searchTerms) {
       try {
         const response = await fetchWikipedia(
-          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`,
+          `${API_ENDPOINTS.WIKIPEDIA_SUMMARY}${encodeURIComponent(term)}`,
           signal
         );
 
@@ -689,7 +690,7 @@ export class SelectionManager {
 
     try {
       const searchName = `${constellationName} (constellation)`;
-      const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchName)}`;
+      const searchUrl = `${API_ENDPOINTS.WIKIPEDIA_SUMMARY}${encodeURIComponent(searchName)}`;
       const response = await fetchWikipedia(searchUrl, signal);
 
       if (response.ok) {
@@ -705,7 +706,7 @@ export class SelectionManager {
       }
 
       // Fallback: search without "(constellation)"
-      const fallbackUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(constellationName)}`;
+      const fallbackUrl = `${API_ENDPOINTS.WIKIPEDIA_SUMMARY}${encodeURIComponent(constellationName)}`;
       const fallbackResponse = await fetchWikipedia(fallbackUrl, signal);
 
       if (fallbackResponse.ok) {

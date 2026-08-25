@@ -40,6 +40,10 @@
     --warning: #d4a84b;   /* amber */
     --error: #b0503c;     /* dim warm red */
 
+    /* Selection reticle base color (night-safe dim red), applied at several
+       opacities via rgba(var(--reticle-rgb), a). */
+    --reticle-rgb: 180, 80, 80;
+
     /* Borders - crisp, precise lines */
     --border: rgba(90, 110, 130, 0.18);
     --border-accent: rgba(212, 168, 75, 0.25);
@@ -2298,29 +2302,29 @@ select:focus-visible {
 
 .reticle-circle {
     fill: none;
-    stroke: rgba(180, 80, 80, 0.2);
+    stroke: rgba(var(--reticle-rgb), 0.2);
     stroke-width: 1;
 }
 
 .reticle-circle.active {
-    stroke: rgba(180, 80, 80, 0.6);
+    stroke: rgba(var(--reticle-rgb), 0.6);
     stroke-width: 2.5;
 }
 
 .reticle-line {
-    stroke: rgba(180, 80, 80, 0.35);
+    stroke: rgba(var(--reticle-rgb), 0.35);
     stroke-width: 1.5;
 }
 
 .reticle-label {
-    fill: rgba(180, 80, 80, 0.25);
+    fill: rgba(var(--reticle-rgb), 0.25);
     font-size: 6px;
     text-anchor: middle;
     font-family: 'Monaco', 'Menlo', monospace;
 }
 
 .reticle-label.active {
-    fill: rgba(180, 80, 80, 0.7);
+    fill: rgba(var(--reticle-rgb), 0.7);
     font-size: 7px;
     font-weight: bold;
 }
@@ -2334,7 +2338,7 @@ select:focus-visible {
     gap: 16px;
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: 12px;
-    color: rgba(180, 80, 80, 0.6);
+    color: rgba(var(--reticle-rgb), 0.6);
     white-space: nowrap;
 }
 
@@ -2348,7 +2352,7 @@ select:focus-visible {
     gap: 2px;
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: 11px;
-    color: rgba(180, 80, 80, 0.7);
+    color: rgba(var(--reticle-rgb), 0.7);
     white-space: nowrap;
     text-align: right;
 }
@@ -2360,7 +2364,7 @@ select:focus-visible {
 .reticle-dso-name {
     font-weight: 600;
     font-size: 12px;
-    color: rgba(180, 80, 80, 0.8);
+    color: rgba(var(--reticle-rgb), 0.8);
 }
 
 .reticle-dso-status--visible {
@@ -2377,7 +2381,7 @@ select:focus-visible {
 
 .reticle-dso-sb {
     font-size: 10px;
-    color: rgba(180, 80, 80, 0.5);
+    color: rgba(var(--reticle-rgb), 0.5);
 }
 
 /* Computed grid sublabel */
