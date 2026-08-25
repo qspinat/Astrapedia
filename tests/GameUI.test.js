@@ -16,7 +16,6 @@ describe('GameUI', () => {
 
     // Setup mock DOM elements
     document.body.innerHTML = `
-      <button id="start-game-btn"></button>
       <button id="pass-btn"></button>
       <button id="stop-game-btn"></button>
       <div id="game-panel">
@@ -27,7 +26,6 @@ describe('GameUI', () => {
     `;
 
     mockDeps = {
-      startGame: jest.fn(),
       passQuestion: jest.fn(),
       stopGame: jest.fn(),
     };
@@ -52,14 +50,6 @@ describe('GameUI', () => {
   });
 
   describe('initialize', () => {
-    test('sets up event listeners', () => {
-      gameUI.initialize();
-
-      const startBtn = document.getElementById('start-game-btn');
-      startBtn.click();
-      expect(mockDeps.startGame).toHaveBeenCalled();
-    });
-
     test('sets up pass button', () => {
       gameUI.initialize();
 
@@ -155,7 +145,7 @@ describe('GameUI', () => {
     });
 
     test('works without game panel', () => {
-      document.body.innerHTML = '<button id="start-game-btn"></button>';
+      document.body.innerHTML = '<button id="pass-btn"></button>';
       const ui = new GameUI(mockDeps);
       ui.initialize();
 
@@ -177,14 +167,14 @@ describe('initializeGameUI', () => {
   });
 
   test('returns a GameUI instance', () => {
-    const deps = {startGame: jest.fn()};
+    const deps = {passQuestion: jest.fn()};
     const ui = initializeGameUI(deps);
     expect(ui).toBeInstanceOf(GameUI);
   });
 
   test('returns existing instance if already initialized', () => {
-    const deps1 = {startGame: jest.fn()};
-    const deps2 = {startGame: jest.fn()};
+    const deps1 = {passQuestion: jest.fn()};
+    const deps2 = {passQuestion: jest.fn()};
 
     const ui1 = initializeGameUI(deps1);
     const ui2 = initializeGameUI(deps2);

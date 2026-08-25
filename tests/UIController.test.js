@@ -335,7 +335,6 @@ describe('UIController Module', () => {
         resetCamera: jest.fn(),
         showEventsCalendar: jest.fn(),
         setMaxDynamicStars: jest.fn(),
-        startGame: jest.fn(),
         passQuestion: jest.fn(),
         stopGame: jest.fn(),
         startTour: jest.fn(),

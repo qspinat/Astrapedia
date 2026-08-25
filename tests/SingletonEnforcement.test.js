@@ -94,7 +94,6 @@ describe('Singleton Enforcement', () => {
 
     test('initializeGameUI returns same instance on multiple calls', () => {
       const deps = {
-        startGame: jest.fn(),
         passQuestion: jest.fn(),
         stopGame: jest.fn(),
       };
@@ -108,7 +107,7 @@ describe('Singleton Enforcement', () => {
     test('logs warning when trying to initialize twice', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      const deps = {startGame: jest.fn()};
+      const deps = {passQuestion: jest.fn()};
       initializeGameUI(deps);
       initializeGameUI(deps);
 

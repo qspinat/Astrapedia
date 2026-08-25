@@ -618,7 +618,6 @@ export class UIController {
     this.timeUI_.initialize();
 
     this.gameUI_ = new GameUI({
-      startGame: this.deps_.startGame,
       passQuestion: this.deps_.passQuestion,
       stopGame: this.deps_.stopGame,
     });

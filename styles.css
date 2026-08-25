@@ -862,22 +862,6 @@ select:focus {
    8. CONTROLS PANEL (Minimal Game Start)
    ========================================================================== */
 
-.game-category-select {
-    padding: 8px 10px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text-primary);
-    font-size: 11px;
-    cursor: pointer;
-    max-width: 160px;
-}
-
-.game-category-select:focus {
-    outline: none;
-    border-color: var(--border-focus);
-}
-
 /* ==========================================================================
    9. GAME PANEL
    ========================================================================== */

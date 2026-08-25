@@ -34,7 +34,6 @@ describe('EventBus Integration', () => {
 
       // Initialize GameUI
       const gameUI = initializeGameUI({
-        startGame: jest.fn(),
         passQuestion: jest.fn(),
         stopGame: jest.fn(),
       });
@@ -431,29 +430,6 @@ describe('EventBus Integration', () => {
 
       globalEventBus.emit(Events.CMD_PASS_QUESTION);
       expect(mockPass).toHaveBeenCalledTimes(1);
-    });
-
-    test('GameUI start button emits CMD_SHOW_GAME_SELECT via dependency', () => {
-      document.body.innerHTML = `
-        <button id="start-game-btn"></button>
-        <div id="game-select-modal"></div>
-      `;
-
-      const eventSpy = jest.fn();
-      globalEventBus.on(Events.CMD_SHOW_GAME_SELECT, eventSpy);
-
-      // Initialize GameUI with startGame that emits the event (as main.js does)
-      const gameUI = initializeGameUI({
-        startGame: () => globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT),
-        passQuestion: jest.fn(),
-        stopGame: jest.fn(),
-      });
-
-      // Simulate button click
-      const startBtn = document.getElementById('start-game-btn');
-      startBtn.click();
-
-      expect(eventSpy).toHaveBeenCalledTimes(1);
     });
 
     test('CMD_SHOW_GAME_SELECT shows game selection modal', () => {
