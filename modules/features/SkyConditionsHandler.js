@@ -13,22 +13,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {astronomyCalculator} from '../core/AstronomyCalculator.js';
-
-/**
- * Moon phase threshold constants.
- * Each phase spans 1/8 of the cycle (0.125), boundaries are at midpoints.
- * @const {!Object<string, number>}
- */
-export const MOON_PHASE_THRESHOLDS = {
-  NEW_MOON_END: 0.0625,        // 1/16 - end of new moon
-  WAXING_CRESCENT_END: 0.1875, // 3/16 - end of waxing crescent
-  FIRST_QUARTER_END: 0.3125,   // 5/16 - end of first quarter
-  WAXING_GIBBOUS_END: 0.4375,  // 7/16 - end of waxing gibbous
-  FULL_MOON_END: 0.5625,       // 9/16 - end of full moon
-  WANING_GIBBOUS_END: 0.6875,  // 11/16 - end of waning gibbous
-  LAST_QUARTER_END: 0.8125,    // 13/16 - end of last quarter
-  WANING_CRESCENT_END: 0.9375, // 15/16 - end of waning crescent
-};
+import {moonPhaseName} from '../core/MoonPhase.js';
 
 /**
  * SkyConditionsHandler manages sky condition calculations for NELM.
@@ -138,17 +123,7 @@ export class SkyConditionsHandler {
    * @private
    */
   getMoonPhaseName_(phase) {
-    // Phase: 0 = new moon, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter
-    const T = MOON_PHASE_THRESHOLDS;
-    if (phase < T.NEW_MOON_END) return {name: 'New Moon', emoji: '🌑'};
-    if (phase < T.WAXING_CRESCENT_END) return {name: 'Waxing Crescent', emoji: '🌒'};
-    if (phase < T.FIRST_QUARTER_END) return {name: 'First Quarter', emoji: '🌓'};
-    if (phase < T.WAXING_GIBBOUS_END) return {name: 'Waxing Gibbous', emoji: '🌔'};
-    if (phase < T.FULL_MOON_END) return {name: 'Full Moon', emoji: '🌕'};
-    if (phase < T.WANING_GIBBOUS_END) return {name: 'Waning Gibbous', emoji: '🌖'};
-    if (phase < T.LAST_QUARTER_END) return {name: 'Last Quarter', emoji: '🌗'};
-    if (phase < T.WANING_CRESCENT_END) return {name: 'Waning Crescent', emoji: '🌘'};
-    return {name: 'New Moon', emoji: '🌑'};
+    return moonPhaseName(phase);
   }
 
   /**

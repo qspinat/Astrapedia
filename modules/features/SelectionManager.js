@@ -11,6 +11,7 @@ import {getConstellationStory} from '../data/ConstellationStories.js';
 import {catalogDesignation} from '../data/CuratedImages.js';
 import {createLogger} from '../core/Logger.js';
 import {domCache} from '../ui/DOMCache.js';
+import {moonPhaseName} from '../core/MoonPhase.js';
 
 const logger = createLogger('SelectionManager');
 
@@ -368,18 +369,7 @@ export class SelectionManager {
    * @private
    */
   moonPhaseLabel_(phase) {
-    const phases = ['New Moon', 'Waxing Crescent', 'First Quarter',
-      'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter',
-      'Waning Crescent'];
-    const thresholds = [0.03, 0.22, 0.28, 0.47, 0.53, 0.72, 0.78, 0.97];
-    let name = 'New Moon';
-    for (let i = 0; i < thresholds.length; i++) {
-      if (phase < thresholds[i]) {
-        name = phases[i];
-        break;
-      }
-    }
-    return `${name} (${(phase * 100).toFixed(0)}% lit)`;
+    return `${moonPhaseName(phase).name} (${(phase * 100).toFixed(0)}% lit)`;
   }
 
   /**
