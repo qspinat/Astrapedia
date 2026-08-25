@@ -6,6 +6,7 @@
 
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {panelManager} from '../ui/PanelManager.js';
+import {APP_LOCALE, relativeDayLabel} from '../core/Utils.js';
 
 /**
  * Event type icons for display.
@@ -306,26 +307,16 @@ export class EventsCalendar {
 
     let html = '<div class="events-list">';
     events.forEach((event) => {
-      const daysUntil = Math.ceil((event.date - new Date()) / (1000 * 60 * 60 * 24));
       const icon = TYPE_ICONS[event.type] || '⭐';
       // The app UI is English regardless of device locale, so pin the date to
-      // en-US rather than letting it render as e.g. "ven. 28 août 2026".
-      const dateStr = event.date.toLocaleDateString('en-US', {
+      // APP_LOCALE rather than letting it render as e.g. "ven. 28 août 2026".
+      const dateStr = event.date.toLocaleDateString(APP_LOCALE, {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
         year: 'numeric',
       });
-
-      let daysText;
-      if (daysUntil <= 0) {
-        daysText = 'today';
-      } else if (daysUntil === 1) {
-        daysText = 'tomorrow';
-      } else {
-        daysText = `in ${daysUntil} days`;
-      }
-
+      const daysText = relativeDayLabel(event.date);
       const description = event.description || 'Astronomical event';
 
       html += `<div class="event-item">`;

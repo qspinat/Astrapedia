@@ -49,7 +49,6 @@ const DOM_ELEMENT_IDS = {
   buttons: [
     'compass-toggle',
     'constellations-quick-toggle',
-    'settings-toggle',
     'auto-location-btn',
     'set-location-btn',
     'reset-view-btn',

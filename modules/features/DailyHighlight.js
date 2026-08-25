@@ -144,21 +144,10 @@ function pick(items, seed) {
   return items[seed % items.length];
 }
 
-/** @type {?DailyHighlight} */
-let dailyHighlight = null;
-
 /**
  * @param {!Object} deps
  * @returns {!DailyHighlight}
  */
 export function initializeDailyHighlight(deps) {
-  dailyHighlight = new DailyHighlight(deps);
-  return dailyHighlight;
-}
-
-/**
- * @returns {?DailyHighlight}
- */
-export function getDailyHighlight() {
-  return dailyHighlight;
+  return new DailyHighlight(deps);
 }

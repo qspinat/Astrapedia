@@ -418,7 +418,6 @@ canvas:active {
 /* Hide UI elements when a panel is open */
 body.panel-open .search-bar,
 body.panel-open .search-results,
-body.panel-open .controls-panel,
 body.panel-open .info-badge {
     visibility: hidden;
     pointer-events: none;
@@ -863,17 +862,6 @@ select:focus {
    8. CONTROLS PANEL (Minimal Game Start)
    ========================================================================== */
 
-.controls-panel {
-    position: fixed;
-    top: calc(120px + var(--safe-top));
-    right: 12px;
-    z-index: var(--z-floating);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-end;
-}
-
 .game-category-select {
     padding: 8px 10px;
     background: var(--bg-primary);
@@ -888,27 +876,6 @@ select:focus {
 .game-category-select:focus {
     outline: none;
     border-color: var(--border-focus);
-}
-
-.controls-panel button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    background: var(--accent);
-    border: 1px solid var(--border-focus);
-    border-radius: var(--radius);
-    color: var(--text-primary);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-    letter-spacing: 0.5px;
-}
-
-.controls-panel button:hover {
-    background: var(--accent-hover);
 }
 
 /* ==========================================================================
@@ -2062,11 +2029,6 @@ button.secondary:hover {
         left: 24px;
     }
 
-    .controls-panel {
-        top: calc(130px + var(--safe-top));
-        right: 24px;
-    }
-
     .slide-panel {
         top: 12px;
         height: calc(100vh - 24px);
@@ -2197,18 +2159,6 @@ select:focus-visible {
     background: linear-gradient(to top, var(--accent) 50%, var(--bg-secondary) 50%) !important;
     border-color: var(--accent) !important;
     opacity: 1;
-}
-
-/* Telescope quick toggle button */
-.icon-btn--telescope.active {
-    background: var(--accent) !important;
-    border-color: var(--accent) !important;
-    color: var(--text-primary);
-}
-
-.icon-btn--telescope:not(.active) {
-    background: var(--bg-secondary) !important;
-    border-color: var(--border) !important;
 }
 
 /* Night Vision quick toggle button. The .active/.icon-btn compound selector

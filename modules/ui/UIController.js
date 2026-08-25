@@ -14,7 +14,7 @@ import {STARS} from '../core/Constants.js';
 import {createLogger} from '../core/Logger.js';
 import {PanelManager, panelManager} from './PanelManager.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
-import {addMobileButtonListener} from '../core/Utils.js';
+import {addMobileButtonListener, relativeDayLabel, APP_LOCALE} from '../core/Utils.js';
 import {initializeNightVision} from './NightVision.js';
 import {initializeLocationDialog} from './LocationDialog.js';
 import {initializeOnboarding, getOnboarding} from './Onboarding.js';
@@ -779,100 +779,81 @@ export class UIController {
    * @private
    */
   setupDailyHighlight_() {
-    const card = document.getElementById('daily-highlight');
-    if (!card) return;
-
     /** @private {?Object} */
     this.currentHighlight_ = null;
 
-    addMobileButtonListener(card, () => {
-      const obj = this.currentHighlight_?.object;
-      if (!obj) return;
-      this.panelManager_.closeAll();
-      this.deps_.selectObject?.(obj);
-    });
-
-    globalEventBus.on(Events.PANEL_OPENED, (data) => {
-      if (data?.panelId === 'tours-panel') this.populateDailyHighlight_();
+    this.wireToursCard_({
+      cardId: 'daily-highlight',
+      nameId: 'daily-highlight-name',
+      labelId: 'daily-highlight-label',
+      onTap: () => {
+        const obj = this.currentHighlight_?.object;
+        if (!obj) return;
+        this.panelManager_.closeAll();
+        this.deps_.selectObject?.(obj);
+      },
+      getContent: () => {
+        const highlight = this.deps_.getDailyHighlight?.();
+        this.currentHighlight_ = highlight || null;
+        return highlight?.object
+            ? {name: highlight.name, label: highlight.label}
+            : null;
+      },
     });
   }
 
   /**
-   * Fill (or hide) the highlight card from the current day's pick.
-   * @private
-   */
-  populateDailyHighlight_() {
-    const card = document.getElementById('daily-highlight');
-    const nameEl = document.getElementById('daily-highlight-name');
-    const labelEl = document.getElementById('daily-highlight-label');
-    if (!card || !nameEl || !labelEl) return;
-
-    const highlight = this.deps_.getDailyHighlight?.();
-    this.currentHighlight_ = highlight || null;
-
-    if (highlight && highlight.object) {
-      nameEl.textContent = highlight.name;
-      labelEl.textContent = highlight.label;
-      card.hidden = false;
-    } else {
-      card.hidden = true;
-    }
-  }
-
-  /**
-   * Wire the Tours-panel "Next event" card: fill it when the panel opens
-   * (alongside Tonight's Highlight), and open the full calendar when tapped.
+   * Wire the Tours-panel "Next event" card: it opens the full calendar when
+   * tapped and shows the soonest upcoming event.
    * @private
    */
   setupNextEvent_() {
-    const card = document.getElementById('next-event');
-    if (!card) return;
-
-    addMobileButtonListener(card, () => {
-      this.deps_.showEventsCalendar?.();
-    });
-
-    globalEventBus.on(Events.PANEL_OPENED, (data) => {
-      if (data?.panelId === 'tours-panel') this.populateNextEvent_();
+    this.wireToursCard_({
+      cardId: 'next-event',
+      nameId: 'next-event-name',
+      labelId: 'next-event-when',
+      onTap: () => this.deps_.showEventsCalendar?.(),
+      getContent: () => {
+        const event = this.deps_.getNextEvent?.();
+        if (!event?.date) return null;
+        const dateStr = event.date.toLocaleDateString(APP_LOCALE, {
+          month: 'short',
+          day: 'numeric',
+        });
+        return {
+          name: event.name,
+          label: `${dateStr} · ${relativeDayLabel(event.date)}`,
+        };
+      },
     });
   }
 
   /**
-   * Fill (or hide) the next-event card from the soonest upcoming event.
+   * Wire one of the Tours-panel highlight cards: run onTap when tapped, and
+   * refill it (or hide it) from getContent() each time the Tours panel opens.
+   * @param {{cardId: string, nameId: string, labelId: string,
+   *          onTap: function(): void,
+   *          getContent: function(): ?{name: string, label: string}}} spec
    * @private
    */
-  populateNextEvent_() {
-    const card = document.getElementById('next-event');
-    const nameEl = document.getElementById('next-event-name');
-    const whenEl = document.getElementById('next-event-when');
-    if (!card || !nameEl || !whenEl) return;
+  wireToursCard_({cardId, nameId, labelId, onTap, getContent}) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
 
-    const event = this.deps_.getNextEvent?.();
-    if (!event || !event.date) {
-      card.hidden = true;
-      return;
-    }
+    addMobileButtonListener(card, onTap);
 
-    const days = Math.ceil((event.date - new Date()) / (1000 * 60 * 60 * 24));
-    let when;
-    if (days <= 0) {
-      when = 'today';
-    } else if (days === 1) {
-      when = 'tomorrow';
-    } else {
-      when = `in ${days} days`;
-    }
-
-    // The app UI is English regardless of device locale, so pin the date to
-    // en-US rather than letting it render as e.g. "28 août".
-    const dateStr = event.date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
+    this.panelManager_.onOpen('tours-panel', () => {
+      const content = getContent();
+      const nameEl = document.getElementById(nameId);
+      const labelEl = document.getElementById(labelId);
+      if (content && nameEl && labelEl) {
+        nameEl.textContent = content.name;
+        labelEl.textContent = content.label;
+        card.hidden = false;
+      } else {
+        card.hidden = true;
+      }
     });
-
-    nameEl.textContent = event.name;
-    whenEl.textContent = `${dateStr} · ${when}`;
-    card.hidden = false;
   }
 
   /**

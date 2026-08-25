@@ -133,6 +133,14 @@ jest.unstable_mockModule('../modules/core/Utils.js', () => ({
     // Mock implementation that just adds click listener
     button.addEventListener('click', handler);
   }),
+  APP_LOCALE: 'en-US',
+  relativeDayLabel: (date, now = new Date()) => {
+    const days = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
+    if (days <= 0) return 'today';
+    if (days === 1) return 'tomorrow';
+    return `in ${days} days`;
+  },
+  safeLocalStorage: () => null,
 }));
 
 // Mock feature UI modules

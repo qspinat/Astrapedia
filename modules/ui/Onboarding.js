@@ -7,6 +7,8 @@
  * and can be reopened from Settings.
  */
 
+import {safeLocalStorage} from '../core/Utils.js';
+
 const STORAGE_KEY = 'astrapedia-onboarded';
 
 /**
@@ -91,17 +93,6 @@ export class Onboarding {
       e.preventDefault();
       this.dismiss();
     }
-  }
-}
-
-/**
- * @returns {?Storage}
- */
-function safeLocalStorage() {
-  try {
-    return typeof window !== 'undefined' ? window.localStorage : null;
-  } catch (e) {
-    return null;
   }
 }
 

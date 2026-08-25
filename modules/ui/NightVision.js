@@ -11,6 +11,8 @@
  * State is persisted so the mode survives reloads and app restarts.
  */
 
+import {safeLocalStorage} from '../core/Utils.js';
+
 const STORAGE_KEY = 'astrapedia-night-vision';
 const BODY_CLASS = 'night-vision';
 
@@ -108,32 +110,9 @@ export class NightVision {
 }
 
 /**
- * localStorage that never throws (Safari private mode, etc.).
- * @returns {?Storage}
- */
-function safeLocalStorage() {
-  try {
-    return typeof window !== 'undefined' ? window.localStorage : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-/** @type {?NightVision} */
-let nightVision = null;
-
-/**
  * @param {{storage?: !Storage, body?: !Element}=} deps
  * @returns {!NightVision}
  */
 export function initializeNightVision(deps) {
-  nightVision = new NightVision(deps);
-  return nightVision;
-}
-
-/**
- * @returns {?NightVision}
- */
-export function getNightVision() {
-  return nightVision;
+  return new NightVision(deps);
 }
