@@ -57,6 +57,8 @@ jest.unstable_mockModule('../modules/core/Utils.js', () => ({
     return `in ${days} days`;
   },
   safeLocalStorage: () => null,
+  safeSetJson: () => true,
+  safeGetJson: () => null,
 }));
 
 // Mock PanelManager

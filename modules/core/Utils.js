@@ -194,3 +194,38 @@ export function safeLocalStorage() {
     return null;
   }
 }
+
+/**
+ * JSON-serialize a value into localStorage, swallowing any failure
+ * (unavailable store, quota, circular value).
+ * @param {string} key
+ * @param {*} value
+ * @returns {boolean} True on success.
+ */
+export function safeSetJson(key, value) {
+  const store = safeLocalStorage();
+  if (!store) return false;
+  try {
+    store.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Read and JSON-parse a value from localStorage, returning null on any
+ * failure (unavailable store, missing key, malformed JSON).
+ * @param {string} key
+ * @returns {*} The parsed value, or null.
+ */
+export function safeGetJson(key) {
+  const store = safeLocalStorage();
+  if (!store) return null;
+  try {
+    const raw = store.getItem(key);
+    return raw == null ? null : JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}

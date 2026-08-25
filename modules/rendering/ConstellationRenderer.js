@@ -9,15 +9,6 @@ import {SPHERE, CONSTELLATIONS} from '../core/Constants.js';
 import {freezeTransform} from './SceneUtils.js';
 
 /**
- * Default colors for constellation lines.
- * @const {!Object<string, number>}
- */
-const COLORS = {
-  LINE: 0x3366AA,
-  HIGHLIGHT: 0x4A9EFF,
-};
-
-/**
  * Index stars by HIP number for O(1) lookup.
  *
  * Keeps the first star seen for a HIP, matching the Array.find() this
@@ -186,7 +177,7 @@ export class ConstellationRenderer {
       geometry.computeBoundingSphere();
 
       const material = new THREE.LineBasicMaterial({
-        color: COLORS.LINE,
+        color: CONSTELLATIONS.LINE_COLOR,
         transparent: true,
         opacity: CONSTELLATIONS.LINE_OPACITY,
         linewidth: 1,
@@ -255,7 +246,7 @@ export class ConstellationRenderer {
           line.userData.originalColor = line.material.color.getHex();
         }
         line.material.opacity = 1.0;
-        line.material.color.setHex(COLORS.HIGHLIGHT);
+        line.material.color.setHex(CONSTELLATIONS.HIGHLIGHT_COLOR);
         line.material.linewidth = 2;
 
         // Create glow effect
@@ -321,7 +312,7 @@ export class ConstellationRenderer {
       this.linesGroup_.children.forEach((line) => {
         if (line.userData?.isGlow) return;
         line.material.opacity = CONSTELLATIONS.LINE_OPACITY;
-        line.material.color.setHex(COLORS.LINE);
+        line.material.color.setHex(CONSTELLATIONS.LINE_COLOR);
         line.material.linewidth = 1;
       });
     }
@@ -338,7 +329,7 @@ export class ConstellationRenderer {
    */
   createGlowLine_(line) {
     const glowMaterial = new THREE.LineBasicMaterial({
-      color: COLORS.HIGHLIGHT,
+      color: CONSTELLATIONS.HIGHLIGHT_COLOR,
       transparent: true,
       opacity: 0.4,
       linewidth: 3,
@@ -477,7 +468,7 @@ export class ConstellationRenderer {
     this.linesGroup_.children.forEach((line) => {
       if (line.userData?.isGlow) return;
       line.material.opacity = CONSTELLATIONS.LINE_OPACITY;
-      line.material.color.setHex(COLORS.LINE);
+      line.material.color.setHex(CONSTELLATIONS.LINE_COLOR);
       line.visible = true;
     });
 

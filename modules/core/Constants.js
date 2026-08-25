@@ -83,7 +83,7 @@ export const CONSTELLATIONS = {
   /** Opacity for constellation lines. */
   LINE_OPACITY: 0.35,
   /** Color when highlighted (hex). */
-  HIGHLIGHT_COLOR: 0x66aaff,
+  HIGHLIGHT_COLOR: 0x4A9EFF,
   /** Opacity when highlighted. */
   HIGHLIGHT_OPACITY: 0.8,
   /** Display mode: all lines hidden. */

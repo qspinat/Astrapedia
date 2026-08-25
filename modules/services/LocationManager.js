@@ -12,6 +12,7 @@ import {
   normalizeLongitude,
 } from '../core/CoordinateUtils.js';
 import {createLogger} from '../core/Logger.js';
+import {safeSetJson, safeGetJson} from '../core/Utils.js';
 
 const logger = createLogger('LocationManager');
 
@@ -286,11 +287,7 @@ export class LocationManager {
    * @private
    */
   saveLocation_() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.location_));
-    } catch (error) {
-      logger.warn('Failed to save location:', error);
-    }
+    safeSetJson(STORAGE_KEY, this.location_);
   }
 
   /**
@@ -299,24 +296,18 @@ export class LocationManager {
    * @private
    */
   loadSavedLocation_() {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const location = JSON.parse(saved);
-        if (Number.isFinite(location.lat) && Number.isFinite(location.lon)) {
-          // Sanitize: clamp latitude and normalize longitude, matching
-          // setLocation, so tampered/out-of-range storage can't leak through.
-          return {
-            lat: clampDec(location.lat),
-            lon: normalizeLongitude(location.lon),
-            height: Number.isFinite(location.height) ? location.height : 0,
-          };
-        }
-      }
-    } catch (error) {
-      logger.warn('Failed to load saved location:', error);
+    const location = safeGetJson(STORAGE_KEY);
+    if (!location ||
+        !Number.isFinite(location.lat) || !Number.isFinite(location.lon)) {
+      return null;
     }
-    return null;
+    // Sanitize: clamp latitude and normalize longitude, matching setLocation,
+    // so tampered/out-of-range storage can't leak through.
+    return {
+      lat: clampDec(location.lat),
+      lon: normalizeLongitude(location.lon),
+      height: Number.isFinite(location.height) ? location.height : 0,
+    };
   }
 
   /**
@@ -557,30 +548,39 @@ export class LocationManager {
   }
 
   /**
+   * Adopt a geolocation position: store it, persist it, announce it, and fire
+   * the granted callback. Shared by the silent and UI geolocation paths.
+   * @param {!GeolocationPosition} position
+   * @param {string} source - LOCATION_CHANGED source tag
+   * @private
+   */
+  applyPosition_(position, source) {
+    this.location_ = {
+      lat: position.coords.latitude,
+      lon: position.coords.longitude,
+      height: position.coords.altitude || 0,
+    };
+    this.saveLocation_();
+
+    logger.info(`Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
+
+    globalEventBus.emit(Events.LOCATION_CHANGED, {
+      location: this.getLocation(),
+      source,
+    });
+
+    if (this.onLocationGrantedCallback_) {
+      this.onLocationGrantedCallback_();
+    }
+  }
+
+  /**
    * Get location silently (no alerts) - used when permission already granted.
    * @private
    */
   getLocationSilently_() {
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        this.location_ = {
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-          height: position.coords.altitude || 0,
-        };
-        this.saveLocation_();
-
-        logger.info(`Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
-
-        globalEventBus.emit(Events.LOCATION_CHANGED, {
-          location: this.getLocation(),
-          source: 'geolocation-silent',
-        });
-
-        if (this.onLocationGrantedCallback_) {
-          this.onLocationGrantedCallback_();
-        }
-      },
+      (position) => this.applyPosition_(position, 'geolocation-silent'),
       (error) => {
         logger.warn('Could not get location:', error.message);
       },
@@ -605,23 +605,7 @@ export class LocationManager {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        this.location_ = {
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-          height: position.coords.altitude || 0,
-        };
-        this.saveLocation_();
-
-        logger.info(`Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
-
-        globalEventBus.emit(Events.LOCATION_CHANGED, {
-          location: this.getLocation(),
-          source: 'geolocation',
-        });
-
-        if (this.onLocationGrantedCallback_) {
-          this.onLocationGrantedCallback_();
-        }
+        this.applyPosition_(position, 'geolocation');
 
         alert(`Location set to:\n${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°\n\nSky now shows correct position for your location and time.`);
         if (btn) btn.innerHTML = originalContent;

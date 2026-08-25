@@ -9,6 +9,7 @@ import {TELESCOPE} from '../core/Constants.js';
 import {angularDistance} from '../core/CoordinateUtils.js';
 import {telescopeLimitingMagnitude, telescopeGain} from '../core/MagnitudeUtils.js';
 import {createLogger} from '../core/Logger.js';
+import {safeSetJson, safeGetJson} from '../core/Utils.js';
 
 const logger = createLogger('TelescopeController');
 
@@ -761,18 +762,13 @@ export class TelescopeController {
    * @private
    */
   saveToStorage_() {
-    try {
-      const data = {
-        currentConfig: {
-          telescope: this.telescope_,
-          eyepiece: this.eyepiece_,
-        },
-        presets: this.presets_,
-      };
-      localStorage.setItem(TELESCOPE.STORAGE_KEY, JSON.stringify(data));
-    } catch (e) {
-      logger.warn('Failed to save telescope settings:', e);
-    }
+    safeSetJson(TELESCOPE.STORAGE_KEY, {
+      currentConfig: {
+        telescope: this.telescope_,
+        eyepiece: this.eyepiece_,
+      },
+      presets: this.presets_,
+    });
   }
 
   /**
@@ -780,39 +776,33 @@ export class TelescopeController {
    * @private
    */
   loadFromStorage_() {
-    try {
-      const stored = localStorage.getItem(TELESCOPE.STORAGE_KEY);
-      if (!stored) return;
+    const data = safeGetJson(TELESCOPE.STORAGE_KEY);
+    if (!data) return;
 
-      const data = JSON.parse(stored);
+    if (data.currentConfig) {
+      // Validate before merging. Every optical property is derived from
+      // these by division or a logarithm, so a stored 0 or a non-number
+      // propagates: diameter 0 gives a limiting magnitude of -Infinity,
+      // which activating telescope mode pushes into the shader's magLimit
+      // uniform, and every star disappears. The UI inputs already reject
+      // these; storage is the path that did not.
+      this.telescope_ = {
+        ...this.telescope_,
+        ...pickPositiveNumbers(data.currentConfig.telescope,
+            ['diameter', 'focalLength']),
+      };
+      this.eyepiece_ = {
+        ...this.eyepiece_,
+        ...pickPositiveNumbers(data.currentConfig.eyepiece,
+            ['focalLength', 'apparentFov']),
+      };
+    }
 
-      if (data.currentConfig) {
-        // Validate before merging. Every optical property is derived from
-        // these by division or a logarithm, so a stored 0 or a non-number
-        // propagates: diameter 0 gives a limiting magnitude of -Infinity,
-        // which activating telescope mode pushes into the shader's magLimit
-        // uniform, and every star disappears. The UI inputs already reject
-        // these; storage is the path that did not.
-        this.telescope_ = {
-          ...this.telescope_,
-          ...pickPositiveNumbers(data.currentConfig.telescope,
-              ['diameter', 'focalLength']),
-        };
-        this.eyepiece_ = {
-          ...this.eyepiece_,
-          ...pickPositiveNumbers(data.currentConfig.eyepiece,
-              ['focalLength', 'apparentFov']),
-        };
-      }
-
-      // presets_ is an object keyed by preset name, so reject anything that
-      // is not one — an array or a string here would break every lookup.
-      if (data.presets && typeof data.presets === 'object' &&
-          !Array.isArray(data.presets)) {
-        this.presets_ = data.presets;
-      }
-    } catch (e) {
-      logger.warn('Failed to load telescope settings:', e);
+    // presets_ is an object keyed by preset name, so reject anything that
+    // is not one — an array or a string here would break every lookup.
+    if (data.presets && typeof data.presets === 'object' &&
+        !Array.isArray(data.presets)) {
+      this.presets_ = data.presets;
     }
   }
 }

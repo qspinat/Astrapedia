@@ -2447,7 +2447,7 @@ select:focus-visible {
 }
 
 .telescope-visibility__status--barely {
-    color: #d4a84b;
+    color: var(--warning);
 }
 
 .telescope-visibility__status--not-visible {
