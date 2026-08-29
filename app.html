@@ -293,41 +293,6 @@
                 </label>
             </div>
 
-            <!-- SKY CONDITIONS - Collapsible -->
-            <details class="panel-accordion">
-                <summary class="panel-accordion__header">
-                    <svg class="panel-accordion__icon"><use href="#icon-sun"/></svg>
-                    <span>Sky Conditions</span>
-                    <svg class="panel-accordion__chevron"><use href="#icon-chevron"/></svg>
-                </summary>
-                <div class="panel-accordion__content">
-                    <div class="input-row">
-                        <label for="light-pollution-select">Light Pollution</label>
-                        <select id="light-pollution-select" class="language-select">
-                            <option value="city">City (Bortle 8-9)</option>
-                            <option value="suburban">Suburban (Bortle 5-6)</option>
-                            <option value="rural" selected>Rural (Bortle 4)</option>
-                            <option value="dark">Dark Sky (Bortle 2-3)</option>
-                        </select>
-                    </div>
-
-                    <div class="sky-conditions-display">
-                        <div class="sky-condition-item">
-                            <span class="sky-condition-label">Moon Phase</span>
-                            <span class="sky-condition-value" id="moon-phase-display">New Moon</span>
-                        </div>
-                        <div class="sky-condition-item">
-                            <span class="sky-condition-label">Moon Altitude</span>
-                            <span class="sky-condition-value" id="moon-altitude-display">Below horizon</span>
-                        </div>
-                        <div class="sky-condition-item sky-condition-item--highlight">
-                            <span class="sky-condition-label">Naked Eye Limit</span>
-                            <span class="sky-condition-value" id="naked-eye-limit-display">mag 6.5</span>
-                        </div>
-                    </div>
-                </div>
-            </details>
-
             <!-- PREFERENCES - Collapsible -->
             <details class="panel-accordion">
                 <summary class="panel-accordion__header">
@@ -483,6 +448,36 @@
                     <div class="input-row">
                         <label for="eyepiece-afov">Apparent FOV (deg)</label>
                         <input type="number" id="eyepiece-afov" value="52" min="30" max="120" step="1">
+                    </div>
+                </div>
+
+                <!-- Sky conditions: the observing environment that feeds the
+                     limiting magnitude and surface brightness below. -->
+                <div class="telescope-inputs">
+                    <h4 class="telescope-section-title">Sky Conditions</h4>
+                    <div class="input-row">
+                        <label for="light-pollution-select">Light Pollution</label>
+                        <select id="light-pollution-select" class="language-select">
+                            <option value="city">City (Bortle 8-9)</option>
+                            <option value="suburban">Suburban (Bortle 5-6)</option>
+                            <option value="rural" selected>Rural (Bortle 4)</option>
+                            <option value="dark">Dark Sky (Bortle 2-3)</option>
+                        </select>
+                    </div>
+
+                    <div class="sky-conditions-display">
+                        <div class="sky-condition-item">
+                            <span class="sky-condition-label">Moon Phase</span>
+                            <span class="sky-condition-value" id="moon-phase-display">New Moon</span>
+                        </div>
+                        <div class="sky-condition-item">
+                            <span class="sky-condition-label">Moon Altitude</span>
+                            <span class="sky-condition-value" id="moon-altitude-display">Below horizon</span>
+                        </div>
+                        <div class="sky-condition-item sky-condition-item--highlight">
+                            <span class="sky-condition-label">Naked Eye Limit</span>
+                            <span class="sky-condition-value" id="naked-eye-limit-display">mag 6.5</span>
+                        </div>
                     </div>
                 </div>
 
