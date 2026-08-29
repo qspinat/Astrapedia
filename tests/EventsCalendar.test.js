@@ -184,4 +184,26 @@ describe('EventsCalendar', () => {
       });
     });
   });
+
+  describe('getNextEvent', () => {
+    test('returns the soonest upcoming event', () => {
+      const next = calendar.getNextEvent();
+      const upcoming = calendar.getUpcomingEvents();
+      expect(next).toBe(upcoming[0]);
+    });
+
+    test('the returned event is in the future', () => {
+      const next = calendar.getNextEvent();
+      expect(next).not.toBeNull();
+      expect(next.date.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    test('no other upcoming event is sooner', () => {
+      const next = calendar.getNextEvent();
+      const upcoming = calendar.getUpcomingEvents();
+      upcoming.forEach((event) => {
+        expect(event.date.getTime()).toBeGreaterThanOrEqual(next.date.getTime());
+      });
+    });
+  });
 });

@@ -8,8 +8,11 @@ import {DEFAULT_LOCATION} from '../core/Constants.js';
 import {
   calculateAltitude as computeAltitude,
   calculateLST as computeLST,
+  clampDec,
+  normalizeLongitude,
 } from '../core/CoordinateUtils.js';
 import {createLogger} from '../core/Logger.js';
+import {safeSetJson, safeGetJson} from '../core/Utils.js';
 
 const logger = createLogger('LocationManager');
 
@@ -105,7 +108,7 @@ export class LocationManager {
    */
   setLocation(lat, lon, height = 0) {
     // Validate latitude
-    const safeLat = Math.max(-90, Math.min(90, parseFloat(lat)));
+    const safeLat = clampDec(parseFloat(lat));
     if (isNaN(safeLat)) {
       logger.error('Invalid latitude:', lat);
       return;
@@ -113,16 +116,13 @@ export class LocationManager {
 
     // Validate longitude (Number.isFinite also rejects Infinity, which would
     // spin the old while-loop normalization forever)
-    let safeLon = parseFloat(lon);
-    if (!Number.isFinite(safeLon)) {
+    const parsedLon = parseFloat(lon);
+    if (!Number.isFinite(parsedLon)) {
       logger.error('Invalid longitude:', lon);
       return;
     }
-    // Normalize longitude to -180..180. Only touch out-of-range values, so
-    // in-range values stay exact; modulo (not a loop) keeps huge inputs O(1).
-    if (safeLon < -180 || safeLon > 180) {
-      safeLon = ((safeLon % 360) + 540) % 360 - 180;
-    }
+    // Normalize longitude to -180..180 (leaves in-range values exact).
+    const safeLon = normalizeLongitude(parsedLon);
 
     // Validate height
     const safeHeight = parseFloat(height);
@@ -287,11 +287,7 @@ export class LocationManager {
    * @private
    */
   saveLocation_() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.location_));
-    } catch (error) {
-      logger.warn('Failed to save location:', error);
-    }
+    safeSetJson(STORAGE_KEY, this.location_);
   }
 
   /**
@@ -300,28 +296,18 @@ export class LocationManager {
    * @private
    */
   loadSavedLocation_() {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const location = JSON.parse(saved);
-        if (Number.isFinite(location.lat) && Number.isFinite(location.lon)) {
-          // Sanitize: clamp latitude and normalize longitude, matching
-          // setLocation, so tampered/out-of-range storage can't leak through.
-          let lon = location.lon;
-          if (lon < -180 || lon > 180) {
-            lon = ((lon % 360) + 540) % 360 - 180;
-          }
-          return {
-            lat: Math.max(-90, Math.min(90, location.lat)),
-            lon,
-            height: Number.isFinite(location.height) ? location.height : 0,
-          };
-        }
-      }
-    } catch (error) {
-      logger.warn('Failed to load saved location:', error);
+    const location = safeGetJson(STORAGE_KEY);
+    if (!location ||
+        !Number.isFinite(location.lat) || !Number.isFinite(location.lon)) {
+      return null;
     }
-    return null;
+    // Sanitize: clamp latitude and normalize longitude, matching setLocation,
+    // so tampered/out-of-range storage can't leak through.
+    return {
+      lat: clampDec(location.lat),
+      lon: normalizeLongitude(location.lon),
+      height: Number.isFinite(location.height) ? location.height : 0,
+    };
   }
 
   /**
@@ -375,8 +361,11 @@ export class LocationManager {
           // Already granted - get location silently
           this.getLocationSilently_();
         } else if (permission.state === 'prompt') {
-          // Not yet asked - show a friendly prompt first
-          this.showLocationPrompt_();
+          // Not yet asked — do NOT prompt on launch. Best practice is to ask
+          // in context, so the request now waits for the user to tap the "My
+          // location" control (requestGeolocationInteractive). This keeps the
+          // first run free of an unsolicited permission dialog.
+          logger.info('Location not yet granted; deferring to first use');
         } else if (permission.state === 'denied') {
           // Previously denied - show how to enable
           logger.info('Location permission was previously denied');
@@ -389,12 +378,13 @@ export class LocationManager {
           }
         });
       } catch (e) {
-        // Permissions API not fully supported, try showing prompt
-        this.showLocationPrompt_();
+        // Permissions API unreliable — still don't prompt on launch; wait for
+        // the user to tap "My location".
+        logger.info('Could not check location permission; deferring to first use');
       }
     } else {
-      // No Permissions API, show prompt
-      this.showLocationPrompt_();
+      // No Permissions API — defer to first use rather than prompting on launch.
+      logger.info('No Permissions API; deferring location to first use');
     }
   }
 
@@ -403,6 +393,23 @@ export class LocationManager {
    * @private
    */
   showLocationPrompt_() {
+    // On first run the onboarding overlay is up; wait for it to close so the
+    // two dialogs don't stack. Reads the DOM only — no coupling to Onboarding.
+    const onboarding = document.getElementById('onboarding-overlay');
+    if (onboarding && onboarding.classList.contains('visible')) {
+      const observer = new MutationObserver(() => {
+        if (!onboarding.classList.contains('visible')) {
+          observer.disconnect();
+          this.showLocationPrompt_();
+        }
+      });
+      observer.observe(onboarding, {
+        attributes: true,
+        attributeFilter: ['class'],
+      });
+      return;
+    }
+
     // Create a non-blocking prompt dialog
     const dialog = document.createElement('div');
     dialog.className = 'location-prompt-dialog';
@@ -471,6 +478,9 @@ export class LocationManager {
 
     const style = document.createElement('style');
     style.id = 'location-prompt-styles';
+    // Uses the shared design tokens (so it inherits the night-vision skin)
+    // instead of the previous hard-coded blue/white island, whose blue button
+    // was a dark-adaptation hazard.
     style.textContent = `
       .location-prompt-dialog {
         position: fixed;
@@ -478,36 +488,38 @@ export class LocationManager {
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
+        background: rgba(0, 0, 0, 0.8);
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 1001;
+        z-index: var(--z-modal, 200);
         padding: 20px;
       }
       .location-prompt-content {
-        background: rgba(30, 30, 40, 0.95);
-        border-radius: 16px;
+        background: var(--bg-dark);
+        border-radius: var(--radius);
         padding: 24px;
         max-width: 300px;
         text-align: center;
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid var(--border);
+        border-top: 2px solid var(--accent-warm-dim);
       }
       .location-prompt-icon {
-        font-size: 48px;
+        font-size: 40px;
         margin-bottom: 12px;
+        filter: saturate(0.5) brightness(0.85);
       }
       .location-prompt-content h3 {
         margin: 0 0 8px 0;
-        color: #99aabb;
-        font-size: 18px;
+        color: var(--accent-warm);
+        font-size: 16px;
+        letter-spacing: 1px;
       }
       .location-prompt-content p {
         margin: 0 0 20px 0;
-        color: rgba(150, 160, 170, 0.8);
-        font-size: 14px;
-        line-height: 1.4;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.5;
       }
       .location-prompt-buttons {
         display: flex;
@@ -516,22 +528,50 @@ export class LocationManager {
       .location-prompt-btn {
         flex: 1;
         padding: 12px 16px;
-        border: none;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 600;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-family: inherit;
         cursor: pointer;
       }
       .location-prompt-btn--secondary {
-        background: rgba(100, 120, 140, 0.2);
-        color: rgba(150, 160, 170, 0.8);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
       }
       .location-prompt-btn--primary {
-        background: #2a5080;
-        color: #99aabb;
+        background: var(--accent);
+        color: var(--text-primary);
+        border-color: var(--border-accent);
       }
     `;
     document.head.appendChild(style);
+  }
+
+  /**
+   * Adopt a geolocation position: store it, persist it, announce it, and fire
+   * the granted callback. Shared by the silent and UI geolocation paths.
+   * @param {!GeolocationPosition} position
+   * @param {string} source - LOCATION_CHANGED source tag
+   * @private
+   */
+  applyPosition_(position, source) {
+    this.location_ = {
+      lat: position.coords.latitude,
+      lon: position.coords.longitude,
+      height: position.coords.altitude || 0,
+    };
+    this.saveLocation_();
+
+    logger.info(`Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
+
+    globalEventBus.emit(Events.LOCATION_CHANGED, {
+      location: this.getLocation(),
+      source,
+    });
+
+    if (this.onLocationGrantedCallback_) {
+      this.onLocationGrantedCallback_();
+    }
   }
 
   /**
@@ -540,25 +580,7 @@ export class LocationManager {
    */
   getLocationSilently_() {
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        this.location_ = {
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-          height: position.coords.altitude || 0,
-        };
-        this.saveLocation_();
-
-        logger.info(`Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
-
-        globalEventBus.emit(Events.LOCATION_CHANGED, {
-          location: this.getLocation(),
-          source: 'geolocation-silent',
-        });
-
-        if (this.onLocationGrantedCallback_) {
-          this.onLocationGrantedCallback_();
-        }
-      },
+      (position) => this.applyPosition_(position, 'geolocation-silent'),
       (error) => {
         logger.warn('Could not get location:', error.message);
       },
@@ -583,23 +605,7 @@ export class LocationManager {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        this.location_ = {
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-          height: position.coords.altitude || 0,
-        };
-        this.saveLocation_();
-
-        logger.info(`Location detected: ${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°`);
-
-        globalEventBus.emit(Events.LOCATION_CHANGED, {
-          location: this.getLocation(),
-          source: 'geolocation',
-        });
-
-        if (this.onLocationGrantedCallback_) {
-          this.onLocationGrantedCallback_();
-        }
+        this.applyPosition_(position, 'geolocation');
 
         alert(`Location set to:\n${this.location_.lat.toFixed(4)}°, ${this.location_.lon.toFixed(4)}°\n\nSky now shows correct position for your location and time.`);
         if (btn) btn.innerHTML = originalContent;
@@ -641,14 +647,18 @@ export class LocationManager {
       navigator.permissions.query({name: 'geolocation'}).then((permission) => {
         if (permission.state === 'denied') {
           this.showLocationDeniedHelp();
-          return;
+        } else if (permission.state === 'prompt') {
+          // First time: prime with the styled explanation, then the OS prompt
+          // fires from the card's "Allow" — contextual, higher grant rate.
+          this.showLocationPrompt_();
+        } else {
+          this.requestGeolocationWithUI_();
         }
-        this.requestGeolocationWithUI_();
       }).catch(() => {
-        this.requestGeolocationWithUI_();
+        this.showLocationPrompt_();
       });
     } else {
-      this.requestGeolocationWithUI_();
+      this.showLocationPrompt_();
     }
   }
 }

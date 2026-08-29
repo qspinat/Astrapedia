@@ -14,7 +14,10 @@ import {STARS} from '../core/Constants.js';
 import {createLogger} from '../core/Logger.js';
 import {PanelManager, panelManager} from './PanelManager.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
-import {addMobileButtonListener} from '../core/Utils.js';
+import {addMobileButtonListener, relativeDayLabel, APP_LOCALE} from '../core/Utils.js';
+import {initializeNightVision} from './NightVision.js';
+import {initializeLocationDialog} from './LocationDialog.js';
+import {initializeOnboarding, getOnboarding} from './Onboarding.js';
 import {GameUI} from '../features/GameUI.js';
 import {TourUI} from '../features/TourUI.js';
 import {TimeUI} from '../features/TimeUI.js';
@@ -223,6 +226,7 @@ export class SettingsHandler {
    * @param {function(): void=} dependencies.requestGeolocation - Request geolocation
    * @param {function(): void=} dependencies.resetCamera - Reset camera
    * @param {function(): void=} dependencies.showEventsCalendar - Show events
+   * @param {function(): ?Object=} dependencies.getNextEvent - Next upcoming event
    * @param {function(number): void=} dependencies.setMaxDynamicStars - Set max stars
    */
   constructor(dependencies) {
@@ -565,6 +569,9 @@ export class UIController {
 
     /** @private {?TelescopeUI} */
     this.telescopeUI_ = null;
+
+    /** @private {!NightVision} */
+    this.nightVision_ = initializeNightVision();
   }
 
   /**
@@ -573,6 +580,12 @@ export class UIController {
   initialize() {
     // Initialize panel manager
     this.panelManager_.initialize();
+
+    // Styled observer-location dialog (replaces the native prompt).
+    initializeLocationDialog();
+
+    // First-run onboarding (shows once, reopenable from Settings).
+    initializeOnboarding();
 
     // Create and initialize all handlers
     this.searchController_ = new SearchController({
@@ -605,7 +618,6 @@ export class UIController {
     this.timeUI_.initialize();
 
     this.gameUI_ = new GameUI({
-      startGame: this.deps_.startGame,
       passQuestion: this.deps_.passQuestion,
       stopGame: this.deps_.stopGame,
     });
@@ -654,13 +666,8 @@ export class UIController {
    * @private
    */
   setupPanelButtons_() {
-    // Settings toggle
-    const settingsToggle = domCache.get('settings-toggle');
-    if (settingsToggle) {
-      addMobileButtonListener(settingsToggle, () => {
-        this.panelManager_.toggle('settings-panel');
-      });
-    }
+    // Settings, Tours, Telescope, and Quiz are opened from the bottom nav
+    // (setupBottomNav_), so there's no header toggle to wire here.
 
     // Compass toggle
     const compassToggle = domCache.get('compass-toggle');
@@ -670,10 +677,35 @@ export class UIController {
       });
     }
 
+    // Night Vision toggle — the primary, quick-reach control. NightVision
+    // keeps its aria-pressed/active state in sync via registerToggle.
+    const nightVisionToggle = domCache.get('night-vision-toggle');
+    if (nightVisionToggle) {
+      this.nightVision_.registerToggle(nightVisionToggle);
+      addMobileButtonListener(nightVisionToggle, () => {
+        this.nightVision_.toggle();
+      });
+    }
+
+    // "How to use" reopens the onboarding overlay.
+    const showOnboardingBtn = domCache.get('show-onboarding-btn');
+    if (showOnboardingBtn) {
+      addMobileButtonListener(showOnboardingBtn, () => {
+        this.panelManager_.closeAll();
+        getOnboarding()?.show();
+      });
+    }
+
     // Close buttons
     this.panelManager_.setupCloseButton('settings-close-btn');
+    this.panelManager_.setupCloseButton('tours-close-btn');
+    this.panelManager_.setupCloseButton('telescope-close-btn');
     this.panelManager_.setupCloseButton('visible-tonight-close-btn');
     this.panelManager_.setupCloseButton('events-close-btn');
+
+    this.setupBottomNav_();
+    this.setupDailyHighlight_();
+    this.setupNextEvent_();
 
     // Info panel close button
     const infoCloseBtn = domCache.get('info-close-btn');
@@ -682,6 +714,145 @@ export class UIController {
         this.deps_.selectObject?.(null);
       });
     }
+  }
+
+  /**
+   * Wire the bottom navigation bar: each tab opens its section (or returns to
+   * the Sky), and the active tab tracks whichever panel is open — including
+   * when a panel is dismissed by the backdrop, Escape, or the back button.
+   * @private
+   */
+  setupBottomNav_() {
+    const items = Array.from(document.querySelectorAll('.bottom-nav__item'));
+    if (items.length === 0) return;
+
+    const setActive = (panelId) => {
+      for (const item of items) {
+        const active = (item.dataset.panel || '') === (panelId || '');
+        item.classList.toggle('is-active', active);
+        if (active) {
+          item.setAttribute('aria-current', 'page');
+        } else {
+          item.removeAttribute('aria-current');
+        }
+      }
+    };
+
+    for (const item of items) {
+      addMobileButtonListener(item, () => {
+        const panelId = item.dataset.panel || '';
+        this.panelManager_.closeAll();
+        this.hideGameModal_();
+        if (panelId === 'game-select-modal') {
+          globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT);
+          setActive('game-select-modal');
+        } else if (panelId) {
+          this.panelManager_.open(panelId);
+          // open() emits PANEL_OPENED which also sets active, but set it here
+          // too so the Sky→panel transition is immediate.
+          setActive(panelId);
+        } else {
+          setActive('');
+        }
+      });
+    }
+
+    // Keep the bar in sync when panels open/close by any route (backdrop,
+    // Escape, back button).
+    globalEventBus.on(Events.PANEL_OPENED, (data) => setActive(data?.panelId));
+    globalEventBus.on(Events.PANEL_CLOSED, () => setActive(''));
+  }
+
+  /**
+   * Hide the game-select modal (not a PanelManager panel).
+   * @private
+   */
+  hideGameModal_() {
+    domCache.gameSelectModal?.classList.remove('visible');
+  }
+
+  /**
+   * Wire "Tonight's Highlight": recompute it each time the Tours panel opens
+   * (so it reflects the current date and location), and fly to the object when
+   * the card is tapped.
+   * @private
+   */
+  setupDailyHighlight_() {
+    /** @private {?Object} */
+    this.currentHighlight_ = null;
+
+    this.wireToursCard_({
+      cardId: 'daily-highlight',
+      nameId: 'daily-highlight-name',
+      labelId: 'daily-highlight-label',
+      onTap: () => {
+        const obj = this.currentHighlight_?.object;
+        if (!obj) return;
+        this.panelManager_.closeAll();
+        this.deps_.selectObject?.(obj);
+      },
+      getContent: () => {
+        const highlight = this.deps_.getDailyHighlight?.();
+        this.currentHighlight_ = highlight || null;
+        return highlight?.object
+            ? {name: highlight.name, label: highlight.label}
+            : null;
+      },
+    });
+  }
+
+  /**
+   * Wire the Tours-panel "Next event" card: it opens the full calendar when
+   * tapped and shows the soonest upcoming event.
+   * @private
+   */
+  setupNextEvent_() {
+    this.wireToursCard_({
+      cardId: 'next-event',
+      nameId: 'next-event-name',
+      labelId: 'next-event-when',
+      onTap: () => this.deps_.showEventsCalendar?.(),
+      getContent: () => {
+        const event = this.deps_.getNextEvent?.();
+        if (!event?.date) return null;
+        const dateStr = event.date.toLocaleDateString(APP_LOCALE, {
+          month: 'short',
+          day: 'numeric',
+        });
+        return {
+          name: event.name,
+          label: `${dateStr} · ${relativeDayLabel(event.date)}`,
+        };
+      },
+    });
+  }
+
+  /**
+   * Wire one of the Tours-panel highlight cards: run onTap when tapped, and
+   * refill it (or hide it) from getContent() each time the Tours panel opens.
+   * @param {{cardId: string, nameId: string, labelId: string,
+   *          onTap: function(): void,
+   *          getContent: function(): ?{name: string, label: string}}} spec
+   * @private
+   */
+  wireToursCard_({cardId, nameId, labelId, onTap, getContent}) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
+
+    addMobileButtonListener(card, onTap);
+
+    this.panelManager_.onOpen('tours-panel', () => {
+      const content = getContent();
+      const nameEl = document.getElementById(nameId);
+      const labelEl = document.getElementById(labelId);
+      if (content && nameEl && labelEl) {
+        nameEl.textContent = content.name;
+        labelEl.textContent = content.label;
+        card.hidden = false;
+      } else {
+        card.hidden = true;
+      }
+    });
   }
 
   /**

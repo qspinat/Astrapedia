@@ -41,6 +41,48 @@ describe('PowerManager', () => {
     });
   });
 
+  describe('resume after the app returns to the foreground', () => {
+    test('re-kicks the loop even when it believes it is still animating', () => {
+      const pm = new PowerManager(mockDeps);
+      pm.initialize();
+      pm.startAnimating();
+      expect(pm.isAnimating()).toBe(true);
+      mockDeps.onStartAnimating.mockClear();
+
+      // Android can drop the animation frame on lock/background while the
+      // flag stays true. A focus on resume must still force a fresh frame,
+      // where the old guarded startAnimating() would have no-opped.
+      window.dispatchEvent(new Event('focus'));
+
+      expect(mockDeps.onStartAnimating).toHaveBeenCalled();
+      pm.dispose();
+    });
+
+    test('visibilitychange to visible forces a frame', () => {
+      const pm = new PowerManager(mockDeps);
+      pm.initialize();
+      pm.startAnimating();
+      mockDeps.onStartAnimating.mockClear();
+
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      expect(mockDeps.onStartAnimating).toHaveBeenCalled();
+      pm.dispose();
+    });
+
+    test('Capacitor resume forces a frame', () => {
+      const pm = new PowerManager(mockDeps);
+      pm.initialize();
+      pm.startAnimating();
+      mockDeps.onStartAnimating.mockClear();
+
+      document.dispatchEvent(new Event('resume'));
+
+      expect(mockDeps.onStartAnimating).toHaveBeenCalled();
+      pm.dispose();
+    });
+  });
+
   describe('requestRender', () => {
     test('starts animating if not already', () => {
       expect(powerManager.isAnimating()).toBe(false);

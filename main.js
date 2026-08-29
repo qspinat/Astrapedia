@@ -95,12 +95,6 @@ function initializeUI_(appInstance) {
     getCurrentMagnitude: () => appInstance.currentMagnitude,
     setMagnitudeLimit: (mag) => appInstance.setMagnitudeLimit?.(mag),
     getSkyLimitingMagnitude: () => skyConditionsHandler?.getNakedEyeLimit(),
-    lockZoom: () => {
-      appInstance.telescopeModeActive = true;
-    },
-    unlockZoom: () => {
-      appInstance.telescopeModeActive = false;
-    },
     getViewCenterRaDec: () => appInstance.getViewCenterRaDec(),
     getDSOs: () => appInstance.deepSkyObjects || [],
   });
@@ -110,6 +104,10 @@ function initializeUI_(appInstance) {
   // reset FOV, a locked zoom and the reticle still showing.
   appInstance.exitTelescopeMode = () =>
     telescopeController.deactivateTelescopeMode();
+
+  // Single source of truth for "is the telescope active": the controller's
+  // own state, queried on demand rather than mirrored into an app flag.
+  appInstance.isTelescopeActive = () => telescopeController.isActive();
 
   // Initialize bug report handler
   initializeBugReportHandler({
@@ -134,6 +132,7 @@ function initializeUI_(appInstance) {
     // Search
     performSearch: (query) => appInstance.performSearch(query),
     selectObject: (obj) => appInstance.selectObject(obj),
+    getDailyHighlight: () => appInstance.getDailyHighlight?.(),
 
     // Settings
     setConstellationLines: (visible) => {
@@ -150,6 +149,7 @@ function initializeUI_(appInstance) {
     requestGeolocation: () => appInstance.requestGeolocation?.(),
     resetCamera: () => appInstance.resetView?.(),
     showEventsCalendar: () => appInstance.showEventsCalendar?.(),
+    getNextEvent: () => appInstance.getNextEvent?.(),
     setMaxDynamicStars: (val) => {
       // DSOs limit is ~1/6 of stars limit
       const maxDSOs = Math.max(1000, Math.floor(val / 6));
@@ -165,7 +165,6 @@ function initializeUI_(appInstance) {
     getSimulationTime: () => appInstance.getSimulationTime?.() ?? new Date(),
 
     // Game
-    startGame: () => globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT),
     passQuestion: () => globalEventBus.emit(Events.CMD_PASS_QUESTION),
     stopGame: () => globalEventBus.emit(Events.CMD_STOP_GAME),
 

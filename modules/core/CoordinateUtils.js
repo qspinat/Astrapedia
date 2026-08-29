@@ -127,6 +127,27 @@ export const clampDec = (dec) => {
 };
 
 /**
+ * Normalize a longitude to (-180, 180]. Values already in range are returned
+ * exactly (so +180 stays +180 rather than wrapping to -180).
+ * @param {number} lon - Longitude in degrees
+ * @returns {number} Normalized longitude
+ */
+export const normalizeLongitude = (lon) => {
+  return (lon < -180 || lon > 180) ? ((lon % 360) + 540) % 360 - 180 : lon;
+};
+
+/**
+ * Signed shortest angular difference between two Right Ascensions, in degrees,
+ * in [-180, 180). Handles the 0h/360h meridian wrap.
+ * @param {number} ra1 - First RA in degrees
+ * @param {number} ra2 - Second RA in degrees
+ * @returns {number} Signed delta ra1 - ra2, wrapped to [-180, 180)
+ */
+export const raDelta = (ra1, ra2) => {
+  return ((ra1 - ra2 + 540) % 360) - 180;
+};
+
+/**
  * Convert Julian Date to JavaScript Date.
  * @param {number} jd - Julian Date
  * @returns {!Date} JavaScript Date object
@@ -193,10 +214,10 @@ export const calculateLST = (date, longitude) => {
 /**
  * Calculate the altitude of an object above the horizon.
  *
- * The canonical implementation: the stateful wrappers in AstronomyCalculator,
- * LocationManager and VisibilityCalculator all resolve to this, so a change
- * here (atmospheric refraction, a horizon offset) applies everywhere rather
- * than to whichever copy the caller happened to reach.
+ * The canonical implementation: the stateful wrappers in LocationManager and
+ * VisibilityCalculator all resolve to this, so a change here (atmospheric
+ * refraction, a horizon offset) applies everywhere rather than to whichever
+ * copy the caller happened to reach.
  *
  * @param {number} ra - Right ascension in degrees
  * @param {number} dec - Declination in degrees

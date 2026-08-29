@@ -167,23 +167,6 @@ export class TourUI {
   }
 
   /**
-   * Update the step display.
-   * @param {!Object} data - Step data
-   * @private
-   */
-  updateStepDisplay_(data) {
-    const stepEl = document.getElementById('tour-step');
-    if (stepEl) {
-      stepEl.textContent = `${data.stepIndex + 1} / ${data.totalSteps}`;
-    }
-
-    const nameEl = document.getElementById('tour-object-name');
-    if (nameEl && data.step) {
-      nameEl.textContent = data.step.name;
-    }
-  }
-
-  /**
    * Build the tour panel with step info and navigation buttons.
    * @param {!Object} tourData - Tour data
    * @param {string} tourData.tourName - Name of the tour

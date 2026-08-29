@@ -4,6 +4,7 @@
  */
 
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {API_ENDPOINTS} from '../core/Constants.js';
 import {CURATED_IMAGES, getCuratedImage, getCuratedImageKeys} from '../data/CuratedImages.js';
 import {PLANET_IMAGES, getPlanetImageInfo} from '../data/PlanetImages.js';
 import {clamp} from '../core/Utils.js';
@@ -722,7 +723,7 @@ export class ImageRenderer {
       }
 
       const response = await fetch(
-        `https://images-api.nasa.gov/search?q=${encodeURIComponent(nasaSearchTerm)}&media_type=image`
+        `${API_ENDPOINTS.NASA_IMAGES}?q=${encodeURIComponent(nasaSearchTerm)}&media_type=image`
       );
       const data = await response.json();
 
@@ -839,7 +840,7 @@ export class ImageRenderer {
       }
 
       const wikiResponse = await fetch(
-        `https://commons.wikimedia.org/w/api.php?action=query&generator=search` +
+        `${API_ENDPOINTS.WIKIMEDIA}?action=query&generator=search` +
         `&gsrsearch=${encodeURIComponent(wikiSearchQuery)}&gsrlimit=10` +
         `&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=400&format=json&origin=*`
       );
@@ -947,7 +948,7 @@ export class ImageRenderer {
 
     const sizePixels = 512;
 
-    return `https://alasky.cds.unistra.fr/hips-image-services/hips2fits?` +
+    return `${API_ENDPOINTS.CDS_HIPS}?` +
       `hips=CDS%2FP%2FDSS2%2Fcolor&ra=${ra.toFixed(5)}&dec=${dec.toFixed(5)}` +
       `&fov=${fov.toFixed(4)}&width=${sizePixels}&height=${sizePixels}&format=jpg`;
   }

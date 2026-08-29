@@ -20,7 +20,6 @@ const DOM_ELEMENT_IDS = {
     'events-panel',
     'tour-panel',
     'game-panel',
-    'controls-panel',
     'panel-backdrop',
   ],
   displays: [
@@ -41,7 +40,6 @@ const DOM_ELEMENT_IDS = {
     'search-input',
     'magnitude-slider',
     'mag-value',
-    'constellation-lines-toggle',
     'constellation-language',
     'max-dynamic-stars',
     'max-dynamic-stars-value',
@@ -49,7 +47,6 @@ const DOM_ELEMENT_IDS = {
   buttons: [
     'compass-toggle',
     'constellations-quick-toggle',
-    'settings-toggle',
     'auto-location-btn',
     'set-location-btn',
     'reset-view-btn',
@@ -58,7 +55,6 @@ const DOM_ELEMENT_IDS = {
     'time-play-btn',
     'time-forward-btn',
     'time-now-btn',
-    'start-game-btn',
     'pass-btn',
     'stop-game-btn',
     'game-select-cancel',

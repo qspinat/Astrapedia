@@ -6,6 +6,8 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {CAMERA} from '../core/Constants.js';
 import {createLogger} from '../core/Logger.js';
+import {raDelta} from '../core/CoordinateUtils.js';
+import {clamp} from '../core/Utils.js';
 
 const logger = createLogger('TourController');
 
@@ -329,7 +331,7 @@ export class TourController {
       step.angularSize || 10;
     let requiredFov = (angularSizeArcmin / 60) * 1.5;
 
-    return Math.max(1, Math.min(60, requiredFov));
+    return clamp(requiredFov, 1, 60);
   }
 
   /**
@@ -448,13 +450,13 @@ export class TourController {
 
     // Check by coordinates (wrap RA delta across the 0h/360h meridian)
     obj = dsos.find((d) =>
-      Math.abs(((d.ra - ra + 540) % 360) - 180) < 0.5 &&
+      Math.abs(raDelta(d.ra, ra)) < 0.5 &&
       Math.abs(d.dec - dec) < 0.5
     );
     if (obj) return obj;
 
     obj = stars.find((s) =>
-      Math.abs(((s.ra - ra + 540) % 360) - 180) < 0.5 &&
+      Math.abs(raDelta(s.ra, ra)) < 0.5 &&
       Math.abs(s.dec - dec) < 0.5
     );
     if (obj) return {...obj, type: 'Star'};

@@ -83,7 +83,7 @@ export const CONSTELLATIONS = {
   /** Opacity for constellation lines. */
   LINE_OPACITY: 0.35,
   /** Color when highlighted (hex). */
-  HIGHLIGHT_COLOR: 0x66aaff,
+  HIGHLIGHT_COLOR: 0x4A9EFF,
   /** Opacity when highlighted. */
   HIGHLIGHT_OPACITY: 0.8,
   /** Display mode: all lines hidden. */
@@ -234,6 +234,8 @@ export const API_ENDPOINTS = {
   NASA_IMAGES: 'https://images-api.nasa.gov/search',
   WIKIMEDIA: 'https://commons.wikimedia.org/w/api.php',
   CDS_HIPS: 'https://alasky.cds.unistra.fr/hips-image-services/hips2fits',
+  VIZIER_VOTABLE: 'https://vizier.cds.unistra.fr/viz-bin/votable',
+  WIKIPEDIA_SUMMARY: 'https://en.wikipedia.org/api/rest_v1/page/summary/',
 };
 
 /**
@@ -302,6 +304,12 @@ export const INPUT = {
   PHI_MAX_RAD: Math.PI - 0.1,
   /** Time window (ms) for inertia velocity calculation. */
   INERTIA_HISTORY_MS: 100,
+  /** Max gap (ms) between taps to count as a double-tap. */
+  DOUBLE_TAP_MS: 300,
+  /** Max distance (px) between taps to count as a double-tap. */
+  DOUBLE_TAP_DIST_PX: 40,
+  /** Vertical drag (px) that halves or doubles the FOV in one-handed zoom. */
+  ZOOM_SLIDE_PX_PER_DOUBLING: 180,
   /** Frame time factor for velocity (assumes ~60fps). */
   VELOCITY_FRAME_MS: 16,
   /** Friction coefficient for inertia (0-1). */

@@ -17,7 +17,6 @@ export class GameUI {
   /**
    * Creates a new GameUI instance.
    * @param {!Object} dependencies - Required dependencies
-   * @param {function(): void=} dependencies.startGame - Start game function
    * @param {function(): void=} dependencies.passQuestion - Pass current question
    * @param {function(): void=} dependencies.stopGame - Stop game function
    */
@@ -52,13 +51,6 @@ export class GameUI {
    * @private
    */
   setupEventListeners_() {
-    const startGameBtn = document.getElementById('start-game-btn');
-    if (startGameBtn) {
-      addMobileButtonListener(startGameBtn, () => {
-        this.deps_.startGame?.();
-      });
-    }
-
     const passBtn = document.getElementById('pass-btn');
     if (passBtn) {
       addMobileButtonListener(passBtn, () => {

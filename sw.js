@@ -2,7 +2,7 @@
 // responses have no TTL and are evicted only when this name changes, so a
 // returning user otherwise keeps the old JS, the old modules and the old star
 // catalog indefinitely.
-const CACHE_NAME = 'astrapedia-v5';
+const CACHE_NAME = 'astrapedia-v9';
 
 // Cache TTL in milliseconds (24 hours for external resources)
 const EXTERNAL_CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -22,6 +22,8 @@ const STATIC_ASSETS = [
     '/main.js',
     '/skymap.js',
     '/styles.css',
+    '/vendor/three.min.js',
+    '/vendor/astronomy.browser.min.js',
     '/favicon.svg',
     '/icon-192.png',
     '/icon-512.png',
@@ -329,56 +331,55 @@ self.addEventListener('fetch', event => {
     event.respondWith(
         (async () => {
             const cache = await caches.open(CACHE_NAME);
-            const cachedResponse = await cache.match(event.request);
 
-            // For external resources, check TTL
-            if (cachedResponse && isExternal) {
-                const valid = await isCacheValid(event.request.url);
-                if (valid) {
-                    return cachedResponse;
+            // Same-origin app assets (HTML/CSS/JS/data): NETWORK-FIRST. The app
+            // is bundled in the APK, so "network" is the always-current local
+            // copy. Cache-first here was the bug behind a broken layout after
+            // updates: a new build's HTML would load while a stale cached
+            // stylesheet was served, so nothing lined up. Cache is now only the
+            // offline fallback.
+            if (!isExternal) {
+                try {
+                    const response = await fetch(event.request);
+                    if (shouldCacheResponse(response) &&
+                        url.origin === self.location.origin) {
+                        await cache.put(event.request, response.clone());
+                    }
+                    return response;
+                } catch (error) {
+                    const cached = await cache.match(event.request);
+                    if (cached) return cached;
+                    if (event.request.headers.get('accept')?.includes('text/html')) {
+                        const fallback = await cache.match('/app.html');
+                        if (fallback) return fallback;
+                    }
+                    return createNetworkErrorResponse(error.message);
                 }
-                // Cache expired, delete it
+            }
+
+            // External resources (CDN images, etc.): cache-first with TTL —
+            // this is the real offline benefit.
+            const cachedResponse = await cache.match(event.request);
+            if (cachedResponse) {
+                const valid = await isCacheValid(event.request.url);
+                if (valid) return cachedResponse;
                 await cache.delete(event.request);
                 await deleteCacheEntry(event.request.url);
-            } else if (cachedResponse) {
-                // Static assets don't expire
-                return cachedResponse;
             }
 
             try {
                 const response = await fetch(event.request);
-
-                // Validate before caching
                 if (shouldCacheResponse(response)) {
-                    const shouldCache = isExternal || url.origin === self.location.origin;
-
-                    if (shouldCache) {
-                        const responseToCache = response.clone();
-                        await cache.put(event.request, responseToCache);
-
-                        // Update metadata for external resources
-                        if (isExternal) {
-                            const size = parseInt(
-                                response.headers.get('content-length') || '0',
-                                10
-                            );
-                            await saveCacheEntry(event.request.url, Date.now(), size);
-                        }
-                    }
+                    await cache.put(event.request, response.clone());
+                    const size = parseInt(
+                        response.headers.get('content-length') || '0', 10);
+                    await saveCacheEntry(event.request.url, Date.now(), size);
                 }
-
                 return response;
             } catch (error) {
                 console.warn('Fetch failed:', event.request.url, error.message);
-
-                // Offline fallback for HTML pages
-                if (event.request.headers.get('accept')?.includes('text/html')) {
-                    const fallback = await cache.match('/app.html');
-                    if (fallback) return fallback;
-                }
-
-                // Return a proper error response instead of throwing
-                return createNetworkErrorResponse(error.message);
+                return cachedResponse ||
+                    createNetworkErrorResponse(error.message);
             }
         })()
     );

@@ -4,7 +4,7 @@
  */
 
 // THREE is loaded globally from CDN in app.html
-import {cartesianToRaDec} from '../core/CoordinateUtils.js';
+import {cartesianToRaDec, raDelta} from '../core/CoordinateUtils.js';
 import {CAMERA} from '../core/Constants.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
 import {catalogDesignation} from '../data/CuratedImages.js';
@@ -204,7 +204,7 @@ export class ClickHandler {
       if (!planetData || planetData.ra == null) continue;
 
       // Calculate angular distance (wrap RA delta across the 0h/360h meridian)
-      const dRaDeg = ((planetData.ra - clickRaDec.ra + 540) % 360) - 180;
+      const dRaDeg = raDelta(planetData.ra, clickRaDec.ra);
       const dRa = dRaDeg * Math.cos(THREE.MathUtils.degToRad(planetData.dec));
       const dDec = planetData.dec - clickRaDec.dec;
       const angularDist = Math.sqrt(dRa * dRa + dDec * dDec);
@@ -423,7 +423,7 @@ export class ClickHandler {
       if (!isWithinMagnitudeLimit(dsoData.mag, magnitudeLimit)) continue;
 
       // Wrap RA delta across the 0h/360h meridian
-      const dRaDeg = ((dsoData.ra - clickRaDec.ra + 540) % 360) - 180;
+      const dRaDeg = raDelta(dsoData.ra, clickRaDec.ra);
       const dRa = dRaDeg * Math.cos(THREE.MathUtils.degToRad(dsoData.dec));
       const dDec = dsoData.dec - clickRaDec.dec;
       const angularDist = Math.sqrt(dRa * dRa + dDec * dDec);

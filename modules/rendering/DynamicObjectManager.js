@@ -178,14 +178,11 @@ export class DynamicObjectManager {
 
     const raDec = cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
 
-    // Create region key for caching (finer grid for deeper zoom)
-    const gridSize = Math.max(1, camera.fov);
-    const raBucket = Math.floor(raDec.ra / gridSize) * gridSize;
-    const decBucket = Math.floor(raDec.dec / gridSize) * gridSize;
-    const fovBucket = camera.fov < 1 ? 'deep' : (camera.fov < 5 ? 'medium' : 'wide');
+    // Region key for caching (finer grid for deeper zoom) — shared formula
+    // with DynamicDataLoader so the two dedup caches agree.
     const magLimit = this.callbacks_.getMagnitude();
-    const magBucket = Math.floor(magLimit / 2) * 2;
-    const regionKey = `${raBucket.toFixed(0)}_${decBucket.toFixed(0)}_${fovBucket}_mag${magBucket}`;
+    const regionKey = dynamicDataLoader.getRegionKey(
+        raDec.ra, raDec.dec, camera.fov, magLimit);
 
     // Skip if already queried this region at this magnitude
     if (this.queriedRegions.has(regionKey)) return;
@@ -194,38 +191,34 @@ export class DynamicObjectManager {
 
     // Query for stars and DSOs in this region.
     //
-    // The region is recorded only once something comes back. Marking it up
-    // front meant a query the rate limiter had dropped — queryTycho_ and
-    // queryDSOs share one bucket, so panning twice within a second returns []
-    // immediately — still counted as done, and the region stayed empty until
-    // the user zoomed past 15 degrees and back to clear the whole set.
+    // Mark the region covered as soon as a query actually RAN — including when
+    // it ran and found nothing (queryStars/queryDSOs return [] for "empty" and
+    // null for "rate-limited/busy, didn't run"). Marking on results-received
+    // instead meant a genuinely empty region was never recorded, so it was
+    // re-queried every tick — a stream of successful empty requests that
+    // tripped the rate limiter and starved loading everywhere. A null result
+    // leaves the region unmarked so it retries once the limiter clears.
     const ra = raDec.ra, dec = raDec.dec, fov = camera.fov;
-    const markQueried = (received) => {
-      if (received) this.queriedRegions.add(regionKey);
-    };
-
-    dynamicDataLoader.queryStars(ra, dec, fov, magLimit)
-      .then(stars => {
-        markQueried(stars?.length > 0);
-        if (stars?.length > 0) {
-          const starArrays = stars.map(s => [s.ra, s.dec, s.mag, s.ci || 0]);
-          this.addDynamicStars(starArrays, false);
-        }
-      })
+    const starsPromise = dynamicDataLoader.queryStars(ra, dec, fov, magLimit)
       .catch(err => {
-        // Silently handle errors - DynamicDataLoader already logs and emits events
         logger.warn('Dynamic star query failed:', err?.message || err);
+        return null;
       });
-    if (fov <= 10) {
+    const dsosPromise = fov <= 10 ?
       dynamicDataLoader.queryDSOs(ra, dec, fov, magLimit)
-        .then(dsos => {
-          markQueried(dsos?.length > 0);
-          if (dsos?.length > 0) this.addDynamicDSOs(dsos);
-        })
         .catch(err => {
           logger.warn('Dynamic DSO query failed:', err?.message || err);
-        });
-    }
+          return null;
+        }) :
+      Promise.resolve(null);
+
+    Promise.all([starsPromise, dsosPromise]).then(([stars, dsos]) => {
+      if (stars !== null || dsos !== null) this.queriedRegions.add(regionKey);
+      if (stars && stars.length > 0) {
+        this.addDynamicStars(stars.map(s => [s.ra, s.dec, s.mag, s.ci || 0]), false);
+      }
+      if (dsos && dsos.length > 0) this.addDynamicDSOs(dsos);
+    });
   }
 
   /**

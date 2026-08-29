@@ -284,9 +284,17 @@ describe('DynamicDataLoader', () => {
       });
     });
 
-    test('returns empty array when already querying', async () => {
+    test('returns null (did not run) when already querying', async () => {
       loader.isQueryingStars_ = true;
       const result = await loader.queryStars(0, 0, 2, 12);
+      expect(result).toBeNull();
+    });
+
+    test('returns [] (ran, empty) when the region has no stars', async () => {
+      // Mocked fetch returns an empty VOTable, so the query runs but finds
+      // nothing. This must be [] (not null) so the caller marks the region
+      // covered and stops re-querying it.
+      const result = await loader.queryStars(45, 30, 2, 12);
       expect(result).toEqual([]);
     });
 

@@ -162,3 +162,70 @@ export function addMobileButtonListener(button, handler) {
     touchMoved = false;
   });
 }
+
+/**
+ * The app UI is English regardless of the device locale, so date formatting is
+ * pinned here rather than rendering as e.g. "28 août".
+ * @const {string}
+ */
+export const APP_LOCALE = 'en-US';
+
+/**
+ * Human "today / tomorrow / in N days" label for an upcoming date.
+ * @param {!Date} date - The future date.
+ * @param {!Date=} now - Reference "now" (defaults to the current time).
+ * @returns {string} Relative-day label.
+ */
+export function relativeDayLabel(date, now = new Date()) {
+  const days = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
+  if (days <= 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  return `in ${days} days`;
+}
+
+/**
+ * localStorage that never throws (Safari private mode, sandboxed frames, etc.).
+ * @returns {?Storage} The store, or null if it is unavailable.
+ */
+export function safeLocalStorage() {
+  try {
+    return typeof window !== 'undefined' ? window.localStorage : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * JSON-serialize a value into localStorage, swallowing any failure
+ * (unavailable store, quota, circular value).
+ * @param {string} key
+ * @param {*} value
+ * @returns {boolean} True on success.
+ */
+export function safeSetJson(key, value) {
+  const store = safeLocalStorage();
+  if (!store) return false;
+  try {
+    store.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Read and JSON-parse a value from localStorage, returning null on any
+ * failure (unavailable store, missing key, malformed JSON).
+ * @param {string} key
+ * @returns {*} The parsed value, or null.
+ */
+export function safeGetJson(key) {
+  const store = safeLocalStorage();
+  if (!store) return null;
+  try {
+    const raw = store.getItem(key);
+    return raw == null ? null : JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
