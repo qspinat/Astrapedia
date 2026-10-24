@@ -51,12 +51,29 @@ export class ExtendedObjectRenderer {
   }
 
   /**
+   * Add a sprite created elsewhere (dynamically loaded DSOs), so it is sized,
+   * filtered and clicked like the bundled ones.
+   * @param {!THREE.Sprite} sprite
+   */
+  addSprite(sprite) {
+    this.sprites_.push(sprite);
+  }
+
+  /**
+   * Remove a sprite added with addSprite. Its owner disposes it.
+   * @param {!THREE.Sprite} sprite
+   */
+  removeSprite(sprite) {
+    const idx = this.sprites_.indexOf(sprite);
+    if (idx > -1) this.sprites_.splice(idx, 1);
+  }
+
+  /**
    * Create extended object sprites for DSOs with angular sizes.
    */
   create() {
-    // Dispose only the sprites this renderer owns. DynamicObjectManager pushes
-    // its own sprites into this same array (via the addExtendedSprite
-    // callback) and tracks them for its own cleanup — tearing them down here
+    // Dispose only the sprites this renderer owns. DynamicObjectManager adds
+    // its own sprites (via addSprite) and tracks them for its own cleanup — tearing them down here
     // would dispose live scene objects it still holds references to.
     const dynamic = [];
     for (const sprite of this.sprites_) {
@@ -69,11 +86,7 @@ export class ExtendedObjectRenderer {
       sprite.material.dispose();
     }
 
-    // Empty in place rather than reassigning: skymap.js aliases this array, so
-    // a fresh array would silently detach the app's copy and strand every
-    // sprite added afterwards.
-    this.sprites_.length = 0;
-    for (const sprite of dynamic) this.sprites_.push(sprite);
+    this.sprites_ = dynamic;
 
     const dsos = this.getDSOs_();
 

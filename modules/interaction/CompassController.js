@@ -6,6 +6,7 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {createLogger} from '../core/Logger.js';
 import {clamp} from '../core/Utils.js';
+import {domCache} from '../ui/DOMCache.js';
 
 const logger = createLogger('CompassController');
 
@@ -194,7 +195,7 @@ export class CompassController {
    * @private
    */
   updateButtonState_(active) {
-    const btn = document.getElementById('compass-toggle');
+    const btn = domCache.get('compass-toggle');
     if (btn) {
       if (active) {
         btn.classList.add('active');

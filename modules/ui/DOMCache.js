@@ -126,14 +126,24 @@ export class DOMCache {
 
   /**
    * Get a cached DOM element by ID.
+   *
+   * Misses are not cached and a cached element that has been detached is
+   * re-queried, so ids rendered later or re-rendered via innerHTML (info
+   * panel content, dialogs) resolve to the live element rather than to a
+   * stale node or a permanent null.
    * @param {string} id - The element ID (without '#' prefix)
    * @returns {?Element} The cached element or null if not found
    */
   get(id) {
-    if (!this.cache_.has(id)) {
-      this.cache_.set(id, document.getElementById(id));
+    const cached = this.cache_.get(id);
+    if (cached && cached.isConnected !== false) return cached;
+    const element = document.getElementById(id);
+    if (element) {
+      this.cache_.set(id, element);
+    } else {
+      this.cache_.delete(id);
     }
-    return this.cache_.get(id);
+    return element;
   }
 
   /**

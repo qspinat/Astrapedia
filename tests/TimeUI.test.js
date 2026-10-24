@@ -28,6 +28,7 @@ describe('TimeUI', () => {
         <button id="time-picker-cancel"></button>
       </div>
       <div id="time-display"></div>
+      <div id="time-speed-display"></div>
     `;
 
     mockDeps = {
@@ -187,6 +188,19 @@ describe('TimeUI', () => {
       globalEventBus.emit(Events.TIME_CHANGED, {time: testDate});
 
       expect(timeDisplay.textContent).toBe(testDate.toLocaleString());
+    });
+
+    test('shows the speed from TIME_SPEED_CHANGED', () => {
+      timeUI.initialize();
+
+      globalEventBus.emit(Events.TIME_SPEED_CHANGED, {
+        isPlaying: true,
+        speed: 60,
+        speedDisplay: '1 min/s',
+      });
+
+      expect(document.getElementById('time-speed-display').textContent)
+          .toBe('1 min/s');
     });
 
     test('handles TIME_TICK event', () => {

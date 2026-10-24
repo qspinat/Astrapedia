@@ -183,35 +183,36 @@ describe('camera convergence', () => {
 
     // Telescope mode locks zoom, so resetting the FOV without leaving the mode
     // strands the user at ~106 degrees with no way back in.
+    /**
+     * @param {boolean} active
+     * @return {{isActive: function(): boolean, deactivateTelescopeMode: !Function}}
+     */
+    function fakeTelescope(active) {
+      return {isActive: () => active, deactivateTelescopeMode: jest.fn()};
+    }
+
     test('leaves telescope mode before resetting', () => {
-      const exitTelescopeMode = jest.fn();
-      const app = resettableApp({
-        isTelescopeActive: () => true,
-        exitTelescopeMode,
-      });
+      const telescope = fakeTelescope(true);
+      const app = resettableApp();
+      app.setTelescopeController(telescope);
 
       app.resetView();
 
-      expect(exitTelescopeMode).toHaveBeenCalledTimes(1);
+      expect(telescope.deactivateTelescopeMode).toHaveBeenCalledTimes(1);
     });
 
     test('does not touch telescope mode when it is not active', () => {
-      const exitTelescopeMode = jest.fn();
-      const app = resettableApp({
-        isTelescopeActive: () => false,
-        exitTelescopeMode,
-      });
+      const telescope = fakeTelescope(false);
+      const app = resettableApp();
+      app.setTelescopeController(telescope);
 
       app.resetView();
 
-      expect(exitTelescopeMode).not.toHaveBeenCalled();
+      expect(telescope.deactivateTelescopeMode).not.toHaveBeenCalled();
     });
 
-    test('still resets when no telescope wiring is present', () => {
-      const app = resettableApp({
-        isTelescopeActive: () => true,
-        exitTelescopeMode: null,
-      });
+    test('still resets when no telescope is wired', () => {
+      const app = resettableApp();
 
       expect(() => app.resetView()).not.toThrow();
       expect(app.targetFov).toBe(106);

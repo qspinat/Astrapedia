@@ -5,6 +5,7 @@
 import {jest} from '@jest/globals';
 import {PanelManager} from '../modules/ui/PanelManager.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
+import {domCache} from '../modules/ui/DOMCache.js';
 
 describe('PanelManager', () => {
   let panelManager;
@@ -14,6 +15,8 @@ describe('PanelManager', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Each test builds fresh mock elements; drop the singleton's references.
+    domCache.clear();
 
     // Mock backdrop
     mockBackdrop = {
@@ -40,6 +43,7 @@ describe('PanelManager', () => {
         classList: {
           add: jest.fn(),
           remove: jest.fn(),
+          contains: jest.fn(() => false),
         },
         addEventListener: jest.fn(),
       };
@@ -127,6 +131,24 @@ describe('PanelManager', () => {
     test('emits PANEL_OPENED event', () => {
       panelManager.open('info-panel');
       expect(eventHandler).toHaveBeenCalled();
+    });
+
+    test('a modal overlay does not show the shared backdrop', () => {
+      mockPanels['game-select-modal'] = {
+        classList: {
+          add: jest.fn(),
+          remove: jest.fn(),
+          contains: jest.fn((cls) => cls === 'modal-overlay'),
+        },
+        addEventListener: jest.fn(),
+      };
+
+      panelManager.open('game-select-modal');
+
+      expect(mockPanels['game-select-modal'].classList.add)
+          .toHaveBeenCalledWith('visible');
+      expect(mockBackdrop.classList.add).not.toHaveBeenCalledWith('visible');
+      expect(panelManager.getCurrentPanel()).toBe('game-select-modal');
     });
 
     test('closes current panel before opening new one', () => {

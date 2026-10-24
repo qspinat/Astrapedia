@@ -323,11 +323,11 @@ describe('UI Controller event wiring', () => {
 
   describe('TimeUI', () => {
     test('retrieves time-picker-btn element', () => {
-      expect(timeUIContent).toContain('getElementById(\'time-picker-btn\')');
+      expect(timeUIContent).toContain('domCache.get(\'time-picker-btn\')');
     });
 
     test('retrieves time-picker-panel element', () => {
-      expect(timeUIContent).toContain('getElementById(\'time-picker-panel\')');
+      expect(timeUIContent).toContain('domCache.get(\'time-picker-panel\')');
     });
 
     test('adds click event listener to time picker button', () => {
@@ -341,13 +341,13 @@ describe('UI Controller event wiring', () => {
     });
 
     test('retrieves date-picker and time-picker inputs', () => {
-      expect(timeUIContent).toContain('getElementById(\'date-picker\')');
-      expect(timeUIContent).toContain('getElementById(\'time-picker\')');
+      expect(timeUIContent).toContain('domCache.get(\'date-picker\')');
+      expect(timeUIContent).toContain('domCache.get(\'time-picker\')');
     });
 
     test('retrieves apply and cancel buttons', () => {
-      expect(timeUIContent).toContain('getElementById(\'time-picker-apply\')');
-      expect(timeUIContent).toContain('getElementById(\'time-picker-cancel\')');
+      expect(timeUIContent).toContain('domCache.get(\'time-picker-apply\')');
+      expect(timeUIContent).toContain('domCache.get(\'time-picker-cancel\')');
     });
 
     test('calls jumpToTime on apply', () => {
@@ -365,7 +365,7 @@ describe('UI Controller event wiring', () => {
     test('initializes all handlers', () => {
       expect(uiControllerContent).toContain('this.searchController_.initialize()');
       expect(uiControllerContent).toContain('this.settingsHandler_.initialize()');
-      expect(uiControllerContent).toContain('this.timeUI_.initialize()');
+      expect(uiControllerContent).toContain('this.timeUI_ = initializeTimeUI(');
     });
 
     test('logs initialization status', () => {
@@ -495,7 +495,10 @@ describe('Skymap search index planet updates (delegated to SearchManager)', () =
   test('calls searchManager_.updatePlanets from createPlanets', () => {
     // Verify skymap.js delegates to SearchManager for planet updates
     expect(jsContent).toMatch(
-      /createPlanets\s*\(\s*\)[\s\S]*?this\.searchManager_\?\s*\.updatePlanets\s*\(\s*this\.planets\s*\)/
+      /createPlanets\s*\(\s*\)[\s\S]*?this\.onPlanetsChanged_\(\)/
+    );
+    expect(jsContent).toMatch(
+      /onPlanetsChanged_\(\)\s*\{[\s\S]*?this\.searchManager_\?\s*\.updatePlanets\s*\(\s*planets\s*\)/
     );
   });
 
@@ -597,7 +600,6 @@ describe('UIController dependency forwarding', () => {
   const CLASS_ORDER = [
     'SearchController',
     'SettingsHandler',
-    'InfoBadgeUpdater',
     'UIController',
   ];
 
@@ -633,26 +635,12 @@ describe('UIController dependency forwarding', () => {
     expect(missingDeps).toEqual([]);
   });
 
-  test('InfoBadgeUpdater receives all dependencies it uses', () => {
-    const usedDeps = extractUsedDependencies(
-      uiControllerContent,
-      'InfoBadgeUpdater',
-      getNextClass('InfoBadgeUpdater')
-    );
-    const passedDeps = extractPassedDependencies(uiControllerContent, 'infoBadgeUpdater_');
-
-    const missingDeps = usedDeps.filter(dep => !passedDeps.includes(dep));
-
-    expect(missingDeps).toEqual([]);
-  });
-
   test('all handlers in UIController.initialize() receive their required dependencies', () => {
     // This is a comprehensive test that verifies dependency injection integrity
     // for all handler classes defined in UIController.js
     const handlerMappings = [
       {className: 'SearchController', varName: 'searchController_'},
       {className: 'SettingsHandler', varName: 'settingsHandler_'},
-      {className: 'InfoBadgeUpdater', varName: 'infoBadgeUpdater_'},
     ];
 
     const allMissing = [];

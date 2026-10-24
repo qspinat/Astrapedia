@@ -55,12 +55,23 @@ describe('DOMCache', () => {
       expect(element).toBeNull();
     });
 
-    test('caches null for non-existent elements', () => {
-      cache.get('non-existent-element');
-      cache.get('non-existent-element');
+    test('finds an element added after a miss', () => {
+      expect(cache.get('late-element')).toBeNull();
+      const late = {id: 'late-element'};
+      mockElements['late-element'] = late;
 
-      // Should only query DOM once even for null results
-      expect(document.getElementById).toHaveBeenCalledTimes(1);
+      expect(cache.get('late-element')).toBe(late);
+      delete mockElements['late-element'];
+    });
+
+    test('re-queries an element that was detached and replaced', () => {
+      mockElements['swap'] = {id: 'swap', isConnected: true};
+      cache.get('swap').isConnected = false;
+      const replacement = {id: 'swap', isConnected: true};
+      mockElements['swap'] = replacement;
+
+      expect(cache.get('swap')).toBe(replacement);
+      delete mockElements['swap'];
     });
   });
 

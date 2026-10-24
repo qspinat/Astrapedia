@@ -9,6 +9,27 @@
     if (loadingText) loadingText.textContent = msg;
   }
 
+  // Classic-script copy of modules/ui/LoadingError.js, for errors before
+  // modules load. DOM calls, not innerHTML: the CSP blocks inline onclick, and
+  // the detail is untrusted error text.
+  function showLoadingError(title, detail, icon) {
+    var loading = document.getElementById('loading');
+    if (!loading || loading.classList.contains('hidden')) return;
+    var card = document.createElement('div');
+    card.className = 'loading-error';
+    [['icon', icon], ['title', title], ['detail', detail]].forEach(function(p) {
+      var el = document.createElement('div');
+      el.className = 'loading-error-' + p[0];
+      el.textContent = p[1];
+      card.appendChild(el);
+    });
+    var retry = document.createElement('button');
+    retry.textContent = 'Retry';
+    retry.addEventListener('click', function() { location.reload(); });
+    card.appendChild(retry);
+    loading.replaceChildren(card);
+  }
+
   // Check if CDN scripts loaded
   updateLoading('Checking libraries...');
 
@@ -20,33 +41,16 @@
   updateLoading('THREE.js OK. Loading app...');
 
   // Global error handler
-  window.onerror = function(msg, url, line, col, error) {
-    var loading = document.getElementById('loading');
-    if (loading && !loading.classList.contains('hidden')) {
-      loading.innerHTML = '<div style="color:#ff6b6b;text-align:center;padding:20px;">' +
-        '<div style="font-size:48px;margin-bottom:16px;">⚠️</div>' +
-        '<div style="font-size:18px;margin-bottom:8px;">Script Error</div>' +
-        '<div style="font-size:12px;color:#999;max-width:300px;word-break:break-all;">' +
-        msg + '<br><br>File: ' + (url || 'unknown') + '<br>Line: ' + (line || '?') +
-        '</div>' +
-        '<button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;background:#3B82F6;color:white;border:none;border-radius:8px;">Retry</button>' +
-        '</div>';
-    }
+  window.onerror = function(msg, url, line) {
+    showLoadingError('Script Error', msg + '\n\nFile: ' + (url || 'unknown') +
+        '\nLine: ' + (line || '?'), '⚠️');
     return false;
   };
 
   // Timeout: if loading screen is still visible after 30s, show error
   setTimeout(function() {
-    var loading = document.getElementById('loading');
-    if (loading && !loading.classList.contains('hidden')) {
-      var text = loading.querySelector('.loading-text');
-      var lastStatus = text ? text.textContent : 'Unknown';
-      loading.innerHTML = '<div style="color:#ff6b6b;text-align:center;padding:20px;">' +
-        '<div style="font-size:48px;margin-bottom:16px;">⏱️</div>' +
-        '<div style="font-size:18px;margin-bottom:8px;">Loading timeout</div>' +
-        '<div style="font-size:12px;color:#999;max-width:300px;">Last status: ' + lastStatus + '</div>' +
-        '<button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;background:#3B82F6;color:white;border:none;border-radius:8px;">Retry</button>' +
-        '</div>';
-    }
+    var text = document.querySelector('#loading .loading-text');
+    showLoadingError('Loading timeout',
+        'Last status: ' + (text ? text.textContent : 'Unknown'), '⏱️');
   }, 30000);
 })();

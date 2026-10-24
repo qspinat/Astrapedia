@@ -5,6 +5,7 @@
 import {jest} from '@jest/globals';
 import {SkyConditionsHandler} from '../modules/features/SkyConditionsHandler.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
+import {locationManager} from '../modules/services/LocationManager.js';
 
 describe('SkyConditionsHandler', () => {
   let handler;
@@ -351,16 +352,7 @@ describe('SkyConditionsHandler', () => {
   });
 
   describe('dispose', () => {
-    test('clears update interval', () => {
-      jest.useFakeTimers();
-      handler.updateInterval_ = setInterval(() => {}, 1000);
-      handler.dispose();
-      expect(handler.updateInterval_).toBeNull();
-      jest.useRealTimers();
-    });
-
-    test('handles null interval gracefully', () => {
-      handler.updateInterval_ = null;
+    test('can be called before setupEventListeners', () => {
       expect(() => handler.dispose()).not.toThrow();
     });
   });
@@ -410,12 +402,57 @@ describe('SkyConditionsHandler', () => {
       expect(handler.simulationTime_).toEqual(testTime);
     });
 
-    test('LOCATION_CHANGED event updates observerLocation_', () => {
-      const testLocation = {lat: 48.8566, lon: 2.3522};
-      globalEventBus.emit(Events.LOCATION_CHANGED, {location: testLocation});
+    test('moon altitude follows a time jump that arrives after the moon update', () => {
+      // TimeController emits PLANETS_UPDATED before TIME_CHANGED, so the
+      // altitude must be derived from the new time, not the old one.
+      const moon = {name: 'Moon', ra: 120, dec: 15, phase: 0.5};
+      const newTime = new Date('2025-06-15T23:00:00Z');
+      globalEventBus.emit(Events.PLANETS_UPDATED, {planets: [moon], moon});
+      globalEventBus.emit(Events.TIME_CHANGED, {time: newTime});
 
-      expect(handler.observerLocation_.lat).toBe(48.8566);
-      expect(handler.observerLocation_.lon).toBe(2.3522);
+      expect(handler.moonAltitude_).toBeCloseTo(
+          locationManager.calculateAltitude(120, 15, newTime), 6);
+    });
+
+    test('moon altitude follows playback ticks', () => {
+      const moon = {name: 'Moon', ra: 120, dec: 15, phase: 0.5};
+      globalEventBus.emit(Events.PLANETS_UPDATED, {planets: [moon], moon});
+      const later = new Date(handler.simulationTime_.getTime() + 3 * 3600000);
+      globalEventBus.emit(Events.TIME_TICK, {time: later});
+
+      expect(handler.moonAltitude_).toBeCloseTo(
+          locationManager.calculateAltitude(120, 15, later), 6);
+    });
+
+    test('notifies when light pollution changes the limit', () => {
+      const select = document.createElement('select');
+      select.id = 'light-pollution-select';
+      for (const v of ['city', 'rural']) {
+        const opt = document.createElement('option');
+        opt.value = v;
+        select.appendChild(opt);
+      }
+      document.body.appendChild(select);
+      const fresh = new SkyConditionsHandler();
+      fresh.setupEventListeners();
+      const callback = jest.fn();
+      fresh.onChange(callback);
+
+      select.value = 'city';
+      select.dispatchEvent(new Event('change'));
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      fresh.dispose();
+      select.remove();
+    });
+
+    test('does not notify when nothing changed the limit', () => {
+      const callback = jest.fn();
+      handler.onChange(callback);
+      globalEventBus.emit(Events.LOCATION_CHANGED, {location: {lat: 0, lon: 0}});
+      globalEventBus.emit(Events.LOCATION_CHANGED, {location: {lat: 0, lon: 0}});
+
+      expect(callback.mock.calls.length).toBeLessThanOrEqual(1);
     });
 
     test('PLANETS_UPDATED event updates moon data', () => {

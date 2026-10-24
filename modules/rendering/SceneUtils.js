@@ -5,10 +5,67 @@
 // THREE is loaded globally via script tag in app.html
 /* global THREE */
 
-import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {cartesianToRaDec, raDecToCartesian} from '../core/CoordinateUtils.js';
 import {getDsoHaloColor} from '../core/TypeMappings.js';
 import {isWithinMagnitudeLimit} from '../core/MagnitudeUtils.js';
 import {clamp} from '../core/Utils.js';
+
+/**
+ * Highest device pixel ratio the canvas renders at.
+ *
+ * Past 2× the extra resolution is barely visible on a sky of points, but the
+ * fill cost scales with its square: a 3× phone draws 2.25× the pixels of 2×,
+ * with MSAA on top.
+ * @const {number}
+ */
+const MAX_PIXEL_RATIO = 2;
+
+/**
+ * @returns {number} Pixel ratio to render the canvas at.
+ */
+export function getRenderPixelRatio() {
+  return Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+}
+
+/**
+ * Factor that keeps point sprites the same physical size when the render
+ * pixel ratio is capped below the device's: gl_PointSize is in framebuffer
+ * pixels, which grow when fewer of them cover the screen.
+ * @returns {number} Multiplier for gl_PointSize.
+ */
+export function getPointScale() {
+  return getRenderPixelRatio() / (window.devicePixelRatio || 1);
+}
+
+/** @type {?{dir: !THREE.Vector3, inverse: !THREE.Matrix4, rotation: !THREE.Matrix3}} */
+let directionTemps = null;
+
+/**
+ * RA/Dec that a world-space direction points at.
+ *
+ * Stars live in the celestial sphere's local frame, which the sphere's world
+ * transform rotates for sidereal time and latitude; applying its inverse
+ * rotation brings the direction back into catalog coordinates.
+ * @param {!THREE.Vector3} direction - World-space direction (not modified)
+ * @param {?THREE.Object3D} celestialSphere
+ * @returns {{ra: number, dec: number}} Degrees
+ */
+export function worldDirectionToRaDec(direction, celestialSphere) {
+  // Created on first use so importing this module does not need THREE.
+  directionTemps ??= {
+    dir: new THREE.Vector3(),
+    inverse: new THREE.Matrix4(),
+    rotation: new THREE.Matrix3(),
+  };
+  const {dir, inverse, rotation} = directionTemps;
+  dir.copy(direction);
+  if (celestialSphere) {
+    celestialSphere.updateMatrixWorld();
+    rotation.setFromMatrix4(inverse.copy(celestialSphere.matrixWorld).invert());
+    dir.applyMatrix3(rotation);
+  }
+  return cartesianToRaDec(dir.x, dir.y, dir.z);
+}
 
 /**
  * Take an object out of THREE's per-frame matrix recomputation.

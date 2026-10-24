@@ -50,9 +50,9 @@ class Config:
 
     # Magnitude levels for optimized star files
     MAGNITUDE_LEVELS: list[MagnitudeLevel] = [
-        MagnitudeLevel(6.5, "stars_bright.json", "Naked eye stars (mag <= 6.5)"),
-        MagnitudeLevel(8.0, "stars_medium.json", "Binocular stars (mag <= 8.0)"),
-        MagnitudeLevel(12.0, "stars_all.json", "All catalog stars (mag <= 12.0)"),
+        MagnitudeLevel(6.5, OUTPUT_FILES["stars_bright"], "Naked eye stars (mag <= 6.5)"),
+        MagnitudeLevel(8.0, OUTPUT_FILES["stars_medium"], "Binocular stars (mag <= 8.0)"),
+        MagnitudeLevel(12.0, OUTPUT_FILES["stars_all"], "All catalog stars (mag <= 12.0)"),
     ]
 
     # Catalog URLs (legacy - prefer CATALOG_SOURCES for new code)
@@ -65,8 +65,8 @@ class Config:
         "OpenNGC/master/database_files/NGC.csv"
     )
     CONSTELLATION_LINES_URL = (
-        "https://raw.githubusercontent.com/Stellarium/"
-        "stellarium/master/skycultures/modern/constellationship.fab"
+        "https://raw.githubusercontent.com/dcf21/"
+        "constellation-stick-figures/master/constellation_lines_iau.dat"
     )
 
     # Catalog sources with optional SHA256 checksums for integrity verification.
@@ -94,13 +94,10 @@ class Config:
         ),
         "constellations": CatalogSource(
             url=CONSTELLATION_LINES_URL,
-            # NOTE: No checksum configured because:
-            # 1. Stellarium changed their sky culture format in 2024
-            # 2. The legacy .fab format URL may be removed or changed
-            # 3. We have a local fallback (data/constellations.json) if download fails
-            # Consider migrating to the new Stellarium format or a dedicated source
+            # No checksum: served from a moving master ref, and the pipeline
+            # keeps the existing data/constellations.json if parsing fails.
             expected_sha256=None,
-            description="IAU constellation line data from Stellarium (legacy .fab format)",
+            description="IAU constellation stick figures (dcf21)",
         ),
     }
 
@@ -124,6 +121,11 @@ class Config:
     def get_data_path(cls, filename: str) -> Path:
         """Get full path to a data file."""
         return cls.DATA_DIR / filename
+
+    @classmethod
+    def get_output_path(cls, key: str) -> Path:
+        """Get full path to a pipeline output, by its OUTPUT_FILES key."""
+        return cls.get_data_path(cls.OUTPUT_FILES[key])
 
     @classmethod
     def ensure_data_dir(cls) -> None:
@@ -192,15 +194,10 @@ class Config:
         return source.url if source else None
 
 
-# Re-export mappings for backwards compatibility
-from .mappings import CONSTELLATION_ABBREVS, DSO_TYPE_NAMES
-
 __all__ = [
     "Config",
     "MagnitudeLevel",
     "CatalogSource",
-    "DSO_TYPE_NAMES",
-    "CONSTELLATION_ABBREVS",
 ]
 
 

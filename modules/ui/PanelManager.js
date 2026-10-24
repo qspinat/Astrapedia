@@ -6,6 +6,7 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {createLogger} from '../core/Logger.js';
 import {addMobileButtonListener} from '../core/Utils.js';
+import {domCache} from './DOMCache.js';
 
 const logger = createLogger('PanelManager');
 
@@ -23,6 +24,7 @@ const PANEL_IDS = [
   'tour-panel',
   'game-panel',
   'bug-report-panel',
+  'game-select-modal',
 ];
 
 /**
@@ -38,7 +40,7 @@ export class PanelManager {
      * Backdrop element.
      * @private {?Element}
      */
-    this.backdrop_ = backdrop || document.getElementById('panel-backdrop');
+    this.backdrop_ = backdrop || domCache.get('panel-backdrop');
 
     /**
      * Currently open panel ID.
@@ -132,7 +134,7 @@ export class PanelManager {
       // Skip game-panel - it has its own drag handling that needs document events
       if (id === 'game-panel') return;
 
-      const panel = document.getElementById(id);
+      const panel = domCache.get(id);
       if (panel) {
         // Stop touch events from propagating to backdrop
         panel.addEventListener('touchstart', (e) => {
@@ -180,14 +182,14 @@ export class PanelManager {
     const previousPanel = this.currentPanel_;
 
     PANEL_IDS.forEach((id) => {
-      const panel = document.getElementById(id);
+      const panel = domCache.get(id);
       if (panel) {
         panel.classList.remove('visible');
       }
     });
 
     // Also close search results
-    const searchResults = document.getElementById('search-results');
+    const searchResults = domCache.get('search-results');
     if (searchResults) {
       searchResults.classList.remove('active');
     }
@@ -237,7 +239,7 @@ export class PanelManager {
       this.closeAll();
     }
 
-    const panel = document.getElementById(panelId);
+    const panel = domCache.get(panelId);
     if (!panel) {
       logger.warn(`Panel not found: ${panelId}`);
       return;
@@ -253,7 +255,9 @@ export class PanelManager {
       this.focusFirstElement_(panel);
     }
 
-    if (this.backdrop_) {
+    // A modal overlay dims the sky itself; the shared backdrop would dim it
+    // twice. It closes on a tap outside its card instead (see GameUI).
+    if (this.backdrop_ && !panel.classList.contains('modal-overlay')) {
       this.backdrop_.classList.add('visible');
     }
 
@@ -336,7 +340,7 @@ export class PanelManager {
    * @param {function()=} extraCallback - Optional extra callback
    */
   setupCloseButton(buttonId, extraCallback) {
-    const btn = document.getElementById(buttonId);
+    const btn = domCache.get(buttonId);
     if (btn) {
       addMobileButtonListener(btn, () => {
         this.closeAll();
@@ -353,7 +357,7 @@ export class PanelManager {
    * @param {number=} duration - Duration in ms (default 3000)
    */
   showNotification(message, duration = 3000) {
-    let notification = document.getElementById('notification-panel');
+    let notification = domCache.get('notification-panel');
 
     if (!notification) {
       notification = document.createElement('div');
@@ -379,7 +383,7 @@ export class PanelManager {
    * @param {function()=} onCancel - Callback for cancel
    */
   showConfirmation(message, onConfirm, onCancel) {
-    let dialog = document.getElementById('confirmation-dialog');
+    let dialog = domCache.get('confirmation-dialog');
 
     if (!dialog) {
       dialog = document.createElement('div');

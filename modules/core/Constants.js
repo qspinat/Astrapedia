@@ -187,6 +187,7 @@ export const SHADERS = {
     attribute float magnitude;
     uniform float magLimit;
     uniform float magFadeRange;
+    uniform float pointScale;
     varying vec3 vColor;
     varying float vVisibility;
     void main() {
@@ -205,7 +206,7 @@ export const SHADERS = {
         vVisibility = 0.0;
       }
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = size * (300.0 / -mvPosition.z) * (vVisibility > 0.01 ? 1.0 : 0.0);
+      gl_PointSize = size * pointScale * (300.0 / -mvPosition.z) * (vVisibility > 0.01 ? 1.0 : 0.0);
       gl_Position = projectionMatrix * mvPosition;
     }
   `,

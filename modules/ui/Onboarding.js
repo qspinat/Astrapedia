@@ -8,6 +8,7 @@
  */
 
 import {safeLocalStorage} from '../core/Utils.js';
+import {domCache} from './DOMCache.js';
 
 const STORAGE_KEY = 'astrapedia-onboarded';
 
@@ -22,7 +23,7 @@ export class Onboarding {
     /** @private @const */
     this.storage_ = deps.storage !== undefined ? deps.storage : safeLocalStorage();
     /** @private @const */
-    this.overlay_ = document.getElementById(deps.overlayId || 'onboarding-overlay');
+    this.overlay_ = domCache.get(deps.overlayId || 'onboarding-overlay');
     /** @private */
     this.onKeyDown_ = this.handleKeyDown_.bind(this);
     /** @private {?Element} */
@@ -35,7 +36,7 @@ export class Onboarding {
   initialize() {
     if (!this.overlay_) return;
 
-    const dismissBtn = document.getElementById('onboarding-dismiss');
+    const dismissBtn = domCache.get('onboarding-dismiss');
     dismissBtn?.addEventListener('click', () => this.dismiss());
 
     // Tapping the backdrop (outside the card) also dismisses.
@@ -65,7 +66,7 @@ export class Onboarding {
     this.previousFocus_ = document.activeElement;
     this.overlay_.classList.add('visible');
     document.addEventListener('keydown', this.onKeyDown_);
-    document.getElementById('onboarding-dismiss')?.focus();
+    domCache.get('onboarding-dismiss')?.focus();
   }
 
   /**

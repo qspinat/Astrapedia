@@ -10,6 +10,9 @@ import {addMobileButtonListener} from '../core/Utils.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {domCache} from '../ui/DOMCache.js';
 import {TelescopeController, isDiffuseObject} from './TelescopeController.js';
+import {createLogger} from '../core/Logger.js';
+
+const logger = createLogger('TelescopeUI');
 
 /**
  * Maximum length for preset names.
@@ -117,7 +120,7 @@ export class TelescopeUI {
    */
   setupEventListeners_() {
     // Mode toggle
-    const modeToggle = document.getElementById('telescope-mode-toggle');
+    const modeToggle = domCache.get('telescope-mode-toggle');
     if (modeToggle) {
       modeToggle.addEventListener('change', () => {
         this.deps_.toggleMode?.();
@@ -125,7 +128,7 @@ export class TelescopeUI {
     }
 
     // Quick toggle button
-    const quickToggle = document.getElementById('telescope-quick-toggle');
+    const quickToggle = domCache.get('telescope-quick-toggle');
     if (quickToggle) {
       addMobileButtonListener(quickToggle, () => {
         this.deps_.toggleMode?.();
@@ -133,7 +136,7 @@ export class TelescopeUI {
     }
 
     // Telescope diameter
-    const diameterInput = document.getElementById('telescope-diameter');
+    const diameterInput = domCache.get('telescope-diameter');
     if (diameterInput) {
       diameterInput.addEventListener('input', (e) => {
         const value = parseFloat(e.target.value);
@@ -144,7 +147,7 @@ export class TelescopeUI {
     }
 
     // Telescope focal length
-    const focalLengthInput = document.getElementById('telescope-focal-length');
+    const focalLengthInput = domCache.get('telescope-focal-length');
     if (focalLengthInput) {
       focalLengthInput.addEventListener('input', (e) => {
         const value = parseFloat(e.target.value);
@@ -155,7 +158,7 @@ export class TelescopeUI {
     }
 
     // Eyepiece focal length
-    const eyepieceFLInput = document.getElementById('eyepiece-focal-length');
+    const eyepieceFLInput = domCache.get('eyepiece-focal-length');
     if (eyepieceFLInput) {
       eyepieceFLInput.addEventListener('input', (e) => {
         const value = parseFloat(e.target.value);
@@ -166,7 +169,7 @@ export class TelescopeUI {
     }
 
     // Eyepiece apparent FOV
-    const eyepieceAFOVInput = document.getElementById('eyepiece-afov');
+    const eyepieceAFOVInput = domCache.get('eyepiece-afov');
     if (eyepieceAFOVInput) {
       eyepieceAFOVInput.addEventListener('input', (e) => {
         const value = parseFloat(e.target.value);
@@ -177,7 +180,7 @@ export class TelescopeUI {
     }
 
     // Preset selector
-    const presetSelect = document.getElementById('telescope-preset-select');
+    const presetSelect = domCache.get('telescope-preset-select');
     if (presetSelect) {
       presetSelect.addEventListener('change', (e) => {
         const name = e.target.value;
@@ -189,7 +192,7 @@ export class TelescopeUI {
     }
 
     // Save preset button
-    const saveBtn = document.getElementById('telescope-save-preset-btn');
+    const saveBtn = domCache.get('telescope-save-preset-btn');
     if (saveBtn) {
       addMobileButtonListener(saveBtn, () => {
         this.handleSavePreset_();
@@ -197,7 +200,7 @@ export class TelescopeUI {
     }
 
     // Delete preset button
-    const deleteBtn = document.getElementById('telescope-delete-preset-btn');
+    const deleteBtn = domCache.get('telescope-delete-preset-btn');
     if (deleteBtn) {
       addMobileButtonListener(deleteBtn, () => {
         this.handleDeletePreset_();
@@ -229,7 +232,7 @@ export class TelescopeUI {
     this.deps_.savePreset?.(validation.sanitized);
     this.populatePresets_();
 
-    const select = document.getElementById('telescope-preset-select');
+    const select = domCache.get('telescope-preset-select');
     if (select) select.value = validation.sanitized;
   }
 
@@ -238,7 +241,7 @@ export class TelescopeUI {
    * @private
    */
   handleDeletePreset_() {
-    const select = document.getElementById('telescope-preset-select');
+    const select = domCache.get('telescope-preset-select');
     const name = select?.value;
     if (name && confirm(`Delete preset "${name}"?`)) {
       this.deps_.deletePreset?.(name);
@@ -255,15 +258,15 @@ export class TelescopeUI {
     const eyepiece = this.deps_.getEyepiece?.();
 
     if (telescope) {
-      const diameterInput = document.getElementById('telescope-diameter');
-      const focalLengthInput = document.getElementById('telescope-focal-length');
+      const diameterInput = domCache.get('telescope-diameter');
+      const focalLengthInput = domCache.get('telescope-focal-length');
       if (diameterInput) diameterInput.value = telescope.diameter;
       if (focalLengthInput) focalLengthInput.value = telescope.focalLength;
     }
 
     if (eyepiece) {
-      const eyepieceFLInput = document.getElementById('eyepiece-focal-length');
-      const eyepieceAFOVInput = document.getElementById('eyepiece-afov');
+      const eyepieceFLInput = domCache.get('eyepiece-focal-length');
+      const eyepieceAFOVInput = domCache.get('eyepiece-afov');
       if (eyepieceFLInput) eyepieceFLInput.value = eyepiece.focalLength;
       if (eyepieceAFOVInput) eyepieceAFOVInput.value = eyepiece.apparentFov;
     }
@@ -274,7 +277,7 @@ export class TelescopeUI {
    * @private
    */
   populatePresets_() {
-    const select = document.getElementById('telescope-preset-select');
+    const select = domCache.get('telescope-preset-select');
     if (!select) return;
 
     const presetNames = this.deps_.getPresetNames?.() || [];
@@ -301,14 +304,14 @@ export class TelescopeUI {
     const props = this.deps_.getComputedProperties?.();
     if (!props) return;
 
-    const magEl = document.getElementById('computed-magnification');
-    const maxMagEl = document.getElementById('computed-max-mag');
-    const exitPupilEl = document.getElementById('computed-exit-pupil');
-    const realFovEl = document.getElementById('computed-real-fov');
-    const limitingMagEl = document.getElementById('computed-limiting-mag');
-    const warningEl = document.getElementById('telescope-warning');
-    const sbPctEl = document.getElementById('computed-surface-brightness');
-    const exitPupilCatEl = document.getElementById('computed-exit-pupil-category');
+    const magEl = domCache.get('computed-magnification');
+    const maxMagEl = domCache.get('computed-max-mag');
+    const exitPupilEl = domCache.get('computed-exit-pupil');
+    const realFovEl = domCache.get('computed-real-fov');
+    const limitingMagEl = domCache.get('computed-limiting-mag');
+    const warningEl = domCache.get('telescope-warning');
+    const sbPctEl = domCache.get('computed-surface-brightness');
+    const exitPupilCatEl = domCache.get('computed-exit-pupil-category');
 
     if (magEl) magEl.textContent = `${props.magnification.toFixed(0)}x`;
     if (maxMagEl) maxMagEl.textContent = `${props.maxUsefulMagnification.toFixed(0)}x`;
@@ -323,8 +326,8 @@ export class TelescopeUI {
     }
 
     // Update reticle info
-    const reticleFovEl = document.getElementById('reticle-fov');
-    const reticleMagEl = document.getElementById('reticle-mag');
+    const reticleFovEl = domCache.get('reticle-fov');
+    const reticleMagEl = domCache.get('reticle-mag');
     if (reticleFovEl) reticleFovEl.textContent = `${props.realFieldOfView.toFixed(2)}°`;
     if (reticleMagEl) reticleMagEl.textContent = `${props.magnification.toFixed(0)}x`;
   }
@@ -453,7 +456,7 @@ export class TelescopeUI {
 
     detail.innerHTML = html;
 
-    const table = document.getElementById('telescope-visibility-table');
+    const table = domCache.get('telescope-visibility-table');
     if (table) {
       table.appendChild(detail);
     } else {
@@ -466,7 +469,7 @@ export class TelescopeUI {
    * @private
    */
   removeTelescopeDetail_() {
-    document.getElementById('telescope-visibility-detail')?.remove();
+    domCache.get('telescope-visibility-detail')?.remove();
   }
 
   /**
@@ -500,8 +503,8 @@ export class TelescopeUI {
   refreshVisibilitySections_() {
     if (!this.selectedObject_) return;
 
-    document.getElementById('telescope-visibility-table')?.remove();
-    document.getElementById('telescope-visibility-detail')?.remove();
+    domCache.get('telescope-visibility-table')?.remove();
+    domCache.get('telescope-visibility-detail')?.remove();
 
     this.appendVisibilityTable_(this.selectedObject_);
     this.appendTelescopeDetail_(this.selectedObject_);
@@ -541,8 +544,8 @@ export class TelescopeUI {
 
       globalEventBus.on(Events.OBJECT_DESELECTED, () => {
         this.selectedObject_ = null;
-        document.getElementById('telescope-visibility-table')?.remove();
-        document.getElementById('telescope-visibility-detail')?.remove();
+        domCache.get('telescope-visibility-table')?.remove();
+        domCache.get('telescope-visibility-detail')?.remove();
       })
     );
   }
@@ -553,13 +556,13 @@ export class TelescopeUI {
    * @private
    */
   updateModeUI_(isActive) {
-    const toggle = document.getElementById('telescope-mode-toggle');
+    const toggle = domCache.get('telescope-mode-toggle');
     if (toggle) toggle.checked = isActive;
 
-    const quickToggle = document.getElementById('telescope-quick-toggle');
+    const quickToggle = domCache.get('telescope-quick-toggle');
     if (quickToggle) quickToggle.classList.toggle('active', isActive);
 
-    const reticle = document.getElementById('telescope-reticle');
+    const reticle = domCache.get('telescope-reticle');
     if (reticle) reticle.classList.toggle('visible', isActive);
 
     document.body.classList.toggle('telescope-mode', isActive);
@@ -589,11 +592,23 @@ export class TelescopeUI {
 export let telescopeUI = null;
 
 /**
+ * Reset the singleton instance (for testing only).
+ */
+export function resetTelescopeUI() {
+  telescopeUI = null;
+}
+
+/**
  * Initialize the telescope UI singleton.
+ * Returns existing instance if already initialized (prevents duplicate event handlers).
  * @param {!Object} dependencies - Required dependencies
  * @returns {!TelescopeUI} Initialized instance
  */
 export function initializeTelescopeUI(dependencies) {
+  if (telescopeUI) {
+    logger.warn('TelescopeUI already initialized, returning existing instance');
+    return telescopeUI;
+  }
   telescopeUI = new TelescopeUI(dependencies);
   telescopeUI.initialize();
   return telescopeUI;

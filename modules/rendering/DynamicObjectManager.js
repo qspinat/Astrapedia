@@ -15,7 +15,7 @@
 // THREE is loaded globally via script tag in app.html
 /* global THREE */
 
-import {raDecToCartesian, cartesianToRaDec} from '../core/CoordinateUtils.js';
+import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {magnitudeToSize} from '../core/MagnitudeUtils.js';
 import {SHADERS, SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
 import {dynamicDataLoader} from '../services/DynamicDataLoader.js';
@@ -25,7 +25,9 @@ import {
   createHaloSprite,
   disposeSpriteTexture,
   freezeTransform,
+  getPointScale,
   getSharedHaloTexture,
+  worldDirectionToRaDec,
 } from './SceneUtils.js';
 
 const logger = createLogger('DynamicObjectManager');
@@ -72,10 +74,6 @@ export class DynamicObjectManager {
 
     // Reusable objects for performance
     this._tempVec3 = new THREE.Vector3();
-    this._tempVec3B = new THREE.Vector3();
-    this._tempMatrix4 = new THREE.Matrix4();
-    this._tempMatrix4B = new THREE.Matrix4();
-    this._tempMatrix3 = new THREE.Matrix3();
   }
 
   /* ======================================================================
@@ -156,33 +154,21 @@ export class DynamicObjectManager {
     const camera = this.callbacks_.getCamera();
     if (!camera) return;
 
-    // Start loading when zoomed in (FOV < 10°)
-    if (camera.fov > 10) return;
+    // Start loading when zoomed in
+    if (camera.fov > DYNAMIC_DATA.LOAD_FOV_THRESHOLD) return;
     if (this.isQueryingGaia || this.isQueryingDSO) return;
 
     const celestialSphere = this.callbacks_.getCelestialSphere();
 
-    // Get camera's forward direction in world coordinates
     camera.getWorldDirection(this._tempVec3);
-
-    // Transform view direction from world coords to celestial coords
-    // by applying the INVERSE of the celestialSphere's world transformation
-    this._tempVec3B.copy(this._tempVec3);
-    if (celestialSphere) {
-      celestialSphere.updateMatrixWorld();
-      this._tempMatrix4.copy(celestialSphere.matrixWorld);
-      this._tempMatrix4B.copy(this._tempMatrix4).invert();
-      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
-      this._tempVec3B.applyMatrix3(this._tempMatrix3);
-    }
-
-    const raDec = cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
+    const raDec = worldDirectionToRaDec(this._tempVec3, celestialSphere);
 
     // Region key for caching (finer grid for deeper zoom) — shared formula
     // with DynamicDataLoader so the two dedup caches agree.
     const magLimit = this.callbacks_.getMagnitude();
-    const regionKey = dynamicDataLoader.getRegionKey(
+    const region = dynamicDataLoader.getRegion(
         raDec.ra, raDec.dec, camera.fov, magLimit);
+    const regionKey = region.key;
 
     // Skip if already queried this region at this magnitude
     if (this.queriedRegions.has(regionKey)) return;
@@ -193,19 +179,20 @@ export class DynamicObjectManager {
     //
     // Mark the region covered as soon as a query actually RAN — including when
     // it ran and found nothing (queryStars/queryDSOs return [] for "empty" and
-    // null for "rate-limited/busy, didn't run"). Marking on results-received
+    // null for "rate-limited/busy/failed, didn't run"). Marking on results-received
     // instead meant a genuinely empty region was never recorded, so it was
     // re-queried every tick — a stream of successful empty requests that
     // tripped the rate limiter and starved loading everywhere. A null result
     // leaves the region unmarked so it retries once the limiter clears.
-    const ra = raDec.ra, dec = raDec.dec, fov = camera.fov;
-    const starsPromise = dynamicDataLoader.queryStars(ra, dec, fov, magLimit)
+    const {ra, dec, pad} = region;
+    const fov = camera.fov;
+    const starsPromise = dynamicDataLoader.queryStars(ra, dec, fov, magLimit, pad)
       .catch(err => {
         logger.warn('Dynamic star query failed:', err?.message || err);
         return null;
       });
     const dsosPromise = fov <= 10 ?
-      dynamicDataLoader.queryDSOs(ra, dec, fov, magLimit)
+      dynamicDataLoader.queryDSOs(ra, dec, fov, magLimit, pad)
         .catch(err => {
           logger.warn('Dynamic DSO query failed:', err?.message || err);
           return null;
@@ -295,18 +282,9 @@ export class DynamicObjectManager {
    * @private
    */
   filterStarsOutsideFov_(camera, celestialSphere, fov) {
-    // Reuse the instance temporaries rather than allocating five Three.js
-    // objects per call; checkLoading twenty lines above already does this.
-    const viewDirCelestial = this._tempVec3
-        .set(0, 0, 0).sub(camera.position).normalize();
-    if (celestialSphere) {
-      celestialSphere.updateMatrixWorld();
-      this._tempMatrix4.copy(celestialSphere.matrixWorld);
-      this._tempMatrix4B.copy(this._tempMatrix4).invert();
-      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
-      viewDirCelestial.applyMatrix3(this._tempMatrix3);
-    }
-    const viewRaDec = cartesianToRaDec(viewDirCelestial.x, viewDirCelestial.y, viewDirCelestial.z);
+    // The camera looks at the sphere's centre.
+    const viewDir = this._tempVec3.set(0, 0, 0).sub(camera.position).normalize();
+    const viewRaDec = worldDirectionToRaDec(viewDir, celestialSphere);
 
     // Filter radius relative to zoom
     const filterRadius = Math.max(fov * 1.5, fov + 2);
@@ -452,7 +430,8 @@ export class DynamicObjectManager {
       uniforms: {
         opacity: { value: 0.9 },
         magLimit: { value: magLimit },
-        magFadeRange: { value: 1.5 }
+        magFadeRange: { value: 1.5 },
+        pointScale: { value: getPointScale() }
       },
       vertexShader: SHADERS.VERTEX,
       fragmentShader: SHADERS.FRAGMENT,

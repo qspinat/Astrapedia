@@ -8,6 +8,7 @@ import {CAMERA} from '../core/Constants.js';
 import {createLogger} from '../core/Logger.js';
 import {raDelta} from '../core/CoordinateUtils.js';
 import {clamp} from '../core/Utils.js';
+import {toSelectablePlanet} from '../astronomy/SolarSystem.js';
 
 const logger = createLogger('TourController');
 
@@ -355,19 +356,7 @@ export class TourController {
     const planet = planets.find((p) => p.name === step.name);
 
     if (planet) {
-      const clickedObject = {
-        name: planet.name,
-        type: planet.name === 'Sun' ? 'Star' :
-          (planet.name === 'Moon' ? 'Natural Satellite' : 'Planet'),
-        subtype: planet.name === 'Sun' ? 'Star (G2V)' :
-          (planet.name === 'Moon' ? 'Natural Satellite' : 'Planet'),
-        ra: planet.ra,
-        dec: planet.dec,
-        mag: planet.mag,
-        angularSize: planet.angularSize,
-        phase: planet.phase,
-      };
-      this.showObjectInfo_?.(clickedObject);
+      this.showObjectInfo_?.(toSelectablePlanet(planet));
     }
 
     const angularSizeArcmin = step.angularSize || 30;
@@ -412,15 +401,7 @@ export class TourController {
     const planets = this.getPlanets_?.() || [];
     const planet = planets.find((p) => p.name === name);
     if (planet) {
-      return {
-        name: planet.name,
-        type: planet.name === 'Sun' ? 'Star' :
-          (planet.name === 'Moon' ? 'Natural Satellite' : 'Planet'),
-        ra: planet.ra,
-        dec: planet.dec,
-        mag: planet.mag,
-        angularSize: planet.angularSize,
-      };
+      return toSelectablePlanet(planet);
     }
 
     const dsos = this.getDeepSkyObjects_?.() || [];

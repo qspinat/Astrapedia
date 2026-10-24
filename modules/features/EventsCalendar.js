@@ -7,6 +7,7 @@
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {panelManager} from '../ui/PanelManager.js';
 import {APP_LOCALE, relativeDayLabel} from '../core/Utils.js';
+import {domCache} from '../ui/DOMCache.js';
 
 /**
  * Event type icons for display.
@@ -32,6 +33,9 @@ export class EventsCalendar {
   constructor() {
     /** @private {?Array<!Object>} */
     this.eventsCache_ = null;
+
+    /** @private {?number} Year the cache was built for */
+    this.eventsCacheYear_ = null;
   }
 
   /**
@@ -39,8 +43,11 @@ export class EventsCalendar {
    * @returns {!Array<!Object>} Array of event objects
    */
   getEvents() {
-    if (!this.eventsCache_) {
+    // Rebuild on New Year so a long-running session keeps a full window.
+    const year = new Date().getFullYear();
+    if (!this.eventsCache_ || this.eventsCacheYear_ !== year) {
       this.eventsCache_ = this.getFallbackEvents();
+      this.eventsCacheYear_ = year;
     }
     return this.eventsCache_;
   }
@@ -270,11 +277,14 @@ export class EventsCalendar {
    * @returns {!Array<!Object>} Upcoming events sorted by date
    */
   getUpcomingEvents() {
-    const now = new Date();
+    // Event dates are local midnight, so keep an event for its whole day —
+    // a meteor-shower peak is most wanted on the evening it happens.
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
     const events = this.getEvents();
 
     return events
-      .filter((event) => event.date > now)
+      .filter((event) => event.date >= startOfToday)
       .sort((a, b) => a.date - b.date)
       .slice(0, 20);
   }
@@ -292,7 +302,7 @@ export class EventsCalendar {
    * @param {function(string): void=} openPanel - Function to open panel
    */
   showEventsCalendar() {
-    const panel = document.getElementById('events-panel');
+    const panel = domCache.get('events-panel');
     if (!panel) return;
 
     const content = panel.querySelector('.panel-content');

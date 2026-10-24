@@ -902,25 +902,15 @@ export class GameController {
   }
 
   /**
-   * Update UI elements.
+   * Announce the score; GameUI renders it.
    * @private
    */
   updateUI_() {
-    const scoreEl = domCache.gameScore;
-    const correctEl = domCache.gameCorrect;
-
-    if (scoreEl) {
-      const progress = `${this.askedQuestions_.length}/${this.questionPool_.length}`;
-      scoreEl.textContent = `${this.score_} (${progress})`;
-    }
-
-    if (correctEl) {
-      correctEl.textContent = String(this.correct_);
-    }
-
     globalEventBus.emit(Events.GAME_SCORE_UPDATED, {
       score: this.score_,
       correct: this.correct_,
+      asked: this.askedQuestions_.length,
+      total: this.questionPool_.length,
     });
   }
 
@@ -938,9 +928,3 @@ export class GameController {
     }
   }
 }
-
-/**
- * Singleton instance for application-wide game control.
- * @const {!GameController}
- */
-export const gameController = new GameController();

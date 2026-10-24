@@ -5,7 +5,8 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {domCache} from '../ui/DOMCache.js';
-import {clamp, addMobileButtonListener} from '../core/Utils.js';
+import {panelManager} from '../ui/PanelManager.js';
+import {clamp, addMobileButtonListener, setTextIfChanged} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
 
 const logger = createLogger('GameUI');
@@ -51,19 +52,48 @@ export class GameUI {
    * @private
    */
   setupEventListeners_() {
-    const passBtn = document.getElementById('pass-btn');
+    const passBtn = domCache.get('pass-btn');
     if (passBtn) {
       addMobileButtonListener(passBtn, () => {
         this.deps_.passQuestion?.();
       });
     }
 
-    const stopGameBtn = document.getElementById('stop-game-btn');
+    const stopGameBtn = domCache.get('stop-game-btn');
     if (stopGameBtn) {
       addMobileButtonListener(stopGameBtn, () => {
         this.deps_.stopGame?.();
       });
     }
+
+    this.setupCategoryPicker_();
+  }
+
+  /**
+   * Wire the game-select modal. It opens and closes as a PanelManager panel
+   * (bottom nav, back button, Escape); this only handles its own controls.
+   * @private
+   */
+  setupCategoryPicker_() {
+    const modal = domCache.get('game-select-modal');
+    if (!modal) return;
+
+    modal.querySelectorAll('.game-select-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const category = btn.getAttribute('data-category');
+        if (!category) return;
+        panelManager.closeAll();
+        globalEventBus.emit(Events.CMD_START_GAME, {category});
+      });
+    });
+
+    domCache.get('game-select-cancel')
+        ?.addEventListener('click', () => panelManager.closeAll());
+
+    // The overlay is its own backdrop: a tap outside the card closes it.
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) panelManager.closeAll();
+    });
   }
 
   /**
@@ -208,7 +238,7 @@ export class GameUI {
    * @private
    */
   updateUI_(isPlaying) {
-    const gamePanel = document.getElementById('game-panel');
+    const gamePanel = domCache.get('game-panel');
     if (gamePanel) {
       gamePanel.classList.toggle('active', isPlaying);
     }
@@ -220,7 +250,7 @@ export class GameUI {
    * @private
    */
   updateQuestion_(data) {
-    const questionEl = document.getElementById('game-question');
+    const questionEl = domCache.get('game-question');
     if (questionEl) {
       // Use displayName for translated names, fall back to name
       questionEl.textContent = data.question?.displayName ||
@@ -234,10 +264,10 @@ export class GameUI {
    * @private
    */
   updateScore_(data) {
-    const scoreEl = document.getElementById('game-score');
-    if (scoreEl) {
-      scoreEl.textContent = `Score: ${data.score}/${data.total}`;
-    }
+    // The stat labels ("Score", "Correct") are in the markup.
+    setTextIfChanged(domCache.get('game-score'),
+        `${data.score} (${data.asked}/${data.total})`);
+    setTextIfChanged(domCache.get('game-correct'), String(data.correct));
   }
 
   /**

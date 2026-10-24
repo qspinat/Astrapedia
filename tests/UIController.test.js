@@ -147,34 +147,25 @@ jest.unstable_mockModule('../modules/core/Utils.js', () => ({
 
 // Mock feature UI modules
 jest.unstable_mockModule('../modules/features/GameUI.js', () => ({
-  GameUI: jest.fn().mockImplementation(() => ({
-    initialize: jest.fn(),
-  })),
+  initializeGameUI: jest.fn(() => ({})),
 }));
 
 jest.unstable_mockModule('../modules/features/TourUI.js', () => ({
-  TourUI: jest.fn().mockImplementation(() => ({
-    initialize: jest.fn(),
-  })),
+  initializeTourUI: jest.fn(() => ({})),
 }));
 
 jest.unstable_mockModule('../modules/features/TimeUI.js', () => ({
-  TimeUI: jest.fn().mockImplementation(() => ({
-    initialize: jest.fn(),
-  })),
+  initializeTimeUI: jest.fn(() => ({})),
 }));
 
 jest.unstable_mockModule('../modules/features/TelescopeUI.js', () => ({
-  TelescopeUI: jest.fn().mockImplementation(() => ({
-    initialize: jest.fn(),
-  })),
+  initializeTelescopeUI: jest.fn(() => ({})),
 }));
 
 // Dynamic imports after mocks
 const {
   SearchController,
   SettingsHandler,
-  InfoBadgeUpdater,
   UIController,
   initializeUIController,
   resetUIController,
@@ -248,7 +239,6 @@ describe('UIController Module', () => {
 
     beforeEach(() => {
       mockDeps = {
-        setConstellationLines: jest.fn(),
         setLanguage: jest.fn(),
         setMagnitudeLimit: jest.fn(),
         showLocationDialog: jest.fn(),
@@ -279,47 +269,6 @@ describe('UIController Module', () => {
     });
   });
 
-  describe('InfoBadgeUpdater', () => {
-    let infoBadgeUpdater;
-
-    beforeEach(() => {
-      infoBadgeUpdater = new InfoBadgeUpdater();
-    });
-
-    test('initializes properly', () => {
-      expect(infoBadgeUpdater).toBeDefined();
-    });
-
-    test('start and stop manage interval', () => {
-      // Spy on setInterval and clearInterval
-      const setIntervalSpy = jest.spyOn(global, 'setInterval').mockReturnValue(123);
-      const clearIntervalSpy = jest.spyOn(global, 'clearInterval').mockImplementation();
-
-      infoBadgeUpdater.start();
-      expect(setIntervalSpy).toHaveBeenCalled();
-
-      infoBadgeUpdater.stop();
-      expect(clearIntervalSpy).toHaveBeenCalledWith(123);
-
-      setIntervalSpy.mockRestore();
-      clearIntervalSpy.mockRestore();
-    });
-
-    test('initialize starts updater and sets up listeners', () => {
-      const setIntervalSpy = jest.spyOn(global, 'setInterval').mockReturnValue(123);
-
-      infoBadgeUpdater.initialize();
-
-      expect(setIntervalSpy).toHaveBeenCalled();
-      expect(globalEventBus.on).toHaveBeenCalledWith(
-        Events.FOV_CHANGED,
-        expect.any(Function)
-      );
-
-      setIntervalSpy.mockRestore();
-    });
-  });
-
   describe('UIController', () => {
     let controller;
     let mockDeps;
@@ -329,7 +278,6 @@ describe('UIController Module', () => {
         panelManager: mockPanelManagerInstance,
         performSearch: jest.fn(),
         selectObject: jest.fn(),
-        setConstellationLines: jest.fn(),
         setLanguage: jest.fn(),
         setMagnitudeLimit: jest.fn(),
         showLocationDialog: jest.fn(),

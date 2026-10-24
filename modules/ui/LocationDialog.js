@@ -11,6 +11,7 @@
 import {locationManager} from '../services/LocationManager.js';
 import {panelManager} from './PanelManager.js';
 import {addMobileButtonListener} from '../core/Utils.js';
+import {domCache} from './DOMCache.js';
 
 /**
  * Modal dialog for entering latitude/longitude.
@@ -18,13 +19,13 @@ import {addMobileButtonListener} from '../core/Utils.js';
 export class LocationDialog {
   constructor() {
     /** @private {?Element} */
-    this.dialog_ = document.getElementById('location-dialog');
+    this.dialog_ = domCache.get('location-dialog');
     /** @private {?HTMLInputElement} */
-    this.latInput_ = document.getElementById('location-lat');
+    this.latInput_ = domCache.get('location-lat');
     /** @private {?HTMLInputElement} */
-    this.lonInput_ = document.getElementById('location-lon');
+    this.lonInput_ = domCache.get('location-lon');
     /** @private {?Element} */
-    this.error_ = document.getElementById('location-dialog-error');
+    this.error_ = domCache.get('location-dialog-error');
     /** @private {?Element} */
     this.previousFocus_ = null;
     /** @private */
@@ -37,8 +38,8 @@ export class LocationDialog {
   initialize() {
     if (!this.dialog_) return;
 
-    const setBtn = document.getElementById('location-set-btn');
-    const cancelBtn = document.getElementById('location-cancel-btn');
+    const setBtn = domCache.get('location-set-btn');
+    const cancelBtn = domCache.get('location-cancel-btn');
     if (setBtn) addMobileButtonListener(setBtn, () => this.apply_());
     if (cancelBtn) addMobileButtonListener(cancelBtn, () => this.close());
 

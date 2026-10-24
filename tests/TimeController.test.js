@@ -77,11 +77,18 @@ describe('TimeController', () => {
     });
   });
 
-  describe('jumpToTime', () => {
-    test('delegates to setTime', () => {
-      const newTime = new Date('2024-01-01T00:00:00Z');
-      controller.jumpToTime(newTime);
-      expect(controller.getTime().getTime()).toBe(newTime.getTime());
+  describe('announceTime', () => {
+    test('emits TIME_CHANGED for the current time without changing it', () => {
+      const handler = jest.fn();
+      const sub = globalEventBus.on(Events.TIME_CHANGED, handler);
+      const before = controller.getTime().getTime();
+
+      controller.announceTime();
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler.mock.calls[0][0].time.getTime()).toBe(before);
+      expect(controller.getTime().getTime()).toBe(before);
+      sub.unsubscribe();
     });
   });
   describe('setSpeed', () => {

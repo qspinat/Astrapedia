@@ -4,7 +4,7 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {raDecToCartesian, cartesianToRaDec, angularDistance} from '../core/CoordinateUtils.js';
+import {raDecToCartesian, angularDistance, sphericalMean} from '../core/CoordinateUtils.js';
 import {SPHERE, CONSTELLATIONS} from '../core/Constants.js';
 import {freezeTransform} from './SceneUtils.js';
 
@@ -54,9 +54,6 @@ export class ConstellationRenderer {
     /** @private {?THREE.Group} */
     this.linesGroup_ = null;
 
-    /** @private {boolean} */
-    this.visible_ = true;
-
     /** @private {!Array<!THREE.Line>} */
     this.glowLines_ = [];
 
@@ -91,31 +88,26 @@ export class ConstellationRenderer {
   }
 
   /**
-   * Get visibility state.
-   * @returns {boolean} Whether lines are visible
+   * Whether the display mode shows lines. Game-mode highlighting can force
+   * the group visible temporarily; that does not count.
+   * @returns {boolean}
    */
   isVisible() {
-    return this.visible_;
+    return this.mode_ !== CONSTELLATIONS.MODE_OFF;
   }
 
   /**
-   * Set visibility of constellation lines.
-   * @param {boolean} visible - Whether lines should be visible
-   */
-  setVisible(visible) {
-    this.visible_ = visible;
-    if (this.linesGroup_) {
-      this.linesGroup_.visible = visible;
-    }
-    this.requestRender_();
-  }
-
-  /**
-   * Set the current display mode.
+   * Set the display mode and apply it to the lines.
    * @param {string} mode - One of CONSTELLATIONS.MODE_OFF/MODE_FOCUS/MODE_ALL
    */
   setMode(mode) {
     this.mode_ = mode;
+    if (!this.linesGroup_) return;
+    // A highlight that forced hidden lines visible keeps them up until it is
+    // cleared; unhighlight() restores the group to the mode.
+    if (!this.forcedVisible_) this.linesGroup_.visible = this.isVisible();
+    if (mode === CONSTELLATIONS.MODE_ALL) this.resetOpacities();
+    this.requestRender_();
   }
 
   /**
@@ -199,7 +191,7 @@ export class ConstellationRenderer {
       this.linesGroup_.add(lines);
     });
 
-    this.linesGroup_.visible = this.visible_;
+    this.linesGroup_.visible = this.isVisible();
     freezeTransform(this.linesGroup_);
     this.celestialSphere_.add(this.linesGroup_);
 
@@ -313,7 +305,7 @@ export class ConstellationRenderer {
 
     // Restore original visibility if we forced it (game mode)
     if (this.forcedVisible_ && this.linesGroup_) {
-      this.linesGroup_.visible = false;
+      this.linesGroup_.visible = this.isVisible();
       this.forcedVisible_ = false;
 
       // Restore all lines to original state when hiding
@@ -381,23 +373,10 @@ export class ConstellationRenderer {
         hipSet.add(hip2);
       });
 
-      let sx = 0, sy = 0, sz = 0;
-      let count = 0;
-      hipSet.forEach((hip) => {
-        const star = starByHip.get(hip);
-        if (star) {
-          const raRad = star.ra * Math.PI / 180;
-          const decRad = star.dec * Math.PI / 180;
-          sx += Math.cos(decRad) * Math.cos(raRad);
-          sy += Math.sin(decRad);
-          sz += Math.cos(decRad) * Math.sin(raRad);
-          count++;
-        }
-      });
-
-      if (count > 0) {
-        const raDec = cartesianToRaDec(sx / count, sy / count, -(sz / count));
-        this.constellationCenters_.set(constName, {ra: raDec.ra, dec: raDec.dec});
+      const stars = [...hipSet].map((hip) => starByHip.get(hip)).filter(Boolean);
+      const center = sphericalMean(stars);
+      if (center) {
+        this.constellationCenters_.set(constName, center);
         this.constellationOpacities_.set(constName, 0);
       }
     });

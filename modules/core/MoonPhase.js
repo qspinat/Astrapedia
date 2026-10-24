@@ -23,6 +23,15 @@ export const MOON_PHASE_THRESHOLDS = {
 };
 
 /**
+ * Fraction of the moon's disc that is lit, from the cycle phase.
+ * @param {number} phase - Moon phase 0..1 (0 = new, 0.5 = full).
+ * @returns {number} Illuminated fraction 0..1.
+ */
+export function moonIllumination(phase) {
+  return (1 - Math.cos(2 * Math.PI * phase)) / 2;
+}
+
+/**
  * Map a moon phase fraction to its name and emoji.
  * @param {number} phase - Moon phase 0..1.
  * @returns {{name: string, emoji: string}}

@@ -11,7 +11,7 @@ import {installThreeMock} from '../helpers/threeMock.js';
 
 installThreeMock();
 
-const {moonShadowGeometry, PlanetRenderer} =
+const {moonShadowGeometry, planetDisplaySize, PlanetRenderer} =
     await import('../../modules/rendering/PlanetRenderer.js');
 
 describe('moonShadowGeometry', () => {
@@ -174,5 +174,22 @@ describe('drawMoon_', () => {
     const waningCounterclockwise = ctx.arc.mock.calls.at(-1).at(-1);
 
     expect(waxingCounterclockwise).not.toBe(waningCounterclockwise);
+  });
+});
+
+describe('planetDisplaySize', () => {
+  test('a distant planet is drawn at its magnitude dot size', () => {
+    const {displaySizePixels, useRealSize} =
+        planetDisplaySize({angularSize: 0.1, mag: 0}, 10);
+    expect(useRealSize).toBe(false);
+    expect(displaySizePixels).toBeGreaterThan(0.1 / 60 * 10);
+  });
+
+  test('a large disc at high zoom is drawn at its real size', () => {
+    // The Moon (31 arcmin) at 1000 px per degree.
+    const {displaySizePixels, useRealSize} =
+        planetDisplaySize({angularSize: 31, mag: -12.7}, 1000);
+    expect(useRealSize).toBe(true);
+    expect(displaySizePixels).toBeCloseTo(31 / 60 * 1000, 6);
   });
 });

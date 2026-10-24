@@ -18,10 +18,10 @@ import {addMobileButtonListener, relativeDayLabel, APP_LOCALE} from '../core/Uti
 import {initializeNightVision} from './NightVision.js';
 import {initializeLocationDialog} from './LocationDialog.js';
 import {initializeOnboarding, getOnboarding} from './Onboarding.js';
-import {GameUI} from '../features/GameUI.js';
-import {TourUI} from '../features/TourUI.js';
-import {TimeUI} from '../features/TimeUI.js';
-import {TelescopeUI} from '../features/TelescopeUI.js';
+import {initializeGameUI} from '../features/GameUI.js';
+import {initializeTourUI} from '../features/TourUI.js';
+import {initializeTimeUI} from '../features/TimeUI.js';
+import {initializeTelescopeUI} from '../features/TelescopeUI.js';
 import {domCache} from './DOMCache.js';
 
 const logger = createLogger('UIController');
@@ -216,7 +216,6 @@ export class SettingsHandler {
   /**
    * Creates a new SettingsHandler instance.
    * @param {!Object} dependencies - Required dependencies
-   * @param {function(boolean): void=} dependencies.setConstellationLines - Set lines
    * @param {function(string): void=} dependencies.setConstellationLinesMode - Set mode
    * @param {function(boolean): void=} dependencies.setEquatorLineVisible - Set equator
    * @param {function(boolean): void=} dependencies.setGridVisible - Set grid visibility
@@ -425,116 +424,6 @@ export class SettingsHandler {
 }
 
 /**
- * Info Badge Updater - periodically updates the info badge display.
- */
-export class InfoBadgeUpdater {
-  /**
-   * Creates a new InfoBadgeUpdater instance.
-   * @param {!Object=} dependencies - Optional dependencies
-   * @param {function(): number=} dependencies.getFOV - Get FOV function
-   * @param {function(): {ra: number, dec: number}=} dependencies.getViewDirection - Get view
-   */
-  constructor(dependencies = {}) {
-    /** @private @const */
-    this.deps_ = dependencies;
-
-    /** @private {?number} */
-    this.intervalId_ = null;
-
-    /** @private {!Array<{unsubscribe: function(): void}>} */
-    this.subscriptions_ = [];
-  }
-
-  /**
-   * Initialize the info badge updater.
-   */
-  initialize() {
-    this.start();
-    this.setupEventBusListeners_();
-  }
-
-  /**
-   * Sets up EventBus listeners.
-   * @private
-   */
-  setupEventBusListeners_() {
-    this.subscriptions_.push(
-      globalEventBus.on(Events.FOV_CHANGED, (data) => {
-        this.updateFOVDisplay_(data.fov);
-      }),
-      globalEventBus.on(Events.CAMERA_MOVE, () => {
-        this.updateBadges_();
-      })
-    );
-  }
-
-  /**
-   * Release EventBus subscriptions.
-   */
-  dispose() {
-    this.subscriptions_.forEach((sub) => sub?.unsubscribe?.());
-    this.subscriptions_ = [];
-  }
-
-  /**
-   * Starts the periodic update interval.
-   */
-  start() {
-    // Update every 2 seconds to save power
-    this.intervalId_ = setInterval(() => {
-      this.updateBadges_();
-    }, 2000);
-  }
-
-  /**
-   * Stops the periodic update interval.
-   */
-  stop() {
-    if (this.intervalId_) {
-      clearInterval(this.intervalId_);
-      this.intervalId_ = null;
-    }
-  }
-
-  /**
-   * Update all badges.
-   * @private
-   */
-  updateBadges_() {
-    const fovBadge = domCache.get('fov-badge');
-    const coordsBadge = domCache.get('coords-badge');
-
-    if (fovBadge) {
-      fovBadge.textContent =
-        domCache.get('fov-display')?.textContent || '60°';
-    }
-
-    if (coordsBadge) {
-      const ra = domCache.get('ra-display')?.textContent || '0°';
-      const dec = domCache.get('dec-display')?.textContent || '0°';
-      coordsBadge.textContent = `RA ${ra} Dec ${dec}`;
-    }
-  }
-
-  /**
-   * Update FOV display.
-   * @param {number} fov - FOV in degrees
-   * @private
-   */
-  updateFOVDisplay_(fov) {
-    const fovBadge = domCache.get('fov-badge');
-    const fovDisplay = domCache.get('fov-display');
-
-    if (fovDisplay) {
-      fovDisplay.textContent = `${fov.toFixed(1)}°`;
-    }
-    if (fovBadge) {
-      fovBadge.textContent = `${fov.toFixed(1)}°`;
-    }
-  }
-}
-
-/**
  * Main UI Controller - orchestrates all UI components.
  */
 export class UIController {
@@ -564,9 +453,6 @@ export class UIController {
     /** @private {?TourUI} */
     this.tourUI_ = null;
 
-    /** @private {?InfoBadgeUpdater} */
-    this.infoBadgeUpdater_ = null;
-
     /** @private {?TelescopeUI} */
     this.telescopeUI_ = null;
 
@@ -595,7 +481,6 @@ export class UIController {
     this.searchController_.initialize();
 
     this.settingsHandler_ = new SettingsHandler({
-      setConstellationLines: this.deps_.setConstellationLines,
       setConstellationLinesMode: this.deps_.setConstellationLinesMode,
       setEquatorLineVisible: this.deps_.setEquatorLineVisible,
       setGridVisible: this.deps_.setGridVisible,
@@ -609,30 +494,29 @@ export class UIController {
     });
     this.settingsHandler_.initialize();
 
-    this.timeUI_ = new TimeUI({
+    // The factories guard against a second instance (duplicate DOM handlers)
+    // and call initialize() themselves.
+    this.timeUI_ = initializeTimeUI({
       setTimeSpeed: this.deps_.setTimeSpeed,
       togglePlayback: this.deps_.togglePlayback,
       jumpToTime: this.deps_.jumpToTime,
       getSimulationTime: this.deps_.getSimulationTime,
     });
-    this.timeUI_.initialize();
 
-    this.gameUI_ = new GameUI({
+    this.gameUI_ = initializeGameUI({
       passQuestion: this.deps_.passQuestion,
       stopGame: this.deps_.stopGame,
     });
-    this.gameUI_.initialize();
 
-    this.tourUI_ = new TourUI({
+    this.tourUI_ = initializeTourUI({
       startTour: this.deps_.startTour,
       nextStep: this.deps_.nextTourStep,
       prevStep: this.deps_.prevTourStep,
       stopTour: this.deps_.stopTour,
       panelManager: this.panelManager_,
     });
-    this.tourUI_.initialize();
 
-    this.telescopeUI_ = new TelescopeUI({
+    this.telescopeUI_ = initializeTelescopeUI({
       getTelescope: this.deps_.getTelescope,
       setTelescope: this.deps_.setTelescope,
       getEyepiece: this.deps_.getEyepiece,
@@ -647,13 +531,6 @@ export class UIController {
       computeVisibilityForDiameters: this.deps_.computeVisibilityForDiameters,
       computeDiffuseVisibility: this.deps_.computeDiffuseVisibility,
     });
-    this.telescopeUI_.initialize();
-
-    this.infoBadgeUpdater_ = new InfoBadgeUpdater({
-      getFOV: this.deps_.getFOV,
-      getViewDirection: this.deps_.getViewDirection,
-    });
-    this.infoBadgeUpdater_.initialize();
 
     // Setup panel-specific buttons
     this.setupPanelButtons_();
@@ -742,11 +619,7 @@ export class UIController {
       addMobileButtonListener(item, () => {
         const panelId = item.dataset.panel || '';
         this.panelManager_.closeAll();
-        this.hideGameModal_();
-        if (panelId === 'game-select-modal') {
-          globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT);
-          setActive('game-select-modal');
-        } else if (panelId) {
+        if (panelId) {
           this.panelManager_.open(panelId);
           // open() emits PANEL_OPENED which also sets active, but set it here
           // too so the Sky→panel transition is immediate.
@@ -761,14 +634,6 @@ export class UIController {
     // Escape, back button).
     globalEventBus.on(Events.PANEL_OPENED, (data) => setActive(data?.panelId));
     globalEventBus.on(Events.PANEL_CLOSED, () => setActive(''));
-  }
-
-  /**
-   * Hide the game-select modal (not a PanelManager panel).
-   * @private
-   */
-  hideGameModal_() {
-    domCache.gameSelectModal?.classList.remove('visible');
   }
 
   /**
@@ -836,15 +701,15 @@ export class UIController {
    * @private
    */
   wireToursCard_({cardId, nameId, labelId, onTap, getContent}) {
-    const card = document.getElementById(cardId);
+    const card = domCache.get(cardId);
     if (!card) return;
 
     addMobileButtonListener(card, onTap);
 
     this.panelManager_.onOpen('tours-panel', () => {
       const content = getContent();
-      const nameEl = document.getElementById(nameId);
-      const labelEl = document.getElementById(labelId);
+      const nameEl = domCache.get(nameId);
+      const labelEl = domCache.get(labelId);
       if (content && nameEl && labelEl) {
         nameEl.textContent = content.name;
         labelEl.textContent = content.label;
@@ -898,8 +763,6 @@ export class UIController {
    * Dispose of resources.
    */
   dispose() {
-    this.infoBadgeUpdater_?.stop();
-    this.infoBadgeUpdater_?.dispose();
     this.settingsHandler_?.dispose();
     this.panelManager_.dispose();
   }

@@ -7,6 +7,7 @@ import {
   calculateMoonPosition,
   calculatePlanetPositionFallback,
   PLANET_DEFAULTS,
+  toSelectablePlanet,
 } from '../../modules/astronomy/SolarSystem.js';
 
 describe('SolarSystem', () => {
@@ -374,5 +375,22 @@ describe('calculateMoonPosition', () => {
       expect(prevPhase).toBeGreaterThan(0.4);
       expect(prevPhase).toBeLessThan(0.55);
     });
+  });
+});
+
+describe('toSelectablePlanet', () => {
+  const body = (name) => ({name, ra: 10, dec: 20, mag: 1, angularSize: 0.5});
+
+  test.each([
+    ['Sun', 'Star', 'Star (G2V)'],
+    ['Moon', 'Moon', null],
+    ['Mars', 'Planet', null],
+  ])('%s is a %s', (name, type, subtype) => {
+    expect(toSelectablePlanet(body(name))).toMatchObject({name, type, subtype});
+  });
+
+  test('carries position and phase through', () => {
+    expect(toSelectablePlanet({...body('Moon'), phase: 0.4}))
+        .toMatchObject({ra: 10, dec: 20, phase: 0.4});
   });
 });

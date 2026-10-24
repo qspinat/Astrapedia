@@ -5,8 +5,9 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TIME} from '../core/Constants.js';
-import {addMobileButtonListener} from '../core/Utils.js';
+import {addMobileButtonListener, setTextIfChanged} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
+import {domCache} from '../ui/DOMCache.js';
 
 const logger = createLogger('TimeUI');
 
@@ -34,6 +35,9 @@ export class TimeUI {
 
     /** @private {!Array<!Object>} EventBus subscriptions for cleanup */
     this.subscriptions_ = [];
+
+    /** @private {?number} Epoch second currently shown in #time-display */
+    this.lastDisplayedSecond_ = null;
   }
 
   /**
@@ -50,7 +54,7 @@ export class TimeUI {
    */
   setupEventListeners_() {
     // Rewind button
-    const rewindBtn = document.getElementById('time-rewind-btn');
+    const rewindBtn = domCache.get('time-rewind-btn');
     if (rewindBtn) {
       addMobileButtonListener(rewindBtn, () => {
         this.deps_.setTimeSpeed?.(-100);
@@ -58,7 +62,7 @@ export class TimeUI {
     }
 
     // Play/pause button
-    const playBtn = document.getElementById('time-play-btn');
+    const playBtn = domCache.get('time-play-btn');
     if (playBtn) {
       addMobileButtonListener(playBtn, () => {
         this.deps_.togglePlayback?.();
@@ -66,7 +70,7 @@ export class TimeUI {
     }
 
     // Forward button (cycles through speeds)
-    const forwardBtn = document.getElementById('time-forward-btn');
+    const forwardBtn = domCache.get('time-forward-btn');
     if (forwardBtn) {
       addMobileButtonListener(forwardBtn, () => {
         const presets = TIME.SPEED_PRESETS;
@@ -77,7 +81,7 @@ export class TimeUI {
     }
 
     // Now button
-    const nowBtn = document.getElementById('time-now-btn');
+    const nowBtn = domCache.get('time-now-btn');
     if (nowBtn) {
       addMobileButtonListener(nowBtn, () => {
         this.deps_.jumpToTime?.(new Date());
@@ -93,12 +97,12 @@ export class TimeUI {
    * @private
    */
   setupTimePicker_() {
-    const pickerBtn = document.getElementById('time-picker-btn');
-    const pickerPanel = document.getElementById('time-picker-panel');
-    const datePicker = document.getElementById('date-picker');
-    const timePicker = document.getElementById('time-picker');
-    const applyBtn = document.getElementById('time-picker-apply');
-    const cancelBtn = document.getElementById('time-picker-cancel');
+    const pickerBtn = domCache.get('time-picker-btn');
+    const pickerPanel = domCache.get('time-picker-panel');
+    const datePicker = domCache.get('date-picker');
+    const timePicker = domCache.get('time-picker');
+    const applyBtn = domCache.get('time-picker-apply');
+    const cancelBtn = domCache.get('time-picker-cancel');
 
     if (!pickerBtn || !pickerPanel) return;
 
@@ -162,8 +166,8 @@ export class TimeUI {
    */
   prefillTimePicker_() {
     const currentTime = this.deps_.getSimulationTime?.() || new Date();
-    const datePicker = document.getElementById('date-picker');
-    const timePicker = document.getElementById('time-picker');
+    const datePicker = domCache.get('date-picker');
+    const timePicker = domCache.get('time-picker');
 
     if (datePicker) {
       const year = currentTime.getFullYear();
@@ -189,6 +193,9 @@ export class TimeUI {
         this.isPlaying_ = data.isPlaying;
         this.currentSpeed_ = data.speed || 0;
         this.updatePlayButton_();
+        if (data.speedDisplay) {
+          setTextIfChanged(domCache.get('time-speed-display'), data.speedDisplay);
+        }
       }),
 
       globalEventBus.on(Events.TIME_CHANGED, (data) => {
@@ -206,22 +213,24 @@ export class TimeUI {
    * @private
    */
   updatePlayButton_() {
-    const playBtn = document.getElementById('time-play-btn');
+    const playBtn = domCache.get('time-play-btn');
     if (playBtn) {
       playBtn.classList.toggle('playing', this.isPlaying_);
     }
   }
 
   /**
-   * Update time display.
+   * Update time display. The only writer of #time-display; TIME_TICK fires
+   * every frame during playback, so skip the locale formatting and the DOM
+   * write when the displayed second has not changed.
    * @param {!Date} time - Current time
    * @private
    */
   updateTimeDisplay_(time) {
-    const timeDisplay = document.getElementById('time-display');
-    if (timeDisplay) {
-      timeDisplay.textContent = time.toLocaleString();
-    }
+    const second = Math.floor(time.getTime() / 1000);
+    if (second === this.lastDisplayedSecond_) return;
+    this.lastDisplayedSecond_ = second;
+    setTextIfChanged(domCache.get('time-display'), time.toLocaleString());
   }
 
   /**

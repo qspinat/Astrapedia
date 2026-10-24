@@ -13,6 +13,7 @@ import {
 } from '../core/CoordinateUtils.js';
 import {createLogger} from '../core/Logger.js';
 import {safeSetJson, safeGetJson} from '../core/Utils.js';
+import {domCache} from '../ui/DOMCache.js';
 
 const logger = createLogger('LocationManager');
 
@@ -395,7 +396,7 @@ export class LocationManager {
   showLocationPrompt_() {
     // On first run the onboarding overlay is up; wait for it to close so the
     // two dialogs don't stack. Reads the DOM only — no coupling to Onboarding.
-    const onboarding = document.getElementById('onboarding-overlay');
+    const onboarding = domCache.get('onboarding-overlay');
     if (onboarding && onboarding.classList.contains('visible')) {
       const observer = new MutationObserver(() => {
         if (!onboarding.classList.contains('visible')) {
@@ -432,11 +433,11 @@ export class LocationManager {
 
     this.addPromptStyles_();
 
-    document.getElementById('location-skip').addEventListener('click', () => {
+    domCache.get('location-skip').addEventListener('click', () => {
       dialog.remove();
     });
 
-    document.getElementById('location-allow').addEventListener('click', () => {
+    domCache.get('location-allow').addEventListener('click', () => {
       dialog.remove();
       this.requestGeolocationWithUI_();
     });
@@ -464,7 +465,7 @@ export class LocationManager {
 
     this.addPromptStyles_();
 
-    document.getElementById('location-dismiss').addEventListener('click', () => {
+    domCache.get('location-dismiss').addEventListener('click', () => {
       dialog.remove();
     });
   }
@@ -474,7 +475,7 @@ export class LocationManager {
    * @private
    */
   addPromptStyles_() {
-    if (document.getElementById('location-prompt-styles')) return;
+    if (domCache.get('location-prompt-styles')) return;
 
     const style = document.createElement('style');
     style.id = 'location-prompt-styles';
@@ -599,7 +600,7 @@ export class LocationManager {
    */
   requestGeolocationWithUI_() {
     // Show loading state on button if exists
-    const btn = document.getElementById('auto-location-btn');
+    const btn = domCache.get('auto-location-btn');
     const originalContent = btn ? btn.innerHTML : '';
     if (btn) btn.innerHTML = '⏳';
 

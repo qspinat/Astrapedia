@@ -103,12 +103,13 @@ describe('EventBus Integration', () => {
       // Emit score event with expected shape
       globalEventBus.emit(Events.GAME_SCORE_UPDATED, {
         score: 5,
+        correct: 3,
+        asked: 4,
         total: 10,
-        streak: 3,
       });
 
       const scoreEl = document.getElementById('game-score');
-      expect(scoreEl.textContent).toBe('Score: 5/10');
+      expect(scoreEl.textContent).toBe('5 (4/10)');
     });
   });
 
@@ -351,11 +352,13 @@ describe('EventBus Integration', () => {
 
       globalEventBus.emit(Events.GAME_SCORE_UPDATED, {
         score: 0,
+        correct: 0,
+        asked: 0,
         total: 0,
       });
 
       const scoreEl = document.getElementById('game-score');
-      expect(scoreEl.textContent).toBe('Score: 0/0');
+      expect(scoreEl.textContent).toBe('0 (0/0)');
     });
 
     test('TOUR_STEP_CHANGED handles first step correctly', () => {
@@ -430,22 +433,6 @@ describe('EventBus Integration', () => {
 
       globalEventBus.emit(Events.CMD_PASS_QUESTION);
       expect(mockPass).toHaveBeenCalledTimes(1);
-    });
-
-    test('CMD_SHOW_GAME_SELECT shows game selection modal', () => {
-      document.body.innerHTML = '<div id="game-select-modal"></div>';
-
-      const modal = document.getElementById('game-select-modal');
-      expect(modal.classList.contains('visible')).toBe(false);
-
-      // Subscribe as skymap.js does
-      globalEventBus.on(Events.CMD_SHOW_GAME_SELECT, () => {
-        modal.classList.add('visible');
-      });
-
-      globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT);
-
-      expect(modal.classList.contains('visible')).toBe(true);
     });
 
     test('CMD_START_GAME is used when category is selected (after modal)', () => {

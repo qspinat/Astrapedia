@@ -12,9 +12,11 @@ import {
   calculateMoonPosition,
   calculatePlanetPosition,
   PLANET_DEFAULTS,
+  solarSystemType,
 } from '../astronomy/SolarSystem.js';
 import {getPlanetImageUrl, getPlanetFallbackUrl} from '../data/PlanetImages.js';
 import {createLogger} from '../core/Logger.js';
+import {moonIllumination} from '../core/MoonPhase.js';
 
 const logger = createLogger('PlanetRenderer');
 
@@ -34,12 +36,34 @@ const logger = createLogger('PlanetRenderer');
  * @returns {{illuminated: number, waxing: boolean, semiAxis: number}}
  */
 export function moonShadowGeometry(phase) {
-  // Triangular in phase: 0 at both new moons, 1 at full.
-  const illuminated = 1 - Math.abs(2 * phase - 1);
+  // The lit fraction of a sphere seen head-on; the terminator ellipse's
+  // semi-axis is then exactly 2k - 1 = -cos(2*pi*phase).
+  const illuminated = moonIllumination(phase);
   return {
     illuminated,
     waxing: phase < 0.5,
     semiAxis: 2 * illuminated - 1,
+  };
+}
+
+/**
+ * On-screen size of a planet sprite: its real angular size once that is
+ * larger than the magnitude-based dot. ClickHandler sizes tap targets with
+ * this too, so what can be tapped matches what is drawn.
+ * @param {{angularSize: number, mag: number}} data - Sprite userData
+ * @param {number} pixelsPerDeg - Canvas pixels per degree at the current FOV
+ * @returns {{displaySizePixels: number, realSizePixels: number,
+ *     useRealSize: boolean}}
+ */
+export function planetDisplaySize(data, pixelsPerDeg) {
+  const realSizePixels = ((data.angularSize || 0.1) / 60) * pixelsPerDeg;
+  // Planets use a larger maxSize (6) than stars.
+  const magBasedPixels = magnitudeToSize(data.mag || 0, 6) * 1.5;
+  const useRealSize = realSizePixels >= magBasedPixels;
+  return {
+    displaySizePixels: useRealSize ? realSizePixels : magBasedPixels,
+    realSizePixels,
+    useRealSize,
   };
 }
 
@@ -148,8 +172,8 @@ export class PlanetRenderer {
     const observer = this.getObserverLocation_();
 
     // Calculate positions
-    const sunPos = calculateSunPosition(simTime);
-    const moonPos = calculateMoonPosition(simTime);
+    const sunPos = calculateSunPosition(simTime, observer);
+    const moonPos = calculateMoonPosition(simTime, observer);
 
     // Build planet data with positions
     this.planets_ = PLANET_DEFAULTS.map((defaults) => {
@@ -226,14 +250,9 @@ export class PlanetRenderer {
     const pos = raDecToCartesian(planet.ra, planet.dec, this.radius_);
     sprite.position.copy(pos);
 
-    // Store planet data
-    let type = 'Planet';
-    if (planet.name === 'Sun') type = 'Star';
-    else if (planet.name === 'Moon') type = 'Moon';
-
     sprite.userData = {
       planet: planet,
-      type,
+      type: solarSystemType(planet.name),
       name: planet.name,
       ra: planet.ra,
       dec: planet.dec,
@@ -286,7 +305,7 @@ export class PlanetRenderer {
    * no longer what the sprite shows.
    *
    * @param {!THREE.Sprite} sprite - The Moon sprite
-   * @param {number} phase - Illuminated fraction, 0..1
+   * @param {number} phase - Moon phase 0..1 (0 = new, 0.5 = full)
    * @private
    */
   redrawMoonPhase_(sprite, phase) {
@@ -383,8 +402,8 @@ export class PlanetRenderer {
     const observer = this.getObserverLocation_();
 
     // Calculate new positions
-    this.cachedPositions_['Sun'] = calculateSunPosition(simTime);
-    this.cachedPositions_['Moon'] = calculateMoonPosition(simTime);
+    this.cachedPositions_['Sun'] = calculateSunPosition(simTime, observer);
+    this.cachedPositions_['Moon'] = calculateMoonPosition(simTime, observer);
 
     const planetNames = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
     planetNames.forEach((name) => {
@@ -441,18 +460,8 @@ export class PlanetRenderer {
       const data = sprite.userData;
       if (!data) continue;
 
-      // Calculate real angular size in pixels
-      const angularSizeDeg = (data.angularSize || 0.1) / 60;
-      const realSizePixels = angularSizeDeg * pixelsPerDeg;
-
-      // Calculate magnitude-based size (planets use larger maxSize=6)
-      const mag = data.mag || 0;
-      const magBasedSize = magnitudeToSize(mag, 6);
-      const magBasedPixels = magBasedSize * 1.5;
-
-      // Use larger of real or magnitude-based size
-      const useRealSize = realSizePixels >= magBasedPixels;
-      const displaySizePixels = useRealSize ? realSizePixels : magBasedPixels;
+      const {displaySizePixels, realSizePixels, useRealSize} =
+          planetDisplaySize(data, pixelsPerDeg);
 
       // Convert to world units
       const worldSize = (displaySizePixels / canvasHeight) * 2 * this.radius_ * Math.tan(THREE.MathUtils.degToRad(fov / 2));

@@ -18,7 +18,8 @@ logging.basicConfig(
     format="%(message)s",
 )
 
-from astrapedia.config import Config, DSO_TYPE_NAMES
+from astrapedia.config import Config
+from astrapedia.mappings import DSO_TYPE_NAMES
 from astrapedia.io import download_file, write_json
 from astrapedia.astronomy import (
     filter_by_magnitude,
@@ -194,7 +195,7 @@ def process_hyg_stars(
         print(f"    {category}: {count} stars")
 
     # Save to JSON (compact to reduce file size and diff noise)
-    output_file = Config.get_data_path("stars.json")
+    output_file = Config.get_output_path("stars")
     write_json(stars, output_file, compact=True)
 
     return {"stars": stars, "magnitude_bins": magnitude_bins, "count": len(stars)}
@@ -204,9 +205,10 @@ def process_constellation_lines() -> dict | None:
     """Download and process constellation line data."""
     print("\n=== Processing Constellation Lines ===")
 
-    # Download constellation data from dcf21's repository (IAU standard)
-    const_url = "https://raw.githubusercontent.com/dcf21/constellation-stick-figures/master/constellation_lines_iau.dat"
-    const_file = download_catalog(const_url, "constellation_lines_iau.dat")
+    # IAU stick figures from dcf21's repository
+    const_file = download_catalog(
+        Config.CONSTELLATION_LINES_URL, "constellation_lines_iau.dat", "constellations"
+    )
 
     if not const_file:
         print("Failed to download constellation data")
@@ -271,7 +273,7 @@ def process_constellation_lines() -> dict | None:
         return None
 
     # Save to JSON (compact to reduce file size and diff noise)
-    output_file = Config.get_data_path("constellations.json")
+    output_file = Config.get_output_path("constellations")
     write_json(constellations, output_file, compact=True)
 
     return constellations
@@ -395,7 +397,7 @@ def process_deep_sky_objects() -> dict | None:
         print(f"    {type_name}: {count}")
 
     # Save to JSON (compact to reduce file size and diff noise)
-    output_file = Config.get_data_path("deep_sky_objects.json")
+    output_file = Config.get_output_path("dsos")
     write_json(dso_list, output_file, compact=True)
 
     return {"objects": dso_list, "by_type": dso_by_type, "count": len(dso_list)}
@@ -424,7 +426,7 @@ def create_named_objects_index(stars: list[dict]) -> dict:
         })
 
     # Save to JSON
-    output_file = Config.get_data_path("named_objects.json")
+    output_file = Config.get_output_path("named_objects")
     write_json(index, output_file, indent=2)
 
     # Print brightest named stars

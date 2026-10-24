@@ -12,7 +12,8 @@ import {catalogDesignation} from '../data/CuratedImages.js';
 import {createLogger} from '../core/Logger.js';
 import {API_ENDPOINTS} from '../core/Constants.js';
 import {domCache} from '../ui/DOMCache.js';
-import {moonPhaseName} from '../core/MoonPhase.js';
+import {moonIllumination, moonPhaseName} from '../core/MoonPhase.js';
+import {isImageSizeAcceptable} from '../rendering/ImageRenderer.js';
 
 const logger = createLogger('SelectionManager');
 
@@ -365,12 +366,13 @@ export class SelectionManager {
 
   /**
    * Human label for a moon phase fraction, e.g. "Waxing Gibbous (63%)".
-   * @param {number} phase - Illuminated fraction 0..1
+   * @param {number} phase - Moon phase 0..1 (0 = new, 0.5 = full)
    * @returns {string}
    * @private
    */
   moonPhaseLabel_(phase) {
-    return `${moonPhaseName(phase).name} (${(phase * 100).toFixed(0)}% lit)`;
+    const lit = (moonIllumination(phase) * 100).toFixed(0);
+    return `${moonPhaseName(phase).name} (${lit}% lit)`;
   }
 
   /**
@@ -404,7 +406,7 @@ export class SelectionManager {
     this.descriptionAbortController_ = new AbortController();
     const signal = this.descriptionAbortController_.signal;
 
-    const descDiv = document.getElementById('object-description');
+    const descDiv = domCache.get('object-description');
     if (!descDiv) return;
 
     // Build search terms for Wikipedia
@@ -503,7 +505,7 @@ export class SelectionManager {
     this.imageAbortController_ = new AbortController();
     const signal = this.imageAbortController_.signal;
 
-    const container = document.getElementById('main-image');
+    const container = domCache.get('main-image');
     if (!container) return;
 
     // Show loading state
@@ -545,31 +547,11 @@ export class SelectionManager {
     if (signal.aborted) return;
 
     if (result?.url) {
-      // Skip size check for trusted sources (already optimized)
-      const trustedSources = ['ESA/Hubble', 'NASA', 'NASA/Webb', 'NASA/Hubble', 'Curated', 'DSS'];
-      const isTrusted = trustedSources.includes(result.source) ||
-        result.url?.includes('esahubble.org') ||
-        result.url?.includes('nasa.gov') ||
-        result.url?.includes('alasky.cds.unistra.fr');
-
-      let skipDueToSize = false;
-      if (!isTrusted) {
-        // Check file size before loading (max 1MB) - only for untrusted sources
-        const maxSize = 1024 * 1024;
-        try {
-          const headResponse = await fetch(result.url, {method: 'HEAD', signal});
-          const contentLength = parseInt(headResponse.headers.get('content-length') || '0', 10);
-          if (contentLength > maxSize) {
-            logger.debug(`Skipping panel image: ${(contentLength / 1024 / 1024).toFixed(2)}MB exceeds 1MB limit`);
-            skipDueToSize = true;
-          }
-        } catch (e) {
-          // Handle abort gracefully
-          if (e.name === 'AbortError') {
-            return;
-          }
-          // If HEAD fails for other reasons, proceed anyway
-        }
+      let skipDueToSize;
+      try {
+        skipDueToSize = !await isImageSizeAcceptable(result, signal);
+      } catch (e) {
+        return; // Aborted: a newer selection owns the panel.
       }
 
       // Check if aborted while waiting
@@ -685,7 +667,7 @@ export class SelectionManager {
     this.descriptionAbortController_ = new AbortController();
     const signal = this.descriptionAbortController_.signal;
 
-    const descContainer = document.getElementById('object-description');
+    const descContainer = domCache.get('object-description');
     if (!descContainer) return;
 
     try {

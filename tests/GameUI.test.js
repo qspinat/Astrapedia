@@ -49,6 +49,45 @@ describe('GameUI', () => {
     });
   });
 
+  describe('category picker', () => {
+    beforeEach(() => {
+      document.body.insertAdjacentHTML('beforeend', `
+        <div id="game-select-modal" class="modal-overlay visible">
+          <div class="modal-card">
+            <button class="game-select-btn" data-category="messier"></button>
+            <button id="game-select-cancel"></button>
+          </div>
+        </div>
+      `);
+    });
+
+    test('starts the chosen category and closes the picker', () => {
+      const started = jest.fn();
+      const sub = globalEventBus.on(Events.CMD_START_GAME, started);
+      gameUI.initialize();
+
+      document.querySelector('.game-select-btn').click();
+
+      expect(started).toHaveBeenCalledWith({category: 'messier'});
+      expect(document.getElementById('game-select-modal')
+          .classList.contains('visible')).toBe(false);
+      sub.unsubscribe();
+    });
+
+    test('cancel closes the picker without starting', () => {
+      const started = jest.fn();
+      const sub = globalEventBus.on(Events.CMD_START_GAME, started);
+      gameUI.initialize();
+
+      document.getElementById('game-select-cancel').click();
+
+      expect(started).not.toHaveBeenCalled();
+      expect(document.getElementById('game-select-modal')
+          .classList.contains('visible')).toBe(false);
+      sub.unsubscribe();
+    });
+  });
+
   describe('initialize', () => {
     test('sets up pass button', () => {
       gameUI.initialize();
@@ -110,10 +149,11 @@ describe('GameUI', () => {
     test('handles GAME_SCORE_UPDATED event', () => {
       gameUI.initialize();
 
-      globalEventBus.emit(Events.GAME_SCORE_UPDATED, {score: 5, total: 10});
+      globalEventBus.emit(Events.GAME_SCORE_UPDATED,
+          {score: 5, correct: 3, asked: 4, total: 10});
 
       const scoreEl = document.getElementById('game-score');
-      expect(scoreEl.textContent).toBe('Score: 5/10');
+      expect(scoreEl.textContent).toBe('5 (4/10)');
     });
   });
 

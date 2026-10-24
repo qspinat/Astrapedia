@@ -44,7 +44,6 @@ describe('DynamicDataLoader', () => {
       const customLoader = new DynamicDataLoader({
         maxStars: 1000,
         maxDSOs: 500,
-        maxRegions: 50,
         timeout: 5000,
         rateLimitMs: 2000,
         maxRequestsPerMinute: 10,
@@ -53,57 +52,47 @@ describe('DynamicDataLoader', () => {
     });
   });
 
-  describe('shouldQueryRegion', () => {
-    test('returns false when FOV is too wide', () => {
-      expect(loader.shouldQueryRegion(0, 0, 20, 12)).toBe(false);
-    });
-
-    test('returns false when already querying', () => {
-      // Manually set querying state
-      loader.isQueryingStars_ = true;
-      expect(loader.shouldQueryRegion(0, 0, 1, 12)).toBe(false);
-    });
-
-    test('returns true for valid unqueried region', () => {
-      expect(loader.shouldQueryRegion(45, 30, 2, 12)).toBe(true);
-    });
-
-    test('returns false for already queried region', () => {
-      // Query once
-      expect(loader.shouldQueryRegion(45, 30, 2, 12)).toBe(true);
-      // Add to queried regions
-      const key = loader.getRegionKey(45, 30, 2, 12);
-      loader.queriedRegions_.add(key);
-      // Should return false now
-      expect(loader.shouldQueryRegion(45, 30, 2, 12)).toBe(false);
-    });
-  });
-
-  describe('getRegionKey', () => {
+  describe('getRegion', () => {
     test('creates consistent region keys', () => {
-      const key1 = loader.getRegionKey(45, 30, 2, 12);
-      const key2 = loader.getRegionKey(45, 30, 2, 12);
+      const key1 = loader.getRegion(45, 30, 2, 12).key;
+      const key2 = loader.getRegion(45, 30, 2, 12).key;
       expect(key1).toBe(key2);
     });
 
     test('creates different keys for different regions', () => {
-      const key1 = loader.getRegionKey(45, 30, 2, 12);
-      const key2 = loader.getRegionKey(90, 60, 2, 12);
+      const key1 = loader.getRegion(45, 30, 2, 12).key;
+      const key2 = loader.getRegion(90, 60, 2, 12).key;
       expect(key1).not.toBe(key2);
     });
 
     test('includes FOV bucket in key', () => {
-      const deepKey = loader.getRegionKey(0, 0, 0.5, 12);
-      const mediumKey = loader.getRegionKey(0, 0, 3, 12);
-      const wideKey = loader.getRegionKey(0, 0, 8, 12);
+      const deepKey = loader.getRegion(0, 0, 0.5, 12).key;
+      const mediumKey = loader.getRegion(0, 0, 2, 12).key;
+      const wideKey = loader.getRegion(0, 0, 8, 12).key;
       expect(deepKey).toContain('deep');
       expect(mediumKey).toContain('medium');
       expect(wideKey).toContain('wide');
     });
 
+    test('re-queries when zooming past the UCAC4 threshold', () => {
+      expect(loader.getRegion(45, 30, 3.5, 12).key)
+          .not.toBe(loader.getRegion(45, 30, 2.5, 12).key);
+    });
+
+    test('padded query from the cell centre covers any view in the cell', () => {
+      const fov = 0.3;
+      const a = loader.getRegion(45.01, 30.01, fov, 12);
+      const b = loader.getRegion(45.12, 30.12, fov, 12);
+      expect(b.key).toBe(a.key);
+      // b's view centre must lie inside a's query cone (radius 0.8 fov + pad).
+      const dist = Math.hypot((45.12 - a.ra) * Math.cos(30 * Math.PI / 180),
+          30.12 - a.dec);
+      expect(dist).toBeLessThanOrEqual(a.pad);
+    });
+
     test('includes magnitude bucket in key', () => {
-      const key10 = loader.getRegionKey(0, 0, 2, 10);
-      const key14 = loader.getRegionKey(0, 0, 2, 14);
+      const key10 = loader.getRegion(0, 0, 2, 10).key;
+      const key14 = loader.getRegion(0, 0, 2, 14).key;
       expect(key10).toContain('mag10');
       expect(key14).toContain('mag14');
     });
@@ -311,27 +300,32 @@ describe('DynamicDataLoader', () => {
       expect(completeCalls.length).toBeGreaterThan(0);
     });
 
-    test('adds region to queried regions', async () => {
-      await loader.queryStars(45, 30, 2, 12);
-      const key = loader.getRegionKey(45, 30, 2, 12);
-      expect(loader.queriedRegions_.has(key)).toBe(true);
-    });
-
     test('resets querying flag after completion', async () => {
       await loader.queryStars(0, 0, 2, 12);
       expect(loader.isQueryingStars_).toBe(false);
+    });
+
+    test('returns null on a network error so the region is retried', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+      expect(await loader.queryStars(0, 0, 2, 12)).toBeNull();
+    });
+
+    test('returns null on a server error so the region is retried', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ok: false, status: 503});
+      expect(await loader.queryStars(0, 0, 2, 12)).toBeNull();
+    });
+
+    test('counts a failed Tycho-2 response once', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ok: false, status: 503});
+      const spy = jest.spyOn(loader, 'recordFailure_');
+      await loader.queryTycho_(0, 0, 2, 12);
+      expect(spy).toHaveBeenCalledTimes(1);
     });
 
     test('resets querying flag on error', async () => {
       global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
       await loader.queryStars(0, 0, 2, 12);
       expect(loader.isQueryingStars_).toBe(false);
-    });
-  });
-
-  describe('state management', () => {
-    test('tracks queried regions', () => {
-      expect(loader.queriedRegions_.size).toBe(0);
     });
   });
 });
