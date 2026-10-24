@@ -5,7 +5,7 @@
 // THREE is loaded globally via script tag in app.html
 /* global THREE */
 
-import {raDecToCartesian} from '../core/CoordinateUtils.js';
+import {cartesianToRaDec, raDecToCartesian} from '../core/CoordinateUtils.js';
 import {getDsoHaloColor} from '../core/TypeMappings.js';
 import {isWithinMagnitudeLimit} from '../core/MagnitudeUtils.js';
 import {clamp} from '../core/Utils.js';
@@ -35,6 +35,36 @@ export function getRenderPixelRatio() {
  */
 export function getPointScale() {
   return getRenderPixelRatio() / (window.devicePixelRatio || 1);
+}
+
+/** @type {?{dir: !THREE.Vector3, inverse: !THREE.Matrix4, rotation: !THREE.Matrix3}} */
+let directionTemps = null;
+
+/**
+ * RA/Dec that a world-space direction points at.
+ *
+ * Stars live in the celestial sphere's local frame, which the sphere's world
+ * transform rotates for sidereal time and latitude; applying its inverse
+ * rotation brings the direction back into catalog coordinates.
+ * @param {!THREE.Vector3} direction - World-space direction (not modified)
+ * @param {?THREE.Object3D} celestialSphere
+ * @returns {{ra: number, dec: number}} Degrees
+ */
+export function worldDirectionToRaDec(direction, celestialSphere) {
+  // Created on first use so importing this module does not need THREE.
+  directionTemps ??= {
+    dir: new THREE.Vector3(),
+    inverse: new THREE.Matrix4(),
+    rotation: new THREE.Matrix3(),
+  };
+  const {dir, inverse, rotation} = directionTemps;
+  dir.copy(direction);
+  if (celestialSphere) {
+    celestialSphere.updateMatrixWorld();
+    rotation.setFromMatrix4(inverse.copy(celestialSphere.matrixWorld).invert());
+    dir.applyMatrix3(rotation);
+  }
+  return cartesianToRaDec(dir.x, dir.y, dir.z);
 }
 
 /**

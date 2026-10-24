@@ -2,7 +2,7 @@
  * @fileoverview Tests for curated image lookup.
  */
 
-import {getCuratedImage, CURATED_IMAGES} from '../modules/data/CuratedImages.js';
+import {getCuratedImage, CURATED_IMAGES, parseCatalogDesignation} from '../modules/data/CuratedImages.js';
 
 describe('getCuratedImage', () => {
   test('matches a curated key directly', () => {
@@ -58,5 +58,20 @@ describe('getCuratedImage', () => {
       expect(entry).not.toBeNull();
       expect(entry.url).toBeNull();
     }
+  });
+});
+
+describe('parseCatalogDesignation', () => {
+  test.each([
+    ['M31', {prefix: 'M', number: 31}],
+    ['M 31', {prefix: 'M', number: 31}],
+    ['NGC0869', {prefix: 'NGC', number: 869}],
+    ['ic 434', {prefix: 'IC', number: 434}],
+  ])('parses %p', (name, expected) => {
+    expect(parseCatalogDesignation(name)).toEqual(expected);
+  });
+
+  test.each(['Cr399M31', 'Orion Nebula', '', null])('rejects %p', (name) => {
+    expect(parseCatalogDesignation(name)).toBeNull();
   });
 });

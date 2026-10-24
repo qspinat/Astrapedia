@@ -164,9 +164,9 @@ describe('DynamicObjectManager dynamic DSOs', () => {
         getDSOs: () => [],
         requestRender: jest.fn(),
       });
-      // skymap.js aliases the renderer's array and the app-level array, so
-      // dynamic sprites are scaled by the renderer that never created them.
-      renderer.sprites_ = extendedSprites;
+      // skymap.js hands dynamic sprites to the renderer via addSprite, so
+      // they are scaled by the renderer that never created them.
+      renderer.addSprite(sprite);
 
       renderer.updateSizes(60, 800);
 
@@ -174,12 +174,18 @@ describe('DynamicObjectManager dynamic DSOs', () => {
       expect(sprite.scale.x).toBeGreaterThan(0);
     });
 
-    // ExtendedObjectRenderer.create() rebuilds the static sprites, but the
-    // array it clears is shared with DynamicObjectManager. It must not dispose
-    // sprites it does not own, and must not swap the array out from under the
-    // alias skymap.js holds.
+    // ExtendedObjectRenderer.create() rebuilds the static sprites, but it
+    // also holds the dynamic sprites DynamicObjectManager added. It must not
+    // dispose sprites it does not own.
     describe('when the static sprites are rebuilt', () => {
       let renderer;
+
+      /** @return {!Object} A dynamic sprite added to the renderer. */
+      function addDynamicSprite() {
+        const sprite = createDynamicSprite();
+        renderer.addSprite(sprite);
+        return sprite;
+      }
 
       beforeEach(() => {
         renderer = new ExtendedObjectRenderer({
@@ -189,39 +195,38 @@ describe('DynamicObjectManager dynamic DSOs', () => {
           ],
           requestRender: jest.fn(),
         });
-        renderer.sprites_ = extendedSprites;
       });
 
       test('keeps dynamic sprites alive', () => {
-        const dynamicSprite = createDynamicSprite();
+        const dynamicSprite = addDynamicSprite();
 
         renderer.create();
 
-        expect(extendedSprites).toContain(dynamicSprite);
+        expect(renderer.getSprites()).toContain(dynamicSprite);
         expect(dynamicSprite.material.disposed).toBe(false);
       });
 
       test('still rebuilds the static sprites', () => {
-        createDynamicSprite();
+        addDynamicSprite();
 
         renderer.create();
 
         const statics =
-            extendedSprites.filter((s) => !s.userData?.isDynamic);
+            renderer.getSprites().filter((s) => !s.userData?.isDynamic);
         expect(statics).toHaveLength(1);
       });
 
-      test('keeps the array identity the app aliases', () => {
-        createDynamicSprite();
+      test('removeSprite drops a dynamic sprite', () => {
+        const dynamicSprite = addDynamicSprite();
 
-        renderer.create();
+        renderer.removeSprite(dynamicSprite);
 
-        expect(renderer.sprites_).toBe(extendedSprites);
+        expect(renderer.getSprites()).not.toContain(dynamicSprite);
       });
 
       test('disposes the static sprites it replaces', () => {
         renderer.create();
-        const firstStatic = extendedSprites[0];
+        const firstStatic = renderer.getSprites()[0];
 
         renderer.create();
 

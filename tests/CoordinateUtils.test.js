@@ -47,6 +47,7 @@ import {
   julianDateToDate,
   dateToJulianDate,
   calculateLST,
+  sphericalMean,
 } from '../modules/core/CoordinateUtils.js';
 
 describe('CoordinateUtils', () => {
@@ -272,5 +273,23 @@ describe('CoordinateUtils', () => {
       const diff = (lst2 - lst1 + 360) % 360;
       expect(diff).toBeCloseTo(90.41, 0); // Sidereal time is slightly faster
     });
+  });
+});
+
+describe('sphericalMean', () => {
+  test('returns null for no points', () => {
+    expect(sphericalMean([])).toBeNull();
+  });
+
+  test('averages across the 0/360 seam', () => {
+    const mean = sphericalMean([{ra: 350, dec: 0}, {ra: 10, dec: 0}]);
+    expect(Math.min(mean.ra, 360 - mean.ra)).toBeCloseTo(0, 6);
+    expect(mean.dec).toBeCloseTo(0, 6);
+  });
+
+  test('stars ringing the pole average to the pole', () => {
+    // RA/Dec averaging would give dec 80 at an arbitrary RA.
+    const ring = [0, 90, 180, 270].map((ra) => ({ra, dec: 80}));
+    expect(sphericalMean(ring).dec).toBeCloseTo(90, 6);
   });
 });

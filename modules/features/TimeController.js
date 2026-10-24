@@ -65,12 +65,6 @@ export class TimeController {
     this.timeSpeed_ = 0;
 
     /**
-     * Whether time playback is active.
-     * @private {boolean}
-     */
-    this.isPlaying_ = false;
-
-    /**
      * Last time planets were updated.
      * @private {number}
      */
@@ -90,7 +84,7 @@ export class TimeController {
    * @returns {boolean} True if playing
    */
   isPlaying() {
-    return this.isPlaying_;
+    return this.timeSpeed_ !== 0;
   }
 
   /**
@@ -102,20 +96,19 @@ export class TimeController {
     this.updateCelestialRotation_();
     this.updatePlanets_?.();
     this.lastPlanetUpdate_ = this.simulationTime_.getTime();
-
-    globalEventBus.emit(Events.TIME_CHANGED, {
-      time: this.getTime(),
-      speed: this.timeSpeed_,
-      isPlaying: this.isPlaying_,
-    });
+    this.announceTime();
   }
 
   /**
-   * Jump to a specific time.
-   * @param {!Date} date - Target time
+   * Emit TIME_CHANGED for the current time without changing it, e.g. once
+   * the UI is listening at startup.
    */
-  jumpToTime(date) {
-    this.setTime(date);
+  announceTime() {
+    globalEventBus.emit(Events.TIME_CHANGED, {
+      time: this.getTime(),
+      speed: this.timeSpeed_,
+      isPlaying: this.isPlaying(),
+    });
   }
 
   /**
@@ -132,12 +125,11 @@ export class TimeController {
    */
   setSpeed(speed) {
     this.timeSpeed_ = speed;
-    this.isPlaying_ = speed !== 0;
 
     globalEventBus.emit(Events.TIME_SPEED_CHANGED, {
       speed: this.timeSpeed_,
       speedDisplay: this.getSpeedDisplayString(),
-      isPlaying: this.isPlaying_,
+      isPlaying: this.isPlaying(),
     });
   }
 
@@ -146,7 +138,7 @@ export class TimeController {
    * @param {number=} defaultSpeed - Speed to use when resuming (default 1)
    */
   togglePlayback(defaultSpeed = 1) {
-    if (this.isPlaying_) {
+    if (this.isPlaying()) {
       this.setSpeed(0);
     } else {
       this.setSpeed(this.timeSpeed_ || defaultSpeed);
@@ -166,7 +158,7 @@ export class TimeController {
    * @returns {boolean} True if time was updated
    */
   update(deltaMs) {
-    if (!this.isPlaying_ || this.timeSpeed_ === 0) {
+    if (!this.isPlaying()) {
       return false;
     }
 

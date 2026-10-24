@@ -287,7 +287,6 @@ export const Events = {
   CMD_SET_TIME_SPEED: 'cmd:time:speed',
   CMD_JUMP_TO_TIME: 'cmd:time:jump',
   CMD_TOGGLE_PLAYBACK: 'cmd:time:toggle',
-  CMD_SHOW_GAME_SELECT: 'cmd:game:select',
   CMD_START_GAME: 'cmd:game:start',
   CMD_STOP_GAME: 'cmd:game:stop',
   CMD_PASS_QUESTION: 'cmd:game:pass',

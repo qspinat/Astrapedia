@@ -4,12 +4,14 @@
  */
 
 // THREE is loaded globally from CDN in app.html
-import {cartesianToRaDec, raDelta} from '../core/CoordinateUtils.js';
+import {raDelta} from '../core/CoordinateUtils.js';
+import {worldDirectionToRaDec} from '../rendering/SceneUtils.js';
+import {planetDisplaySize} from '../rendering/PlanetRenderer.js';
+import {toSelectablePlanet} from '../astronomy/SolarSystem.js';
 import {CAMERA} from '../core/Constants.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
 import {catalogDesignation} from '../data/CuratedImages.js';
-import {isWithinMagnitudeLimit, magnitudeToSize}
-  from '../core/MagnitudeUtils.js';
+import {isWithinMagnitudeLimit} from '../core/MagnitudeUtils.js';
 
 /**
  * Raycast tolerance for click targets, in world units at the default field of
@@ -153,22 +155,7 @@ export class ClickHandler {
    * @private
    */
   getClickRaDec_(clickDir) {
-    const celestialSphere = this.deps_.getCelestialSphere();
-    const clickDirCelestial = clickDir.clone();
-
-    if (celestialSphere) {
-      const inverseMatrix = new THREE.Matrix4()
-        .copy(celestialSphere.matrixWorld)
-        .invert();
-      const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-      clickDirCelestial.applyMatrix3(rotationMatrix);
-    }
-
-    return cartesianToRaDec(
-      clickDirCelestial.x,
-      clickDirCelestial.y,
-      clickDirCelestial.z
-    );
+    return worldDirectionToRaDec(clickDir, this.deps_.getCelestialSphere());
   }
 
   /**
@@ -209,16 +196,8 @@ export class ClickHandler {
       const dDec = planetData.dec - clickRaDec.dec;
       const angularDist = Math.sqrt(dRa * dRa + dDec * dDec);
 
-      // Calculate click threshold based on displayed size
-      const angularSizeDeg = (planetData.angularSize || 0.1) / 60;
-      const realSizePixels = angularSizeDeg * pixelsPerDeg;
-
-      // Must match how PlanetRenderer sizes the sprite (maxSize 6), or the
-      // tap target drifts away from what is drawn.
-      const mag = planetData.mag || 0;
-      const magBasedSize = magnitudeToSize(mag, 6);
-      const magBasedPixels = magBasedSize * 1.5;
-      const displaySizePixels = Math.max(realSizePixels, magBasedPixels);
+      // Sized exactly as PlanetRenderer draws it.
+      const {displaySizePixels} = planetDisplaySize(planetData, pixelsPerDeg);
 
       // Click threshold with generous margin
       const visibleSizeDeg = displaySizePixels / pixelsPerDeg;
@@ -231,19 +210,7 @@ export class ClickHandler {
     }
 
     if (closestPlanet) {
-      const clickedObject = {
-        name: closestPlanet.name,
-        type: closestPlanet.type || 'Planet',
-        subtype: closestPlanet.name === 'Sun'
-          ? 'Star (G2V)'
-          : (closestPlanet.name === 'Moon' ? 'Natural Satellite' : 'Planet'),
-        ra: closestPlanet.ra,
-        dec: closestPlanet.dec,
-        mag: closestPlanet.mag,
-        angularSize: closestPlanet.angularSize,
-        phase: closestPlanet.phase,
-      };
-      this.handleObjectClick_(clickedObject);
+      this.handleObjectClick_(toSelectablePlanet(closestPlanet));
       return true;
     }
 
@@ -388,22 +355,8 @@ export class ClickHandler {
       return false;
     }
 
-    const clickDirCelestial = this.raycaster_.ray.direction.clone();
-    const celestialSphere = this.deps_.getCelestialSphere();
-
-    if (celestialSphere) {
-      const inverseMatrix = new THREE.Matrix4()
-        .copy(celestialSphere.matrixWorld)
-        .invert();
-      const rotationMatrix = new THREE.Matrix3().setFromMatrix4(inverseMatrix);
-      clickDirCelestial.applyMatrix3(rotationMatrix);
-    }
-
-    const clickRaDec = cartesianToRaDec(
-      clickDirCelestial.x,
-      clickDirCelestial.y,
-      clickDirCelestial.z
-    );
+    const clickRaDec = worldDirectionToRaDec(
+        this.raycaster_.ray.direction, this.deps_.getCelestialSphere());
 
     const fov = camera.fov;
     const canvasHeight = renderer.domElement.height;

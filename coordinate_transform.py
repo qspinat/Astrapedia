@@ -29,8 +29,8 @@ from astrapedia.astronomy import filter_by_magnitude
 
 def load_celestial_objects(data_dir: Path = Config.DATA_DIR) -> tuple:
     """Load stars and deep sky objects from JSON files."""
-    stars_file = data_dir / "stars.json"
-    dso_file = data_dir / "deep_sky_objects.json"
+    stars_file = data_dir / Config.OUTPUT_FILES["stars"]
+    dso_file = data_dir / Config.OUTPUT_FILES["dsos"]
 
     stars = read_json(stars_file, default=[])
     deep_sky_objects = read_json(dso_file, default=[])
@@ -226,7 +226,7 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default="data/transformed_sky.json",
+        default=str(Config.get_output_path("transformed")),
         help="Output JSON file",
     )
     parser.add_argument(

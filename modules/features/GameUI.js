@@ -5,7 +5,8 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {domCache} from '../ui/DOMCache.js';
-import {clamp, addMobileButtonListener} from '../core/Utils.js';
+import {panelManager} from '../ui/PanelManager.js';
+import {clamp, addMobileButtonListener, setTextIfChanged} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
 
 const logger = createLogger('GameUI');
@@ -64,6 +65,35 @@ export class GameUI {
         this.deps_.stopGame?.();
       });
     }
+
+    this.setupCategoryPicker_();
+  }
+
+  /**
+   * Wire the game-select modal. It opens and closes as a PanelManager panel
+   * (bottom nav, back button, Escape); this only handles its own controls.
+   * @private
+   */
+  setupCategoryPicker_() {
+    const modal = domCache.get('game-select-modal');
+    if (!modal) return;
+
+    modal.querySelectorAll('.game-select-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const category = btn.getAttribute('data-category');
+        if (!category) return;
+        panelManager.closeAll();
+        globalEventBus.emit(Events.CMD_START_GAME, {category});
+      });
+    });
+
+    domCache.get('game-select-cancel')
+        ?.addEventListener('click', () => panelManager.closeAll());
+
+    // The overlay is its own backdrop: a tap outside the card closes it.
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) panelManager.closeAll();
+    });
   }
 
   /**
@@ -234,10 +264,10 @@ export class GameUI {
    * @private
    */
   updateScore_(data) {
-    const scoreEl = domCache.get('game-score');
-    if (scoreEl) {
-      scoreEl.textContent = `Score: ${data.score}/${data.total}`;
-    }
+    // The stat labels ("Score", "Correct") are in the markup.
+    setTextIfChanged(domCache.get('game-score'),
+        `${data.score} (${data.asked}/${data.total})`);
+    setTextIfChanged(domCache.get('game-correct'), String(data.correct));
   }
 
   /**

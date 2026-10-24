@@ -13,7 +13,7 @@ import {installThreeMock} from '../helpers/threeMock.js';
 
 installThreeMock();
 
-const {ImageRenderer} =
+const {ImageRenderer, isImageSizeAcceptable} =
     await import('../../modules/rendering/ImageRenderer.js');
 
 /** A VizieR/NASA/Wikimedia response that finds nothing. */
@@ -151,5 +151,45 @@ describe('ImageRenderer.fetchBestImage', () => {
 
       expect(result).not.toBeNull();
     });
+  });
+});
+
+describe('isImageSizeAcceptable', () => {
+  const headWithLength = (bytes) => jest.fn().mockResolvedValue({
+    headers: {get: () => String(bytes)},
+  });
+
+  afterEach(() => {
+    delete global.fetch;
+  });
+
+  test('trusts known sources without a request', async () => {
+    global.fetch = jest.fn();
+    await expect(isImageSizeAcceptable(
+        {url: 'https://alasky.cds.unistra.fr/x.jpg', source: 'Wikimedia'}))
+        .resolves.toBe(true);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('rejects an untrusted image over 1MB', async () => {
+    global.fetch = headWithLength(2 * 1024 * 1024);
+    await expect(isImageSizeAcceptable(
+        {url: 'https://example.org/big.jpg', source: 'Wikimedia'}))
+        .resolves.toBe(false);
+  });
+
+  test('allows the image when the size cannot be read', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('CORS'));
+    await expect(isImageSizeAcceptable(
+        {url: 'https://example.org/x.jpg', source: 'Wikimedia'}))
+        .resolves.toBe(true);
+  });
+
+  test('propagates an abort', async () => {
+    const abort = Object.assign(new Error('aborted'), {name: 'AbortError'});
+    global.fetch = jest.fn().mockRejectedValue(abort);
+    await expect(isImageSizeAcceptable(
+        {url: 'https://example.org/x.jpg', source: 'Wikimedia'}))
+        .rejects.toBe(abort);
   });
 });

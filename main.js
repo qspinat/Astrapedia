@@ -101,14 +101,8 @@ function initializeUI_(appInstance) {
   });
   telescopeController.initialize();
 
-  // Let resetView() leave telescope mode instead of stranding the user with a
-  // reset FOV, a locked zoom and the reticle still showing.
-  appInstance.exitTelescopeMode = () =>
-    telescopeController.deactivateTelescopeMode();
-
-  // Single source of truth for "is the telescope active": the controller's
-  // own state, queried on demand rather than mirrored into an app flag.
-  appInstance.isTelescopeActive = () => telescopeController.isActive();
+  // Lets resetView() leave telescope mode and zoom input respect its lock.
+  appInstance.setTelescopeController(telescopeController);
 
   // Initialize bug report handler
   initializeBugReportHandler({
@@ -148,11 +142,7 @@ function initializeUI_(appInstance) {
     resetCamera: () => appInstance.resetView?.(),
     showEventsCalendar: () => appInstance.showEventsCalendar?.(),
     getNextEvent: () => appInstance.getNextEvent?.(),
-    setMaxDynamicStars: (val) => {
-      // DSOs limit is ~1/6 of stars limit
-      const maxDSOs = Math.max(1000, Math.floor(val / 6));
-      appInstance.dynamicObjectManager_?.setLimits(val, maxDSOs);
-    },
+    setMaxDynamicStars: (val) => appInstance.setDynamicLimits?.(val),
 
     // Time
     setTimeSpeed: (speed) => appInstance.setTimeSpeed?.(speed),
@@ -229,14 +219,14 @@ async function initializeApp() {
     // Setup inter-module communication first
     setupEventBusWiring_();
 
-    // Create main application instance
+    // Wire the UI before init() so it hears the app's first events.
     app = new AstrapediaApp();
-
-    // Initialize UI controller with app dependencies
     initializeUI_(app);
 
     // Register service worker for PWA
     registerServiceWorker_();
+
+    await app.init();
 
   } catch (error) {
     logger.error('Application initialization failed:', error);

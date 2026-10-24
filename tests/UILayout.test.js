@@ -495,7 +495,10 @@ describe('Skymap search index planet updates (delegated to SearchManager)', () =
   test('calls searchManager_.updatePlanets from createPlanets', () => {
     // Verify skymap.js delegates to SearchManager for planet updates
     expect(jsContent).toMatch(
-      /createPlanets\s*\(\s*\)[\s\S]*?this\.searchManager_\?\s*\.updatePlanets\s*\(\s*this\.planets\s*\)/
+      /createPlanets\s*\(\s*\)[\s\S]*?this\.onPlanetsChanged_\(\)/
+    );
+    expect(jsContent).toMatch(
+      /onPlanetsChanged_\(\)\s*\{[\s\S]*?this\.searchManager_\?\s*\.updatePlanets\s*\(\s*planets\s*\)/
     );
   });
 

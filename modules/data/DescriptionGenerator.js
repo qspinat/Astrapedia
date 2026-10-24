@@ -3,6 +3,8 @@
  * Provides descriptions and Wikipedia search terms for stars and DSOs.
  */
 
+import {parseCatalogDesignation} from './CuratedImages.js';
+
 /**
  * Spectral type descriptions.
  * @const {!Object<string, string>}
@@ -138,22 +140,11 @@ export class DescriptionGenerator {
       }
     };
 
-    // Messier objects have specific Wikipedia titles
-    const messierMatch = name.match(/M(\d+)/i);
-    if (messierMatch) {
-      addTerm(`Messier_${messierMatch[1]}`);
-    }
-
-    // NGC objects - remove leading zeros for Wikipedia (NGC0869 -> NGC_869)
-    const ngcMatch = name.match(/NGC\s*0*(\d+)/i);
-    if (ngcMatch) {
-      addTerm(`NGC_${ngcMatch[1]}`);
-    }
-
-    // IC objects - format as IC_number for Wikipedia
-    const icMatch = name.match(/IC\s*0*(\d+)/i);
-    if (icMatch) {
-      addTerm(`IC_${icMatch[1]}`);
+    // Catalog objects have specific Wikipedia titles: Messier_31, NGC_869.
+    const designation = parseCatalogDesignation(name);
+    if (designation) {
+      const {prefix, number} = designation;
+      addTerm(prefix === 'M' ? `Messier_${number}` : `${prefix}_${number}`);
     }
 
     // Planets - check internalName (always English)

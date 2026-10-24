@@ -5,7 +5,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TIME} from '../core/Constants.js';
-import {addMobileButtonListener} from '../core/Utils.js';
+import {addMobileButtonListener, setTextIfChanged} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
 import {domCache} from '../ui/DOMCache.js';
 
@@ -35,6 +35,9 @@ export class TimeUI {
 
     /** @private {!Array<!Object>} EventBus subscriptions for cleanup */
     this.subscriptions_ = [];
+
+    /** @private {?number} Epoch second currently shown in #time-display */
+    this.lastDisplayedSecond_ = null;
   }
 
   /**
@@ -190,6 +193,9 @@ export class TimeUI {
         this.isPlaying_ = data.isPlaying;
         this.currentSpeed_ = data.speed || 0;
         this.updatePlayButton_();
+        if (data.speedDisplay) {
+          setTextIfChanged(domCache.get('time-speed-display'), data.speedDisplay);
+        }
       }),
 
       globalEventBus.on(Events.TIME_CHANGED, (data) => {
@@ -214,15 +220,17 @@ export class TimeUI {
   }
 
   /**
-   * Update time display.
+   * Update time display. The only writer of #time-display; TIME_TICK fires
+   * every frame during playback, so skip the locale formatting and the DOM
+   * write when the displayed second has not changed.
    * @param {!Date} time - Current time
    * @private
    */
   updateTimeDisplay_(time) {
-    const timeDisplay = domCache.get('time-display');
-    if (timeDisplay) {
-      timeDisplay.textContent = time.toLocaleString();
-    }
+    const second = Math.floor(time.getTime() / 1000);
+    if (second === this.lastDisplayedSecond_) return;
+    this.lastDisplayedSecond_ = second;
+    setTextIfChanged(domCache.get('time-display'), time.toLocaleString());
   }
 
   /**

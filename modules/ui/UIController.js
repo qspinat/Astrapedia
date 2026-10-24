@@ -619,11 +619,7 @@ export class UIController {
       addMobileButtonListener(item, () => {
         const panelId = item.dataset.panel || '';
         this.panelManager_.closeAll();
-        this.hideGameModal_();
-        if (panelId === 'game-select-modal') {
-          globalEventBus.emit(Events.CMD_SHOW_GAME_SELECT);
-          setActive('game-select-modal');
-        } else if (panelId) {
+        if (panelId) {
           this.panelManager_.open(panelId);
           // open() emits PANEL_OPENED which also sets active, but set it here
           // too so the Sky→panel transition is immediate.
@@ -638,14 +634,6 @@ export class UIController {
     // Escape, back button).
     globalEventBus.on(Events.PANEL_OPENED, (data) => setActive(data?.panelId));
     globalEventBus.on(Events.PANEL_CLOSED, () => setActive(''));
-  }
-
-  /**
-   * Hide the game-select modal (not a PanelManager panel).
-   * @private
-   */
-  hideGameModal_() {
-    domCache.gameSelectModal?.classList.remove('visible');
   }
 
   /**

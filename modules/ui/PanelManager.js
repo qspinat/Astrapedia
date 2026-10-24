@@ -24,6 +24,7 @@ const PANEL_IDS = [
   'tour-panel',
   'game-panel',
   'bug-report-panel',
+  'game-select-modal',
 ];
 
 /**
@@ -254,7 +255,9 @@ export class PanelManager {
       this.focusFirstElement_(panel);
     }
 
-    if (this.backdrop_) {
+    // A modal overlay dims the sky itself; the shared backdrop would dim it
+    // twice. It closes on a tap outside its card instead (see GameUI).
+    if (this.backdrop_ && !panel.classList.contains('modal-overlay')) {
       this.backdrop_.classList.add('visible');
     }
 

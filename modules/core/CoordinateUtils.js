@@ -237,8 +237,33 @@ export const calculateAltitude = (ra, dec, lat, lst) => {
 };
 
 /**
+ * Mean direction of points on the sphere: the normalised sum of their unit
+ * vectors. Unlike averaging RA and Dec separately, this is right across the
+ * 0/360 seam and near the poles, where RA spread says little about position.
+ * @param {!Iterable<{ra: number, dec: number}>} points - Degrees
+ * @returns {?{ra: number, dec: number}} Degrees, or null for no points
+ */
+export const sphericalMean = (points) => {
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  let count = 0;
+  for (const {ra, dec} of points) {
+    const raRad = ra * DEG_TO_RAD;
+    const decRad = dec * DEG_TO_RAD;
+    x += Math.cos(decRad) * Math.cos(raRad);
+    y += Math.cos(decRad) * Math.sin(raRad);
+    z += Math.sin(decRad);
+    count++;
+  }
+  if (count === 0) return null;
+  let ra = Math.atan2(y, x) * RAD_TO_DEG;
+  if (ra < 0) ra += 360;
+  return {ra, dec: Math.atan2(z, Math.hypot(x, y)) * RAD_TO_DEG};
+};
+
+/**
  * Compute the center RA/Dec of a constellation from its line star pairs.
- * Uses circular mean for RA to handle wrap-around at 0/360.
  * @param {!Object} constData - Constellation data with `lines` array of star ID pairs
  * @param {function(number): ?Object} getStarById - Lookup returning star with {ra, dec}
  * @returns {{ra: number, dec: number}} Center coordinates
@@ -260,29 +285,12 @@ export const constellationCenter = (constData, getStarById) => {
     }
   }
 
-  let sumX = 0;
-  let sumY = 0;
-  let sumDec = 0;
-  let count = 0;
-
-  for (const id of starIds) {
-    const star = getStarById(id);
-    if (star?.ra !== undefined && star?.dec !== undefined) {
-      const raRad = star.ra * DEG_TO_RAD;
-      sumX += Math.cos(raRad);
-      sumY += Math.sin(raRad);
-      sumDec += star.dec;
-      count++;
-    }
-  }
-
-  if (count === 0) {
+  const stars = [...starIds].map(getStarById)
+      .filter((star) => star?.ra !== undefined && star?.dec !== undefined);
+  const center = sphericalMean(stars);
+  if (!center) {
     logger.warn('constellationCenter: no matching stars found, falling back to (0, 0)');
     return {ra: 0, dec: 0};
   }
-
-  let meanRa = Math.atan2(sumY / count, sumX / count) * RAD_TO_DEG;
-  if (meanRa < 0) meanRa += 360;
-
-  return {ra: meanRa, dec: sumDec / count};
+  return center;
 };

@@ -142,6 +142,34 @@ describe('ConstellationRenderer focus mode', () => {
       renderer.setMode(CONSTELLATIONS.MODE_ALL);
       expect(renderer.mode_).toBe(CONSTELLATIONS.MODE_ALL);
     });
+
+    test('hides and shows the lines group', () => {
+      renderer.createLines();
+
+      renderer.setMode(CONSTELLATIONS.MODE_OFF);
+      expect(renderer.getLinesGroup().visible).toBe(false);
+      expect(renderer.isVisible()).toBe(false);
+
+      renderer.setMode(CONSTELLATIONS.MODE_FOCUS);
+      expect(renderer.getLinesGroup().visible).toBe(true);
+      expect(renderer.isVisible()).toBe(true);
+    });
+
+    test('lines created while off stay hidden', () => {
+      renderer.setMode(CONSTELLATIONS.MODE_OFF);
+      renderer.createLines();
+      expect(renderer.getLinesGroup().visible).toBe(false);
+    });
+
+    test('a highlight on hidden lines returns them to hidden', () => {
+      renderer.createLines();
+      renderer.setMode(CONSTELLATIONS.MODE_OFF);
+
+      renderer.highlight('UMa');
+      expect(renderer.getLinesGroup().visible).toBe(true);
+      renderer.unhighlight();
+      expect(renderer.getLinesGroup().visible).toBe(false);
+    });
   });
 
   describe('updateFocusMode', () => {

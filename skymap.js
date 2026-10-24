@@ -69,16 +69,14 @@ import {PowerManager} from './modules/core/PowerManager.js';
 import {globalEventBus, Events} from './modules/core/EventBus.js';
 import {
   raDecToCartesian,
-  cartesianToRaDec,
   calculateLST,
   formatAngle,
 } from './modules/core/CoordinateUtils.js';
 import {CAMERA, STARS, CONSTELLATIONS} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
-import {showLoadingError} from './modules/ui/LoadingError.js';
 import {dataLoader} from './modules/services/DataLoader.js';
 import {clamp, setTextIfChanged} from './modules/core/Utils.js';
-import {getRenderPixelRatio} from './modules/rendering/SceneUtils.js';
+import {getRenderPixelRatio, worldDirectionToRaDec} from './modules/rendering/SceneUtils.js';
 import {createLogger} from './modules/core/Logger.js';
 
 const logger = createLogger('Astrapedia');
@@ -113,7 +111,6 @@ export class AstrapediaApp {
     this.camera = null;
     this.renderer = null;
     this.celestialSphere = null;
-    this.starField = null;
 
     // Module instances (initialized after Three.js setup)
     this.imageRenderer_ = null;
@@ -139,7 +136,6 @@ export class AstrapediaApp {
     this.deepSkyObjects = [];
     this.constellations = {};
     this.namedObjects = {};
-    this.extendedObjectSprites = [];
 
     // State
     this.currentMagnitude = STARS.DEFAULT_MAGNITUDE;
@@ -148,9 +144,6 @@ export class AstrapediaApp {
     // through the observerLocation getter below (no local copy to keep in sync).
 
     this.latitudeTiltGroup = null;
-    this.planets = [];
-    this.planetSprites = [];
-    this.constellationLinesGroup = null;
     // Default language from browser locale (e.g., 'fr-FR' -> 'fr')
     // Validate against supported languages, fallback to English
     const browserLang = (navigator.language || 'en').split('-')[0];
@@ -159,18 +152,12 @@ export class AstrapediaApp {
       ? browserLang
       : 'en';
     /**
-     * Whether the telescope simulation is active (it blocks zoom). Assigned
-     * by main.js to query TelescopeController.isActive() on demand, so there
-     * is one source of truth rather than a mirrored flag.
-     * @type {?function(): boolean}
+     * TelescopeController, owned by main.js and handed over with
+     * setTelescopeController(). Queried on demand, so "is the telescope
+     * active" has one source of truth rather than a mirrored flag.
+     * @private {?TelescopeController}
      */
-    this.isTelescopeActive = null;
-    /**
-     * Leaves telescope mode. Assigned by main.js, which owns
-     * TelescopeController.
-     * @type {?function(): void}
-     */
-    this.exitTelescopeMode = null;
+    this.telescope_ = null;
 
     // Time simulation (state managed by TimeController)
 
@@ -195,14 +182,8 @@ export class AstrapediaApp {
     this.dynamicObjectManager_ = null;
 
     // === PERFORMANCE OPTIMIZATIONS ===
-    // Cached bound function for animation loop (prevents new function creation each frame)
-    this._boundAnimate = this.animate.bind(this);
-
     // Reusable vectors will be initialized after THREE is confirmed loaded
     this._tempVec3 = null;
-    this._tempVec3B = null;
-    this._tempMatrix4 = null;
-    this._tempMatrix3 = null;
 
     // Dirty flags to skip unnecessary updates
     this._fovDirty = true;
@@ -218,19 +199,10 @@ export class AstrapediaApp {
     this._lastImageVisUpdate = 0;
     this._lastDynamicCheck = 0;
 
-    // Animation loop state (synced with PowerManager via callbacks)
-    this._isAnimating = false;
-
-    // Handle of the pending requestAnimationFrame, so a resume can tell a live
-    // loop from a stale flag and re-kick exactly one frame.
-    this._rafId = null;
-
     // === DEVICE DETECTION ===
     // Detect mobile/touch devices for UX adjustments
     this.isMobile = this.detectMobile_();
 
-    // Initialize
-    this.init();
   }
 
   /**
@@ -261,10 +233,6 @@ export class AstrapediaApp {
    */
   initTempObjects() {
     this._tempVec3 = new THREE.Vector3();
-    this._tempVec3B = new THREE.Vector3();
-    this._tempMatrix4 = new THREE.Matrix4();
-    this._tempMatrix4B = new THREE.Matrix4();
-    this._tempMatrix3 = new THREE.Matrix3();
   }
 
   /**
@@ -361,7 +329,7 @@ export class AstrapediaApp {
       unhighlightConstellation: () => this.unhighlightConstellation(),
       showObjectInfo: (obj) => this.showObjectInfo(obj),
       showConstellationInfo: (abbrev) => this.showConstellationInfo(abbrev),
-      getPlanets: () => this.planets || [],
+      getPlanets: () => this.planetRenderer_?.getPlanets() || [],
       getDeepSkyObjects: () => this.deepSkyObjects || [],
       getStars: () => this.stars || [],
       getFOV: () => this.targetFov || CAMERA.DEFAULT_FOV,
@@ -475,7 +443,7 @@ export class AstrapediaApp {
         const lon = this.observerLocation?.lon || 0;
         return calculateLST(this.timeController_.getTime(), lon);
       },
-      getPlanets: () => this.planets || [],
+      getPlanets: () => this.planetRenderer_?.getPlanets() || [],
       getDSOs: () => this.deepSkyObjects || [],
       getStars: () => this.stars || [],
     });
@@ -546,25 +514,10 @@ export class AstrapediaApp {
    * @private
    */
   initPowerManager_() {
+    // PowerManager owns the frame scheduling (including the Android resume
+    // re-kick); the app only draws.
     this.powerManager_ = new PowerManager({
-      onStartAnimating: () => {
-        // Force a fresh frame rather than trusting _isAnimating. When Android
-        // pauses the WebView (screen off / background) it can drop the pending
-        // rAF while the flag stays true, so a guarded `if (!_isAnimating)`
-        // would never re-kick the loop on resume — the sky freezes ("can't
-        // slide") and the next resize paints it black. Cancelling any stale id
-        // and scheduling one guarantees exactly one live frame.
-        this._isAnimating = true;
-        if (this._rafId != null) cancelAnimationFrame(this._rafId);
-        this._rafId = requestAnimationFrame(this._boundAnimate);
-      },
-      onStopAnimating: () => {
-        this._isAnimating = false;
-        if (this._rafId != null) {
-          cancelAnimationFrame(this._rafId);
-          this._rafId = null;
-        }
-      },
+      renderFrame: () => this.animate(),
       shouldKeepAnimating: () =>
         this.timeController_.isPlaying() || this.isCameraConverging_(),
     });
@@ -581,17 +534,14 @@ export class AstrapediaApp {
       getCelestialSphere: () => this.celestialSphere,
       getCamera: () => this.camera,
       getStarFieldRenderer: () => this.starFieldRenderer_,
-      getExtendedObjectSprites: () => this.extendedObjectSprites,
+      getExtendedObjectSprites: () => this.extendedObjectRenderer_.getSprites(),
       addExtendedSprite: (sprite) => {
-        this.extendedObjectSprites.push(sprite);
+        this.extendedObjectRenderer_.addSprite(sprite);
         // Newly loaded halos start at their base size; mark dirty so the next
         // frame scales them for the current field of view.
         this._fovDirty = true;
       },
-      removeExtendedSprite: (sprite) => {
-        const idx = this.extendedObjectSprites.indexOf(sprite);
-        if (idx > -1) this.extendedObjectSprites.splice(idx, 1);
-      },
+      removeExtendedSprite: (sprite) => this.extendedObjectRenderer_.removeSprite(sprite),
       getMagnitude: () => this.currentMagnitude,
       requestRender: () => this.requestRender(),
     });
@@ -622,7 +572,7 @@ export class AstrapediaApp {
       requestRender: () => this.requestRender(),
       getCanvasHeight: () => this.renderer.domElement.clientHeight,
       getAspect: () => this.camera.aspect,
-      isZoomLocked: () => this.isTelescopeActive?.() ?? false,
+      isZoomLocked: () => this.isTelescopeActive(),
       onDragStart: () => {
         // Disable compass mode when user manually drags
         if (this.isCompassModeEnabled()) {
@@ -643,13 +593,12 @@ export class AstrapediaApp {
       camera: this.camera,
       renderer: this.renderer,
       getCelestialSphere: () => this.celestialSphere,
-      getStarField: () => this.starField,
-      getPlanetSprites: () => this.planetSprites || [],
-      getExtendedObjectSprites: () => this.extendedObjectSprites || [],
-      getConstellationLinesGroup: () => this.constellationLinesGroup,
+      getStarField: () => this.starFieldRenderer_?.getStarField(),
+      getPlanetSprites: () => this.planetRenderer_?.getSprites() || [],
+      getExtendedObjectSprites: () => this.extendedObjectRenderer_?.getSprites() || [],
+      getConstellationLinesGroup: () => this.constellationRenderer_?.getLinesGroup(),
       getDynamicObjectManager: () => this.dynamicObjectManager_,
-      isConstellationLinesVisible: () =>
-        (this.constellationRenderer_?.getMode() ?? CONSTELLATIONS.MODE_ALL) !== CONSTELLATIONS.MODE_OFF,
+      isConstellationLinesVisible: () => this.constellationRenderer_?.isVisible() ?? true,
       isGameActive: () => this.isGameActive(),
       checkGameAnswer: (obj) => this.checkGameAnswer(obj),
       checkGameAnswerByName: (name) => this.checkGameAnswerByName(name),
@@ -681,29 +630,18 @@ export class AstrapediaApp {
 
     globalEventBus.on(Events.CMD_TOGGLE_PLAYBACK, () => {
       this.timeController_?.togglePlayback();
-      // Update UI
-      if (domCache.timeSpeedDisplay) {
-        domCache.timeSpeedDisplay.textContent = this.timeController_.getSpeedDisplayString();
-      }
-      // Ensure animation is running when playing
-      if (this.timeController_?.isPlaying()) {
-        this.startAnimating();
-      }
     });
 
-    // Game commands
-    globalEventBus.on(Events.CMD_SHOW_GAME_SELECT, () => {
-      const modal = domCache.gameSelectModal;
-      if (modal) {
-        modal.classList.add('visible');
-        history.pushState({gameModalOpen: true}, '');
-      }
+    // Playback needs the loop running; this covers every way speed changes.
+    globalEventBus.on(Events.TIME_SPEED_CHANGED, (data) => {
+      if (data.isPlaying) this.startAnimating();
     });
 
-    globalEventBus.on(Events.CMD_START_GAME, () => {
+    // Game commands. The category picker (GameUI) passes its choice.
+    globalEventBus.on(Events.CMD_START_GAME, (data) => {
       if (!this.gameController_) return;
-      const category = this.gameController_.getCategory() || 'known-constellations';
-      this.gameController_.setCategory(category);
+      this.gameController_.setCategory(data?.category ||
+          this.gameController_.getCategory() || 'known-constellations');
       this.gameController_.start();
     });
 
@@ -759,7 +697,10 @@ export class AstrapediaApp {
      ====================================================================== */
 
   /**
-   * Initialize the application: load data, setup scene, start animation
+   * Initialize the application: load data, setup scene, start animation.
+   * The UI is wired before this runs, so it hears the first time, planet and
+   * location events. Rejects on failure; main.js shows the error.
+   * @returns {!Promise<void>}
    */
   async init() {
     const loadingText = document.querySelector('.loading-text');
@@ -768,118 +709,112 @@ export class AstrapediaApp {
       if (loadingText) loadingText.textContent = msg;
     };
 
-    try {
-      // Load data
-      updateStatus('Loading star data...');
-      await this.loadData();
+    // Load data
+    updateStatus('Loading star data...');
+    await this.loadData();
 
-      // Planet positions are calculated using Keplerian orbital mechanics
-      // (JPL Horizons API doesn't support CORS for browser requests)
+    // Planet positions are calculated using Keplerian orbital mechanics
+    // (JPL Horizons API doesn't support CORS for browser requests)
 
-      // Setup Three.js
-      updateStatus('Setting up 3D scene...');
-      this.setupScene();
+    // Setup Three.js
+    updateStatus('Setting up 3D scene...');
+    this.setupScene();
 
-      // Initialize reusable objects for performance (must be before setupCamera
-      // since updateCameraPosition uses temp vectors)
-      this.initTempObjects();
+    // Initialize reusable objects for performance (must be before setupCamera
+    // since updateCameraPosition uses temp vectors)
+    this.initTempObjects();
 
-      this.setupCamera();
-      this.setupRenderer();
-      this.setupLights();
+    this.setupCamera();
+    this.setupRenderer();
+    this.setupLights();
 
-      // Initialize DOM cache for frequently-accessed elements
-      domCache.initialize();
+    // Initialize DOM cache for frequently-accessed elements
+    domCache.initialize();
 
-      // Create celestial objects
-      updateStatus('Creating celestial sphere...');
-      this.createCelestialSphere();
+    // Create celestial objects
+    updateStatus('Creating celestial sphere...');
+    this.createCelestialSphere();
 
-      // Initialize StarFieldRenderer module after celestialSphere is ready
-      updateStatus('Rendering stars...');
-      this.initStarFieldRenderer_();
-      this.createStarField();  // Delegated to StarFieldRenderer
+    // Initialize StarFieldRenderer module after celestialSphere is ready
+    updateStatus('Rendering stars...');
+    this.initStarFieldRenderer_();
+    this.createStarField();  // Delegated to StarFieldRenderer
 
-      // Initialize GridRenderer module after celestialSphere is ready
-      this.initGridRenderer_();
-      this.createGrid();  // Delegated to GridRenderer
+    // Initialize GridRenderer module after celestialSphere is ready
+    this.initGridRenderer_();
+    this.createGrid();  // Delegated to GridRenderer
 
-      // Initialize ConstellationRenderer module after celestialSphere is ready
-      updateStatus('Drawing constellations...');
-      this.initConstellationRenderer_();
-      this.createConstellationLines();  // Delegated to ConstellationRenderer
+    // Initialize ConstellationRenderer module after celestialSphere is ready
+    updateStatus('Drawing constellations...');
+    this.initConstellationRenderer_();
+    this.createConstellationLines();  // Delegated to ConstellationRenderer
 
-      // Initialize HorizonRenderer module after scene and camera are ready
-      this.initHorizonRenderer_();
-      this.createCardinalLabels();  // Delegated to HorizonRenderer
-      this.createHorizonLine();  // Delegated to HorizonRenderer
+    // Initialize HorizonRenderer module after scene and camera are ready
+    this.initHorizonRenderer_();
+    this.createCardinalLabels();  // Delegated to HorizonRenderer
+    this.createHorizonLine();  // Delegated to HorizonRenderer
 
-      // Initialize ImageRenderer module after celestialSphere is ready
-      this.initImageRenderer_();
-      this.createObjectImages();  // Create image sprites for DSOs (delegated to ImageRenderer)
+    // Initialize ImageRenderer module after celestialSphere is ready
+    this.initImageRenderer_();
+    this.createObjectImages();  // Create image sprites for DSOs (delegated to ImageRenderer)
 
-      // Initialize ExtendedObjectRenderer module for DSOs with angular sizes
-      this.initExtendedObjectRenderer_();
-      this.createExtendedObjects();  // Delegated to ExtendedObjectRenderer
+    // Initialize ExtendedObjectRenderer module for DSOs with angular sizes
+    this.initExtendedObjectRenderer_();
+    this.createExtendedObjects();  // Delegated to ExtendedObjectRenderer
 
-      // Initialize DynamicObjectManager for loading stars/DSOs from VizieR when zoomed in
-      this.initDynamicObjectManager_();
+    // Initialize DynamicObjectManager for loading stars/DSOs from VizieR when zoomed in
+    this.initDynamicObjectManager_();
 
-      // Initialize PlanetRenderer module after celestialSphere is ready
-      this.initPlanetRenderer_();
-      this.createPlanets();  // Delegated to PlanetRenderer
+    // Initialize PlanetRenderer module after celestialSphere is ready
+    this.initPlanetRenderer_();
+    this.createPlanets();  // Delegated to PlanetRenderer
 
-      // Initialize TourHighlight module for object selection highlights
-      this.initTourHighlight_();
+    // Initialize TourHighlight module for object selection highlights
+    this.initTourHighlight_();
 
-      // Initialize feature modules
-      updateStatus('Initializing features...');
-      this.initSearchManager_();
-      this.initTourController_();
-      this.initGameController_();
-      this.initTimeController_();
-      this.initSelectionManager_();
-      this.initVisibilityCalculator_();
-      this.initCompassController_();
+    // Initialize feature modules
+    updateStatus('Initializing features...');
+    this.initSearchManager_();
+    this.initTourController_();
+    this.initGameController_();
+    this.initTimeController_();
+    this.initSelectionManager_();
+    this.initVisibilityCalculator_();
+    this.initCompassController_();
 
-      // Initialize search index (Feature 5)
-      this.buildSearchIndex();
+    // Initialize search index (Feature 5)
+    this.buildSearchIndex();
 
-      // Set initial celestial rotation based on current time and location
-      this.timeController_.refreshCelestialRotation();
+    // Set initial celestial rotation based on current time and location
+    this.timeController_.refreshCelestialRotation();
 
-      // Update time display to show current time (instead of "Loading...")
-      this.updateSimulationTime(0);
+    // Show the current time (instead of "Loading...") now TimeUI listens.
+    this.timeController_.announceTime();
 
-      // Setup command event listeners for decoupled UI communication
-      // Must be before requestLocation() so LOCATION_CHANGED events are handled
-      this.setupCommandListeners_();
+    // Setup command event listeners for decoupled UI communication
+    // Must be before requestLocation() so LOCATION_CHANGED events are handled
+    this.setupCommandListeners_();
 
-      // Auto-detect location (Feature 4)
-      this.requestLocation();
+    // Auto-detect location (Feature 4)
+    this.requestLocation();
 
-      // Setup event listeners (UI controls only, input handled by InputController)
-      this.setupEventListeners();
+    // Setup event listeners (UI controls only, input handled by InputController)
+    this.setupEventListeners();
 
-      // Initialize InputController for mouse/touch handling
-      this.initInputController_();
+    // Initialize InputController for mouse/touch handling
+    this.initInputController_();
 
-      // Initialize ClickHandler for celestial object selection
-      this.initClickHandler_();
+    // Initialize ClickHandler for celestial object selection
+    this.initClickHandler_();
 
-      // Initialize PowerManager module for power-saving features
-      this.initPowerManager_();
+    // Initialize PowerManager module for power-saving features
+    this.initPowerManager_();
 
-      // Start animation loop
-      this.startAnimating();
+    // Start animation loop
+    this.startAnimating();
 
-      // Hide loading screen
-      domCache.loading?.classList.add('hidden');
-
-    } catch (error) {
-      logger.error('Initialization error:', error);
-      showLoadingError('Failed to load', error.message || 'Unknown error');
-    }
+    // Hide loading screen
+    domCache.loading?.classList.add('hidden');
   }
 
   async loadData() {
@@ -1031,7 +966,6 @@ export class AstrapediaApp {
    */
   createStarField() {
     const result = this.starFieldRenderer_.create();
-    this.starField = this.starFieldRenderer_.getStarField();
     this.updateVisibleCount(result.starCount + result.dsoCount);
   }
 
@@ -1068,11 +1002,6 @@ export class AstrapediaApp {
    */
   createConstellationLines() {
     this.constellationRenderer_.createLines();
-    this.constellationLinesGroup = this.constellationRenderer_.getLinesGroup();
-    if (this.constellationLinesGroup) {
-      this.constellationLinesGroup.visible =
-        (this.constellationRenderer_?.getMode() ?? CONSTELLATIONS.MODE_ALL) !== CONSTELLATIONS.MODE_OFF;
-    }
   }
 
   /**
@@ -1081,16 +1010,6 @@ export class AstrapediaApp {
    */
   setConstellationLinesMode(mode) {
     this.constellationRenderer_?.setMode(mode);
-    if (!this.constellationLinesGroup) return;
-
-    if (mode === CONSTELLATIONS.MODE_OFF) {
-      this.constellationLinesGroup.visible = false;
-    } else {
-      this.constellationLinesGroup.visible = true;
-      if (mode === CONSTELLATIONS.MODE_ALL) {
-        this.constellationRenderer_?.resetOpacities();
-      }
-    }
     this.requestRender();
   }
 
@@ -1100,15 +1019,7 @@ export class AstrapediaApp {
    */
   getViewCenterRaDec() {
     this.camera.getWorldDirection(this._tempVec3);
-    this._tempVec3B.copy(this._tempVec3);
-    if (this.celestialSphere) {
-      this.celestialSphere.updateMatrixWorld();
-      this._tempMatrix4.copy(this.celestialSphere.matrixWorld);
-      this._tempMatrix4B.copy(this._tempMatrix4).invert();
-      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
-      this._tempVec3B.applyMatrix3(this._tempMatrix3);
-    }
-    return cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
+    return worldDirectionToRaDec(this._tempVec3, this.celestialSphere);
   }
 
   // Feature 3: Cardinal Direction Labels
@@ -1139,20 +1050,24 @@ export class AstrapediaApp {
   /**
    * Create planet sprites for Sun, Moon, and planets.
    * Delegates to PlanetRenderer module.
-   * Note: this.planets and this.planetSprites are kept as references
-   * for click handling in ClickHandler module and for other modules.
    */
   createPlanets() {
     this.planetRenderer_.create();
-    this.planets = this.planetRenderer_.getPlanets();
-    this.planetSprites = this.planetRenderer_.getSprites();
-    // Update search index with new planet positions
-    this.searchManager_?.updatePlanets(this.planets);
     // Mark FOV dirty to trigger updatePlanetSizes() on next frame
     this._fovDirty = true;
-    // Emit event for subscribers (e.g., SkyConditionsHandler)
+    this.onPlanetsChanged_();
+  }
+
+  /**
+   * Propagate new planet positions to search and PLANETS_UPDATED subscribers
+   * (e.g. SkyConditionsHandler).
+   * @private
+   */
+  onPlanetsChanged_() {
+    const planets = this.planetRenderer_.getPlanets();
+    this.searchManager_?.updatePlanets(planets);
     globalEventBus.emit(Events.PLANETS_UPDATED, {
-      planets: this.planets,
+      planets,
       moon: this.planetRenderer_.getPlanetByName('Moon'),
     });
   }
@@ -1162,23 +1077,14 @@ export class AstrapediaApp {
    * Delegates to PlanetRenderer module.
    */
   updatePlanetPositions() {
-    if (!this.planetSprites || this.planetSprites.length === 0) {
+    if (this.planetRenderer_.getSprites().length === 0) {
       // No sprites yet, need full creation
       this.createPlanets();
       return;
     }
 
-    // Delegate position updates to PlanetRenderer
-    this.planetRenderer_?.updatePositions();
-
-    // Update search index
-    this.searchManager_?.updatePlanets(this.planets);
-
-    // Emit event for subscribers (e.g., SkyConditionsHandler)
-    globalEventBus.emit(Events.PLANETS_UPDATED, {
-      planets: this.planets,
-      moon: this.planetRenderer_.getPlanetByName('Moon'),
-    });
+    this.planetRenderer_.updatePositions();
+    this.onPlanetsChanged_();
   }
 
   /**
@@ -1385,7 +1291,7 @@ export class AstrapediaApp {
         deepSkyObjects: this.deepSkyObjects,
         constellations: this.constellations,
         namedObjects: this.namedObjects,
-        planets: this.planets,
+        planets: this.planetRenderer_?.getPlanets() || [],
       });
     }
   }
@@ -1548,15 +1454,9 @@ export class AstrapediaApp {
 
   // Feature 7: Time Machine Controls
   updateSimulationTime(deltaMs) {
-    // Delegate time updates to TimeController
+    // TimeController emits TIME_TICK, which TimeUI renders.
     if (deltaMs > 0) {
       this.timeController_.update(deltaMs);
-    }
-
-    // Update UI using cached DOM reference
-    const displayTime = this.timeController_.getTime();
-    if (domCache.timeDisplay) {
-      domCache.timeDisplay.textContent = displayTime.toLocaleString();
     }
   }
 
@@ -1570,24 +1470,14 @@ export class AstrapediaApp {
    * @param {number} speed - Multiplier for time (0=paused, 1=realtime, etc.)
    */
   setTimeSpeed(speed) {
-    // Delegate to TimeController
+    // TIME_SPEED_CHANGED drives the display (TimeUI) and the loop.
     this.timeController_.setSpeed(speed);
-    // Update UI using TimeController's display string
-    if (domCache.timeSpeedDisplay) {
-      domCache.timeSpeedDisplay.textContent = this.timeController_.getSpeedDisplayString();
-    }
-    // Ensure animation is running when speed is set
-    if (speed !== 0 && this.timeController_.isPlaying()) {
-      this.startAnimating();
-    }
   }
 
   jumpToTime(date) {
-    // Delegate to TimeController (handles celestial rotation and planet updates)
-    this.timeController_.jumpToTime(date);
-
-    // Update UI
-    this.updateSimulationTime(0);
+    // Delegate to TimeController (handles celestial rotation, planet updates
+    // and the TIME_CHANGED that TimeUI renders)
+    this.timeController_.setTime(date);
 
     // Re-navigate to selected object if any (so it stays centered after rotation)
     const selectedObj = this.selectionManager_?.getSelectedObject();
@@ -1708,50 +1598,6 @@ export class AstrapediaApp {
    * handlers that need direct access to skymap internals.
    */
   setupEventListeners() {
-    // The start-game button is bound by GameUI, which routes through
-    // CMD_SHOW_GAME_SELECT so the modal is opened together with its history
-    // entry. A second listener here would open it without one, leaving the
-    // popstate handler below to consume a real history entry instead — on
-    // Android that navigates the WebView out of the app.
-
-    // Game selection modal buttons and events
-    const gameModal = domCache.gameSelectModal;
-    if (gameModal) {
-      const gameSelectBtns = gameModal.querySelectorAll('.game-select-btn');
-      gameSelectBtns.forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const category = btn.getAttribute('data-category');
-          if (category && this.gameController_) {
-            this.gameController_.setCategory(category);
-            gameModal.classList.remove('visible');
-            this.gameController_.start();
-          }
-        });
-      });
-
-      // Game selection cancel button
-      const gameSelectCancel = gameModal.querySelector('#game-select-cancel');
-      if (gameSelectCancel) {
-        gameSelectCancel.addEventListener('click', () => {
-          gameModal.classList.remove('visible');
-        });
-      }
-
-      // Close modal when clicking backdrop
-      gameModal.addEventListener('click', (e) => {
-        if (e.target === gameModal) {
-          gameModal.classList.remove('visible');
-        }
-      });
-
-      // Handle back button for game modal
-      window.addEventListener('popstate', (e) => {
-        if (gameModal.classList.contains('visible')) {
-          gameModal.classList.remove('visible');
-        }
-      });
-    }
-
     // Window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
 
@@ -1865,14 +1711,38 @@ export class AstrapediaApp {
     this.constellationRenderer_?.unhighlight();
   }
 
+  /**
+   * Hand over the telescope simulator (owned by main.js).
+   * @param {!TelescopeController} telescope
+   */
+  setTelescopeController(telescope) {
+    this.telescope_ = telescope;
+  }
+
+  /**
+   * Whether telescope mode is active (it locks zoom).
+   * @returns {boolean}
+   */
+  isTelescopeActive() {
+    return this.telescope_?.isActive() ?? false;
+  }
+
+  /**
+   * Set the dynamic star limit; the DSO limit follows it.
+   * @param {number} maxStars
+   */
+  setDynamicLimits(maxStars) {
+    this.dynamicObjectManager_?.setLimits(maxStars);
+  }
+
   resetView() {
     // Telescope mode locks zoom (InputController.isZoomLocked), so resetting
     // the FOV underneath it would leave the user at ~106 degrees with the
     // reticle still up, the magnitude slider still disabled, and no way to
     // zoom back in. Leave the telescope first — "reset view" plainly means
     // "give me the default sky back".
-    if (this.isTelescopeActive?.()) {
-      this.exitTelescopeMode?.();
+    if (this.isTelescopeActive()) {
+      this.telescope_.deactivateTelescopeMode();
     }
 
     this.cameraRotation = {theta: CAMERA.DEFAULT_THETA, phi: CAMERA.DEFAULT_PHI};
@@ -1899,12 +1769,9 @@ export class AstrapediaApp {
    */
   requestRender() {
     this._renderRequested = true;
-    if (this.powerManager_) {
-      this.powerManager_.requestRender();
-    } else {
-      // Fallback for early initialization - ensure animation is running
-      this.startAnimating();
-    }
+    // No-op until init() creates the PowerManager; init ends by starting the
+    // loop, which draws anything requested before then.
+    this.powerManager_?.requestRender();
   }
 
   /**
@@ -1912,15 +1779,7 @@ export class AstrapediaApp {
    * Delegated to PowerManager module.
    */
   startAnimating() {
-    if (this.powerManager_) {
-      this.powerManager_.startAnimating();
-    } else {
-      // Fallback for early initialization
-      if (!this._isAnimating) {
-        this._isAnimating = true;
-        this._rafId = requestAnimationFrame(this._boundAnimate);
-      }
-    }
+    this.powerManager_?.startAnimating();
   }
 
   /**
@@ -1928,11 +1787,7 @@ export class AstrapediaApp {
    * Delegated to PowerManager module.
    */
   stopAnimating() {
-    if (this.powerManager_) {
-      this.powerManager_.stopAnimating();
-    } else {
-      this._isAnimating = false;
-    }
+    this.powerManager_?.stopAnimating();
   }
 
   /* ======================================================================
@@ -1940,21 +1795,11 @@ export class AstrapediaApp {
      Animation loop and visual updates
      ====================================================================== */
 
-  // TODO: Extract animation loop into a RenderLoop module
-  // to decouple frame scheduling from application logic.
   /**
    * Main animation loop - called every frame
    * Optimized to skip unnecessary updates using dirty flags and throttling
    */
   animate() {
-    // Only continue animation if enabled (power saving)
-    if (!this._isAnimating) {
-      this._rafId = null;
-      return;
-    }
-
-    this._rafId = requestAnimationFrame(this._boundAnimate);
-
     const now = performance.now();
     let needsRender = this._renderRequested;
     this._renderRequested = false;
@@ -2107,12 +1952,9 @@ export class AstrapediaApp {
   /**
    * Create extended objects with real angular sizes.
    * Delegated to ExtendedObjectRenderer module.
-   * Note: this.extendedObjectSprites is kept as reference for click handling
-   * in ClickHandler module and for dynamic DSO management.
    */
   createExtendedObjects() {
     this.extendedObjectRenderer_.create();
-    this.extendedObjectSprites = this.extendedObjectRenderer_.getSprites();
   }
 
   /**

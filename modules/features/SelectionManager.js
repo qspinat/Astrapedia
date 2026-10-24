@@ -13,6 +13,7 @@ import {createLogger} from '../core/Logger.js';
 import {API_ENDPOINTS} from '../core/Constants.js';
 import {domCache} from '../ui/DOMCache.js';
 import {moonIllumination, moonPhaseName} from '../core/MoonPhase.js';
+import {isImageSizeAcceptable} from '../rendering/ImageRenderer.js';
 
 const logger = createLogger('SelectionManager');
 
@@ -546,31 +547,11 @@ export class SelectionManager {
     if (signal.aborted) return;
 
     if (result?.url) {
-      // Skip size check for trusted sources (already optimized)
-      const trustedSources = ['ESA/Hubble', 'NASA', 'NASA/Webb', 'NASA/Hubble', 'Curated', 'DSS'];
-      const isTrusted = trustedSources.includes(result.source) ||
-        result.url?.includes('esahubble.org') ||
-        result.url?.includes('nasa.gov') ||
-        result.url?.includes('alasky.cds.unistra.fr');
-
-      let skipDueToSize = false;
-      if (!isTrusted) {
-        // Check file size before loading (max 1MB) - only for untrusted sources
-        const maxSize = 1024 * 1024;
-        try {
-          const headResponse = await fetch(result.url, {method: 'HEAD', signal});
-          const contentLength = parseInt(headResponse.headers.get('content-length') || '0', 10);
-          if (contentLength > maxSize) {
-            logger.debug(`Skipping panel image: ${(contentLength / 1024 / 1024).toFixed(2)}MB exceeds 1MB limit`);
-            skipDueToSize = true;
-          }
-        } catch (e) {
-          // Handle abort gracefully
-          if (e.name === 'AbortError') {
-            return;
-          }
-          // If HEAD fails for other reasons, proceed anyway
-        }
+      let skipDueToSize;
+      try {
+        skipDueToSize = !await isImageSizeAcceptable(result, signal);
+      } catch (e) {
+        return; // Aborted: a newer selection owns the panel.
       }
 
       // Check if aborted while waiting

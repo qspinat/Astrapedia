@@ -5,13 +5,57 @@
 
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {API_ENDPOINTS} from '../core/Constants.js';
-import {CURATED_IMAGES, getCuratedImage, getCuratedImageKeys} from '../data/CuratedImages.js';
+import {
+  CURATED_IMAGES,
+  getCuratedImage,
+  getCuratedImageKeys,
+  parseCatalogDesignation,
+} from '../data/CuratedImages.js';
 import {PLANET_IMAGES, getPlanetImageInfo} from '../data/PlanetImages.js';
 import {clamp} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
 import {freezeTransform} from './SceneUtils.js';
 
 const logger = createLogger('ImageRenderer');
+
+/** @const {!Array<string>} Sources whose images are already web-sized */
+const TRUSTED_IMAGE_SOURCES =
+    ['ESA/Hubble', 'NASA', 'NASA/Webb', 'NASA/Hubble', 'Curated', 'DSS'];
+
+/** @const {!Array<string>} Hosts whose images are already web-sized */
+const TRUSTED_IMAGE_HOSTS =
+    ['esahubble.org', 'nasa.gov', 'alasky.cds.unistra.fr'];
+
+/** @const {number} Largest image fetched from an untrusted source */
+const MAX_UNTRUSTED_IMAGE_BYTES = 1024 * 1024;
+
+/**
+ * Whether an image result is small enough to load. Trusted sources skip the
+ * check; others are sized with a HEAD request, and allowed when that fails
+ * or reports no length.
+ * @param {{url: string, source: string}} result - From fetchBestImage
+ * @param {?AbortSignal=} signal - Aborts the HEAD request
+ * @returns {!Promise<boolean>}
+ * @throws {DOMException} AbortError when signal aborts
+ */
+export async function isImageSizeAcceptable(result, signal = null) {
+  if (TRUSTED_IMAGE_SOURCES.includes(result.source) ||
+      TRUSTED_IMAGE_HOSTS.some((host) => result.url?.includes(host))) {
+    return true;
+  }
+  try {
+    const head = await fetch(result.url, {method: 'HEAD', signal});
+    const bytes = parseInt(head.headers.get('content-length') || '0', 10);
+    if (bytes > MAX_UNTRUSTED_IMAGE_BYTES) {
+      logger.debug(`Skipping ${result.url}: ${(bytes / 1024 / 1024).toFixed(2)}MB ` +
+          'exceeds the 1MB limit');
+      return false;
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') throw e;
+  }
+  return true;
+}
 
 /**
  * Image source tiers for quality prioritization.
@@ -153,16 +197,14 @@ export class ImageRenderer {
     dsos.forEach((dso) => {
       // Check for Messier, NGC or IC name
       const messierName = dso.messier ? `M${Math.floor(dso.messier)}` : null;
-      const ngcMatch = dso.name && dso.name.match(/^NGC(\d+)/);
-      const ngcName = ngcMatch ? `NGC${parseInt(ngcMatch[1])}` : null;
-      const icMatch = dso.name && dso.name.match(/^IC(\d+)/);
-      const icName = icMatch ? `IC${parseInt(icMatch[1])}` : null;
+      const parsed = parseCatalogDesignation(dso.name);
+      const catalogName = parsed && parsed.prefix !== 'M' ?
+        `${parsed.prefix}${parsed.number}` : null;
 
-      // Determine which name to use (priority: Messier > NGC > IC)
+      // Messier first: it is the name people recognise.
       const staticObjectName = (messierName && getImageUrl(messierName)) ? messierName :
-        (ngcName && getImageUrl(ngcName)) ? ngcName :
-        (icName && getImageUrl(icName)) ? icName : null;
-      const dynamicObjectName = messierName || ngcName || icName;
+        (catalogName && getImageUrl(catalogName)) ? catalogName : null;
+      const dynamicObjectName = messierName || catalogName;
       const isTargetType = DYNAMIC_TARGET_TYPES.includes(dso.type);
 
       // Curated objects get a placeholder too, so their image downloads only
@@ -373,29 +415,10 @@ export class ImageRenderer {
       return;
     }
 
-    // Skip size check for trusted sources
-    const trustedSources = ['ESA/Hubble', 'NASA', 'NASA/Webb', 'NASA/Hubble', 'Curated', 'DSS'];
-    const isTrusted = trustedSources.includes(result.source) ||
-      result.url?.includes('esahubble.org') ||
-      result.url?.includes('nasa.gov');
-
-    if (!isTrusted) {
-      const maxSize = 1024 * 1024; // 1MB
-      try {
-        const headResponse = await fetch(result.url, {method: 'HEAD'});
-        const contentLength = parseInt(headResponse.headers.get('content-length') || '0', 10);
-        if (contentLength > maxSize) {
-          logger.debug(
-            `Skipping image for ${objectName}: ` +
-            `${(contentLength / 1024 / 1024).toFixed(2)}MB exceeds 1MB limit`
-          );
-          sprite.userData.needsDynamicLoad = false;
-          this.dynamicLoadInProgress_ = false;
-          return;
-        }
-      } catch (e) {
-        // If HEAD fails, proceed anyway
-      }
+    if (!await isImageSizeAcceptable(result)) {
+      sprite.userData.needsDynamicLoad = false;
+      this.dynamicLoadInProgress_ = false;
+      return;
     }
 
     this.textureLoader_.load(

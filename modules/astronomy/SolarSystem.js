@@ -275,6 +275,40 @@ export function calculatePlanetPositionFallback(planetName, date) {
 }
 
 /**
+ * Object type of a solar-system body, as the info panel and image lookup
+ * expect it (TypeMappings renders 'Moon' as "Natural Satellite").
+ * @param {string} name - 'Sun', 'Moon' or a planet name
+ * @returns {string}
+ */
+export function solarSystemType(name) {
+  if (name === 'Sun') return 'Star';
+  if (name === 'Moon') return 'Moon';
+  return 'Planet';
+}
+
+/**
+ * The selectable object for a solar-system body, shared by click, tour and
+ * any other path that shows one in the info panel.
+ * @param {{name: string, ra: number, dec: number, mag: number,
+ *     angularSize: number, phase: (number|undefined)}} body
+ * @returns {!Object}
+ */
+export function toSelectablePlanet(body) {
+  return {
+    name: body.name,
+    type: solarSystemType(body.name),
+    // Only the Sun needs a qualifier; for the rest it repeated the type
+    // ("Planet · Planet").
+    subtype: body.name === 'Sun' ? 'Star (G2V)' : null,
+    ra: body.ra,
+    dec: body.dec,
+    mag: body.mag,
+    angularSize: body.angularSize,
+    phase: body.phase,
+  };
+}
+
+/**
  * Planet data with default angular sizes and colors.
  * Image URLs are fetched dynamically from PlanetImages.js.
  * @const {!Array<!Object>}

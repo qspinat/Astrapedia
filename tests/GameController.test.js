@@ -119,6 +119,26 @@ describe('GameController', () => {
     });
   });
 
+  describe('score updates', () => {
+    test('carry everything GameUI renders', () => {
+      const scores = [];
+      globalEventBus.on(Events.GAME_SCORE_UPDATED, (data) => scores.push(data));
+      const newController = new GameController();
+      newController.setData({constellations: testConstellations});
+      newController.setCategory('all-constellations');
+
+      newController.start();
+
+      expect(scores.at(-1)).toEqual({
+        score: 0,
+        correct: 0,
+        asked: expect.any(Number),
+        total: Object.keys(testConstellations).length,
+      });
+      newController.stop();
+    });
+  });
+
   describe('setLanguage', () => {
     test('sets language for constellation names', () => {
       const newController = new GameController();
@@ -619,9 +639,10 @@ describe('GameController', () => {
       lineController.setCategory('all-constellations');
       lineController.start();
       const question = lineController.getCurrentQuestion();
-      // Center should be average: (100+110+120)/3 = 110, (10+20+30)/3 = 20
-      expect(question.data.ra).toBeCloseTo(110, 1);
-      expect(question.data.dec).toBeCloseTo(20, 1);
+      // Spherical mean of the line stars: near the naive average
+      // (110, 20), not equal to it, since RA spans shrink with cos(dec).
+      expect(Math.abs(question.data.ra - 110)).toBeLessThan(1);
+      expect(Math.abs(question.data.dec - 20)).toBeLessThan(1);
     });
 
     test('returns 0,0 for constellation with no lines or ra/dec', () => {

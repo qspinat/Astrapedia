@@ -50,6 +50,9 @@ jest.unstable_mockModule('../modules/core/Utils.js', () => ({
     button.addEventListener('click', handler);
   }),
   APP_LOCALE: 'en-US',
+  setTextIfChanged: (el, text) => {
+    if (el && el.textContent !== text) el.textContent = text;
+  },
   relativeDayLabel: (date, now = new Date()) => {
     const days = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
     if (days <= 0) return 'today';

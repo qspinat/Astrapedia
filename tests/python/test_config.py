@@ -35,6 +35,13 @@ class TestConfig:
         for key in required:
             assert key in Config.OUTPUT_FILES
 
+    def test_get_output_path_resolves_under_data_dir(self):
+        assert Config.get_output_path("dsos") == Config.DATA_DIR / "deep_sky_objects.json"
+
+    def test_constellation_source_is_the_parsed_format(self):
+        # data_pipeline parses dcf21's .dat stick figures, not Stellarium .fab
+        assert Config.get_catalog_url("constellations").endswith(".dat")
+
     def test_magnitude_levels_exist(self):
         assert len(Config.MAGNITUDE_LEVELS) >= 3
         for level in Config.MAGNITUDE_LEVELS:

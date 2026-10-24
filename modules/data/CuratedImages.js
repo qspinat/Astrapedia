@@ -178,6 +178,23 @@ const CATALOG_PATTERNS = [
 ];
 
 /**
+ * Parse an M/NGC/IC designation, tolerating a separating space and leading
+ * zeros ('M 31', 'NGC0869'). Anchored at both ends: a name that merely
+ * contains a designation ('Cr399M31') is not one.
+ * @param {?string} name
+ * @returns {?{prefix: string, number: number}} e.g. {prefix: 'NGC', number: 869}
+ */
+export const parseCatalogDesignation = (name) => {
+  if (typeof name !== 'string') return null;
+  const trimmed = name.trim();
+  for (const [prefix, pattern] of CATALOG_PATTERNS) {
+    const match = trimmed.match(pattern);
+    if (match) return {prefix, number: parseInt(match[1], 10)};
+  }
+  return null;
+};
+
+/**
  * Canonical catalog designation for a deep sky object.
  *
  * The pipeline emits OpenNGC's zero-padded names ('NGC0869', 'IC0010') for
@@ -203,12 +220,8 @@ export const catalogDesignation = (dso) => {
   const name = typeof dso.name === 'string' ? dso.name.trim() : '';
   if (!name) return 'Unknown Object';
 
-  for (const [prefix, pattern] of CATALOG_PATTERNS) {
-    const match = name.match(pattern);
-    if (match) return `${prefix}${parseInt(match[1], 10)}`;
-  }
-
-  return name;
+  const parsed = parseCatalogDesignation(name);
+  return parsed ? `${parsed.prefix}${parsed.number}` : name;
 };
 
 /**

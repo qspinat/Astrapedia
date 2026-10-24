@@ -1,6 +1,6 @@
 /**
  * @fileoverview Power management for render-on-demand.
- * Handles page visibility, idle detection, and animation loop control.
+ * Owns the animation loop and handles page visibility and idle detection.
  */
 
 import {POWER_SAVING} from './Constants.js';
@@ -9,23 +9,23 @@ import {createLogger} from './Logger.js';
 const logger = createLogger('PowerManager');
 
 /**
- * PowerManager handles power-saving features for the application.
- * Uses render-on-demand pattern to minimize battery usage.
+ * PowerManager runs the animation loop only while something needs drawing.
+ *
+ * It is the single owner of the pending animation frame: "animating" means a
+ * frame is scheduled, nothing else. Tracking that as a separate flag (here and
+ * again in the app) let the two disagree when Android dropped a frame while
+ * the WebView was paused.
  */
 export class PowerManager {
   /**
    * Creates a new PowerManager instance.
    * @param {!Object} dependencies - Required dependencies
-   * @param {function(): void} dependencies.onStartAnimating - Called when animation should start
-   * @param {function(): void} dependencies.onStopAnimating - Called when animation should stop
+   * @param {function(): void} dependencies.renderFrame - Draws one frame
    * @param {function(): boolean} dependencies.shouldKeepAnimating - Check if animation should continue
    */
   constructor(dependencies) {
     /** @private @const */
-    this.onStartAnimating_ = dependencies.onStartAnimating;
-
-    /** @private @const */
-    this.onStopAnimating_ = dependencies.onStopAnimating;
+    this.renderFrame_ = dependencies.renderFrame;
 
     /** @private @const */
     this.shouldKeepAnimating_ = dependencies.shouldKeepAnimating || (() => false);
@@ -33,8 +33,8 @@ export class PowerManager {
     /** @private {boolean} */
     this.isPageVisible_ = true;
 
-    /** @private {boolean} */
-    this.isAnimating_ = false;
+    /** @private {?number} Pending requestAnimationFrame handle */
+    this.rafId_ = null;
 
     /** @private {?number} */
     this.idleTimeout_ = null;
@@ -47,6 +47,16 @@ export class PowerManager {
 
     /** @private {?function(): void} */
     this.onFocus_ = null;
+
+    /**
+     * Schedules the next frame before drawing this one, so an exception in
+     * renderFrame does not stop the loop.
+     * @private @const {function(): void}
+     */
+    this.tick_ = () => {
+      this.rafId_ = requestAnimationFrame(this.tick_);
+      this.renderFrame_();
+    };
   }
 
   /**
@@ -80,17 +90,16 @@ export class PowerManager {
   /**
    * Force the render loop back on after the app returns to the foreground.
    *
-   * Unlike startAnimating(), this does not trust isAnimating_: the WebView can
-   * pause with the flag still true, so it re-fires onStartAnimating_
-   * unconditionally, and that callback cancels any stale frame and schedules a
-   * fresh one.
+   * Unlike startAnimating(), this does not trust a pending frame: the WebView
+   * can drop it while paused, so cancel whatever handle is held and schedule
+   * exactly one fresh frame.
    * @private
    */
   resume_() {
     this.isPageVisible_ = true;
-    this.isAnimating_ = true;
+    if (this.rafId_ !== null) cancelAnimationFrame(this.rafId_);
+    this.rafId_ = requestAnimationFrame(this.tick_);
     this.resetIdleTimeout();
-    this.onStartAnimating_?.();
   }
 
   /**
@@ -103,10 +112,10 @@ export class PowerManager {
 
   /**
    * Check if animation is currently running.
-   * @returns {boolean} True if animating
+   * @returns {boolean} True if a frame is scheduled
    */
   isAnimating() {
-    return this.isAnimating_;
+    return this.rafId_ !== null;
   }
 
   /**
@@ -114,12 +123,10 @@ export class PowerManager {
    * Restarts animation if stopped and page is visible.
    */
   requestRender() {
-    // Restart animation if stopped
-    if (!this.isAnimating_ && this.isPageVisible_) {
+    if (!this.isAnimating() && this.isPageVisible_) {
       this.startAnimating();
+      return;
     }
-
-    // Reset idle timeout
     this.resetIdleTimeout();
   }
 
@@ -143,33 +150,30 @@ export class PowerManager {
    * Start the animation loop.
    */
   startAnimating() {
-    if (this.isAnimating_) return;
-
-    this.isAnimating_ = true;
+    if (this.isAnimating()) return;
+    this.rafId_ = requestAnimationFrame(this.tick_);
     this.resetIdleTimeout();
-    this.onStartAnimating_?.();
   }
 
   /**
    * Stop the animation loop (power saving).
    */
   stopAnimating() {
-    this.isAnimating_ = false;
     if (this.idleTimeout_) {
       clearTimeout(this.idleTimeout_);
       this.idleTimeout_ = null;
     }
-    this.onStopAnimating_?.();
+    if (this.rafId_ !== null) {
+      cancelAnimationFrame(this.rafId_);
+      this.rafId_ = null;
+    }
   }
 
   /**
-   * Dispose of resources.
+   * Stop the loop and remove listeners.
    */
   dispose() {
-    if (this.idleTimeout_) {
-      clearTimeout(this.idleTimeout_);
-      this.idleTimeout_ = null;
-    }
+    this.stopAnimating();
     if (this.onVisibilityChange_) {
       document.removeEventListener('visibilitychange', this.onVisibilityChange_);
       this.onVisibilityChange_ = null;

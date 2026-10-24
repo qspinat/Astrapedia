@@ -17,7 +17,7 @@ from data_pipeline import create_optimized_files
 def create_optimized_stars() -> None:
     """Create smaller star files for different magnitude levels."""
     print("Loading full star database...")
-    all_stars = read_json(Config.get_data_path("stars.json"), default=[])
+    all_stars = read_json(Config.get_output_path("stars"), default=[])
     print(f"Total stars: {len(all_stars)}")
     create_optimized_files(all_stars)
 

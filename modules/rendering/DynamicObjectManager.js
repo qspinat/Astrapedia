@@ -15,7 +15,7 @@
 // THREE is loaded globally via script tag in app.html
 /* global THREE */
 
-import {raDecToCartesian, cartesianToRaDec} from '../core/CoordinateUtils.js';
+import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {magnitudeToSize} from '../core/MagnitudeUtils.js';
 import {SHADERS, SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
 import {dynamicDataLoader} from '../services/DynamicDataLoader.js';
@@ -27,6 +27,7 @@ import {
   freezeTransform,
   getPointScale,
   getSharedHaloTexture,
+  worldDirectionToRaDec,
 } from './SceneUtils.js';
 
 const logger = createLogger('DynamicObjectManager');
@@ -73,10 +74,6 @@ export class DynamicObjectManager {
 
     // Reusable objects for performance
     this._tempVec3 = new THREE.Vector3();
-    this._tempVec3B = new THREE.Vector3();
-    this._tempMatrix4 = new THREE.Matrix4();
-    this._tempMatrix4B = new THREE.Matrix4();
-    this._tempMatrix3 = new THREE.Matrix3();
   }
 
   /* ======================================================================
@@ -163,21 +160,8 @@ export class DynamicObjectManager {
 
     const celestialSphere = this.callbacks_.getCelestialSphere();
 
-    // Get camera's forward direction in world coordinates
     camera.getWorldDirection(this._tempVec3);
-
-    // Transform view direction from world coords to celestial coords
-    // by applying the INVERSE of the celestialSphere's world transformation
-    this._tempVec3B.copy(this._tempVec3);
-    if (celestialSphere) {
-      celestialSphere.updateMatrixWorld();
-      this._tempMatrix4.copy(celestialSphere.matrixWorld);
-      this._tempMatrix4B.copy(this._tempMatrix4).invert();
-      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
-      this._tempVec3B.applyMatrix3(this._tempMatrix3);
-    }
-
-    const raDec = cartesianToRaDec(this._tempVec3B.x, this._tempVec3B.y, this._tempVec3B.z);
+    const raDec = worldDirectionToRaDec(this._tempVec3, celestialSphere);
 
     // Region key for caching (finer grid for deeper zoom) — shared formula
     // with DynamicDataLoader so the two dedup caches agree.
@@ -298,18 +282,9 @@ export class DynamicObjectManager {
    * @private
    */
   filterStarsOutsideFov_(camera, celestialSphere, fov) {
-    // Reuse the instance temporaries rather than allocating five Three.js
-    // objects per call; checkLoading twenty lines above already does this.
-    const viewDirCelestial = this._tempVec3
-        .set(0, 0, 0).sub(camera.position).normalize();
-    if (celestialSphere) {
-      celestialSphere.updateMatrixWorld();
-      this._tempMatrix4.copy(celestialSphere.matrixWorld);
-      this._tempMatrix4B.copy(this._tempMatrix4).invert();
-      this._tempMatrix3.setFromMatrix4(this._tempMatrix4B);
-      viewDirCelestial.applyMatrix3(this._tempMatrix3);
-    }
-    const viewRaDec = cartesianToRaDec(viewDirCelestial.x, viewDirCelestial.y, viewDirCelestial.z);
+    // The camera looks at the sphere's centre.
+    const viewDir = this._tempVec3.set(0, 0, 0).sub(camera.position).normalize();
+    const viewRaDec = worldDirectionToRaDec(viewDir, celestialSphere);
 
     // Filter radius relative to zoom
     const filterRadius = Math.max(fov * 1.5, fov + 2);
