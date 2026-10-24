@@ -18,7 +18,8 @@ logging.basicConfig(
     format="%(message)s",
 )
 
-from astrapedia.config import Config, DSO_TYPE_NAMES
+from astrapedia.config import Config
+from astrapedia.mappings import DSO_TYPE_NAMES
 from astrapedia.io import download_file, write_json
 from astrapedia.astronomy import (
     filter_by_magnitude,

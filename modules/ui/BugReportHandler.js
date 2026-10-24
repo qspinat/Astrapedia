@@ -5,6 +5,7 @@
 
 import {createLogger} from '../core/Logger.js';
 import {panelManager} from './PanelManager.js';
+import {domCache} from './DOMCache.js';
 
 const logger = createLogger('BugReportHandler');
 
@@ -54,7 +55,7 @@ export class BugReportHandler {
    * @private
    */
   setupEventListeners_() {
-    const submitBtn = document.getElementById('bug-report-submit');
+    const submitBtn = domCache.get('bug-report-submit');
     if (submitBtn) {
       submitBtn.addEventListener('click', () => this.handleSubmit_());
     }
@@ -66,7 +67,7 @@ export class BugReportHandler {
    * @private
    */
   validateForm_() {
-    const description = document.getElementById('bug-description');
+    const description = domCache.get('bug-description');
     if (!description || !description.value.trim()) {
       panelManager.showNotification('Please provide a description of the bug.');
       description?.focus();
@@ -79,7 +80,7 @@ export class BugReportHandler {
     }
 
     // Validate email if provided
-    const emailInput = document.getElementById('bug-email');
+    const emailInput = domCache.get('bug-email');
     const email = emailInput?.value.trim() || '';
     if (email && !isValidEmail(email)) {
       panelManager.showNotification('Please enter a valid email address.');
@@ -115,11 +116,11 @@ export class BugReportHandler {
     if (!this.validateForm_()) return;
 
     const description =
-        document.getElementById('bug-description')?.value.trim() || '';
-    const category = document.getElementById('bug-category')?.value || 'other';
-    const email = document.getElementById('bug-email')?.value.trim() || '';
+        domCache.get('bug-description')?.value.trim() || '';
+    const category = domCache.get('bug-category')?.value || 'other';
+    const email = domCache.get('bug-email')?.value.trim() || '';
 
-    const submitBtn = document.getElementById('bug-report-submit');
+    const submitBtn = domCache.get('bug-report-submit');
     this.submitting_ = true;
     if (submitBtn) {
       submitBtn.disabled = true;
@@ -172,9 +173,9 @@ export class BugReportHandler {
    * @private
    */
   clearForm_() {
-    const description = document.getElementById('bug-description');
-    const category = document.getElementById('bug-category');
-    const email = document.getElementById('bug-email');
+    const description = domCache.get('bug-description');
+    const category = domCache.get('bug-category');
+    const email = domCache.get('bug-email');
     if (description) description.value = '';
     if (category) category.selectedIndex = 0;
     if (email) email.value = '';

@@ -5,13 +5,13 @@
 
 import {jest} from '@jest/globals';
 import {
-  calculateAltitude,
   isAboveHorizon,
   isCircumpolar,
   neverRises,
   transitAltitude,
   VisibilityCalculator,
 } from '../../modules/features/VisibilityCalculator.js';
+import {calculateAltitude} from '../../modules/core/CoordinateUtils.js';
 
 describe('VisibilityCalculator pure functions', () => {
   describe('calculateAltitude', () => {

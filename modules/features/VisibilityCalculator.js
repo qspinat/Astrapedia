@@ -7,9 +7,6 @@ import {calculateAltitude} from '../core/CoordinateUtils.js';
 import {getDsoTypeName} from '../core/TypeMappings.js';
 import {catalogDesignation} from '../data/CuratedImages.js';
 
-// Re-exported so visibility callers can take everything from one module.
-export {calculateAltitude};
-
 /**
  * Check if an object is above the horizon.
  * @param {number} ra - Right ascension in degrees

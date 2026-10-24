@@ -196,16 +196,6 @@ describe('PowerManager', () => {
     });
   });
 
-  describe('getTimeSinceInteraction', () => {
-    test('returns time since last interaction', () => {
-      powerManager.requestRender();
-
-      jest.advanceTimersByTime(1000);
-
-      expect(powerManager.getTimeSinceInteraction()).toBeGreaterThanOrEqual(1000);
-    });
-  });
-
   describe('dispose', () => {
     test('clears idle timeout', () => {
       powerManager.startAnimating();

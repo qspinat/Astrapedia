@@ -51,14 +51,14 @@ export class GameUI {
    * @private
    */
   setupEventListeners_() {
-    const passBtn = document.getElementById('pass-btn');
+    const passBtn = domCache.get('pass-btn');
     if (passBtn) {
       addMobileButtonListener(passBtn, () => {
         this.deps_.passQuestion?.();
       });
     }
 
-    const stopGameBtn = document.getElementById('stop-game-btn');
+    const stopGameBtn = domCache.get('stop-game-btn');
     if (stopGameBtn) {
       addMobileButtonListener(stopGameBtn, () => {
         this.deps_.stopGame?.();
@@ -208,7 +208,7 @@ export class GameUI {
    * @private
    */
   updateUI_(isPlaying) {
-    const gamePanel = document.getElementById('game-panel');
+    const gamePanel = domCache.get('game-panel');
     if (gamePanel) {
       gamePanel.classList.toggle('active', isPlaying);
     }
@@ -220,7 +220,7 @@ export class GameUI {
    * @private
    */
   updateQuestion_(data) {
-    const questionEl = document.getElementById('game-question');
+    const questionEl = domCache.get('game-question');
     if (questionEl) {
       // Use displayName for translated names, fall back to name
       questionEl.textContent = data.question?.displayName ||
@@ -234,7 +234,7 @@ export class GameUI {
    * @private
    */
   updateScore_(data) {
-    const scoreEl = document.getElementById('game-score');
+    const scoreEl = domCache.get('game-score');
     if (scoreEl) {
       scoreEl.textContent = `Score: ${data.score}/${data.total}`;
     }

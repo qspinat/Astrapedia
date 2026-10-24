@@ -82,6 +82,7 @@ jest.unstable_mockModule('../modules/ui/PanelManager.js', () => ({
 const {GameUI, initializeGameUI, resetGameUI} = await import('../modules/features/GameUI.js');
 const {TourUI, initializeTourUI, resetTourUI} = await import('../modules/features/TourUI.js');
 const {TimeUI, initializeTimeUI, resetTimeUI} = await import('../modules/features/TimeUI.js');
+const {initializeTelescopeUI, resetTelescopeUI} = await import('../modules/features/TelescopeUI.js');
 const {UIController, initializeUIController, resetUIController} = await import('../modules/ui/UIController.js');
 
 describe('Singleton Enforcement', () => {
@@ -194,6 +195,30 @@ describe('Singleton Enforcement', () => {
       );
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('TelescopeUI', () => {
+    beforeEach(() => {
+      resetTelescopeUI();
+    });
+
+    afterEach(() => {
+      resetTelescopeUI();
+    });
+
+    test('initializeTelescopeUI returns same instance on multiple calls', () => {
+      const deps = {
+        getTelescope: jest.fn(() => ({diameter: 200, focalLength: 1000})),
+        getEyepiece: jest.fn(() => ({focalLength: 25, apparentFov: 52})),
+        getPresetNames: jest.fn(() => []),
+        isActive: jest.fn(() => false),
+      };
+
+      const instance1 = initializeTelescopeUI(deps);
+      const instance2 = initializeTelescopeUI(deps);
+
+      expect(instance1).toBe(instance2);
     });
   });
 

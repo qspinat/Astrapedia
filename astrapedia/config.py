@@ -192,15 +192,10 @@ class Config:
         return source.url if source else None
 
 
-# Re-export mappings for backwards compatibility
-from .mappings import CONSTELLATION_ABBREVS, DSO_TYPE_NAMES
-
 __all__ = [
     "Config",
     "MagnitudeLevel",
     "CatalogSource",
-    "DSO_TYPE_NAMES",
-    "CONSTELLATION_ABBREVS",
 ]
 
 

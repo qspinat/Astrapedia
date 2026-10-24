@@ -18,10 +18,10 @@ import {addMobileButtonListener, relativeDayLabel, APP_LOCALE} from '../core/Uti
 import {initializeNightVision} from './NightVision.js';
 import {initializeLocationDialog} from './LocationDialog.js';
 import {initializeOnboarding, getOnboarding} from './Onboarding.js';
-import {GameUI} from '../features/GameUI.js';
-import {TourUI} from '../features/TourUI.js';
-import {TimeUI} from '../features/TimeUI.js';
-import {TelescopeUI} from '../features/TelescopeUI.js';
+import {initializeGameUI} from '../features/GameUI.js';
+import {initializeTourUI} from '../features/TourUI.js';
+import {initializeTimeUI} from '../features/TimeUI.js';
+import {initializeTelescopeUI} from '../features/TelescopeUI.js';
 import {domCache} from './DOMCache.js';
 
 const logger = createLogger('UIController');
@@ -494,30 +494,29 @@ export class UIController {
     });
     this.settingsHandler_.initialize();
 
-    this.timeUI_ = new TimeUI({
+    // The factories guard against a second instance (duplicate DOM handlers)
+    // and call initialize() themselves.
+    this.timeUI_ = initializeTimeUI({
       setTimeSpeed: this.deps_.setTimeSpeed,
       togglePlayback: this.deps_.togglePlayback,
       jumpToTime: this.deps_.jumpToTime,
       getSimulationTime: this.deps_.getSimulationTime,
     });
-    this.timeUI_.initialize();
 
-    this.gameUI_ = new GameUI({
+    this.gameUI_ = initializeGameUI({
       passQuestion: this.deps_.passQuestion,
       stopGame: this.deps_.stopGame,
     });
-    this.gameUI_.initialize();
 
-    this.tourUI_ = new TourUI({
+    this.tourUI_ = initializeTourUI({
       startTour: this.deps_.startTour,
       nextStep: this.deps_.nextTourStep,
       prevStep: this.deps_.prevTourStep,
       stopTour: this.deps_.stopTour,
       panelManager: this.panelManager_,
     });
-    this.tourUI_.initialize();
 
-    this.telescopeUI_ = new TelescopeUI({
+    this.telescopeUI_ = initializeTelescopeUI({
       getTelescope: this.deps_.getTelescope,
       setTelescope: this.deps_.setTelescope,
       getEyepiece: this.deps_.getEyepiece,
@@ -532,7 +531,6 @@ export class UIController {
       computeVisibilityForDiameters: this.deps_.computeVisibilityForDiameters,
       computeDiffuseVisibility: this.deps_.computeDiffuseVisibility,
     });
-    this.telescopeUI_.initialize();
 
     // Setup panel-specific buttons
     this.setupPanelButtons_();
@@ -715,15 +713,15 @@ export class UIController {
    * @private
    */
   wireToursCard_({cardId, nameId, labelId, onTap, getContent}) {
-    const card = document.getElementById(cardId);
+    const card = domCache.get(cardId);
     if (!card) return;
 
     addMobileButtonListener(card, onTap);
 
     this.panelManager_.onOpen('tours-panel', () => {
       const content = getContent();
-      const nameEl = document.getElementById(nameId);
-      const labelEl = document.getElementById(labelId);
+      const nameEl = domCache.get(nameId);
+      const labelEl = domCache.get(labelId);
       if (content && nameEl && labelEl) {
         nameEl.textContent = content.name;
         labelEl.textContent = content.label;

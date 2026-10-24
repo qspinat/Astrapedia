@@ -14,6 +14,7 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {locationManager} from '../services/LocationManager.js';
 import {moonIllumination, moonPhaseName} from '../core/MoonPhase.js';
+import {domCache} from '../ui/DOMCache.js';
 
 /**
  * SkyConditionsHandler manages sky condition calculations for NELM.
@@ -257,14 +258,14 @@ export class SkyConditionsHandler {
     const nakedEyeLimit = this.calculateNakedEyeLimit();
 
     // Update moon phase display
-    const phaseEl = document.getElementById('moon-phase-display');
+    const phaseEl = domCache.get('moon-phase-display');
     if (phaseEl) {
       const illumination = Math.round(this.getMoonIllumination_(this.moonPhase_) * 100);
       phaseEl.textContent = `${phaseInfo.emoji} ${phaseInfo.name} (${illumination}%)`;
     }
 
     // Update moon altitude display
-    const altEl = document.getElementById('moon-altitude-display');
+    const altEl = domCache.get('moon-altitude-display');
     if (altEl) {
       if (this.moonAltitude_ <= 0) {
         altEl.textContent = 'Below horizon ✓';
@@ -276,7 +277,7 @@ export class SkyConditionsHandler {
     }
 
     // Update naked eye limit display
-    const limitEl = document.getElementById('naked-eye-limit-display');
+    const limitEl = domCache.get('naked-eye-limit-display');
     if (limitEl) {
       limitEl.textContent = `mag ${nakedEyeLimit.toFixed(1)}`;
     }
@@ -331,7 +332,7 @@ export class SkyConditionsHandler {
     this.setupEventSubscriptions_();
 
     // Light pollution selector
-    const select = document.getElementById('light-pollution-select');
+    const select = domCache.get('light-pollution-select');
     if (select) {
       select.value = this.lightPollution_;
       select.addEventListener('change', (e) => {

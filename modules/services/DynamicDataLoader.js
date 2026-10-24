@@ -64,13 +64,7 @@ export class DynamicDataLoader {
     this.maxDSOs_ = config.maxDSOs || DYNAMIC_DATA.MAX_DSOS;
 
     /** @private @const {number} */
-    this.maxRegions_ = config.maxRegions || DYNAMIC_DATA.MAX_REGIONS;
-
-    /** @private @const {number} */
     this.queryTimeout_ = config.timeout || 30000;
-
-    /** @private {!Set<string>} */
-    this.queriedRegions_ = new Set();
 
     /** @private {boolean} */
     this.isQueryingStars_ = false;
@@ -239,24 +233,6 @@ export class DynamicDataLoader {
   }
 
   /**
-   * Check if a region needs to be queried.
-   * @param {number} ra - Right Ascension
-   * @param {number} dec - Declination
-   * @param {number} fov - Field of view
-   * @param {number} magLimit - Magnitude limit
-   * @returns {boolean} True if region should be queried
-   */
-  shouldQueryRegion(ra, dec, fov, magLimit) {
-    if (fov > DYNAMIC_DATA.LOAD_FOV_THRESHOLD) return false;
-    if (this.isQueryingStars_ || this.isQueryingDSOs_) return false;
-
-    const regionKey = this.getRegionKey(ra, dec, fov, magLimit);
-    if (this.queriedRegions_.has(regionKey)) return false;
-
-    return true;
-  }
-
-  /**
    * Get the query cell containing a view centre.
    *
    * Cells are a power of two no larger than half the FOV, so small zoom
@@ -288,18 +264,6 @@ export class DynamicDataLoader {
   }
 
   /**
-   * Get region key for caching.
-   * @param {number} ra - Right Ascension
-   * @param {number} dec - Declination
-   * @param {number} fov - Field of view
-   * @param {number} magLimit - Magnitude limit
-   * @returns {string} Region key
-   */
-  getRegionKey(ra, dec, fov, magLimit) {
-    return this.getRegion(ra, dec, fov, magLimit).key;
-  }
-
-  /**
    * Query stars from multiple catalogs for a region.
    * @param {number} ra - Center Right Ascension in degrees
    * @param {number} dec - Center Declination in degrees
@@ -316,9 +280,6 @@ export class DynamicDataLoader {
     if (this.isQueryingStars_) return null;
     if (this.shouldRateLimit_('vizier')) return null;
     this.isQueryingStars_ = true;
-
-    const regionKey = this.getRegionKey(ra, dec, fov, magLimit);
-    this.queriedRegions_.add(regionKey);
 
     globalEventBus.emit(Events.DYNAMIC_QUERY_STARTED, {type: 'stars', ra, dec, fov});
 
@@ -700,25 +661,6 @@ export class DynamicDataLoader {
       return response;
     } finally {
       clearTimeout(timeoutId);
-    }
-  }
-
-  /**
-   * Clear all dynamic data (called when zoomed out).
-   */
-  clearAll() {
-    this.queriedRegions_.clear();
-  }
-
-  /**
-   * Clear cached regions (for re-querying).
-   */
-  clearRegionCache() {
-    // Limit cache size
-    if (this.queriedRegions_.size > this.maxRegions_) {
-      const keysArray = Array.from(this.queriedRegions_);
-      const toRemove = keysArray.slice(0, Math.floor(this.maxRegions_ / 2));
-      toRemove.forEach((key) => this.queriedRegions_.delete(key));
     }
   }
 

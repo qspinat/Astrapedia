@@ -10,9 +10,8 @@ from astrapedia.config import (
     Config,
     MagnitudeLevel,
     CatalogSource,
-    DSO_TYPE_NAMES,
-    CONSTELLATION_ABBREVS,
 )
+from astrapedia.mappings import CONSTELLATION_ABBREVS, DSO_TYPE_NAMES
 
 
 class TestMagnitudeLevel:

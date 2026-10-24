@@ -147,27 +147,19 @@ jest.unstable_mockModule('../modules/core/Utils.js', () => ({
 
 // Mock feature UI modules
 jest.unstable_mockModule('../modules/features/GameUI.js', () => ({
-  GameUI: jest.fn().mockImplementation(() => ({
-    initialize: jest.fn(),
-  })),
+  initializeGameUI: jest.fn(() => ({})),
 }));
 
 jest.unstable_mockModule('../modules/features/TourUI.js', () => ({
-  TourUI: jest.fn().mockImplementation(() => ({
-    initialize: jest.fn(),
-  })),
+  initializeTourUI: jest.fn(() => ({})),
 }));
 
 jest.unstable_mockModule('../modules/features/TimeUI.js', () => ({
-  TimeUI: jest.fn().mockImplementation(() => ({
-    initialize: jest.fn(),
-  })),
+  initializeTimeUI: jest.fn(() => ({})),
 }));
 
 jest.unstable_mockModule('../modules/features/TelescopeUI.js', () => ({
-  TelescopeUI: jest.fn().mockImplementation(() => ({
-    initialize: jest.fn(),
-  })),
+  initializeTelescopeUI: jest.fn(() => ({})),
 }));
 
 // Dynamic imports after mocks

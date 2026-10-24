@@ -39,9 +39,6 @@ export class PowerManager {
     /** @private {?number} */
     this.idleTimeout_ = null;
 
-    /** @private {number} */
-    this.lastInteractionTime_ = 0;
-
     /** @private {number} - Idle timeout in milliseconds */
     this.idleTimeoutMs_ = POWER_SAVING.IDLE_THRESHOLD;
 
@@ -117,8 +114,6 @@ export class PowerManager {
    * Restarts animation if stopped and page is visible.
    */
   requestRender() {
-    this.lastInteractionTime_ = performance.now();
-
     // Restart animation if stopped
     if (!this.isAnimating_ && this.isPageVisible_) {
       this.startAnimating();
@@ -165,14 +160,6 @@ export class PowerManager {
       this.idleTimeout_ = null;
     }
     this.onStopAnimating_?.();
-  }
-
-  /**
-   * Get time since last interaction.
-   * @returns {number} Time in milliseconds
-   */
-  getTimeSinceInteraction() {
-    return performance.now() - this.lastInteractionTime_;
   }
 
   /**

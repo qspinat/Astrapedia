@@ -323,11 +323,11 @@ describe('UI Controller event wiring', () => {
 
   describe('TimeUI', () => {
     test('retrieves time-picker-btn element', () => {
-      expect(timeUIContent).toContain('getElementById(\'time-picker-btn\')');
+      expect(timeUIContent).toContain('domCache.get(\'time-picker-btn\')');
     });
 
     test('retrieves time-picker-panel element', () => {
-      expect(timeUIContent).toContain('getElementById(\'time-picker-panel\')');
+      expect(timeUIContent).toContain('domCache.get(\'time-picker-panel\')');
     });
 
     test('adds click event listener to time picker button', () => {
@@ -341,13 +341,13 @@ describe('UI Controller event wiring', () => {
     });
 
     test('retrieves date-picker and time-picker inputs', () => {
-      expect(timeUIContent).toContain('getElementById(\'date-picker\')');
-      expect(timeUIContent).toContain('getElementById(\'time-picker\')');
+      expect(timeUIContent).toContain('domCache.get(\'date-picker\')');
+      expect(timeUIContent).toContain('domCache.get(\'time-picker\')');
     });
 
     test('retrieves apply and cancel buttons', () => {
-      expect(timeUIContent).toContain('getElementById(\'time-picker-apply\')');
-      expect(timeUIContent).toContain('getElementById(\'time-picker-cancel\')');
+      expect(timeUIContent).toContain('domCache.get(\'time-picker-apply\')');
+      expect(timeUIContent).toContain('domCache.get(\'time-picker-cancel\')');
     });
 
     test('calls jumpToTime on apply', () => {
@@ -365,7 +365,7 @@ describe('UI Controller event wiring', () => {
     test('initializes all handlers', () => {
       expect(uiControllerContent).toContain('this.searchController_.initialize()');
       expect(uiControllerContent).toContain('this.settingsHandler_.initialize()');
-      expect(uiControllerContent).toContain('this.timeUI_.initialize()');
+      expect(uiControllerContent).toContain('this.timeUI_ = initializeTimeUI(');
     });
 
     test('logs initialization status', () => {

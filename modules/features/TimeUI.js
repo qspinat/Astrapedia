@@ -7,6 +7,7 @@ import {globalEventBus, Events} from '../core/EventBus.js';
 import {TIME} from '../core/Constants.js';
 import {addMobileButtonListener} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
+import {domCache} from '../ui/DOMCache.js';
 
 const logger = createLogger('TimeUI');
 
@@ -50,7 +51,7 @@ export class TimeUI {
    */
   setupEventListeners_() {
     // Rewind button
-    const rewindBtn = document.getElementById('time-rewind-btn');
+    const rewindBtn = domCache.get('time-rewind-btn');
     if (rewindBtn) {
       addMobileButtonListener(rewindBtn, () => {
         this.deps_.setTimeSpeed?.(-100);
@@ -58,7 +59,7 @@ export class TimeUI {
     }
 
     // Play/pause button
-    const playBtn = document.getElementById('time-play-btn');
+    const playBtn = domCache.get('time-play-btn');
     if (playBtn) {
       addMobileButtonListener(playBtn, () => {
         this.deps_.togglePlayback?.();
@@ -66,7 +67,7 @@ export class TimeUI {
     }
 
     // Forward button (cycles through speeds)
-    const forwardBtn = document.getElementById('time-forward-btn');
+    const forwardBtn = domCache.get('time-forward-btn');
     if (forwardBtn) {
       addMobileButtonListener(forwardBtn, () => {
         const presets = TIME.SPEED_PRESETS;
@@ -77,7 +78,7 @@ export class TimeUI {
     }
 
     // Now button
-    const nowBtn = document.getElementById('time-now-btn');
+    const nowBtn = domCache.get('time-now-btn');
     if (nowBtn) {
       addMobileButtonListener(nowBtn, () => {
         this.deps_.jumpToTime?.(new Date());
@@ -93,12 +94,12 @@ export class TimeUI {
    * @private
    */
   setupTimePicker_() {
-    const pickerBtn = document.getElementById('time-picker-btn');
-    const pickerPanel = document.getElementById('time-picker-panel');
-    const datePicker = document.getElementById('date-picker');
-    const timePicker = document.getElementById('time-picker');
-    const applyBtn = document.getElementById('time-picker-apply');
-    const cancelBtn = document.getElementById('time-picker-cancel');
+    const pickerBtn = domCache.get('time-picker-btn');
+    const pickerPanel = domCache.get('time-picker-panel');
+    const datePicker = domCache.get('date-picker');
+    const timePicker = domCache.get('time-picker');
+    const applyBtn = domCache.get('time-picker-apply');
+    const cancelBtn = domCache.get('time-picker-cancel');
 
     if (!pickerBtn || !pickerPanel) return;
 
@@ -162,8 +163,8 @@ export class TimeUI {
    */
   prefillTimePicker_() {
     const currentTime = this.deps_.getSimulationTime?.() || new Date();
-    const datePicker = document.getElementById('date-picker');
-    const timePicker = document.getElementById('time-picker');
+    const datePicker = domCache.get('date-picker');
+    const timePicker = domCache.get('time-picker');
 
     if (datePicker) {
       const year = currentTime.getFullYear();
@@ -206,7 +207,7 @@ export class TimeUI {
    * @private
    */
   updatePlayButton_() {
-    const playBtn = document.getElementById('time-play-btn');
+    const playBtn = domCache.get('time-play-btn');
     if (playBtn) {
       playBtn.classList.toggle('playing', this.isPlaying_);
     }
@@ -218,7 +219,7 @@ export class TimeUI {
    * @private
    */
   updateTimeDisplay_(time) {
-    const timeDisplay = document.getElementById('time-display');
+    const timeDisplay = domCache.get('time-display');
     if (timeDisplay) {
       timeDisplay.textContent = time.toLocaleString();
     }

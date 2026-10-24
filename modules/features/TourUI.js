@@ -7,6 +7,7 @@ import {globalEventBus, Events} from '../core/EventBus.js';
 import {panelManager} from '../ui/PanelManager.js';
 import {addMobileButtonListener} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
+import {domCache} from '../ui/DOMCache.js';
 
 const logger = createLogger('TourUI');
 
@@ -64,21 +65,21 @@ export class TourUI {
     this.setupTourButton_('tour-winter-btn', 'winter-sky');
 
     // Navigation buttons
-    const nextBtn = document.getElementById('tour-next-btn');
+    const nextBtn = domCache.get('tour-next-btn');
     if (nextBtn) {
       addMobileButtonListener(nextBtn, () => {
         this.deps_.nextStep?.();
       });
     }
 
-    const prevBtn = document.getElementById('tour-prev-btn');
+    const prevBtn = domCache.get('tour-prev-btn');
     if (prevBtn) {
       addMobileButtonListener(prevBtn, () => {
         this.deps_.prevStep?.();
       });
     }
 
-    const stopBtn = document.getElementById('tour-stop-btn');
+    const stopBtn = domCache.get('tour-stop-btn');
     if (stopBtn) {
       addMobileButtonListener(stopBtn, () => {
         this.deps_.stopTour?.();
@@ -93,7 +94,7 @@ export class TourUI {
    * @private
    */
   setupTourButton_(buttonId, tourName) {
-    const btn = document.getElementById(buttonId);
+    const btn = domCache.get(buttonId);
     if (btn) {
       addMobileButtonListener(btn, () => {
         logger.debug('Tour button clicked:', tourName);
@@ -148,7 +149,7 @@ export class TourUI {
    * @private
    */
   showTourUI_() {
-    const tourPanel = document.getElementById('tour-panel');
+    const tourPanel = domCache.get('tour-panel');
     if (tourPanel) {
       tourPanel.classList.add('active');
     }
@@ -159,7 +160,7 @@ export class TourUI {
    * @private
    */
   hideTourUI_() {
-    const tourPanel = document.getElementById('tour-panel');
+    const tourPanel = domCache.get('tour-panel');
     if (tourPanel) {
       tourPanel.classList.remove('active');
       tourPanel.style.display = 'none';
@@ -181,7 +182,7 @@ export class TourUI {
    */
   buildTourPanel(tourData) {
     logger.debug('buildTourPanel() called, step:', tourData.stepIndex + 1, 'of', tourData.totalSteps, '-', tourData.stepName);
-    const tourPanel = document.getElementById('tour-panel');
+    const tourPanel = domCache.get('tour-panel');
     if (!tourPanel) {
       logger.warn('tour-panel not found');
       return;

@@ -5,6 +5,7 @@
 import {jest} from '@jest/globals';
 import {PanelManager} from '../modules/ui/PanelManager.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
+import {domCache} from '../modules/ui/DOMCache.js';
 
 describe('PanelManager', () => {
   let panelManager;
@@ -14,6 +15,8 @@ describe('PanelManager', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Each test builds fresh mock elements; drop the singleton's references.
+    domCache.clear();
 
     // Mock backdrop
     mockBackdrop = {

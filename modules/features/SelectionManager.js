@@ -405,7 +405,7 @@ export class SelectionManager {
     this.descriptionAbortController_ = new AbortController();
     const signal = this.descriptionAbortController_.signal;
 
-    const descDiv = document.getElementById('object-description');
+    const descDiv = domCache.get('object-description');
     if (!descDiv) return;
 
     // Build search terms for Wikipedia
@@ -504,7 +504,7 @@ export class SelectionManager {
     this.imageAbortController_ = new AbortController();
     const signal = this.imageAbortController_.signal;
 
-    const container = document.getElementById('main-image');
+    const container = domCache.get('main-image');
     if (!container) return;
 
     // Show loading state
@@ -686,7 +686,7 @@ export class SelectionManager {
     this.descriptionAbortController_ = new AbortController();
     const signal = this.descriptionAbortController_.signal;
 
-    const descContainer = document.getElementById('object-description');
+    const descContainer = domCache.get('object-description');
     if (!descContainer) return;
 
     try {

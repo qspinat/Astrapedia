@@ -7,6 +7,7 @@
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {panelManager} from '../ui/PanelManager.js';
 import {APP_LOCALE, relativeDayLabel} from '../core/Utils.js';
+import {domCache} from '../ui/DOMCache.js';
 
 /**
  * Event type icons for display.
@@ -301,7 +302,7 @@ export class EventsCalendar {
    * @param {function(string): void=} openPanel - Function to open panel
    */
   showEventsCalendar() {
-    const panel = document.getElementById('events-panel');
+    const panel = domCache.get('events-panel');
     if (!panel) return;
 
     const content = panel.querySelector('.panel-content');

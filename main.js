@@ -26,6 +26,7 @@ import {showLoadingError} from './modules/ui/LoadingError.js';
 // Main application class (to be slimmed down)
 import {AstrapediaApp} from './skymap.js';
 import {createLogger} from './modules/core/Logger.js';
+import {domCache} from './modules/ui/DOMCache.js';
 
 const logger = createLogger('Main');
 
@@ -115,7 +116,7 @@ function initializeUI_(appInstance) {
   });
 
   // Setup bug report button
-  const bugReportBtn = document.getElementById('bug-report-btn');
+  const bugReportBtn = domCache.get('bug-report-btn');
   if (bugReportBtn) {
     bugReportBtn.addEventListener('click', () => {
       panelManager.open('bug-report-panel');

@@ -157,8 +157,8 @@ export class DynamicObjectManager {
     const camera = this.callbacks_.getCamera();
     if (!camera) return;
 
-    // Start loading when zoomed in (FOV < 10°)
-    if (camera.fov > 10) return;
+    // Start loading when zoomed in
+    if (camera.fov > DYNAMIC_DATA.LOAD_FOV_THRESHOLD) return;
     if (this.isQueryingGaia || this.isQueryingDSO) return;
 
     const celestialSphere = this.callbacks_.getCelestialSphere();
