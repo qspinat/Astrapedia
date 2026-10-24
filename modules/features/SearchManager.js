@@ -641,9 +641,3 @@ export class SearchManager {
     }
   }
 }
-
-/**
- * Singleton instance for application-wide search.
- * @const {!SearchManager}
- */
-export const searchManager = new SearchManager();

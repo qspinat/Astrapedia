@@ -11,6 +11,33 @@ import {isWithinMagnitudeLimit} from '../core/MagnitudeUtils.js';
 import {clamp} from '../core/Utils.js';
 
 /**
+ * Highest device pixel ratio the canvas renders at.
+ *
+ * Past 2× the extra resolution is barely visible on a sky of points, but the
+ * fill cost scales with its square: a 3× phone draws 2.25× the pixels of 2×,
+ * with MSAA on top.
+ * @const {number}
+ */
+const MAX_PIXEL_RATIO = 2;
+
+/**
+ * @returns {number} Pixel ratio to render the canvas at.
+ */
+export function getRenderPixelRatio() {
+  return Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+}
+
+/**
+ * Factor that keeps point sprites the same physical size when the render
+ * pixel ratio is capped below the device's: gl_PointSize is in framebuffer
+ * pixels, which grow when fewer of them cover the screen.
+ * @returns {number} Multiplier for gl_PointSize.
+ */
+export function getPointScale() {
+  return getRenderPixelRatio() / (window.devicePixelRatio || 1);
+}
+
+/**
  * Take an object out of THREE's per-frame matrix recomputation.
  *
  * WebGLRenderer.render() calls scene.updateMatrixWorld() every frame, which

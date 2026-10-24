@@ -216,7 +216,6 @@ export class SettingsHandler {
   /**
    * Creates a new SettingsHandler instance.
    * @param {!Object} dependencies - Required dependencies
-   * @param {function(boolean): void=} dependencies.setConstellationLines - Set lines
    * @param {function(string): void=} dependencies.setConstellationLinesMode - Set mode
    * @param {function(boolean): void=} dependencies.setEquatorLineVisible - Set equator
    * @param {function(boolean): void=} dependencies.setGridVisible - Set grid visibility
@@ -425,116 +424,6 @@ export class SettingsHandler {
 }
 
 /**
- * Info Badge Updater - periodically updates the info badge display.
- */
-export class InfoBadgeUpdater {
-  /**
-   * Creates a new InfoBadgeUpdater instance.
-   * @param {!Object=} dependencies - Optional dependencies
-   * @param {function(): number=} dependencies.getFOV - Get FOV function
-   * @param {function(): {ra: number, dec: number}=} dependencies.getViewDirection - Get view
-   */
-  constructor(dependencies = {}) {
-    /** @private @const */
-    this.deps_ = dependencies;
-
-    /** @private {?number} */
-    this.intervalId_ = null;
-
-    /** @private {!Array<{unsubscribe: function(): void}>} */
-    this.subscriptions_ = [];
-  }
-
-  /**
-   * Initialize the info badge updater.
-   */
-  initialize() {
-    this.start();
-    this.setupEventBusListeners_();
-  }
-
-  /**
-   * Sets up EventBus listeners.
-   * @private
-   */
-  setupEventBusListeners_() {
-    this.subscriptions_.push(
-      globalEventBus.on(Events.FOV_CHANGED, (data) => {
-        this.updateFOVDisplay_(data.fov);
-      }),
-      globalEventBus.on(Events.CAMERA_MOVE, () => {
-        this.updateBadges_();
-      })
-    );
-  }
-
-  /**
-   * Release EventBus subscriptions.
-   */
-  dispose() {
-    this.subscriptions_.forEach((sub) => sub?.unsubscribe?.());
-    this.subscriptions_ = [];
-  }
-
-  /**
-   * Starts the periodic update interval.
-   */
-  start() {
-    // Update every 2 seconds to save power
-    this.intervalId_ = setInterval(() => {
-      this.updateBadges_();
-    }, 2000);
-  }
-
-  /**
-   * Stops the periodic update interval.
-   */
-  stop() {
-    if (this.intervalId_) {
-      clearInterval(this.intervalId_);
-      this.intervalId_ = null;
-    }
-  }
-
-  /**
-   * Update all badges.
-   * @private
-   */
-  updateBadges_() {
-    const fovBadge = domCache.get('fov-badge');
-    const coordsBadge = domCache.get('coords-badge');
-
-    if (fovBadge) {
-      fovBadge.textContent =
-        domCache.get('fov-display')?.textContent || '60°';
-    }
-
-    if (coordsBadge) {
-      const ra = domCache.get('ra-display')?.textContent || '0°';
-      const dec = domCache.get('dec-display')?.textContent || '0°';
-      coordsBadge.textContent = `RA ${ra} Dec ${dec}`;
-    }
-  }
-
-  /**
-   * Update FOV display.
-   * @param {number} fov - FOV in degrees
-   * @private
-   */
-  updateFOVDisplay_(fov) {
-    const fovBadge = domCache.get('fov-badge');
-    const fovDisplay = domCache.get('fov-display');
-
-    if (fovDisplay) {
-      fovDisplay.textContent = `${fov.toFixed(1)}°`;
-    }
-    if (fovBadge) {
-      fovBadge.textContent = `${fov.toFixed(1)}°`;
-    }
-  }
-}
-
-/**
  * Main UI Controller - orchestrates all UI components.
  */
 export class UIController {
@@ -564,9 +453,6 @@ export class UIController {
     /** @private {?TourUI} */
     this.tourUI_ = null;
 
-    /** @private {?InfoBadgeUpdater} */
-    this.infoBadgeUpdater_ = null;
-
     /** @private {?TelescopeUI} */
     this.telescopeUI_ = null;
 
@@ -595,7 +481,6 @@ export class UIController {
     this.searchController_.initialize();
 
     this.settingsHandler_ = new SettingsHandler({
-      setConstellationLines: this.deps_.setConstellationLines,
       setConstellationLinesMode: this.deps_.setConstellationLinesMode,
       setEquatorLineVisible: this.deps_.setEquatorLineVisible,
       setGridVisible: this.deps_.setGridVisible,
@@ -648,12 +533,6 @@ export class UIController {
       computeDiffuseVisibility: this.deps_.computeDiffuseVisibility,
     });
     this.telescopeUI_.initialize();
-
-    this.infoBadgeUpdater_ = new InfoBadgeUpdater({
-      getFOV: this.deps_.getFOV,
-      getViewDirection: this.deps_.getViewDirection,
-    });
-    this.infoBadgeUpdater_.initialize();
 
     // Setup panel-specific buttons
     this.setupPanelButtons_();
@@ -898,8 +777,6 @@ export class UIController {
    * Dispose of resources.
    */
   dispose() {
-    this.infoBadgeUpdater_?.stop();
-    this.infoBadgeUpdater_?.dispose();
     this.settingsHandler_?.dispose();
     this.panelManager_.dispose();
   }

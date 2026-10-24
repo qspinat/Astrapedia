@@ -3,7 +3,7 @@
  */
 
 import {jest} from '@jest/globals';
-import {SearchManager, searchManager} from '../modules/features/SearchManager.js';
+import {SearchManager} from '../modules/features/SearchManager.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
 import {getPlanetName} from '../modules/data/PlanetNames.js';
 import {getDsoName} from '../modules/data/DsoNames.js';
@@ -790,11 +790,5 @@ describe('getDsoName', () => {
 
   test('returns English name by default', () => {
     expect(getDsoName('Pleiades')).toBe('Pleiades');
-  });
-});
-
-describe('searchManager singleton', () => {
-  test('is a SearchManager instance', () => {
-    expect(searchManager).toBeInstanceOf(SearchManager);
   });
 });

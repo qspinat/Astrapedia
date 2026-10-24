@@ -192,10 +192,26 @@ describe('EventsCalendar', () => {
       expect(next).toBe(upcoming[0]);
     });
 
-    test('the returned event is in the future', () => {
+    test('the returned event is today or later', () => {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
       const next = calendar.getNextEvent();
       expect(next).not.toBeNull();
-      expect(next.date.getTime()).toBeGreaterThan(Date.now());
+      expect(next.date.getTime()).toBeGreaterThanOrEqual(startOfToday.getTime());
+    });
+
+    test('keeps an event for the whole of its day', () => {
+      jest.useFakeTimers();
+      try {
+        const year = new Date().getFullYear();
+        // Perseids peak on Aug 12 (local midnight); check that evening.
+        jest.setSystemTime(new Date(year, 7, 12, 21, 0, 0));
+        const fresh = new EventsCalendar();
+        const names = fresh.getUpcomingEvents().map((e) => e.name);
+        expect(names.some((n) => /Perseid/.test(n))).toBe(true);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     test('no other upcoming event is sooner', () => {

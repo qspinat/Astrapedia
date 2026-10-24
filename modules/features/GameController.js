@@ -938,9 +938,3 @@ export class GameController {
     }
   }
 }
-
-/**
- * Singleton instance for application-wide game control.
- * @const {!GameController}
- */
-export const gameController = new GameController();

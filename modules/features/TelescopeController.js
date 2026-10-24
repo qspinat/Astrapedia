@@ -584,6 +584,15 @@ export class TelescopeController {
   }
 
   /**
+   * Recomputes the sky-limited magnitude after the naked-eye limit changed
+   * (light pollution, moon), and re-applies it to the live view when active.
+   */
+  refreshSkyConditions() {
+    this.computeProperties_();
+    if (this.isActive_) this.applyTelescopeView_();
+  }
+
+  /**
    * Applies the computed FOV (clamped) and magnitude limit to the live view.
    * @return {number} The applied field of view in degrees.
    * @private

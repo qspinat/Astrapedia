@@ -46,12 +46,50 @@ function radToDeg(radians) {
 }
 
 /**
- * Calculate Sun's geocentric position for a given date.
- * Uses simplified solar position algorithm.
+ * J2000 RA/Dec of a body from astronomy-engine, as seen by the observer.
+ *
+ * The catalog is J2000, so solar-system bodies must be too: the series
+ * fallbacks below give equinox-of-date positions, which drift ~50"/yr
+ * (~0.37° by 2026) against the stars — visible at telescope zoom.
+ * @param {string} bodyName - astronomy-engine body name (e.g. 'Moon')
  * @param {!Date} date - Date for calculation
+ * @param {?{lat: number, lon: number, height: number}} observer
+ * @returns {?{ra: number, dec: number}} RA/Dec in degrees, or null when the
+ *     library is unavailable or fails
+ * @private
+ */
+function equatorJ2000_(bodyName, date, observer) {
+  if (typeof Astronomy === 'undefined') return null;
+  const body = Astronomy.Body[bodyName];
+  if (!body) return null;
+  try {
+    const time = Astronomy.MakeTime(date);
+    // Without an observer, use the geocentric position rather than one seen
+    // from (0°, 0°), which would misplace the Moon by up to ~1° of parallax.
+    // ofdate=false: J2000 frame; aberration=true: apparent position.
+    const equator = observer ?
+      Astronomy.Equator(body, time,
+          new Astronomy.Observer(observer.lat, observer.lon, observer.height || 0),
+          false, true) :
+      Astronomy.EquatorFromVector(Astronomy.GeoVector(body, time, true));
+    return {ra: equator.ra * ASTRONOMY.HOURS_TO_DEGREES, dec: equator.dec};
+  } catch (error) {
+    logger.warn(`Error calculating position for ${bodyName}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Calculate the Sun's position for a given date.
+ * Uses astronomy-engine when loaded, else a simplified solar algorithm.
+ * @param {!Date} date - Date for calculation
+ * @param {?{lat: number, lon: number, height: number}=} observer
  * @returns {{ra: number, dec: number}} RA and Dec in degrees
  */
-export function calculateSunPosition(date) {
+export function calculateSunPosition(date, observer = null) {
+  const precise = equatorJ2000_('Sun', date, observer);
+  if (precise) return precise;
+
   // Days since J2000.0 (January 1, 2000, 12:00 TT)
   const jd = dateToJulianDate(date);
   const n = jd - J2000;
@@ -84,12 +122,20 @@ export function calculateSunPosition(date) {
 }
 
 /**
- * Calculate Moon's geocentric position for a given date.
- * Uses simplified lunar position algorithm with main perturbations.
+ * Calculate the Moon's position and phase for a given date.
+ * Uses astronomy-engine when loaded (topocentric, so the ~1° lunar parallax
+ * is included), else a simplified lunar algorithm with main perturbations.
  * @param {!Date} date - Date for calculation
+ * @param {?{lat: number, lon: number, height: number}=} observer
  * @returns {{ra: number, dec: number, phase: number}} RA, Dec in degrees, phase 0-1
  */
-export function calculateMoonPosition(date) {
+export function calculateMoonPosition(date, observer = null) {
+  const precise = equatorJ2000_('Moon', date, observer);
+  if (precise) {
+    // MoonPhase is the true Sun–Moon ecliptic elongation: 0 new, 180 full.
+    return {...precise, phase: Astronomy.MoonPhase(Astronomy.MakeTime(date)) / 360};
+  }
+
   const jd = dateToJulianDate(date);
   const T = (jd - J2000) / DAYS_PER_CENTURY; // Julian centuries since J2000.0
 
@@ -199,43 +245,9 @@ export function calculatePlanetPosition(planetName, date, observer = null) {
     return calculatePlanetPositionFallback(planetName, date);
   }
 
-  try {
-    // Map planet names to astronomy-engine body names
-    const bodyMap = {
-      Mercury: Astronomy.Body.Mercury,
-      Venus: Astronomy.Body.Venus,
-      Mars: Astronomy.Body.Mars,
-      Jupiter: Astronomy.Body.Jupiter,
-      Saturn: Astronomy.Body.Saturn,
-      Uranus: Astronomy.Body.Uranus,
-      Neptune: Astronomy.Body.Neptune,
-    };
-
-    const body = bodyMap[planetName];
-    if (!body) return null;
-
-    // Create Astronomy date from JavaScript Date
-    const astroDate = Astronomy.MakeTime(date);
-
-    // Create observer from location (required by newer astronomy-engine versions)
-    const astroObserver = new Astronomy.Observer(
-      observer?.lat || 0,
-      observer?.lon || 0,
-      observer?.height || 0
-    );
-
-    // Get equatorial coordinates (RA/Dec) for the planet
-    // ofdate=false means J2000 coordinates, aberration=true includes light travel time
-    const equator = Astronomy.Equator(body, astroDate, astroObserver, false, true);
-
-    return {
-      ra: equator.ra * ASTRONOMY.HOURS_TO_DEGREES,
-      dec: equator.dec,
-    };
-  } catch (error) {
-    logger.warn(`Error calculating position for ${planetName}:`, error);
-    return calculatePlanetPositionFallback(planetName, date);
-  }
+  if (!PLANET_ORBITAL_ELEMENTS[planetName]) return null;
+  return equatorJ2000_(planetName, date, observer) ??
+      calculatePlanetPositionFallback(planetName, date);
 }
 
 /**

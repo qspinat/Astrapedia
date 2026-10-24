@@ -13,7 +13,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {locationManager} from '../services/LocationManager.js';
-import {moonPhaseName} from '../core/MoonPhase.js';
+import {moonIllumination, moonPhaseName} from '../core/MoonPhase.js';
 
 /**
  * SkyConditionsHandler manages sky condition calculations for NELM.
@@ -42,8 +42,11 @@ export class SkyConditionsHandler {
     /** @private {number} Moon altitude in degrees */
     this.moonAltitude_ = -10;
 
-    /** @private {?number} */
-    this.updateInterval_ = null;
+    /** @private {?number} NELM last reported to change callbacks */
+    this.lastNotifiedLimit_ = null;
+
+    /** @private {number} Simulation time (ms) of the last refresh */
+    this.lastRefreshTime_ = 0;
 
     /** @private {!Array<function(): void>} */
     this.changeCallbacks_ = [];
@@ -51,14 +54,8 @@ export class SkyConditionsHandler {
     /** @private {?Object} Cached reference to moon data */
     this.cachedMoonData_ = null;
 
-    /** @private {?Array} Cached reference to planets array for invalidation check */
-    this.cachedPlanetsRef_ = null;
-
     /** @private {!Date} Current simulation time from EventBus */
     this.simulationTime_ = new Date();
-
-    /** @private {{lat: number, lon: number}} Observer location from EventBus */
-    this.observerLocation_ = {lat: 45, lon: 0};
 
     /** @private {!Array<{unsubscribe: function(): void}>} EventBus subscriptions */
     this.subscriptions_ = [];
@@ -83,34 +80,48 @@ export class SkyConditionsHandler {
   }
 
   /**
+   * Recompute moon state and NELM, update the display, and notify callbacks
+   * when the limit changed.
+   * @private
+   */
+  refresh_() {
+    this.lastRefreshTime_ = this.simulationTime_.getTime();
+    this.updateDisplay_();
+    const limit = Math.round(this.calculateNakedEyeLimit() * 10) / 10;
+    if (limit !== this.lastNotifiedLimit_) {
+      this.lastNotifiedLimit_ = limit;
+      this.notifyChange_();
+    }
+  }
+
+  /**
    * Set up EventBus subscriptions for time, location, and planet updates.
+   *
+   * The moon altitude is derived from the current simulation time on every
+   * refresh rather than when PLANETS_UPDATED arrives: TimeController updates
+   * planets before announcing the new time, and planets only refresh hourly
+   * during playback, so deriving it there left it one jump or one hour stale.
    * @private
    */
   setupEventSubscriptions_() {
     this.subscriptions_.push(
-      // TIME_CHANGED fires only on an explicit jump; continuous playback
-      // emits TIME_TICK. Listening to just the former left simulationTime_ at
-      // the last jump, so the moon altitude and the naked-eye limit derived
-      // from it drifted further out of date the longer playback ran.
       globalEventBus.on(Events.TIME_CHANGED, (data) => {
         this.simulationTime_ = data.time;
+        this.refresh_();
       }),
+      // Playback ticks every frame; the moon moves ~0.25°/min, so refreshing
+      // once per simulated minute is plenty.
       globalEventBus.on(Events.TIME_TICK, (data) => {
         this.simulationTime_ = data.time;
+        if (Math.abs(data.time.getTime() - this.lastRefreshTime_) >= 60000) {
+          this.refresh_();
+        }
       }),
-      globalEventBus.on(Events.LOCATION_CHANGED, (data) => {
-        this.observerLocation_ = {
-          lat: data.location.lat,
-          lon: data.location.lon,
-        };
-      }),
+      globalEventBus.on(Events.LOCATION_CHANGED, () => this.refresh_()),
       globalEventBus.on(Events.PLANETS_UPDATED, (data) => {
         if (data.moon) {
           this.cachedMoonData_ = data.moon;
-          this.moonPhase_ = data.moon.phase || 0;
-          this.moonAltitude_ = locationManager.calculateAltitude(
-            data.moon.ra, data.moon.dec, this.simulationTime_
-          );
+          this.refresh_();
         }
       })
     );
@@ -134,12 +145,7 @@ export class SkyConditionsHandler {
    * @private
    */
   getMoonIllumination_(phase) {
-    // Convert phase to angle from full moon (0 at full, PI at new)
-    const angleFromFull = Math.abs(phase - 0.5) * 2 * Math.PI;
-    // Approximate illumination using cosine (simplified)
-    // Full moon = 1, new moon = 0, quarter = ~0.5
-    const illumination = (1 + Math.cos(angleFromFull)) / 2;
-    return illumination;
+    return moonIllumination(phase);
   }
 
   /**
@@ -173,17 +179,20 @@ export class SkyConditionsHandler {
   }
 
   /**
-   * Update moon position from cached data.
-   * Moon data is updated via PLANETS_UPDATED event from EventBus.
-   * Uses estimate as fallback if no data available yet.
+   * Update moon phase and altitude for the current simulation time.
+   * Uses the moon position from PLANETS_UPDATED, or an estimate before the
+   * first update arrives.
    * @private
    */
   updateMoonData_() {
-    // Moon data is now updated via PLANETS_UPDATED event
-    // Use estimate as fallback if no data available yet
-    if (this.cachedMoonData_ === null) {
+    const moon = this.cachedMoonData_;
+    if (moon === null) {
       this.estimateMoonPhase_(this.simulationTime_);
+      return;
     }
+    this.moonPhase_ = moon.phase || 0;
+    this.moonAltitude_ = locationManager.calculateAltitude(
+        moon.ra, moon.dec, this.simulationTime_);
   }
 
   /**
@@ -328,28 +337,15 @@ export class SkyConditionsHandler {
       select.addEventListener('change', (e) => {
         this.lightPollution_ = e.target.value;
         this.saveToStorage_();
-        this.updateDisplay_();
-        this.notifyChange_();
+        this.refresh_();
       });
     }
 
-    // Initial display update
-    this.updateDisplay_();
-
-    // Update periodically (every 30 seconds) for moon position changes
-    this.updateInterval_ = setInterval(() => {
-      this.updateDisplay_();
-      this.notifyChange_();
-    }, 30000);
+    this.refresh_();
   }
 
-  /** Stop the update interval and clean up subscriptions. */
+  /** Clean up EventBus subscriptions. */
   dispose() {
-    if (this.updateInterval_) {
-      clearInterval(this.updateInterval_);
-      this.updateInterval_ = null;
-    }
-    // Clean up EventBus subscriptions
     this.subscriptions_.forEach((sub) => sub.unsubscribe());
     this.subscriptions_ = [];
   }

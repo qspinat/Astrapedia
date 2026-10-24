@@ -162,91 +162,20 @@ export class ImageRenderer {
       const staticObjectName = (messierName && getImageUrl(messierName)) ? messierName :
         (ngcName && getImageUrl(ngcName)) ? ngcName :
         (icName && getImageUrl(icName)) ? icName : null;
-      const staticImageUrl = staticObjectName ? getImageUrl(staticObjectName) : null;
       const dynamicObjectName = messierName || ngcName || icName;
       const isTargetType = DYNAMIC_TARGET_TYPES.includes(dso.type);
 
-      if (staticObjectName && staticImageUrl) {
-        this.createStaticImageSprite_(dso, staticObjectName, staticImageUrl);
+      // Curated objects get a placeholder too, so their image downloads only
+      // once the object is on screen and large enough to show — fetchBestImage
+      // returns the curated URL first. Loading all ~80 full-size JPEGs at
+      // startup cost tens of MB and hundreds of MB of GPU memory for images
+      // that only appear at deep zoom.
+      if (staticObjectName) {
+        this.createDynamicPlaceholder_(dso, staticObjectName);
       } else if (dynamicObjectName && isTargetType) {
         this.createDynamicPlaceholder_(dso, dynamicObjectName);
       }
     });
-  }
-
-  /**
-   * Create a sprite with a static (curated) image.
-   * @param {!Object} dso - Deep sky object data
-   * @param {string} objectName - Object name
-   * @param {string} imageUrl - Image URL
-   * @private
-   */
-  createStaticImageSprite_(dso, objectName, imageUrl) {
-    const pos = raDecToCartesian(dso.ra, dso.dec, this.radius_);
-
-    this.textureLoader_.load(
-      imageUrl,
-      (texture) => {
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-
-        const imgWidth = texture.image?.naturalWidth || texture.image?.width || 1;
-        const imgHeight = texture.image?.naturalHeight || texture.image?.height || 1;
-        const aspectRatio = imgWidth / imgHeight;
-
-        const material = new THREE.SpriteMaterial({
-          map: texture,
-          transparent: true,
-          opacity: 0.8,
-          depthWrite: false,
-          depthTest: false,
-          sizeAttenuation: true,
-        });
-        const sprite = new THREE.Sprite(material);
-        sprite.position.copy(pos);
-        sprite.renderOrder = 10;
-
-        const angularSizeArcmin = dso.size_major || 10;
-        const angularSizeRad = THREE.MathUtils.degToRad(angularSizeArcmin / 60);
-        const baseSize = this.radius_ * angularSizeRad * 2 * 3;
-
-        sprite.userData = {
-          object: dso,
-          objectName,
-          angularSizeArcmin,
-          baseSize,
-          aspectRatio,
-          needsDynamicLoad: false,
-        };
-
-        if (aspectRatio >= 1) {
-          sprite.scale.set(baseSize, baseSize / aspectRatio, 1);
-        } else {
-          sprite.scale.set(baseSize * aspectRatio, baseSize, 1);
-        }
-
-        if (dso.pos_angle !== undefined && dso.pos_angle !== null) {
-          sprite.material.rotation = -THREE.MathUtils.degToRad(dso.pos_angle);
-        }
-
-        sprite.visible = true;
-        sprite.material.opacity = 0.1;
-        freezeTransform(sprite);
-
-        this.celestialSphere_.add(sprite);
-        this.imageSprites_.push(sprite);
-
-        logger.debug(
-          `Loaded image for ${objectName} ` +
-          `(size: ${angularSizeArcmin.toFixed(1)}', baseSize: ${baseSize.toFixed(3)})`
-        );
-      },
-      undefined,
-      () => {
-        logger.warn(`Static image failed for ${objectName}, will try dynamic loading`);
-        this.createDynamicPlaceholder_(dso, objectName);
-      }
-    );
   }
 
   /**
@@ -488,6 +417,7 @@ export class ImageRenderer {
           logger.debug(
             `Loaded image for ${objectName} (aspect: ${sprite.userData.aspectRatio.toFixed(2)})`
           );
+          this.requestRender_();
         } else {
           logger.warn(`Texture has no dimensions for ${objectName}`);
           sprite.userData.needsDynamicLoad = false;
@@ -521,6 +451,7 @@ export class ImageRenderer {
                 sprite.userData.imageTier = 'vintage';
                 sprite.userData.aspectRatio = w / h;
                 logger.debug(`Loaded DSS fallback for ${objectName}`);
+                this.requestRender_();
               }
               sprite.userData.needsDynamicLoad = false;
               this.dynamicLoadInProgress_ = false;

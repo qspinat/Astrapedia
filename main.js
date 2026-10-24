@@ -12,7 +12,6 @@
 
 // Core modules
 import {globalEventBus, Events} from './modules/core/EventBus.js';
-import {CAMERA} from './modules/core/Constants.js';
 
 // Feature modules
 import {TelescopeController} from './modules/features/TelescopeController.js';
@@ -22,6 +21,7 @@ import {SkyConditionsHandler} from './modules/features/SkyConditionsHandler.js';
 import {initializeUIController} from './modules/ui/UIController.js';
 import {initializeBugReportHandler} from './modules/ui/BugReportHandler.js';
 import {panelManager} from './modules/ui/PanelManager.js';
+import {showLoadingError} from './modules/ui/LoadingError.js';
 
 // Main application class (to be slimmed down)
 import {AstrapediaApp} from './skymap.js';
@@ -82,7 +82,7 @@ function initializeUI_(appInstance) {
   skyConditionsHandler = new SkyConditionsHandler();
   skyConditionsHandler.setupEventListeners();
   skyConditionsHandler.onChange(() => {
-    appInstance.requestRender?.();
+    telescopeController?.refreshSkyConditions();
   });
 
   // Initialize telescope controller
@@ -135,9 +135,6 @@ function initializeUI_(appInstance) {
     getDailyHighlight: () => appInstance.getDailyHighlight?.(),
 
     // Settings
-    setConstellationLines: (visible) => {
-      appInstance.setConstellationLinesMode(visible ? 'all' : 'off');
-    },
     setConstellationLinesMode: (mode) => {
       appInstance.setConstellationLinesMode(mode);
     },
@@ -193,10 +190,6 @@ function initializeUI_(appInstance) {
       telescopeController?.computeVisibilityForDiameters(obj, diameters) || [],
     computeDiffuseVisibility: (obj) =>
       telescopeController?.computeDiffuseVisibility(obj) || null,
-
-    // Info
-    getFOV: () => appInstance.targetFov || CAMERA.DEFAULT_FOV,
-    getViewDirection: () => ({ra: 0, dec: 0}),
   });
 }
 
@@ -247,22 +240,7 @@ async function initializeApp() {
   } catch (error) {
     logger.error('Application initialization failed:', error);
 
-    // Show error on loading screen
-    const loadingEl = document.getElementById('loading');
-    if (loadingEl) {
-      loadingEl.innerHTML = `
-        <div style="color: #ff6b6b; text-align: center; padding: 20px;">
-          <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-          <div style="font-size: 18px; margin-bottom: 8px;">Failed to start</div>
-          <div style="font-size: 14px; color: #999; max-width: 300px;">
-            ${error.message || 'Unknown error'}
-          </div>
-          <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #3B82F6; color: white; border: none; border-radius: 8px; cursor: pointer;">
-            Retry
-          </button>
-        </div>
-      `;
-    }
+    showLoadingError('Failed to start', error.message || 'Unknown error');
   }
 }
 

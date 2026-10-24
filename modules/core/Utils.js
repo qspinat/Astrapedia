@@ -229,3 +229,14 @@ export function safeGetJson(key) {
     return null;
   }
 }
+
+/**
+ * Set an element's text only when it differs. Assigning textContent always
+ * replaces the text node and invalidates style, even for identical text, which
+ * adds up for readouts written on every input event.
+ * @param {?Element} el - Target element (no-op when missing)
+ * @param {string} text - Text to show
+ */
+export function setTextIfChanged(el, text) {
+  if (el && el.textContent !== text) el.textContent = text;
+}

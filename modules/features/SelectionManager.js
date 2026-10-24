@@ -12,7 +12,7 @@ import {catalogDesignation} from '../data/CuratedImages.js';
 import {createLogger} from '../core/Logger.js';
 import {API_ENDPOINTS} from '../core/Constants.js';
 import {domCache} from '../ui/DOMCache.js';
-import {moonPhaseName} from '../core/MoonPhase.js';
+import {moonIllumination, moonPhaseName} from '../core/MoonPhase.js';
 
 const logger = createLogger('SelectionManager');
 
@@ -365,12 +365,13 @@ export class SelectionManager {
 
   /**
    * Human label for a moon phase fraction, e.g. "Waxing Gibbous (63%)".
-   * @param {number} phase - Illuminated fraction 0..1
+   * @param {number} phase - Moon phase 0..1 (0 = new, 0.5 = full)
    * @returns {string}
    * @private
    */
   moonPhaseLabel_(phase) {
-    return `${moonPhaseName(phase).name} (${(phase * 100).toFixed(0)}% lit)`;
+    const lit = (moonIllumination(phase) * 100).toFixed(0);
+    return `${moonPhaseName(phase).name} (${lit}% lit)`;
   }
 
   /**

@@ -94,11 +94,27 @@ describe('DynamicDataLoader', () => {
 
     test('includes FOV bucket in key', () => {
       const deepKey = loader.getRegionKey(0, 0, 0.5, 12);
-      const mediumKey = loader.getRegionKey(0, 0, 3, 12);
+      const mediumKey = loader.getRegionKey(0, 0, 2, 12);
       const wideKey = loader.getRegionKey(0, 0, 8, 12);
       expect(deepKey).toContain('deep');
       expect(mediumKey).toContain('medium');
       expect(wideKey).toContain('wide');
+    });
+
+    test('re-queries when zooming past the UCAC4 threshold', () => {
+      expect(loader.getRegionKey(45, 30, 3.5, 12))
+          .not.toBe(loader.getRegionKey(45, 30, 2.5, 12));
+    });
+
+    test('padded query from the cell centre covers any view in the cell', () => {
+      const fov = 0.3;
+      const a = loader.getRegion(45.01, 30.01, fov, 12);
+      const b = loader.getRegion(45.12, 30.12, fov, 12);
+      expect(b.key).toBe(a.key);
+      // b's view centre must lie inside a's query cone (radius 0.8 fov + pad).
+      const dist = Math.hypot((45.12 - a.ra) * Math.cos(30 * Math.PI / 180),
+          30.12 - a.dec);
+      expect(dist).toBeLessThanOrEqual(a.pad);
     });
 
     test('includes magnitude bucket in key', () => {
@@ -320,6 +336,23 @@ describe('DynamicDataLoader', () => {
     test('resets querying flag after completion', async () => {
       await loader.queryStars(0, 0, 2, 12);
       expect(loader.isQueryingStars_).toBe(false);
+    });
+
+    test('returns null on a network error so the region is retried', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+      expect(await loader.queryStars(0, 0, 2, 12)).toBeNull();
+    });
+
+    test('returns null on a server error so the region is retried', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ok: false, status: 503});
+      expect(await loader.queryStars(0, 0, 2, 12)).toBeNull();
+    });
+
+    test('counts a failed Tycho-2 response once', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ok: false, status: 503});
+      const spy = jest.spyOn(loader, 'recordFailure_');
+      await loader.queryTycho_(0, 0, 2, 12);
+      expect(spy).toHaveBeenCalledTimes(1);
     });
 
     test('resets querying flag on error', async () => {

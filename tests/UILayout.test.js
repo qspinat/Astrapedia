@@ -597,7 +597,6 @@ describe('UIController dependency forwarding', () => {
   const CLASS_ORDER = [
     'SearchController',
     'SettingsHandler',
-    'InfoBadgeUpdater',
     'UIController',
   ];
 
@@ -633,26 +632,12 @@ describe('UIController dependency forwarding', () => {
     expect(missingDeps).toEqual([]);
   });
 
-  test('InfoBadgeUpdater receives all dependencies it uses', () => {
-    const usedDeps = extractUsedDependencies(
-      uiControllerContent,
-      'InfoBadgeUpdater',
-      getNextClass('InfoBadgeUpdater')
-    );
-    const passedDeps = extractPassedDependencies(uiControllerContent, 'infoBadgeUpdater_');
-
-    const missingDeps = usedDeps.filter(dep => !passedDeps.includes(dep));
-
-    expect(missingDeps).toEqual([]);
-  });
-
   test('all handlers in UIController.initialize() receive their required dependencies', () => {
     // This is a comprehensive test that verifies dependency injection integrity
     // for all handler classes defined in UIController.js
     const handlerMappings = [
       {className: 'SearchController', varName: 'searchController_'},
       {className: 'SettingsHandler', varName: 'settingsHandler_'},
-      {className: 'InfoBadgeUpdater', varName: 'infoBadgeUpdater_'},
     ];
 
     const allMissing = [];

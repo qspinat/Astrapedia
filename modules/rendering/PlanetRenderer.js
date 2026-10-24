@@ -148,8 +148,8 @@ export class PlanetRenderer {
     const observer = this.getObserverLocation_();
 
     // Calculate positions
-    const sunPos = calculateSunPosition(simTime);
-    const moonPos = calculateMoonPosition(simTime);
+    const sunPos = calculateSunPosition(simTime, observer);
+    const moonPos = calculateMoonPosition(simTime, observer);
 
     // Build planet data with positions
     this.planets_ = PLANET_DEFAULTS.map((defaults) => {
@@ -286,7 +286,7 @@ export class PlanetRenderer {
    * no longer what the sprite shows.
    *
    * @param {!THREE.Sprite} sprite - The Moon sprite
-   * @param {number} phase - Illuminated fraction, 0..1
+   * @param {number} phase - Moon phase 0..1 (0 = new, 0.5 = full)
    * @private
    */
   redrawMoonPhase_(sprite, phase) {
@@ -383,8 +383,8 @@ export class PlanetRenderer {
     const observer = this.getObserverLocation_();
 
     // Calculate new positions
-    this.cachedPositions_['Sun'] = calculateSunPosition(simTime);
-    this.cachedPositions_['Moon'] = calculateMoonPosition(simTime);
+    this.cachedPositions_['Sun'] = calculateSunPosition(simTime, observer);
+    this.cachedPositions_['Moon'] = calculateMoonPosition(simTime, observer);
 
     const planetNames = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
     planetNames.forEach((name) => {

@@ -75,11 +75,22 @@ import {
 } from './modules/core/CoordinateUtils.js';
 import {CAMERA, STARS, CONSTELLATIONS} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
+import {showLoadingError} from './modules/ui/LoadingError.js';
 import {dataLoader} from './modules/services/DataLoader.js';
-import {clamp} from './modules/core/Utils.js';
+import {clamp, setTextIfChanged} from './modules/core/Utils.js';
+import {getRenderPixelRatio} from './modules/rendering/SceneUtils.js';
 import {createLogger} from './modules/core/Logger.js';
 
 const logger = createLogger('Astrapedia');
+
+/** @const {number} Slots in the view-state snapshot: 3 quaternions, fov, aspect */
+const VIEW_STATE_SIZE = 14;
+
+/**
+ * @const {number} Longest the loop goes without drawing while it runs, so
+ * scene changes that never request a render still appear promptly.
+ */
+const MIN_RENDER_INTERVAL_MS = 250;
 
 /* ==========================================================================
    2. ASTRAPEDIA APPLICATION CLASS
@@ -103,7 +114,6 @@ export class AstrapediaApp {
     this.renderer = null;
     this.celestialSphere = null;
     this.starField = null;
-    this.constellationLines = null;
 
     // Module instances (initialized after Three.js setup)
     this.imageRenderer_ = null;
@@ -184,13 +194,7 @@ export class AstrapediaApp {
     // Dynamic star/DSO loading (delegated to DynamicObjectManager)
     this.dynamicObjectManager_ = null;
 
-    // UI module instances
-    this.gameUI_ = null;
-
     // === PERFORMANCE OPTIMIZATIONS ===
-    // Reusable TextureLoader (avoid creating new instances per image)
-    this._textureLoader = null;
-
     // Cached bound function for animation loop (prevents new function creation each frame)
     this._boundAnimate = this.animate.bind(this);
 
@@ -203,8 +207,12 @@ export class AstrapediaApp {
     // Dirty flags to skip unnecessary updates
     this._fovDirty = true;
     this._lastFov = null;
-    this._lastCanvasHeight = null;
-    this._frameCount = 0;
+
+    // Frame skipping: the loop runs for an idle tail after every interaction,
+    // but only draws when something visible may have changed (see animate).
+    this._renderRequested = true;
+    this._lastRenderTime = 0;
+    this._lastViewState = new Float64Array(VIEW_STATE_SIZE);
 
     // Throttling for expensive operations
     this._lastImageVisUpdate = 0;
@@ -257,10 +265,6 @@ export class AstrapediaApp {
     this._tempMatrix4 = new THREE.Matrix4();
     this._tempMatrix4B = new THREE.Matrix4();
     this._tempMatrix3 = new THREE.Matrix3();
-
-    // Initialize reusable TextureLoader
-    this._textureLoader = new THREE.TextureLoader();
-    this._textureLoader.setCrossOrigin('anonymous');
   }
 
   /**
@@ -452,6 +456,9 @@ export class AstrapediaApp {
       getConstellationName: (abbrev) => this.getConstellationName(abbrev),
       getEnglishConstellationName: (abbrev) => CONSTELLATION_NAMES['en'][abbrev],
       getConstellationLanguage: () => this.constellationLanguage,
+      // IAU constellation boundaries via astronomy-engine, which takes RA in hours.
+      getConstellation: (ra, dec) => (typeof Astronomy === 'undefined' ? null :
+        this.getConstellationName(Astronomy.Constellation(ra / 15, dec).symbol)),
       // Image callback
       getSkyViewImageUrl: (ra, dec, type) => this.getSkyViewImageUrl(ra, dec, type),
     });
@@ -622,9 +629,6 @@ export class AstrapediaApp {
           this.disableCompassMode();
         }
       },
-      onDragEnd: () => {
-        // Could add inertia handling here if needed
-      },
       onClick: (coords) => this.clickHandler_?.handleClick(coords.x, coords.y),
     });
   }
@@ -743,8 +747,6 @@ export class AstrapediaApp {
         this.updateLatitudeTilt();
         this.timeController_.refreshCelestialRotation();
         this.createPlanets();
-        // Update horizon renderer if needed
-        this.horizonRenderer_?.updateForLocation?.(this.observerLocation.lat);
         // Request a re-render
         this.requestRender();
         logger.info(`Location updated: ${this.observerLocation.lat.toFixed(2)}°, ${this.observerLocation.lon.toFixed(2)}°`);
@@ -876,21 +878,7 @@ export class AstrapediaApp {
 
     } catch (error) {
       logger.error('Initialization error:', error);
-      const loadingEl = document.getElementById('loading');
-      if (loadingEl) {
-        loadingEl.innerHTML = `
-          <div style="color: #ff6b6b; text-align: center; padding: 20px;">
-            <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-            <div style="font-size: 18px; margin-bottom: 8px;">Failed to load</div>
-            <div style="font-size: 14px; color: #999; max-width: 300px;">
-              ${error.message || 'Unknown error'}
-            </div>
-            <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #3B82F6; color: white; border: none; border-radius: 8px; cursor: pointer;">
-              Retry
-            </button>
-          </div>
-        `;
-      }
+      showLoadingError('Failed to load', error.message || 'Unknown error');
     }
   }
 
@@ -960,7 +948,7 @@ export class AstrapediaApp {
     const container = domCache.canvasContainer;
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setPixelRatio(getRenderPixelRatio());
     container.appendChild(this.renderer.domElement);
     this.setupContextLossHandling_();
   }
@@ -1032,12 +1020,9 @@ export class AstrapediaApp {
   }
 
   updateLatitudeTilt() {
-    // Tilt the sky based on observer's latitude
-    // At latitude L, the celestial pole appears at altitude L above the north horizon
-    // We tilt around the X axis to achieve this
-    const latitude = this.observerLocation?.lat || 0;
-    const tiltAngle = THREE.MathUtils.degToRad(90 - latitude);
-    this.latitudeTiltGroup.rotation.x = tiltAngle;
+    // At latitude L the celestial pole sits L above the north horizon; tilt
+    // around the X axis to achieve this.
+    this.latitudeTiltGroup.rotation.x = locationManager.getLatitudeTilt();
   }
 
   /**
@@ -1257,10 +1242,22 @@ export class AstrapediaApp {
 
     // Update camera info display
     const raDec = this.getViewCenterRaDec();
+    const ra = `${raDec.ra.toFixed(1)}°`;
+    const dec = `${raDec.dec.toFixed(1)}°`;
+    setTextIfChanged(domCache.raDisplay, ra);
+    setTextIfChanged(domCache.decDisplay, dec);
+    setTextIfChanged(domCache.coordsBadge, `RA ${ra} Dec ${dec}`);
+    this.updateFovReadout_();
+  }
 
-    if (domCache.raDisplay) domCache.raDisplay.textContent = `${raDec.ra.toFixed(1)}°`;
-    if (domCache.decDisplay) domCache.decDisplay.textContent = `${raDec.dec.toFixed(1)}°`;
-    if (domCache.fovDisplay) domCache.fovDisplay.textContent = formatAngle(this.camera.fov);
+  /**
+   * Write the current field of view to the readout and the info badge.
+   * @private
+   */
+  updateFovReadout_() {
+    const fov = formatAngle(this.camera.fov);
+    setTextIfChanged(domCache.fovDisplay, fov);
+    setTextIfChanged(domCache.fovBadge, fov);
   }
 
   /**
@@ -1621,32 +1618,12 @@ export class AstrapediaApp {
      ====================================================================== */
 
   /**
-   * Get available tours.
-   * @returns {!Object<string, !Object>} Available tours
-   */
-  getAvailableTours() {
-    return this.tourController_.getAvailableTours();
-  }
-
-  /**
    * Get description for a planet.
    * @param {string} planetName - Planet name
    * @returns {string} Description
    */
   getPlanetDescription(planetName) {
     return this.tourController_.getPlanetDescription(planetName);
-  }
-
-  /**
-   * Calculate if an object at given RA/Dec is above the horizon.
-   * Delegates to the LocationManager (single owner of observer location).
-   * @param {number} ra - Right Ascension in degrees
-   * @param {number} dec - Declination in degrees
-   * @returns {number} Altitude in degrees (positive = above horizon)
-   */
-  calculateAltitude(ra, dec) {
-    const simTime = this.timeController_.getTime();
-    return locationManager.calculateAltitude(ra, dec, simTime);
   }
 
   /**
@@ -1817,16 +1794,6 @@ export class AstrapediaApp {
   }
 
   /**
-   * Enable compass mode with device orientation.
-   * Delegates to CompassController module.
-   */
-  async enableCompassMode() {
-    if (this.compassController_) {
-      await this.compassController_.enable();
-    }
-  }
-
-  /**
    * Disable compass mode and return to manual control.
    * Delegates to CompassController module.
    */
@@ -1931,6 +1898,7 @@ export class AstrapediaApp {
    * Delegated to PowerManager module.
    */
   requestRender() {
+    this._renderRequested = true;
     if (this.powerManager_) {
       this.powerManager_.requestRender();
     } else {
@@ -1987,8 +1955,9 @@ export class AstrapediaApp {
 
     this._rafId = requestAnimationFrame(this._boundAnimate);
 
-    this._frameCount++;
     const now = performance.now();
+    let needsRender = this._renderRequested;
+    this._renderRequested = false;
 
     // Feature 7: Update time simulation if playing (delegate to TimeController)
     if (this.timeController_.isPlaying()) {
@@ -2007,10 +1976,7 @@ export class AstrapediaApp {
     if (fovChanged) {
       this._lastFov = this.camera.fov;
       this._fovDirty = true;
-      // Update FOV display immediately when it changes (using cached DOM ref)
-      if (domCache.fovDisplay) {
-        domCache.fovDisplay.textContent = formatAngle(this.camera.fov);
-      }
+      this.updateFovReadout_();
     }
 
     // Update visibility functions only when needed or throttled
@@ -2018,6 +1984,7 @@ export class AstrapediaApp {
     if (this._fovDirty || (now - this._lastImageVisUpdate > 500)) {
       this.updateImageVisibility();
       this._lastImageVisUpdate = now;
+      needsRender = true;
     }
 
     // Extended objects - only when something they depend on changed.
@@ -2025,17 +1992,15 @@ export class AstrapediaApp {
     // else, so the old 10Hz timer recomputed an identical result over every
     // halo ten times a second: ~17,000 wasted iterations per second for the
     // bundled catalog, and four times that once dynamic objects load.
+    // Planet and label sizes depend on the FOV too.
     if (this._fovDirty) {
       this.updateExtendedObjectSizes();
-    }
-
-    // Planet sizes - only when FOV changes
-    if (this._fovDirty) {
       this.updatePlanetSizes();
       this.updateCardinalLabelSizes();
     }
 
     // Clear FOV dirty flag
+    if (this._fovDirty) needsRender = true;
     this._fovDirty = false;
 
     // Dynamic star loading - throttled to every 500ms to reduce API calls
@@ -2048,6 +2013,7 @@ export class AstrapediaApp {
     // Update tour highlight animation (cheap, runs every frame when active)
     if (this.tourHighlightModule_?.isActive()) {
       this.updateTourHighlight();
+      needsRender = true;
     }
 
     // Constellation focus mode - fade nearest constellation
@@ -2058,10 +2024,60 @@ export class AstrapediaApp {
       );
       if (stillFading) {
         this.requestRender();
+        needsRender = true;
       }
     }
 
-    this.renderer.render(this.scene, this.camera);
+    // Skip the draw when nothing visible changed. Some scene mutations land
+    // asynchronously (texture loads, dynamic catalog results) without asking
+    // for a render, so still draw at a low floor rate while the loop runs.
+    if (this.viewStateChanged_() || zoomChanged) needsRender = true;
+    if (needsRender || now - this._lastRenderTime > MIN_RENDER_INTERVAL_MS) {
+      this.renderer.render(this.scene, this.camera);
+      this._lastRenderTime = now;
+    }
+  }
+
+  /**
+   * Whether the camera or sky orientation moved since the last call.
+   * Covers drags, inertia, compass, zoom, resize, sidereal rotation and
+   * latitude tilt in one comparison.
+   * @returns {boolean}
+   * @private
+   */
+  viewStateChanged_() {
+    const sphere = this.celestialSphere;
+    let changed = this.trackQuaternion_(0, this.camera.quaternion);
+    changed = this.trackQuaternion_(4, sphere?.quaternion) || changed;
+    changed = this.trackQuaternion_(8, sphere?.parent?.quaternion) || changed;
+    const last = this._lastViewState;
+    if (last[12] !== this.camera.fov || last[13] !== this.camera.aspect) {
+      last[12] = this.camera.fov;
+      last[13] = this.camera.aspect;
+      changed = true;
+    }
+    return changed;
+  }
+
+  /**
+   * Record a quaternion into the view-state snapshot, without allocating.
+   * @param {number} offset - Index of its first component in the snapshot
+   * @param {?THREE.Quaternion} q
+   * @returns {boolean} Whether it differed from the stored value
+   * @private
+   */
+  trackQuaternion_(offset, q) {
+    if (!q) return false;
+    const last = this._lastViewState;
+    if (last[offset] === q.x && last[offset + 1] === q.y &&
+        last[offset + 2] === q.z && last[offset + 3] === q.w) {
+      return false;
+    }
+    last[offset] = q.x;
+    last[offset + 1] = q.y;
+    last[offset + 2] = q.z;
+    last[offset + 3] = q.w;
+    return true;
   }
 
   /**
@@ -2095,7 +2111,7 @@ export class AstrapediaApp {
    * in ClickHandler module and for dynamic DSO management.
    */
   createExtendedObjects() {
-    const count = this.extendedObjectRenderer_.create();
+    this.extendedObjectRenderer_.create();
     this.extendedObjectSprites = this.extendedObjectRenderer_.getSprites();
   }
 

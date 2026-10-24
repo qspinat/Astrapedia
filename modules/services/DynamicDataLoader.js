@@ -257,6 +257,37 @@ export class DynamicDataLoader {
   }
 
   /**
+   * Get the query cell containing a view centre.
+   *
+   * Cells are a power of two no larger than half the FOV, so small zoom
+   * changes keep the same grid. Querying the cell centre with the cone padded
+   * by the cell's half-diagonal covers every view centred anywhere in the
+   * cell, not just the one that triggered the query — otherwise panning
+   * within a cell left the far side unloaded but already marked as queried.
+   * The FOV buckets follow the catalog thresholds in queryStars (SIMBAD below
+   * 1°, UCAC4 below 3°), so zooming past one re-queries for the deeper data.
+   * @param {number} ra - Right Ascension
+   * @param {number} dec - Declination
+   * @param {number} fov - Field of view
+   * @param {number} magLimit - Magnitude limit
+   * @returns {{key: string, ra: number, dec: number, pad: number}} Cache key,
+   *     cell centre, and radius padding in degrees
+   */
+  getRegion(ra, dec, fov, magLimit) {
+    const cell = 2 ** Math.floor(Math.log2(fov / 2));
+    const raIdx = Math.floor(ra / cell);
+    const decIdx = Math.floor(dec / cell);
+    const fovBucket = fov < 1 ? 'deep' : (fov < 3 ? 'medium' : 'wide');
+    const magBucket = Math.floor(magLimit / 2) * 2;
+    return {
+      key: `${cell}_${raIdx}_${decIdx}_${fovBucket}_mag${magBucket}`,
+      ra: (raIdx + 0.5) * cell,
+      dec: Math.max(-90, Math.min(90, (decIdx + 0.5) * cell)),
+      pad: cell * Math.SQRT1_2,
+    };
+  }
+
+  /**
    * Get region key for caching.
    * @param {number} ra - Right Ascension
    * @param {number} dec - Declination
@@ -265,13 +296,7 @@ export class DynamicDataLoader {
    * @returns {string} Region key
    */
   getRegionKey(ra, dec, fov, magLimit) {
-    const gridSize = Math.max(1, fov);
-    const raBucket = Math.floor(ra / gridSize) * gridSize;
-    const decBucket = Math.floor(dec / gridSize) * gridSize;
-    const fovBucket = fov < 1 ? 'deep' : (fov < 5 ? 'medium' : 'wide');
-    const magBucket = Math.floor(magLimit / 2) * 2;
-    return `${raBucket.toFixed(0)}_${decBucket.toFixed(0)}_` +
-           `${fovBucket}_mag${magBucket}`;
+    return this.getRegion(ra, dec, fov, magLimit).key;
   }
 
   /**
@@ -280,9 +305,10 @@ export class DynamicDataLoader {
    * @param {number} dec - Center Declination in degrees
    * @param {number} fov - Field of view in degrees
    * @param {number} magLimit - Magnitude limit
-   * @returns {!Promise<!Array<!StarData>>} Array of star data
+   * @param {number=} pad - Extra cone radius in degrees (see getRegion)
+   * @returns {!Promise<?Array<!StarData>>} Star data, or null if the query did not run or failed
    */
-  async queryStars(ra, dec, fov, magLimit) {
+  async queryStars(ra, dec, fov, magLimit, pad = 0) {
     // Return null (not []) when the query does NOT actually run, so the caller
     // can tell "region is empty" (mark it, don't re-ask) apart from "we were
     // rate-limited/busy" (leave it, retry later). Re-querying an empty region
@@ -301,25 +327,27 @@ export class DynamicDataLoader {
       // alongside the VizieR queries rather than after them. Only reached at
       // extreme zoom, where three serial round-trips were the whole latency.
       const simbadPromise = (fov < 1 && magLimit > 16) ?
-        this.querySimbadStars_(ra, dec, fov, magLimit) : null;
-
-      const stars = [];
+        this.querySimbadStars_(ra, dec, fov, magLimit, pad) : null;
 
       // Tycho-2 and UCAC4 must stay sequential: they share the 'vizier'
       // rate-limit bucket, so issuing them together makes the second return
       // an empty result rather than the faint stars it was asked for.
-      const tychoStars = await this.queryTycho_(ra, dec, fov, magLimit);
-      stars.push(...tychoStars);
+      const parts = [await this.queryTycho_(ra, dec, fov, magLimit, pad)];
 
       // Query UCAC4 for fainter stars (up to ~16 mag) at deep zoom
       if (fov < 3) {
-        const ucacStars = await this.queryUCAC4_(ra, dec, fov, magLimit);
-        stars.push(...ucacStars);
+        parts.push(await this.queryUCAC4_(ra, dec, fov, magLimit, pad));
       }
 
       if (simbadPromise) {
-        stars.push(...await simbadPromise);
+        parts.push(await simbadPromise);
       }
+
+      // Any sub-query that failed or was throttled makes the whole result
+      // "didn't run": the caller then leaves the region unmarked and retries,
+      // instead of caching a partial or empty answer for good.
+      if (parts.includes(null)) return null;
+      const stars = parts.flat();
 
       globalEventBus.emit(Events.DYNAMIC_STARS_LOADED, {
         count: stars.length,
@@ -328,7 +356,7 @@ export class DynamicDataLoader {
       return stars;
     } catch (error) {
       logger.warn('Star query error:', error.message);
-      return [];
+      return null;
     } finally {
       this.isQueryingStars_ = false;
       globalEventBus.emit(Events.DYNAMIC_QUERY_COMPLETE, {type: 'stars'});
@@ -341,17 +369,18 @@ export class DynamicDataLoader {
    * @param {number} dec - Center Dec in degrees
    * @param {number} fov - Field of view in degrees
    * @param {number} magLimit - Magnitude limit
-   * @returns {!Promise<!Array<!StarData>>} Array of star data
+   * @param {number=} pad - Extra cone radius in degrees (see getRegion)
+   * @returns {!Promise<?Array<!StarData>>} Star data, or null if throttled or failed
    * @private
    */
-  async queryTycho_(ra, dec, fov, magLimit) {
+  async queryTycho_(ra, dec, fov, magLimit, pad = 0) {
     // Check rate limit before querying
     if (this.shouldRateLimit_('vizier')) {
       logger.debug('Tycho-2 query rate limited');
-      return [];
+      return null;
     }
 
-    const radius = Math.max(fov * 0.8, 0.2);
+    const radius = Math.max(fov * 0.8, 0.2) + pad;
     const mag = Math.min(12, magLimit);
     const limit = fov < 1 ? 5000 : 3000;
 
@@ -369,7 +398,6 @@ export class DynamicDataLoader {
     try {
       const response = await this.fetchWithTimeout_(url);
       if (!response.ok) {
-        this.recordFailure_();
         throw new Error(`Tycho query failed: ${response.status}`);
       }
 
@@ -381,7 +409,7 @@ export class DynamicDataLoader {
     } catch (error) {
       this.recordFailure_();
       logger.warn('Tycho-2 query error:', error.message);
-      return [];
+      return null;
     }
   }
 
@@ -391,17 +419,18 @@ export class DynamicDataLoader {
    * @param {number} dec - Center Dec in degrees
    * @param {number} fov - Field of view in degrees
    * @param {number} magLimit - Magnitude limit
-   * @returns {!Promise<!Array<!StarData>>} Array of star data
+   * @param {number=} pad - Extra cone radius in degrees (see getRegion)
+   * @returns {!Promise<?Array<!StarData>>} Star data, or null if throttled or failed
    * @private
    */
-  async queryUCAC4_(ra, dec, fov, magLimit) {
+  async queryUCAC4_(ra, dec, fov, magLimit, pad = 0) {
     // Check rate limit before querying
     if (this.shouldRateLimit_('vizier')) {
       logger.debug('UCAC4 query rate limited');
-      return [];
+      return null;
     }
 
-    const radius = Math.max(fov * 0.8, 0.1);
+    const radius = Math.max(fov * 0.8, 0.1) + pad;
     const mag = Math.min(16, magLimit);
     const limit = fov < 0.5 ? 8000 : 4000;
 
@@ -420,7 +449,7 @@ export class DynamicDataLoader {
       const response = await this.fetchWithTimeout_(url);
       if (!response.ok) {
         this.recordFailure_();
-        return [];
+        return null;
       }
 
       this.recordRequest_('vizier');
@@ -430,7 +459,7 @@ export class DynamicDataLoader {
       return stars;
     } catch (error) {
       this.recordFailure_();
-      return [];
+      return null;
     }
   }
 
@@ -440,17 +469,18 @@ export class DynamicDataLoader {
    * @param {number} dec - Center Dec in degrees
    * @param {number} fov - Field of view in degrees
    * @param {number} magLimit - Magnitude limit
-   * @returns {!Promise<!Array<!StarData>>} Array of star data
+   * @param {number=} pad - Extra cone radius in degrees (see getRegion)
+   * @returns {!Promise<?Array<!StarData>>} Star data, or null if throttled or failed
    * @private
    */
-  async querySimbadStars_(ra, dec, fov, magLimit) {
+  async querySimbadStars_(ra, dec, fov, magLimit, pad = 0) {
     // Check rate limit before querying
     if (this.shouldRateLimit_('simbad')) {
       logger.debug('SIMBAD query rate limited');
-      return [];
+      return null;
     }
 
-    const radius = Math.max(fov * 0.7, 0.1);
+    const radius = Math.max(fov * 0.7, 0.1) + pad;
     const mag = Math.min(25, magLimit);
     const limit = 5000;
 
@@ -486,7 +516,7 @@ export class DynamicDataLoader {
 
       if (!response.ok) {
         this.recordFailure_();
-        return [];
+        return null;
       }
 
       this.recordRequest_('simbad');
@@ -504,7 +534,7 @@ export class DynamicDataLoader {
       return stars;
     } catch (error) {
       this.recordFailure_();
-      return [];
+      return null;
     }
   }
 
@@ -514,9 +544,10 @@ export class DynamicDataLoader {
    * @param {number} dec - Center Dec in degrees
    * @param {number} fov - Field of view in degrees
    * @param {number} magLimit - Magnitude limit
-   * @returns {!Promise<!Array<!DSOData>>} Array of DSO data
+   * @param {number=} pad - Extra cone radius in degrees (see getRegion)
+   * @returns {!Promise<?Array<!DSOData>>} DSO data, or null if the query did not run or failed
    */
-  async queryDSOs(ra, dec, fov, magLimit) {
+  async queryDSOs(ra, dec, fov, magLimit, pad = 0) {
     // null = "did not run" (see queryStars); [] = "ran, nothing here".
     if (fov > 10) return null;
     if (this.isQueryingDSOs_) return null;
@@ -532,7 +563,7 @@ export class DynamicDataLoader {
     globalEventBus.emit(Events.DYNAMIC_QUERY_STARTED, {type: 'dsos', ra, dec, fov});
 
     try {
-      const radius = Math.max(fov * 0.8, 0.1);
+      const radius = Math.max(fov * 0.8, 0.1) + pad;
       const mag = Math.min(18, magLimit);
 
       const params = this.validateParams_(ra, dec, radius, mag);
@@ -549,7 +580,7 @@ export class DynamicDataLoader {
       const response = await this.fetchWithTimeout_(url);
       if (!response.ok) {
         this.recordFailure_();
-        return [];
+        return null;
       }
 
       this.recordRequest_('vizier');
@@ -566,7 +597,7 @@ export class DynamicDataLoader {
     } catch (error) {
       this.recordFailure_();
       logger.warn('DSO query error:', error.message);
-      return [];
+      return null;
     } finally {
       this.isQueryingDSOs_ = false;
       globalEventBus.emit(Events.DYNAMIC_QUERY_COMPLETE, {type: 'dsos'});

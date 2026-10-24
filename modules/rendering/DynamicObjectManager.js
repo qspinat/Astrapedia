@@ -25,6 +25,7 @@ import {
   createHaloSprite,
   disposeSpriteTexture,
   freezeTransform,
+  getPointScale,
   getSharedHaloTexture,
 } from './SceneUtils.js';
 
@@ -181,8 +182,9 @@ export class DynamicObjectManager {
     // Region key for caching (finer grid for deeper zoom) — shared formula
     // with DynamicDataLoader so the two dedup caches agree.
     const magLimit = this.callbacks_.getMagnitude();
-    const regionKey = dynamicDataLoader.getRegionKey(
+    const region = dynamicDataLoader.getRegion(
         raDec.ra, raDec.dec, camera.fov, magLimit);
+    const regionKey = region.key;
 
     // Skip if already queried this region at this magnitude
     if (this.queriedRegions.has(regionKey)) return;
@@ -193,19 +195,20 @@ export class DynamicObjectManager {
     //
     // Mark the region covered as soon as a query actually RAN — including when
     // it ran and found nothing (queryStars/queryDSOs return [] for "empty" and
-    // null for "rate-limited/busy, didn't run"). Marking on results-received
+    // null for "rate-limited/busy/failed, didn't run"). Marking on results-received
     // instead meant a genuinely empty region was never recorded, so it was
     // re-queried every tick — a stream of successful empty requests that
     // tripped the rate limiter and starved loading everywhere. A null result
     // leaves the region unmarked so it retries once the limiter clears.
-    const ra = raDec.ra, dec = raDec.dec, fov = camera.fov;
-    const starsPromise = dynamicDataLoader.queryStars(ra, dec, fov, magLimit)
+    const {ra, dec, pad} = region;
+    const fov = camera.fov;
+    const starsPromise = dynamicDataLoader.queryStars(ra, dec, fov, magLimit, pad)
       .catch(err => {
         logger.warn('Dynamic star query failed:', err?.message || err);
         return null;
       });
     const dsosPromise = fov <= 10 ?
-      dynamicDataLoader.queryDSOs(ra, dec, fov, magLimit)
+      dynamicDataLoader.queryDSOs(ra, dec, fov, magLimit, pad)
         .catch(err => {
           logger.warn('Dynamic DSO query failed:', err?.message || err);
           return null;
@@ -452,7 +455,8 @@ export class DynamicObjectManager {
       uniforms: {
         opacity: { value: 0.9 },
         magLimit: { value: magLimit },
-        magFadeRange: { value: 1.5 }
+        magFadeRange: { value: 1.5 },
+        pointScale: { value: getPointScale() }
       },
       vertexShader: SHADERS.VERTEX,
       fragmentShader: SHADERS.FRAGMENT,

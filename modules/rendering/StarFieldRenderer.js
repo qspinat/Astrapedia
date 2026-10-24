@@ -7,7 +7,7 @@ import {globalEventBus, Events} from '../core/EventBus.js';
 import {SHADERS, SPHERE, STARS} from '../core/Constants.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
 import {magnitudeToSize} from '../core/MagnitudeUtils.js';
-import {freezeTransform} from './SceneUtils.js';
+import {freezeTransform, getPointScale} from './SceneUtils.js';
 
 /**
  * DSO type to color mapping.
@@ -141,6 +141,7 @@ export class StarFieldRenderer {
         opacity: {value: 0.9},
         magLimit: {value: this.magnitudeLimit_},
         magFadeRange: {value: 1.5},
+        pointScale: {value: getPointScale()},
       },
       vertexShader: SHADERS.VERTEX,
       fragmentShader: SHADERS.FRAGMENT,

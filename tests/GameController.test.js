@@ -15,7 +15,7 @@ jest.unstable_mockModule('../modules/ui/DOMCache.js', () => ({
   },
 }));
 
-const {GameController, GAME_CATEGORIES, gameController} = await import('../modules/features/GameController.js');
+const {GameController, GAME_CATEGORIES} = await import('../modules/features/GameController.js');
 const {globalEventBus, Events} = await import('../modules/core/EventBus.js');
 
 describe('GAME_CATEGORIES', () => {
@@ -653,12 +653,6 @@ describe('GameController', () => {
       expect(question.data.ra).toBe(0);
       expect(question.data.dec).toBe(0);
     });
-  });
-});
-
-describe('gameController singleton', () => {
-  test('is a GameController instance', () => {
-    expect(gameController).toBeInstanceOf(GameController);
   });
 });
 
