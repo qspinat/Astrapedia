@@ -103,14 +103,21 @@ body.night-vision {
 }
 
 /* The star field is a canvas of spectral-colored (often blue-white) points,
-   so tokens can't reach it. A dark-red multiply layer keeps only the red
-   channel, turning the whole sky into red shades. pointer-events:none so it
-   never blocks panning or selection. */
+   so tokens can't reach it. A red multiply layer keeps only the red channel,
+   turning the whole sky into red shades. Most stars are blue-white, so their
+   light is mostly green and blue: the canvas is first made grayscale so each
+   star's full brightness lands in the red channel instead of being discarded
+   (a plain dark-red multiply left faint stars invisible). pointer-events:none
+   so it never blocks panning or selection. */
+body.night-vision #canvas-container {
+    filter: grayscale(1);
+}
+
 #night-vision-overlay {
     position: fixed;
     inset: 0;
     z-index: var(--z-nightvision);
-    background: #7a0000;
+    background: #d00000;
     mix-blend-mode: multiply;
     pointer-events: none;
     display: none;

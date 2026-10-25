@@ -309,6 +309,10 @@ export const INPUT = {
   DOUBLE_TAP_MS: 300,
   /** Max distance (px) between taps to count as a double-tap. */
   DOUBLE_TAP_DIST_PX: 40,
+  /** FOV divisor for a double-tap / double-click zoom-in. */
+  DOUBLE_TAP_ZOOM_FACTOR: 2,
+  /** Mouse events this soon (ms) after a touch are browser-synthesized. */
+  SYNTHETIC_MOUSE_MS: 800,
   /** Vertical drag (px) that halves or doubles the FOV in one-handed zoom. */
   ZOOM_SLIDE_PX_PER_DOUBLING: 180,
   /** Frame time factor for velocity (assumes ~60fps). */

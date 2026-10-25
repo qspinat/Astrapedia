@@ -127,6 +127,19 @@ describe('InputController', () => {
     });
   });
 
+  describe('double-click zoom', () => {
+    test('zooms in by half', () => {
+      mouse('dblclick', 512, 384);
+      expect(deps.setTargetFov).toHaveBeenCalledWith(30);
+    });
+
+    test('is ignored when zoom is locked', () => {
+      deps.isZoomLocked.mockReturnValue(true);
+      mouse('dblclick', 512, 384);
+      expect(deps.setTargetFov).not.toHaveBeenCalled();
+    });
+  });
+
   describe('one-handed double-tap-and-slide zoom', () => {
     // jsdom has no TouchEvent; a plain Event with a `touches` array is enough,
     // since the handlers only read touches[i].clientX/clientY and length.
@@ -203,6 +216,56 @@ describe('InputController', () => {
 
       expect(deps.setTargetFov).not.toHaveBeenCalled();
       expect(deps.setRotation).toHaveBeenCalled();
+    });
+
+    test('a plain double tap zooms in by half', () => {
+      tap(200, 400);
+      fireTouch('touchstart', [{x: 205, y: 400}]);
+      fireTouch('touchend', []);
+
+      expect(deps.setTargetFov).toHaveBeenCalledWith(30);
+    });
+
+    test('a plain double tap off-centre turns the view toward the tap', () => {
+      canvas.getBoundingClientRect = () => ({left: 0, top: 0, width: 1024, height: 768});
+      tap(900, 384);
+      fireTouch('touchstart', [{x: 900, y: 384}]);
+      fireTouch('touchend', []);
+
+      const [theta] = deps.setTargetRotation.mock.calls[0];
+      expect(theta).toBeGreaterThan(0);
+    });
+
+    test('a plain double tap does not select an object', () => {
+      jest.useFakeTimers();
+      try {
+        tap(200, 400);
+        fireTouch('touchstart', [{x: 205, y: 400}]);
+        fireTouch('touchend', []);
+        jest.runAllTimers();
+
+        expect(deps.onClick).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('a slide does not add a double-tap zoom on release', () => {
+      tap(200, 400);
+      fireTouch('touchstart', [{x: 205, y: 400}]);
+      fireTouch('touchmove', [{x: 205, y: 300}]);
+      fireTouch('touchend', []);
+
+      expect(deps.setTargetFov.mock.calls.at(-1)[0]).toBeGreaterThan(60);
+    });
+
+    test('a synthetic dblclick after a double tap is ignored', () => {
+      tap(200, 400);
+      fireTouch('touchstart', [{x: 205, y: 400}]);
+      fireTouch('touchend', []);
+      mouse('dblclick', 205, 400);
+
+      expect(deps.setTargetFov).toHaveBeenCalledTimes(1);
     });
 
     test('the zoom gesture is suppressed while zoom is locked', () => {

@@ -110,9 +110,17 @@ export class InputController {
     /** @private {number} - FOV when the zoom slide began */
     this.zoomStartFov_ = 0;
 
+    /** @private {boolean} - The second tap moved enough to be a slide, not a
+     * plain double-tap */
+    this.zoomSlid_ = false;
+
     /** @private {?number} - Pending single-tap selection, deferred to let a
      * double-tap-and-slide cancel it before it opens a panel. */
     this.pendingTapTimeout_ = null;
+
+    /** @private {number} - When the last touch ended; mobile browsers may
+     * follow a double tap with a synthetic dblclick we must not act on twice */
+    this.lastTouchEndTime_ = -Infinity;
 
     /** @private {number} */
     this.lastMoveTime_ = 0;
@@ -132,6 +140,7 @@ export class InputController {
     this.onMouseUp_ = this.onMouseUp_.bind(this);
     this.onMouseWheel_ = this.onMouseWheel_.bind(this);
     this.onMouseClick_ = this.onMouseClick_.bind(this);
+    this.onDoubleClick_ = this.onDoubleClick_.bind(this);
     this.onTouchStart_ = this.onTouchStart_.bind(this);
     this.onTouchMove_ = this.onTouchMove_.bind(this);
     this.onTouchEnd_ = this.onTouchEnd_.bind(this);
@@ -146,6 +155,7 @@ export class InputController {
     this.canvas_.addEventListener('mouseup', this.onMouseUp_);
     this.canvas_.addEventListener('wheel', this.onMouseWheel_);
     this.canvas_.addEventListener('click', this.onMouseClick_);
+    this.canvas_.addEventListener('dblclick', this.onDoubleClick_);
 
     this.canvas_.addEventListener('touchstart', this.onTouchStart_);
     this.canvas_.addEventListener('touchmove', this.onTouchMove_);
@@ -220,23 +230,28 @@ export class InputController {
 
     if (this.isZoomLocked_()) return;
 
+    // Multiplicative zoom for consistent feel at all zoom levels
+    const factor = event.deltaY > 0 ? INPUT.ZOOM_FACTOR : 1 / INPUT.ZOOM_FACTOR;
+    this.zoomToward_(event.clientX, event.clientY, this.getFov_() * factor);
+  }
+
+  /**
+   * Zoom to a new FOV while keeping the sky under a screen point fixed, so
+   * the view closes in on what the user pointed at.
+   * @param {number} clientX - Screen point X (px)
+   * @param {number} clientY - Screen point Y (px)
+   * @param {number} targetFov - Desired FOV in degrees (clamped)
+   * @private
+   */
+  zoomToward_(clientX, clientY, targetFov) {
     const currentFov = this.getFov_();
     const rotation = this.getRotation_();
+    const newFov = clamp(targetFov, INPUT.MIN_FOV_EXTREME, CAMERA.MAX_FOV);
 
-    // Get mouse position in normalized device coordinates (-1 to +1)
+    // Point position in normalized device coordinates (-1 to +1)
     const rect = this.canvas_.getBoundingClientRect();
-    const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    // Multiplicative zoom for consistent feel at all zoom levels
-    const delta = event.deltaY > 0 ? 1 : -1;
-    let newFov;
-
-    if (delta > 0) {
-      newFov = Math.min(CAMERA.MAX_FOV, currentFov * INPUT.ZOOM_FACTOR);
-    } else {
-      newFov = Math.max(INPUT.MIN_FOV_EXTREME, currentFov / INPUT.ZOOM_FACTOR);
-    }
+    const mouseX = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const mouseY = -((clientY - rect.top) / rect.height) * 2 + 1;
 
     this.setTargetFov_(newFov);
 
@@ -290,10 +305,18 @@ export class InputController {
   }
 
   /**
-   * Handle touch start event.
-   * @param {!TouchEvent} event
+   * Double-click zooms in on the clicked point, like double-tap on touch.
+   * @param {!MouseEvent} event
    * @private
    */
+  onDoubleClick_(event) {
+    event.preventDefault();
+    if (this.isZoomLocked_()) return;
+    if (performance.now() - this.lastTouchEndTime_ < INPUT.SYNTHETIC_MOUSE_MS) return;
+    this.zoomToward_(event.clientX, event.clientY,
+        this.getFov_() / INPUT.DOUBLE_TAP_ZOOM_FACTOR);
+  }
+
   /**
    * Whether a touch starting now continues a recent nearby tap — the trigger
    * for the one-handed zoom slide.
@@ -310,6 +333,11 @@ export class InputController {
     return Math.sqrt(dx * dx + dy * dy) <= INPUT.DOUBLE_TAP_DIST_PX;
   }
 
+  /**
+   * Handle touch start event.
+   * @param {!TouchEvent} event
+   * @private
+   */
   onTouchStart_(event) {
     // Stop any ongoing inertia animation
     if (this.inertiaAnimationId_) {
@@ -338,6 +366,8 @@ export class InputController {
         this.isPinching_ = false;
         this.zoomStartY_ = touch.clientY;
         this.zoomStartFov_ = this.getFov_();
+        this.zoomSlid_ = false;
+        this.mouseDownPosition_ = {x: touch.clientX, y: touch.clientY};
         this.lastTapTime_ = 0;
         this.requestRender_();
         return;
@@ -377,6 +407,8 @@ export class InputController {
       // slide distance multiplies the FOV, matching how pinch feels, and
       // anchored to where the slide began so it never accumulates drift.
       const dy = event.touches[0].clientY - this.zoomStartY_;
+      if (!this.zoomSlid_ && Math.abs(dy) <= INPUT.DRAG_THRESHOLD_PX) return;
+      this.zoomSlid_ = true;
       const factor = Math.pow(2, -dy / INPUT.ZOOM_SLIDE_PX_PER_DOUBLING);
       const newFov = clamp(this.zoomStartFov_ * factor,
           INPUT.MIN_FOV_EXTREME, CAMERA.MAX_FOV);
@@ -435,10 +467,17 @@ export class InputController {
    * @private
    */
   onTouchEnd_(event) {
+    this.lastTouchEndTime_ = performance.now();
     if (event.touches.length === 0) {
       if (this.isDoubleTapZoom_) {
-        // End the one-handed zoom without selecting or flinging.
+        // End the one-handed zoom without selecting or flinging. A double
+        // tap that never slid zooms in on the tapped point, as in Maps.
         this.isDoubleTapZoom_ = false;
+        this.touchClickHandled_ = true;
+        if (!this.zoomSlid_) {
+          this.zoomToward_(this.mouseDownPosition_.x, this.mouseDownPosition_.y,
+              this.getFov_() / INPUT.DOUBLE_TAP_ZOOM_FACTOR);
+        }
       } else if (this.isDragging_ && !this.dragMoved_ && !this.wasPinching_) {
         // A completed tap: remember it so a quick second tap nearby can start
         // the zoom slide. Defer the selection by the double-tap window — if a
@@ -576,6 +615,7 @@ export class InputController {
     this.canvas_.removeEventListener('mouseup', this.onMouseUp_);
     this.canvas_.removeEventListener('wheel', this.onMouseWheel_);
     this.canvas_.removeEventListener('click', this.onMouseClick_);
+    this.canvas_.removeEventListener('dblclick', this.onDoubleClick_);
 
     this.canvas_.removeEventListener('touchstart', this.onTouchStart_);
     this.canvas_.removeEventListener('touchmove', this.onTouchMove_);
