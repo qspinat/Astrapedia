@@ -14,37 +14,11 @@ import {
   PLANET_DEFAULTS,
   solarSystemType,
 } from '../astronomy/SolarSystem.js';
-import {getPlanetImageUrl, getPlanetFallbackUrl} from '../data/PlanetImages.js';
+import {getPlanetImageSources} from '../data/PlanetImages.js';
 import {createLogger} from '../core/Logger.js';
-import {moonIllumination} from '../core/MoonPhase.js';
+import {composeBodyDisc, drawMoonShadow} from './BodyImage.js';
 
 const logger = createLogger('PlanetRenderer');
-
-/**
- * Terminator geometry for a lunar phase.
- *
- * `phase` runs 0 at new moon, 0.5 at full, back to 1 at the next new — the
- * convention SolarSystem.calculateMoonPosition produces.
- *
- * `semiAxis` is the terminator ellipse's x semi-axis as a fraction of the
- * disc radius, signed by which way it bulges:
- *   -1  new moon      ellipse bulges across the lit side, whole disc shaded
- *    0  quarter       straight line, exactly half shaded
- *   +1  full moon     ellipse hugs the shaded limb, nothing shaded
- *
- * @param {number} phase - Lunar phase, 0 to 1
- * @returns {{illuminated: number, waxing: boolean, semiAxis: number}}
- */
-export function moonShadowGeometry(phase) {
-  // The lit fraction of a sphere seen head-on; the terminator ellipse's
-  // semi-axis is then exactly 2k - 1 = -cos(2*pi*phase).
-  const illuminated = moonIllumination(phase);
-  return {
-    illuminated,
-    waxing: phase < 0.5,
-    semiAxis: 2 * illuminated - 1,
-  };
-}
 
 /**
  * On-screen size of a planet sprite: its real angular size once that is
@@ -292,34 +266,34 @@ export class PlanetRenderer {
   }
 
   /**
-   * Draw moon sprite with phase.
-   * @param {!CanvasRenderingContext2D} ctx - Canvas context
-   * @param {number} size - Canvas size
-   * @param {number} phase - Moon phase (0-1)
-   * @private
-   */
-  /**
-   * Repaint the Moon's canvas texture for a new phase.
-   *
-   * No-op once a photograph has replaced the drawn disc, since the canvas is
-   * no longer what the sprite shows.
+   * Repaint the Moon's canvas texture for a new phase: the drawn disc, or
+   * the photograph once it has loaded.
    *
    * @param {!THREE.Sprite} sprite - The Moon sprite
    * @param {number} phase - Moon phase 0..1 (0 = new, 0.5 = full)
    * @private
    */
   redrawMoonPhase_(sprite, phase) {
-    if (sprite.userData.imageLoaded) return;
-
     const canvas = sprite.material.map?.image;
-    const ctx = canvas?.getContext?.('2d');
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    this.drawMoon_(ctx, canvas.width, phase);
+    const {photo, disc} = sprite.userData;
+    if (photo && disc) {
+      if (!composeBodyDisc(canvas, photo, disc, phase)) return;
+    } else {
+      const ctx = canvas?.getContext?.('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      this.drawMoon_(ctx, canvas.width, phase);
+    }
     sprite.material.map.needsUpdate = true;
   }
 
+  /**
+   * Draw moon sprite with phase, shown until the photograph loads.
+   * @param {!CanvasRenderingContext2D} ctx - Canvas context
+   * @param {number} size - Canvas size
+   * @param {number} phase - Moon phase (0-1)
+   * @private
+   */
   drawMoon_(ctx, size, phase) {
     const cx = size / 2;
     const cy = size / 2;
@@ -343,28 +317,7 @@ export class PlanetRenderer {
     ctx.arc(cx - r * 0.1, cy + r * 0.4, r * 0.1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw shadow for phase. Near full there is nothing to shade.
-    const {illuminated, waxing, semiAxis} = moonShadowGeometry(phase);
-    if (illuminated < 0.98) {
-      ctx.fillStyle = 'rgba(10, 15, 28, 0.95)';
-      ctx.beginPath();
-
-      const rx = Math.abs(semiAxis) * r;
-
-      if (waxing) {
-        // Lit on the right: shade the left limb, top to bottom...
-        ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, true);
-        // ...then close along the terminator. A negative semi-axis bulges the
-        // ellipse into the lit side (crescent), a positive one back toward the
-        // shaded limb (gibbous).
-        ctx.ellipse(cx, cy, rx, r, 0, Math.PI / 2, -Math.PI / 2, semiAxis < 0);
-      } else {
-        // Waning: mirrored, lit on the left.
-        ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
-        ctx.ellipse(cx, cy, rx, r, 0, Math.PI / 2, -Math.PI / 2, semiAxis >= 0);
-      }
-      ctx.fill();
-    }
+    drawMoonShadow(ctx, cx, cy, r, phase);
   }
 
   /**
@@ -482,9 +435,9 @@ export class PlanetRenderer {
   }
 
   /**
-   * Load real planet image texture with fallback support.
+   * Load the body's photograph, trying each source in turn.
    * @param {!THREE.Sprite} sprite - Sprite to update
-   * @param {string} imageUrl - Fallback image URL if no centralized URL exists
+   * @param {string} imageUrl - Used when the body has no entry in PlanetImages
    * @private
    */
   loadPlanetImage_(sprite, imageUrl) {
@@ -492,45 +445,28 @@ export class PlanetRenderer {
     if (data.imageLoading || data.imageLoaded || data.imageFailed) return;
 
     data.imageLoading = true;
-
-    // Use centralized planet image URL (with fallback support)
-    const primaryUrl = getPlanetImageUrl(data.name) || imageUrl;
-    const fallbackUrl = getPlanetFallbackUrl(data.name);
-
-    this.loadImageWithFallback_(sprite, primaryUrl, fallbackUrl);
+    const sources = getPlanetImageSources(data.name);
+    this.loadImageFrom_(sprite, sources.length ? sources : [{url: imageUrl, disc: null}]);
   }
 
   /**
-   * Load image with fallback on failure.
+   * Load the first source, falling back to the next on failure.
    * @param {!THREE.Sprite} sprite - Sprite to update
-   * @param {string} primaryUrl - Primary image URL
-   * @param {?string} fallbackUrl - Fallback URL if primary fails
+   * @param {!Array<{url: string, disc: ?Object}>} sources - In order to try
    * @private
    */
-  loadImageWithFallback_(sprite, primaryUrl, fallbackUrl) {
+  loadImageFrom_(sprite, sources) {
     const data = sprite.userData;
+    const [{url, disc}, ...rest] = sources;
 
     this.textureLoader_.load(
-      primaryUrl,
-      (texture) => {
-        this.applyTexture_(sprite, texture);
-      },
+      url,
+      (texture) => this.applyTexture_(sprite, texture, disc),
       undefined,
       (error) => {
-        logger.warn(`Failed to load primary image for ${data.name}, trying fallback...`);
-        if (fallbackUrl) {
-          this.textureLoader_.load(
-            fallbackUrl,
-            (texture) => {
-              this.applyTexture_(sprite, texture);
-            },
-            undefined,
-            (fallbackError) => {
-              logger.warn(`Failed to load fallback image for ${data.name}:`, fallbackError);
-              data.imageLoading = false;
-              data.imageFailed = true;
-            }
-          );
+        logger.warn(`Failed to load image for ${data.name}: ${url}`, error);
+        if (rest.length) {
+          this.loadImageFrom_(sprite, rest);
         } else {
           data.imageLoading = false;
           data.imageFailed = true;
@@ -541,11 +477,19 @@ export class PlanetRenderer {
 
   /**
    * Apply loaded texture to sprite.
+   *
+   * A photo with a known disc is cut out onto a square canvas, so the black
+   * background is gone and the disc fills the sprite at the body's true
+   * angular size; the Moon is also shaded to its phase. Without a disc
+   * (Saturn's rings) the photo is drawn additively, which makes its black
+   * background invisible against the sky.
+   *
    * @param {!THREE.Sprite} sprite - Sprite to update
    * @param {!THREE.Texture} texture - Loaded texture
+   * @param {?Object=} disc - Disc position in the photo, from PlanetImages
    * @private
    */
-  applyTexture_(sprite, texture) {
+  applyTexture_(sprite, texture, disc = null) {
     const data = sprite.userData;
 
     // A load started before the last create() targets a sprite that has since
@@ -558,17 +502,30 @@ export class PlanetRenderer {
       return;
     }
 
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-
-    const imgWidth = texture.image?.naturalWidth || texture.image?.width || 1;
-    const imgHeight = texture.image?.naturalHeight || texture.image?.height || 1;
-    data.aspectRatio = imgWidth / imgHeight;
+    let map = texture;
+    let blending = THREE.AdditiveBlending;
+    const canvas = disc ? document.createElement('canvas') : null;
+    const phase = data.name === 'Moon' ? data.phase ?? null : null;
+    if (canvas && composeBodyDisc(canvas, texture.image, disc, phase)) {
+      data.photo = texture.image;
+      data.disc = disc;
+      data.aspectRatio = 1;
+      map = new THREE.CanvasTexture(canvas);
+      blending = THREE.NormalBlending;
+      texture.dispose();
+    } else {
+      const imgWidth = texture.image?.naturalWidth || texture.image?.width || 1;
+      const imgHeight = texture.image?.naturalHeight || texture.image?.height || 1;
+      data.aspectRatio = imgWidth / imgHeight;
+    }
+    map.minFilter = THREE.LinearFilter;
+    map.magFilter = THREE.LinearFilter;
 
     const newMaterial = new THREE.SpriteMaterial({
-      map: texture,
+      map,
       transparent: true,
       depthWrite: false,
+      blending,
     });
 
     sprite.material.dispose();

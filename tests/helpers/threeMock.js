@@ -633,6 +633,7 @@ export function installCanvasMock() {
     save: jest.fn(),
     restore: jest.fn(),
     clip: jest.fn(),
+    drawImage: jest.fn(),
     fillStyle: '',
   };
   HTMLCanvasElement.prototype.getContext = jest.fn(() => context);

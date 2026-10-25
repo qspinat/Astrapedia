@@ -30,8 +30,8 @@ const TRUSTED_IMAGE_HOSTS =
 const MAX_UNTRUSTED_IMAGE_BYTES = 1024 * 1024;
 
 /**
- * Whether an image result is small enough to load. Trusted sources skip the
- * check; others are sized with a HEAD request, and allowed when that fails
+ * Whether an image result is small enough to load. Curated images and
+ * trusted sources skip the check; others are sized with a HEAD request, and allowed when that fails
  * or reports no length.
  * @param {{url: string, source: string}} result - From fetchBestImage
  * @param {?AbortSignal=} signal - Aborts the HEAD request
@@ -39,7 +39,7 @@ const MAX_UNTRUSTED_IMAGE_BYTES = 1024 * 1024;
  * @throws {DOMException} AbortError when signal aborts
  */
 export async function isImageSizeAcceptable(result, signal = null) {
-  if (TRUSTED_IMAGE_SOURCES.includes(result.source) ||
+  if (result.curated || TRUSTED_IMAGE_SOURCES.includes(result.source) ||
       TRUSTED_IMAGE_HOSTS.some((host) => result.url?.includes(host))) {
     return true;
   }
@@ -232,12 +232,15 @@ export class ImageRenderer {
     const angularSizeRad = THREE.MathUtils.degToRad(angularSizeArcmin / 60);
     const baseSize = this.radius_ * angularSizeRad * 2 * 3;
 
+    // Additive: astrophotos sit on black backgrounds, which normal blending
+    // painted over the stars behind as a dark rectangle.
     const material = new THREE.SpriteMaterial({
       transparent: true,
       opacity: 0,
       depthWrite: false,
       depthTest: false,
       sizeAttenuation: true,
+      blending: THREE.AdditiveBlending,
     });
     const sprite = new THREE.Sprite(material);
     sprite.position.copy(pos);
@@ -524,7 +527,8 @@ export class ImageRenderer {
       } else {
         const source = typeof curatedImage === 'string' ? 'Curated' : (curatedImage.source || 'Curated');
         const tier = typeof curatedImage === 'string' ? 'high' : (curatedImage.tier || 'high');
-        const result = {url, loading: false, source, tier};
+        // Curated sizes are vetted by scripts/check-image-urls.mjs.
+        const result = {url, loading: false, source, tier, curated: true};
         this.dynamicImageCache_.set(cacheKey, result);
         logger.debug(`Using curated image for ${normalizedName}`);
         return result;
@@ -796,7 +800,7 @@ export class ImageRenderer {
       const wikiResponse = await fetch(
         `${API_ENDPOINTS.WIKIMEDIA}?action=query&generator=search` +
         `&gsrsearch=${encodeURIComponent(wikiSearchQuery)}&gsrlimit=10` +
-        `&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=400&format=json&origin=*`
+        `&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=960&format=json&origin=*`
       );
       const wikiData = await wikiResponse.json();
 

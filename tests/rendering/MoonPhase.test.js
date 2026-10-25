@@ -11,8 +11,9 @@ import {installThreeMock} from '../helpers/threeMock.js';
 
 installThreeMock();
 
-const {moonShadowGeometry, planetDisplaySize, PlanetRenderer} =
+const {planetDisplaySize, PlanetRenderer} =
     await import('../../modules/rendering/PlanetRenderer.js');
+const {moonShadowGeometry} = await import('../../modules/rendering/BodyImage.js');
 
 describe('moonShadowGeometry', () => {
   describe('illuminated fraction', () => {

@@ -14,8 +14,18 @@ import {API_ENDPOINTS} from '../core/Constants.js';
 import {domCache} from '../ui/DOMCache.js';
 import {moonIllumination, moonPhaseName} from '../core/MoonPhase.js';
 import {isImageSizeAcceptable} from '../rendering/ImageRenderer.js';
+import {getPlanetImageInfo} from '../data/PlanetImages.js';
 
 const logger = createLogger('SelectionManager');
+
+/**
+ * Whether the object is the Sun, the Moon or a planet with a photograph.
+ * @param {!Object} obj - Selected object
+ * @returns {boolean}
+ */
+function isSolarSystemBody(obj) {
+  return ['Star', 'Moon', 'Planet'].includes(obj.type) && !!getPlanetImageInfo(obj.name);
+}
 
 /**
  * Resolve a search result into a canonical object by flattening raw data.
@@ -60,6 +70,8 @@ export class SelectionManager {
    * @param {function(): string=} dependencies.getConstellationLanguage - Get current language
    * @param {function(string): string=} dependencies.getConstellationFullName - Get full constellation name
    * @param {function(string, number, number, string, number): Promise=} dependencies.fetchBestImage - Fetch best image
+   * @param {function(string, ?number): !Promise<?string>=} dependencies.renderBodyImage -
+   *     Solar-system body photo (Moon shaded to phase), or null if it has none
    * @param {function(number, number, string, number): string=} dependencies.getSkyViewImageUrl - Get DSS image URL
    * @param {function(number, number): string=} dependencies.getConstellation - Get constellation at coords
    */
@@ -511,6 +523,11 @@ export class SelectionManager {
     // Show loading state
     container.innerHTML = '<div class="image-loading">Loading best available image...</div>';
 
+    if (isSolarSystemBody(obj)) {
+      await this.loadBodyImage_(container, obj, signal);
+      return;
+    }
+
     // Get object identifier - prefer catalog names from raw data or internalName
     // to avoid using localized display names (e.g., 'Galaxie du Sombrero')
     const raw = obj.data || obj;
@@ -596,6 +613,27 @@ export class SelectionManager {
   }
 
   /**
+   * Show a Sun, Moon or planet photograph. These bodies move, so a DSS
+   * cutout at their position would only show unrelated background stars;
+   * without a photo the panel says so instead.
+   * @param {!Element} container - Image container
+   * @param {!Object} obj - Selected body
+   * @param {!AbortSignal} signal - Aborted by a newer selection
+   * @private
+   */
+  async loadBodyImage_(container, obj, signal) {
+    const phase = obj.name === 'Moon' ? obj.phase ?? null : null;
+    const url = await this.deps_.renderBodyImage?.(obj.name, phase);
+    if (signal.aborted) return;
+    if (!url) {
+      this.displayUnavailable_(container);
+      return;
+    }
+    const info = getPlanetImageInfo(obj.name);
+    this.displayImage_(container, obj, url, info.source, 'tier-iconic', info.source);
+  }
+
+  /**
    * Display an image in the container.
    * @param {!Element} container - Container element
    * @param {!Object} obj - Object being displayed
@@ -614,7 +652,8 @@ export class SelectionManager {
     img.className = `object-image ${tierClass}`;
     img.onerror = () => {
       // Try DSS fallback if not already DSS and we have coordinates
-      if (source !== 'DSS' && obj.ra !== undefined && obj.dec !== undefined) {
+      if (source !== 'DSS' && !isSolarSystemBody(obj) &&
+          obj.ra !== undefined && obj.dec !== undefined) {
         logger.debug(`Image failed for ${obj.name}, trying DSS fallback`);
         const dssUrl = this.deps_.getSkyViewImageUrl?.(obj.ra, obj.dec, obj.type);
         if (dssUrl) {

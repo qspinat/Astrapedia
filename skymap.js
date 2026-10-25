@@ -47,6 +47,7 @@ import {GridRenderer} from './modules/rendering/GridRenderer.js';
 import {HorizonRenderer} from './modules/rendering/HorizonRenderer.js';
 import {ConstellationRenderer} from './modules/rendering/ConstellationRenderer.js';
 import {PlanetRenderer} from './modules/rendering/PlanetRenderer.js';
+import {renderBodyImage} from './modules/rendering/BodyImage.js';
 import {StarFieldRenderer} from './modules/rendering/StarFieldRenderer.js';
 import {TourHighlight} from './modules/rendering/TourHighlight.js';
 import {ExtendedObjectRenderer} from './modules/rendering/ExtendedObjectRenderer.js';
@@ -411,6 +412,7 @@ export class AstrapediaApp {
       getConstellationFullName: (name) => this.getConstellationFullName(name),
       fetchBestImage: (name, ra, dec, type, size, forPanel) =>
         this.fetchBestImage(name, ra, dec, type, size, forPanel),
+      renderBodyImage,
       navigateToRaDec: (ra, dec) => this.animateCameraTo(ra, dec),
       highlightConstellation: (name) => this.highlightConstellation(name),
       unhighlightConstellation: () => this.unhighlightConstellation(),

@@ -16,6 +16,11 @@ const HUBBLE_BASE = 'https://cdn.esahubble.org/archives/images/screen/';
 
 /**
  * Curated image database with verified working URLs.
+ *
+ * Every entry is checked by `node scripts/check-image-urls.mjs` (HTTP 200,
+ * image type, CORS header, under 5 MB): run it after editing this list.
+ * Wikimedia thumbnails only exist at standard widths (330/500/960/1280/1920);
+ * any other width now returns HTTP 400.
  * @const {!Object<string, {url: ?string, source: string}>}
  */
 export const CURATED_IMAGES = {
@@ -24,7 +29,7 @@ export const CURATED_IMAGES = {
   // James Webb images (highest quality)
   'M16': {url: `${WEBB_BASE}weic2216a.jpg`, source: 'ESA/Webb'},
   'M42': {url: `${WEBB_BASE}weic2315b.jpg`, source: 'ESA/Webb'},
-  'M51': {url: `${WEBB_BASE}potm2308c.jpg`, source: 'ESA/Webb'},
+  'M51': {url: `${HUBBLE_BASE}heic0506a.jpg`, source: 'ESA/Hubble'},
   'M57': {url: `${WEBB_BASE}weic2320b.jpg`, source: 'ESA/Webb'},
   'M74': {url: `${WEBB_BASE}potm2208a.jpg`, source: 'ESA/Webb'},
 
@@ -32,45 +37,85 @@ export const CURATED_IMAGES = {
   'M1': {url: `${HUBBLE_BASE}heic0515a.jpg`, source: 'ESA/Hubble'},
   'M3': {url: `${HUBBLE_BASE}potw1914a.jpg`, source: 'ESA/Hubble'},
   'M4': {url: `${HUBBLE_BASE}heic1221a.jpg`, source: 'ESA/Hubble'},
-  'M5': {url: `${HUBBLE_BASE}potw1913a.jpg`, source: 'ESA/Hubble'},
+  'M5': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Messier_5_-_HST.jpg/' +
+         '1280px-Messier_5_-_HST.jpg',
+    source: 'ESA/Hubble & NASA via Wikimedia',
+  },
   'M8': {url: `${HUBBLE_BASE}heic1517a.jpg`, source: 'ESA/Hubble'},
-  'M9': {url: `${HUBBLE_BASE}potw1217a.jpg`, source: 'ESA/Hubble'},
-  'M10': {url: `${HUBBLE_BASE}potw1235a.jpg`, source: 'ESA/Hubble'},
-  'M12': {url: `${HUBBLE_BASE}potw2419a.jpg`, source: 'ESA/Hubble'},
-  'M14': {url: `${HUBBLE_BASE}potw1228a.jpg`, source: 'ESA/Hubble'},
-  'M15': {url: `${HUBBLE_BASE}heic1321a.jpg`, source: 'ESA/Hubble'},
-  'M17': {url: `${HUBBLE_BASE}heic0305a.jpg`, source: 'ESA/Hubble'},
-  'M19': {url: `${HUBBLE_BASE}potw1519a.jpg`, source: 'ESA/Hubble'},
-  'M20': {url: `${HUBBLE_BASE}opo9931a.jpg`, source: 'ESA/Hubble'},
-  'M24': {
-    url: 'https://assets.science.nasa.gov/dynamicimage/assets/science/' +
-         'missions/hubble/stars/star-cloud/M24_a_New-new.jpg?w=1024&h=1024&fit=clip',
+  'M9': {url: `${HUBBLE_BASE}heic1205a.jpg`, source: 'ESA/Hubble'},
+  'M10': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Messier_10_Hubble_WikiSky.jpg/' +
+         '1280px-Messier_10_Hubble_WikiSky.jpg',
+    source: 'NASA/STScI/WikiSky via Wikimedia',
+  },
+  'M12': {url: `${HUBBLE_BASE}potw1113a.jpg`, source: 'ESA/Hubble'},
+  'M14': {
+    url: 'https://science.nasa.gov/wp-content/uploads/2023/04/hubble_m14_wfc3_1flat_cont_final-jpg.webp',
     source: 'NASA',
   },
-  'M27': {url: `${HUBBLE_BASE}opo0119a.jpg`, source: 'ESA/Hubble'},
-  'M28': {url: `${HUBBLE_BASE}potw2221a.jpg`, source: 'ESA/Hubble'},
+  'M15': {url: `${HUBBLE_BASE}heic1321a.jpg`, source: 'ESA/Hubble'},
+  'M17': {url: `${HUBBLE_BASE}heic0305a.jpg`, source: 'ESA/Hubble'},
+  'M19': {
+    url: 'https://science.nasa.gov/wp-content/uploads/2023/04/hubble_m19_wfc3_str_gapfilled_flat_cont_final-jpg.webp',
+    source: 'NASA',
+  },
+  'M20': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Trifid_Nebula_%28M20%29_%28gemini0207a%29.jpg/' +
+         '1280px-Trifid_Nebula_%28M20%29_%28gemini0207a%29.jpg',
+    source: 'Gemini Observatory/NOIRLab via Wikimedia',
+  },
+  'M24': {
+    url: 'https://assets.science.nasa.gov/content/dam/science/missions/hubble/stars/star-cloud/Hubble_M24_1_flat_FINAL_A_rot90.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg',
+    source: 'NASA',
+  },
+  'M27': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/M27%2C_NGC_6853%2C_Dumbbell_Nebula_%28noao-02674%29.jpg/' +
+         '1280px-M27%2C_NGC_6853%2C_Dumbbell_Nebula_%28noao-02674%29.jpg',
+    source: 'NOIRLab/NSF/AURA via Wikimedia',
+  },
+  'M28': {url: `${HUBBLE_BASE}potw1910a.jpg`, source: 'ESA/Hubble'},
   'M30': {url: `${HUBBLE_BASE}heic0918a.jpg`, source: 'ESA/Hubble'},
-  'M32': {url: `${HUBBLE_BASE}opo2509.jpg`, source: 'ESA/Hubble'},
+  'M32': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/M32%2C_NGC_221_%28noao-02326%29.jpg/' +
+         '1280px-M32%2C_NGC_221_%28noao-02326%29.jpg',
+    source: 'NOIRLab/NSF/AURA via Wikimedia',
+  },
   'M33': {url: `${HUBBLE_BASE}heic1901a.jpg`, source: 'ESA/Hubble'},
-  'M44': {url: `${HUBBLE_BASE}potw1908a.jpg`, source: 'ESA/Hubble'},
-  'M45': {url: `${HUBBLE_BASE}opo0420a.jpg`, source: 'ESA/Hubble'},
-  'M53': {url: `${HUBBLE_BASE}potw1221a.jpg`, source: 'ESA/Hubble'},
+  'M44': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/M44-_The_Beehive_Cluster_%28noao-m44bash%29.jpg/' +
+         '1280px-M44-_The_Beehive_Cluster_%28noao-m44bash%29.jpg',
+    source: 'KPNO/NOIRLab/NSF/AURA via Wikimedia',
+  },
+  'M45': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Pleiades_large.jpg/' +
+         '1280px-Pleiades_large.jpg',
+    source: 'NASA/ESA/AURA/Caltech via Wikimedia',
+  },
+  'M53': {url: `${HUBBLE_BASE}potw1140a.jpg`, source: 'ESA/Hubble'},
   'M54': {url: `${HUBBLE_BASE}potw1118a.jpg`, source: 'ESA/Hubble'},
-  'M56': {url: `${HUBBLE_BASE}potw1141a.jpg`, source: 'ESA/Hubble'},
-  'M62': {url: `${HUBBLE_BASE}potw1319a.jpg`, source: 'ESA/Hubble'},
-  'M70': {url: `${HUBBLE_BASE}potw1237a.jpg`, source: 'ESA/Hubble'},
-  'M71': {url: `${HUBBLE_BASE}potw1940a.jpg`, source: 'ESA/Hubble'},
-  'M72': {url: `${HUBBLE_BASE}potw1120a.jpg`, source: 'ESA/Hubble'},
-  'M75': {url: `${HUBBLE_BASE}potw1321a.jpg`, source: 'ESA/Hubble'},
+  'M56': {url: `${HUBBLE_BASE}potw1234a.jpg`, source: 'ESA/Hubble'},
+  'M62': {url: `${HUBBLE_BASE}potw1915a.jpg`, source: 'ESA/Hubble'},
+  'M70': {url: `${HUBBLE_BASE}potw1215a.jpg`, source: 'ESA/Hubble'},
+  'M71': {url: `${HUBBLE_BASE}potw1018a.jpg`, source: 'ESA/Hubble'},
+  'M72': {url: `${HUBBLE_BASE}potw2516a.jpg`, source: 'ESA/Hubble'},
+  'M75': {url: `${HUBBLE_BASE}potw1916a.jpg`, source: 'ESA/Hubble'},
   'M76': {url: `${HUBBLE_BASE}heic2408a.jpg`, source: 'ESA/Hubble'},
   'M77': {url: `${HUBBLE_BASE}heic1305a.jpg`, source: 'ESA/Hubble'},
-  'M79': {url: `${HUBBLE_BASE}potw1510a.jpg`, source: 'ESA/Hubble'},
+  'M79': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/' +
+         'A_snowstorm_of_stars.jpg/1280px-A_snowstorm_of_stars.jpg',
+    source: 'NASA/ESA Hubble via Wikimedia',
+  },
   'M82': {url: `${HUBBLE_BASE}heic0604a.jpg`, source: 'ESA/Hubble'},
   'M83': {url: `${HUBBLE_BASE}heic1403a.jpg`, source: 'ESA/Hubble'},
   'M87': {url: `${HUBBLE_BASE}opo0020a.jpg`, source: 'ESA/Hubble'},
   'M94': {url: `${HUBBLE_BASE}potw1542a.jpg`, source: 'ESA/Hubble'},
-  'M96': {url: `${HUBBLE_BASE}potw1643a.jpg`, source: 'ESA/Hubble'},
-  'M100': {url: `${HUBBLE_BASE}potw1152a.jpg`, source: 'ESA/Hubble'},
+  'M96': {url: `${HUBBLE_BASE}potw2534a.jpg`, source: 'ESA/Hubble'},
+  'M100': {
+    url: 'https://assets.science.nasa.gov/content/dam/science/missions/hubble/releases/2018/12/STScI-01EVSYX5KXKD5N7E53PYXGQ5E4.tif/jcr:content/renditions/cq5dam.web.1280.1280.jpeg',
+    source: 'NASA',
+  },
   'M101': {url: `${HUBBLE_BASE}heic0602a.jpg`, source: 'ESA/Hubble'},
   'M104': {url: `${HUBBLE_BASE}opo0328a.jpg`, source: 'ESA/Hubble'},
   'M106': {url: `${HUBBLE_BASE}heic1302a.jpg`, source: 'ESA/Hubble'},
@@ -92,25 +137,53 @@ export const CURATED_IMAGES = {
 
   // Hubble images
   'NGC104': {url: `${HUBBLE_BASE}heic1510a.jpg`, source: 'ESA/Hubble'},
-  'NGC253': {url: `${HUBBLE_BASE}heic0911a.jpg`, source: 'ESA/Hubble'},
   'NGC292': {url: `${HUBBLE_BASE}heic0514a.jpg`, source: 'ESA/Hubble'},
-  'NGC891': {url: `${HUBBLE_BASE}opo0624b.jpg`, source: 'ESA/Hubble'},
+  'NGC891': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/2/24/N891s.jpg',
+    source: 'Adam Block/Mount Lemmon SkyCenter via Wikimedia',
+  },
   'NGC1275': {url: `${HUBBLE_BASE}heic0817a.jpg`, source: 'ESA/Hubble'},
   'NGC1300': {url: `${HUBBLE_BASE}opo0501a.jpg`, source: 'ESA/Hubble'},
   'NGC1672': {url: `${HUBBLE_BASE}heic0706a.jpg`, source: 'ESA/Hubble'},
-  'NGC2024': {url: `${HUBBLE_BASE}heic1714a.jpg`, source: 'ESA/Hubble'},
+  'NGC2024': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Flame_Nebula_NGC_2024.jpg/' +
+         '1280px-Flame_Nebula_NGC_2024.jpg',
+    source: 'ESO via Wikimedia',
+  },
   'NGC2237': {url: `${HUBBLE_BASE}heic2505f.jpg`, source: 'ESA/Hubble'},
-  'NGC2392': {url: `${HUBBLE_BASE}opo0002a.jpg`, source: 'ESA/Hubble'},
+  'NGC2392': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Ngc2392.jpg/' +
+         '1280px-Ngc2392.jpg',
+    source: 'NASA/ESA via Wikimedia',
+  },
   'NGC2841': {url: `${HUBBLE_BASE}heic1104a.jpg`, source: 'ESA/Hubble'},
-  'NGC4565': {url: `${HUBBLE_BASE}opo0919a.jpg`, source: 'ESA/Hubble'},
-  'NGC4631': {url: `${HUBBLE_BASE}heic1413a.jpg`, source: 'ESA/Hubble'},
+  'NGC4565': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/NGC_4565.jpg/' +
+         '1280px-NGC_4565.jpg',
+    source: 'ESO via Wikimedia',
+  },
+  'NGC4631': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/NGC_4631-_The_Whale_%28noao-n4631vickery%29.jpg/' +
+         '1280px-NGC_4631-_The_Whale_%28noao-n4631vickery%29.jpg',
+    source: 'KPNO/NOIRLab/NSF/AURA via Wikimedia',
+  },
   'NGC5139': {url: `${HUBBLE_BASE}heic0809a.jpg`, source: 'ESA/Hubble'},
   'NGC5866': {url: `${HUBBLE_BASE}opo0624a.jpg`, source: 'ESA/Hubble'},
   'NGC6302': {url: `${HUBBLE_BASE}heic0910h.jpg`, source: 'ESA/Hubble'},
   'NGC6543': {url: `${HUBBLE_BASE}heic0414a.jpg`, source: 'ESA/Hubble'},
-  'NGC6611': {url: `${HUBBLE_BASE}heic0611a.jpg`, source: 'ESA/Hubble'},
-  'NGC6752': {url: `${HUBBLE_BASE}potw1129a.jpg`, source: 'ESA/Hubble'},
-  'NGC6826': {url: `${HUBBLE_BASE}opo9819a.jpg`, source: 'ESA/Hubble'},
+  'NGC6611': {
+    url: 'https://cdn.eso.org/images/screen/eso0926a.jpg',
+    source: 'ESO',
+  },
+  'NGC6752': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/NGC_6752_Hubble_WikiSky.jpg/' +
+         '1280px-NGC_6752_Hubble_WikiSky.jpg',
+    source: 'NASA/STScI/WikiSky via Wikimedia',
+  },
+  'NGC6826': {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/6/66/Caldwell_15.jpg',
+    source: 'NASA/Hubble via Wikimedia',
+  },
   'NGC7293': {url: `${HUBBLE_BASE}opo0432d.jpg`, source: 'ESA/Hubble'},
   'NGC7635': {url: `${HUBBLE_BASE}heic1608a.jpg`, source: 'ESA/Hubble'},
 
@@ -120,47 +193,42 @@ export const CURATED_IMAGES = {
 
   // Wikimedia (wide-field objects not suitable for space telescopes)
   'NGC2244': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/' +
-         'Rosette_Nebula_Hires.jpg/1024px-Rosette_Nebula_Hires.jpg',
-    source: 'Wikimedia',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/The_Rosette_Nebula_Caldwell_49_50_Broadband.jpg/' +
+         '1280px-The_Rosette_Nebula_Caldwell_49_50_Broadband.jpg',
+    source: 'Dylan O\'Donnell via Wikimedia',
   },
   'NGC6960': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/' +
-         'Veil_Nebula_-_NGC6960.jpg/1024px-Veil_Nebula_-_NGC6960.jpg',
-    source: 'Wikimedia',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Veil_Nebula_-_NGC6960.jpg/' +
+         '1280px-Veil_Nebula_-_NGC6960.jpg',
+    source: 'Ken Crawford via Wikimedia',
   },
-  'NGC6992': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/' +
-         'Veil_Nebula_by_Hubble_2015.jpg/800px-Veil_Nebula_by_Hubble_2015.jpg',
-    source: 'ESA/Hubble',
-  },
+  'NGC6992': {url: `${HUBBLE_BASE}heic1520a.jpg`, source: 'ESA/Hubble'},
   'NGC7000': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/' +
-         'NGC_7000-_The_North_America_Nebula_and_the_Pelican_Nebula_%28noao-n7000mosblock%29.jpg/' +
-         '1024px-NGC_7000-_The_North_America_Nebula_and_the_Pelican_Nebula_%28noao-n7000mosblock%29.jpg',
-    source: 'NOAO/AURA/NSF via Wikimedia',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/NGC_7000-_The_North_America_Nebula_and_the_Pelican_Nebula_%28noao-n7000mosblock%29.jpg/' +
+         '1280px-NGC_7000-_The_North_America_Nebula_and_the_Pelican_Nebula_%28noao-n7000mosblock%29.jpg',
+    source: 'KPNO/NOIRLab/NSF/AURA via Wikimedia',
   },
   'NGC7023': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/' +
-         'Iris_Nebula_NGC_7023.jpg/800px-Iris_Nebula_NGC_7023.jpg',
-    source: 'Wikimedia',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Iris_Nebula_NGC_7023.jpg/' +
+         '1280px-Iris_Nebula_NGC_7023.jpg',
+    source: 'Northrim via Wikimedia',
   },
 
   // === IC OBJECTS ===
   'IC434': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/' +
-         'Barnard_33.jpg/1024px-Barnard_33.jpg',
-    source: 'Wikimedia',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Barnard_33.jpg/' +
+         '1280px-Barnard_33.jpg',
+    source: 'Ken Crawford via Wikimedia',
   },
   'IC1396': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/' +
-         "Elephant%27s_Trunk_Nebula.jpg/800px-Elephant%27s_Trunk_Nebula.jpg",
-    source: 'Wikimedia',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/IC_1396A_Elephant_Trunk_Nebula_%28noao1507a%29.jpg/' +
+         '1280px-IC_1396A_Elephant_Trunk_Nebula_%28noao1507a%29.jpg',
+    source: 'T.A. Rector/NOIRLab via Wikimedia',
   },
   'IC2118': {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/' +
-         'IC_2118.jpg/800px-IC_2118.jpg',
-    source: 'Wikimedia',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Witch_Head_Nebula_%28witchhead-ch17-bardon-cc%29.jpg/' +
+         '1280px-Witch_Head_Nebula_%28witchhead-ch17-bardon-cc%29.jpg',
+    source: 'Zdeněk Bardon/ESO via Wikimedia',
   },
 
   // No image available (prevents Wikipedia lookup attempts)

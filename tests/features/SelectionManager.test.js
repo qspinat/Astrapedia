@@ -340,6 +340,52 @@ describe('SelectionManager', () => {
     });
   });
 
+  describe('Sun, Moon and planet photographs', () => {
+    let bodyManager;
+    let bodyDeps;
+    const moon = {name: 'Moon', type: 'Moon', ra: 120, dec: 15, phase: 0.3};
+
+    beforeEach(() => {
+      bodyDeps = {
+        ...mockDeps,
+        renderBodyImage: jest.fn().mockResolvedValue('data:image/png;base64,AAA'),
+        fetchBestImage: jest.fn(),
+        getSkyViewImageUrl: jest.fn().mockReturnValue('https://dss.example.com/image.jpg'),
+      };
+      bodyManager = new SelectionManager(bodyDeps);
+    });
+
+    afterEach(() => {
+      bodyManager.dispose();
+    });
+
+    it('shows the Moon photograph shaded to its phase', async () => {
+      const container = document.getElementById('main-image');
+      await bodyManager.loadBestImage_(moon, null);
+
+      expect(bodyDeps.renderBodyImage).toHaveBeenCalledWith('Moon', 0.3);
+      expect(container.querySelector('img').src).toBe('data:image/png;base64,AAA');
+      expect(bodyDeps.fetchBestImage).not.toHaveBeenCalled();
+    });
+
+    it('says no image rather than showing a sky survey star field', async () => {
+      bodyDeps.renderBodyImage.mockResolvedValue(null);
+      const container = document.getElementById('main-image');
+      await bodyManager.loadBestImage_(moon, null);
+
+      expect(container.querySelector('.image-unavailable')).toBeTruthy();
+      expect(bodyDeps.getSkyViewImageUrl).not.toHaveBeenCalled();
+    });
+
+    it('never falls back to a sky survey when the photo fails to display', () => {
+      const container = document.getElementById('main-image');
+      bodyManager.displayImage_(container, moon, 'https://fail.url', 'X', 'tier-high', 'X');
+      container.querySelector('img').onerror();
+
+      expect(bodyDeps.getSkyViewImageUrl).not.toHaveBeenCalled();
+    });
+  });
+
   describe('AbortController behavior', () => {
     let abortManager;
     let mockAbortDeps;

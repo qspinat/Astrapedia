@@ -102,20 +102,24 @@ describe('PlanetRenderer during time playback', () => {
       expect(moon.material.map.needsUpdate).toBe(false);
     });
 
-    test('does not repaint over a photograph that already replaced the disc',
-        () => {
-          let simTime = new Date(Date.UTC(2026, 0, 15, 22, 0, 0));
-          renderer.getSimulationTime_ = () => simTime;
-          const moon =
-              renderer.sprites_.find((s) => s.userData.name === 'Moon');
-          moon.userData.imageLoaded = true;
-          moon.material.map.needsUpdate = false;
+    test('re-shades the Moon photograph for the new phase', () => {
+      let simTime = new Date(Date.UTC(2026, 0, 15, 22, 0, 0));
+      renderer.getSimulationTime_ = () => simTime;
+      const moon = renderer.sprites_.find((s) => s.userData.name === 'Moon');
+      moon.userData.imageLoaded = true;
+      moon.userData.photo = {width: 1000, height: 1000};
+      moon.userData.disc = {x: 0.5, y: 0.5, diameter: 0.8};
+      moon.material.map.needsUpdate = false;
+      const ctx = document.createElement('canvas').getContext('2d');
+      ctx.drawImage.mockClear();
 
-          simTime = new Date(Date.UTC(2026, 0, 25, 22, 0, 0));
-          renderer.updatePositions();
+      simTime = new Date(Date.UTC(2026, 0, 25, 22, 0, 0));
+      renderer.updatePositions();
 
-          expect(moon.material.map.needsUpdate).toBe(false);
-        });
+      expect(ctx.drawImage).toHaveBeenCalledWith(moon.userData.photo,
+          expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number));
+      expect(moon.material.map.needsUpdate).toBe(true);
+    });
 
     test('does not refetch planet textures', () => {
       TextureLoader.reset();
@@ -173,6 +177,35 @@ describe('PlanetRenderer during time playback', () => {
 
       // create() already disposed it once; the late load must not touch it.
       expect(staleSprite.material.disposed).toBe(disposalsAfterRebuild);
+    });
+
+    test('cuts a round body out of its photograph at true size', () => {
+      const moon = renderer.sprites_.find((s) => s.userData.name === 'Moon');
+      renderer.loadPlanetImage_(moon, moon.userData.imageUrl);
+      TextureLoader.resolveAll();
+
+      expect(moon.material.map.isCanvasTexture).toBe(true);
+      expect(moon.userData.aspectRatio).toBe(1);
+      expect(moon.material.blending).toBe(global.THREE.NormalBlending);
+    });
+
+    test('draws Saturn additively, since its rings do not fit a disc', () => {
+      const saturn = renderer.sprites_.find((s) => s.userData.name === 'Saturn');
+      renderer.loadPlanetImage_(saturn, saturn.userData.imageUrl);
+      TextureLoader.resolveAll();
+
+      expect(saturn.material.map.isCanvasTexture).toBeFalsy();
+      expect(saturn.material.blending).toBe(global.THREE.AdditiveBlending);
+    });
+
+    test('falls back to the next photograph when one fails', () => {
+      const moon = renderer.sprites_.find((s) => s.userData.name === 'Moon');
+      renderer.loadPlanetImage_(moon, moon.userData.imageUrl);
+      const [first] = TextureLoader.pending.splice(0);
+      first.onError(new Error('404'));
+
+      expect(TextureLoader.pending).toHaveLength(1);
+      expect(TextureLoader.pending[0].url).not.toBe(first.url);
     });
 
     test('a rebuilt sprite can still load its own texture', () => {
