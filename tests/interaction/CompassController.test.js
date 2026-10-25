@@ -109,6 +109,26 @@ describe('CompassController', () => {
     });
   });
 
+  describe('sensor watchdog', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    test('turns off when no reading ever arrives', async () => {
+      await controller.enable();
+      controller.handleDeviceOrientation_({alpha: null, beta: null, gamma: null});
+      jest.advanceTimersByTime(3000);
+      expect(controller.isEnabled()).toBe(false);
+    });
+
+    test('stays on while the phone is held still', async () => {
+      await controller.enable();
+      controller.handleDeviceOrientation_({alpha: 90, beta: 90, gamma: 0});
+      // Android sends nothing while the reading does not change.
+      jest.advanceTimersByTime(60000);
+      expect(controller.isEnabled()).toBe(true);
+    });
+  });
+
   describe('telling the user', () => {
     test('says so when the device has no sensor', async () => {
       delete window.DeviceOrientationEvent;

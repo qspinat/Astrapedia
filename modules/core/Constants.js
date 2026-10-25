@@ -250,6 +250,8 @@ export const FINDER = {
   DEFAULT_FINDER_FOV: 5,
   /** Rings smaller than this radius (CSS px) are not drawn. */
   MIN_RING_PX: 3,
+  /** Rings closer than this in radius (CSS px) share one label. */
+  LABEL_GAP_PX: 18,
   /** localStorage key for the overlay settings. */
   STORAGE_KEY: 'astrapedia_finder_settings',
 };

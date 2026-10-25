@@ -49,7 +49,7 @@ describe('CenterIdentifier', () => {
   const label = () => document.getElementById('center-label');
 
   test('stays hidden outside compass mode', () => {
-    globalEventBus.emit(Events.COMPASS_HEADING, {});
+    jest.advanceTimersByTime(1000);
     expect(deps.getCandidates).not.toHaveBeenCalled();
     expect(document.getElementById('center-identify').classList.contains('visible')).toBe(false);
   });
@@ -64,18 +64,17 @@ describe('CenterIdentifier', () => {
     globalEventBus.emit(Events.COMPASS_ENABLED, {enabled: true});
     deps.getViewCenterRaDec.mockReturnValue({ra: 100, dec: -40});
     jest.advanceTimersByTime(300);
-    globalEventBus.emit(Events.COMPASS_HEADING, {});
     expect(label().hidden).toBe(true);
   });
 
-  test('re-identifies at most every 300 ms while the phone moves', () => {
+  test('names where the view settles after the phone stops moving', () => {
     globalEventBus.emit(Events.COMPASS_ENABLED, {enabled: true});
-    deps.getCandidates.mockClear();
-    globalEventBus.emit(Events.COMPASS_HEADING, {});
-    expect(deps.getCandidates).not.toHaveBeenCalled();
+    deps.getViewCenterRaDec.mockReturnValue({ra: 100, dec: -40});
     jest.advanceTimersByTime(300);
-    globalEventBus.emit(Events.COMPASS_HEADING, {});
-    expect(deps.getCandidates).toHaveBeenCalledTimes(1);
+    deps.getViewCenterRaDec.mockReturnValue({ra: 279.5, dec: 38.9});
+    jest.advanceTimersByTime(300);
+    expect(label().textContent).toBe('Vega · mag 0.0');
+    expect(label().hidden).toBe(false);
   });
 
   test('tapping the name selects the object', () => {
@@ -97,7 +96,6 @@ describe('CenterIdentifier', () => {
     globalEventBus.emit(Events.COMPASS_DISABLED, {enabled: false});
     deps.getCandidates.mockClear();
     jest.advanceTimersByTime(1000);
-    globalEventBus.emit(Events.COMPASS_HEADING, {});
     expect(deps.getCandidates).not.toHaveBeenCalled();
   });
 });

@@ -48,6 +48,8 @@ import {
   dateToJulianDate,
   calculateLST,
   sphericalMean,
+  skyToCameraAngle,
+  cameraToSkyAngle,
 } from '../modules/core/CoordinateUtils.js';
 
 describe('CoordinateUtils', () => {
@@ -291,5 +293,16 @@ describe('sphericalMean', () => {
     // RA/Dec averaging would give dec 80 at an arbitrary RA.
     const ring = [0, 90, 180, 270].map((ra) => ({ra, dec: 80}));
     expect(sphericalMean(ring).dec).toBeCloseTo(90, 6);
+  });
+});
+
+describe('sky and camera angles', () => {
+  test('near the view centre the sky spans about two thirds of its angle', () => {
+    // Camera 50 behind the centre of a radius-100 sphere: 100 / 150.
+    expect(skyToCameraAngle(0.5)).toBeCloseTo(0.5 * 100 / 150, 4);
+  });
+
+  test.each([0.5, 10, 60, 120])('camera and sky angles convert back (%p deg)', (deg) => {
+    expect(cameraToSkyAngle(skyToCameraAngle(deg))).toBeCloseTo(deg, 6);
   });
 });

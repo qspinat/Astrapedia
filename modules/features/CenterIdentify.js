@@ -9,8 +9,8 @@ import {findNearestObject} from '../core/CoordinateUtils.js';
 import {addMobileButtonListener} from '../core/Utils.js';
 import {domCache} from '../ui/DOMCache.js';
 
-/** Least time between identifications while the phone moves, in ms. */
-const IDENTIFY_THROTTLE_MS = 300;
+/** How often the centre is identified while compass mode is on, in ms. */
+const IDENTIFY_INTERVAL_MS = 300;
 
 /** Search radius as a fraction of the vertical FOV, with a floor in degrees. */
 const RADIUS_FOV_FRACTION = 0.06;
@@ -36,8 +36,8 @@ export class CenterIdentifier {
     /** @private {boolean} */
     this.active_ = false;
 
-    /** @private {number} When the centre was last identified */
-    this.lastIdentified_ = -Infinity;
+    /** @private {?number} Interval re-identifying the centre */
+    this.timer_ = null;
 
     /** @private {?Object} Object currently named */
     this.current_ = null;
@@ -52,14 +52,7 @@ export class CenterIdentifier {
   initialize() {
     this.subscriptions_.push(
         globalEventBus.on(Events.COMPASS_ENABLED, () => this.start_()),
-        globalEventBus.on(Events.COMPASS_DISABLED, () => this.stop_()),
-        // The view only moves when the phone does: follow its heading
-        // updates, throttled, rather than polling.
-        globalEventBus.on(Events.COMPASS_HEADING, () => {
-          if (this.active_ && performance.now() - this.lastIdentified_ >= IDENTIFY_THROTTLE_MS) {
-            this.identify_();
-          }
-        }));
+        globalEventBus.on(Events.COMPASS_DISABLED, () => this.stop_()));
 
     const label = domCache.get('center-label');
     if (label) {
@@ -71,13 +64,19 @@ export class CenterIdentifier {
 
   /** @private */
   start_() {
+    if (this.active_) return;
     this.active_ = true;
     domCache.get('center-identify')?.classList.add('visible');
     this.identify_();
+    // Polled rather than driven by heading events: those stop once the
+    // phone is still, while the view is still gliding into place.
+    this.timer_ = setInterval(() => this.identify_(), IDENTIFY_INTERVAL_MS);
   }
 
   /** @private */
   stop_() {
+    clearInterval(this.timer_);
+    this.timer_ = null;
     this.active_ = false;
     this.current_ = null;
     domCache.get('center-identify')?.classList.remove('visible');
@@ -91,7 +90,6 @@ export class CenterIdentifier {
    * @private
    */
   identify_() {
-    this.lastIdentified_ = performance.now();
     const center = this.deps_.getViewCenterRaDec();
     const radius = Math.max(MIN_RADIUS_DEG, this.deps_.getFov() * RADIUS_FOV_FRACTION);
     const found = findNearestObject(center, radius, this.deps_.getCandidates());

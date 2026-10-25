@@ -79,6 +79,7 @@ import {
   raDecToCartesian,
   calculateLST,
   formatAngle,
+  cameraToSkyAngle,
 } from './modules/core/CoordinateUtils.js';
 import {CAMERA, STARS, CONSTELLATIONS} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
@@ -1225,7 +1226,8 @@ export class AstrapediaApp {
    * @private
    */
   updateFovReadout_() {
-    const fov = formatAngle(this.camera.fov);
+    // The sky the view spans, not the camera's own angle (see cameraToSkyAngle).
+    const fov = formatAngle(cameraToSkyAngle(this.camera.fov));
     setTextIfChanged(domCache.fovDisplay, fov);
     setTextIfChanged(domCache.fovBadge, fov);
     // Pans call this on every move; only a real zoom is news.

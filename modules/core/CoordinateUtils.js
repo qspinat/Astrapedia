@@ -5,6 +5,7 @@
  * Note: Uses global THREE object loaded by app.html
  */
 
+import {CAMERA, SPHERE} from './Constants.js';
 import {createLogger} from './Logger.js';
 
 const logger = createLogger('CoordinateUtils');
@@ -313,4 +314,38 @@ export function findNearestObject(center, radiusDeg, candidates) {
     }
   }
   return nearest;
+}
+
+/**
+ * The camera sits CAMERA.INITIAL_DISTANCE behind the sphere's centre, not at
+ * it, so near the view centre a patch of sky spans only about R / (R + d),
+ * two thirds, of its true angle on screen. These convert between a circle's
+ * angular diameter on the sky (as the observer at the centre sees it) and the
+ * camera angle it covers, for a circle centred in the view.
+ */
+const VIEW_RADIUS = SPHERE.RADIUS;
+const VIEW_OFFSET = CAMERA.INITIAL_DISTANCE;
+const DEG = Math.PI / 180;
+
+/**
+ * @param {number} skyDeg - Angular diameter on the sky, degrees
+ * @returns {number} Camera angle it covers, degrees
+ */
+export function skyToCameraAngle(skyDeg) {
+  const half = skyDeg / 2 * DEG;
+  return 2 * Math.atan2(VIEW_RADIUS * Math.sin(half),
+      VIEW_OFFSET + VIEW_RADIUS * Math.cos(half)) / DEG;
+}
+
+/**
+ * Inverse of skyToCameraAngle: where the rays at the camera angle's edges
+ * meet the sphere, seen from its centre.
+ * @param {number} cameraDeg - Camera angle, degrees (e.g. its vertical FOV)
+ * @returns {number} Angular diameter on the sky, degrees
+ */
+export function cameraToSkyAngle(cameraDeg) {
+  const half = cameraDeg / 2 * DEG;
+  const reach = VIEW_OFFSET * Math.cos(half) +
+      Math.sqrt(VIEW_RADIUS ** 2 - (VIEW_OFFSET * Math.sin(half)) ** 2);
+  return 2 * Math.atan2(reach * Math.sin(half), reach * Math.cos(half) - VIEW_OFFSET) / DEG;
 }

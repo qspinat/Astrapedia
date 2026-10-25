@@ -11,6 +11,7 @@ import {
 } from '../modules/features/TelescopeController.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
 import {TELESCOPE} from '../modules/core/Constants.js';
+import {skyToCameraAngle} from '../modules/core/CoordinateUtils.js';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -1241,12 +1242,13 @@ describe('eyepieceOptics', () => {
 });
 
 describe('reticleCameraFov', () => {
+  // 1 degree of sky covers skyToCameraAngle(1) of camera angle.
   test('fits the true field to a reticle of 70% of a portrait screen width', () => {
-    // 400x800: reticle is 280px; 1 degree must span 280px of 800px height.
-    expect(reticleCameraFov(1, 400, 800)).toBeCloseTo(800 / 280);
+    // 400x800: reticle is 280px; the field must span 280px of 800px height.
+    expect(reticleCameraFov(1, 400, 800)).toBeCloseTo(skyToCameraAngle(1) * 800 / 280, 3);
   });
 
   test('uses the height on a landscape screen', () => {
-    expect(reticleCameraFov(1, 800, 400)).toBeCloseTo(1 / 0.7);
+    expect(reticleCameraFov(1, 800, 400)).toBeCloseTo(skyToCameraAngle(1) / 0.7, 3);
   });
 });

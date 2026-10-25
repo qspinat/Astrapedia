@@ -83,14 +83,11 @@ export class CompassController {
     /** @private {?number} */
     this.orientationTimeout_ = null;
 
-    /** @private {number} */
-    this.lastOrientationTime_ = 0;
+    /** @private {boolean} A usable reading arrived since compass mode began */
+    this.hasOrientation_ = false;
 
-    /** @private {number} Stale data timeout in ms */
-    this.STALE_TIMEOUT_MS_ = 3000;
-
-    /** @private {number} Check interval in ms */
-    this.CHECK_INTERVAL_MS_ = 1000;
+    /** @private {number} How long to wait for a first reading, in ms */
+    this.NO_SENSOR_TIMEOUT_MS_ = 3000;
 
     /** @private {number} Dead zone for jitter reduction */
     this.DEAD_ZONE_ = 0.009;
@@ -182,12 +179,12 @@ export class CompassController {
     }
 
     this.compassMode_ = true;
-    this.lastOrientationTime_ = performance.now();
+    this.hasOrientation_ = false;
 
     // Update button visual state
     this.updateButtonState_(true);
 
-    // Start timeout to detect if orientation events stop firing
+    // Give up if the device never reports an orientation
     this.startOrientationTimeout_();
 
     if (!safeGetJson(HINT_STORAGE_KEY)) {
@@ -277,23 +274,21 @@ export class CompassController {
   }
 
   /**
-   * Start a timeout to detect stale orientation data.
-   * If no orientation events received for 3 seconds, disable compass mode.
+   * Disable compass mode if no reading arrives soon after it starts: the
+   * device has no usable sensor. Later silence is not a fault — Android
+   * only sends orientation events when the reading changes, so a phone held
+   * still (on a tripod, against a wall) goes quiet.
    * @private
    */
   startOrientationTimeout_() {
     this.clearOrientationTimeout_();
-    this.orientationTimeout_ = setInterval(() => {
-      if (!this.compassMode_) {
-        this.clearOrientationTimeout_();
-        return;
-      }
-      const elapsed = performance.now() - this.lastOrientationTime_;
-      if (elapsed > this.STALE_TIMEOUT_MS_) {
+    this.orientationTimeout_ = setTimeout(() => {
+      this.orientationTimeout_ = null;
+      if (this.compassMode_ && !this.hasOrientation_) {
         logger.warn('No orientation data received for 3s, disabling compass');
         this.disable();
       }
-    }, this.CHECK_INTERVAL_MS_);
+    }, this.NO_SENSOR_TIMEOUT_MS_);
   }
 
   /**
@@ -302,7 +297,7 @@ export class CompassController {
    */
   clearOrientationTimeout_() {
     if (this.orientationTimeout_) {
-      clearInterval(this.orientationTimeout_);
+      clearTimeout(this.orientationTimeout_);
       this.orientationTimeout_ = null;
     }
   }
@@ -317,14 +312,13 @@ export class CompassController {
   handleDeviceOrientation_(event) {
     if (!this.compassMode_) return;
 
-    // Update timestamp for stale data detection
-    this.lastOrientationTime_ = performance.now();
-
     let alpha = event.alpha; // Compass direction (0-360)
     const beta = event.beta;   // Front/back tilt (-180 to 180)
     const gamma = event.gamma; // Left/right tilt (-90 to 90)
 
+    // Desktop browsers send one event of nulls: that is not a sensor.
     if (alpha === null || beta === null || gamma === null) return;
+    this.hasOrientation_ = true;
 
     // Adjust for screen orientation
     const screenOrientation = window.orientation || 0;

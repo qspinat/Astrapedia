@@ -9,11 +9,12 @@ import {
   ringRadiusPx,
 } from '../../modules/features/FinderOverlay.js';
 import {FINDER} from '../../modules/core/Constants.js';
+import {cameraToSkyAngle} from '../../modules/core/CoordinateUtils.js';
 import {globalEventBus, Events} from '../../modules/core/EventBus.js';
 
 describe('ringRadiusPx', () => {
-  test('a ring as wide as the view spans the full height', () => {
-    expect(ringRadiusPx(60, 60, 800)).toBeCloseTo(400);
+  test('a ring as wide as the sky in view spans the full height', () => {
+    expect(ringRadiusPx(cameraToSkyAngle(60), 60, 800)).toBeCloseTo(400);
   });
 
   test('halving the FOV doubles a small ring', () => {
@@ -78,18 +79,27 @@ describe('FinderOverlay', () => {
 
   test('skips rings too small to see', () => {
     overlay.setSettings({enabled: true, finderScope: false, eyepieces: false});
-    overlay.update(120);
-    // At 120 degrees the 0.5 degree Telrad ring is under 3px.
+    overlay.update(100);
+    // At 100 degrees the 0.5 degree Telrad ring is under 3px.
     expect(rings()).toHaveLength(2);
   });
 
   test('redraws eyepiece rings when the kit changes', () => {
     overlay.setSettings({enabled: true, telrad: false, finderScope: false});
-    overlay.update(20);
+    overlay.update(5);
     eyepieces = [...eyepieces, {focalLength: 10, realFieldOfView: 0.68}];
     globalEventBus.emit(Events.TELESCOPE_COMPUTED, {});
     expect(rings()).toHaveLength(2);
     expect(document.querySelector('#finder-overlay').textContent).toContain('10mm');
+  });
+
+  test('rings too close together share one label', () => {
+    overlay.setSettings({enabled: true, telrad: false, finderScope: false});
+    eyepieces = [{focalLength: 10, realFieldOfView: 0.52},
+      {focalLength: 6, realFieldOfView: 0.31}];
+    overlay.update(20);
+    expect(rings()).toHaveLength(2);
+    expect(document.querySelector('#finder-overlay').textContent).toBe('10mm');
   });
 
   test('the panel toggle turns it on and is remembered', () => {

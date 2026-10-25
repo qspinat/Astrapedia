@@ -2429,6 +2429,7 @@ select:focus-visible {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    padding: 0 16px;
 }
 
 .tonight p {
@@ -2565,7 +2566,7 @@ select:focus-visible {
     pointer-events: none;
 }
 
-.center-identify.visible {
+#ui-overlay > .center-identify.visible {
     display: block;
 }
 
@@ -2608,7 +2609,7 @@ select:focus-visible {
 /* Finder circles: Telrad rings, finder scope and eyepiece fields drawn
    around the screen centre, where a real finder aims. Token colors keep them
    night-safe. */
-.finder-overlay {
+#ui-overlay > .finder-overlay {
     position: fixed;
     inset: 0;
     width: 100%;

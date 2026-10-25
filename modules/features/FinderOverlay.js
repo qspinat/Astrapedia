@@ -6,6 +6,7 @@
  */
 
 import {FINDER} from '../core/Constants.js';
+import {skyToCameraAngle} from '../core/CoordinateUtils.js';
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {safeGetJson, safeSetJson} from '../core/Utils.js';
 import {domCache} from '../ui/DOMCache.js';
@@ -42,14 +43,15 @@ const TOGGLE_IDS = {
 /**
  * Screen radius of a circle of the given angular diameter, centred in a
  * perspective view.
- * @param {number} diameterDeg - Circle's angular diameter
+ * @param {number} diameterDeg - Circle's angular diameter on the sky
  * @param {number} fovDeg - Camera vertical FOV
  * @param {number} viewHeight - View height in CSS px
  * @returns {number} Radius in CSS px
  */
 export function ringRadiusPx(diameterDeg, fovDeg, viewHeight) {
   const rad = Math.PI / 180;
-  return Math.tan(diameterDeg / 2 * rad) / Math.tan(fovDeg / 2 * rad) * viewHeight / 2;
+  return Math.tan(skyToCameraAngle(diameterDeg) / 2 * rad) /
+      Math.tan(fovDeg / 2 * rad) * viewHeight / 2;
 }
 
 /**
@@ -183,6 +185,7 @@ export class FinderOverlay {
     const cy = height / 2;
     const maxRadius = 1.5 * Math.max(width, height);
     const nodes = [];
+    const labelledRadii = [];
     for (const ring of rings) {
       const r = ringRadiusPx(ring.diameter, this.fov_, height);
       if (r < FINDER.MIN_RING_PX || r > maxRadius) continue;
@@ -194,7 +197,11 @@ export class FinderOverlay {
       circle.setAttribute('class', `finder-ring finder-ring--${ring.kind}`);
       nodes.push(circle);
 
-      if (ring.label) {
+      // A label too close to one already drawn would print over it.
+      const labelFits = labelledRadii.every((other) =>
+        Math.abs(other - r) >= FINDER.LABEL_GAP_PX);
+      if (ring.label && labelFits) {
+        labelledRadii.push(r);
         // Upper right of the ring, where it rarely covers the target.
         const text = document.createElementNS(SVG_NS, 'text');
         text.setAttribute('x', (cx + r * 0.71 + 3).toFixed(1));

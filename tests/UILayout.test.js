@@ -122,6 +122,21 @@ describe('CSS Layout Rules', () => {
     cssContent = fs.readFileSync(cssPath, 'utf8');
   });
 
+  // `#ui-overlay > *` turns touches back on for every overlay child, and its
+  // id outranks a plain class rule: a full-screen layer styled only by class
+  // swallows every drag on the sky.
+  test.each(['finder-overlay', 'center-identify'])(
+      'full-screen %s lets touches through to the sky', (cls) => {
+        const rule = new RegExp(
+            `#ui-overlay\\s*>\\s*\\.${cls}\\s*\\{[^}]*pointer-events:\\s*none`);
+        expect(cssContent).toMatch(rule);
+      });
+
+  test('the compass crosshair shows over its id-scoped display: none', () => {
+    expect(cssContent).toMatch(
+        /#ui-overlay\s*>\s*\.center-identify\.visible\s*\{[^}]*display:\s*block/);
+  });
+
   describe('Panel positioning', () => {
     test('time-picker-panel has position: fixed', () => {
       expect(cssContent).toMatch(/\.time-picker-panel\s*\{[^}]*position:\s*fixed/);
@@ -504,7 +519,7 @@ describe('Skymap search index planet updates (delegated to SearchManager)', () =
 
   test('SearchManager.updatePlanets removes old planet entries before adding new ones', () => {
     expect(searchManagerContent).toMatch(
-      /this\.index_\s*=\s*this\.index_\.filter\s*\(\s*\([^)]*\)\s*=>\s*[^)]*\.type\s*!==\s*['"]Planet['"]/
+      /this\.index_\s*=\s*this\.index_\.filter\s*\(\s*\([^)]*\)\s*=>\s*!\w+\.solarSystem\)/
     );
   });
 
@@ -514,7 +529,7 @@ describe('Skymap search index planet updates (delegated to SearchManager)', () =
       /updatePlanets[\s\S]*?this\.index_\.push\s*\(\s*\{[\s\S]*?name:\s*planet\.name/
     );
     expect(searchManagerContent).toMatch(
-      /updatePlanets[\s\S]*?type:\s*['"]Planet['"]/
+      /updatePlanets[\s\S]*?type,\s*solarSystem:\s*true/
     );
     expect(searchManagerContent).toMatch(
       /updatePlanets[\s\S]*?ra:\s*planet\.ra/

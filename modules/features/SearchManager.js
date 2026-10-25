@@ -8,6 +8,7 @@ import {catalogDesignation} from '../data/CuratedImages.js';
 import {angularDistance, constellationCenter} from '../core/CoordinateUtils.js';
 import {CONSTELLATION_NAMES, getAbbrevFromInternalKey} from '../data/ConstellationNames.js';
 import {PLANET_NAMES} from '../data/PlanetNames.js';
+import {solarSystemType} from '../astronomy/SolarSystem.js';
 import {DSO_NAMES} from '../data/DsoNames.js';
 import {createLogger} from '../core/Logger.js';
 
@@ -379,7 +380,7 @@ export class SearchManager {
       }
 
       // Boost planets and constellations
-      if (entry.type === 'Planet') score += 50;
+      if (entry.solarSystem) score += 50;
       if (entry.type === 'Constellation') score += 30;
 
       results.push({
@@ -510,7 +511,7 @@ export class SearchManager {
    */
   updatePlanets(planets) {
     // Remove old planet entries
-    this.index_ = this.index_.filter((e) => e.type !== 'Planet');
+    this.index_ = this.index_.filter((e) => !e.solarSystem);
 
     // Re-add with all language aliases
     this.addPlanetEntries_(planets);
@@ -553,9 +554,13 @@ export class SearchManager {
   addPlanetEntries_(planets) {
     planets.forEach((planet) => {
       // Primary English entry
+      // Sun and Moon keep their own type ("Moon", not "Planet"), as when
+      // tapped on the sky.
+      const type = solarSystemType(planet.name);
       this.index_.push({
         name: planet.name,
-        type: 'Planet',
+        type,
+        solarSystem: true,
         ra: planet.ra,
         dec: planet.dec,
         mag: planet.mag,
@@ -573,7 +578,8 @@ export class SearchManager {
               name: planet.name,
               displayName: localizedName,
               ...(isUniversal ? {} : {lang: langCode}),
-              type: 'Planet',
+              type,
+              solarSystem: true,
               ra: planet.ra,
               dec: planet.dec,
               mag: planet.mag,

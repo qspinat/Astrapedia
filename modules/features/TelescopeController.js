@@ -6,7 +6,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TELESCOPE} from '../core/Constants.js';
-import {findNearestObject} from '../core/CoordinateUtils.js';
+import {findNearestObject, skyToCameraAngle} from '../core/CoordinateUtils.js';
 import {telescopeLimitingMagnitude, telescopeGain} from '../core/MagnitudeUtils.js';
 import {createLogger} from '../core/Logger.js';
 import {safeSetJson, safeGetJson} from '../core/Utils.js';
@@ -281,7 +281,8 @@ export function eyepieceOptics(telescope, eyepiece) {
  */
 export function reticleCameraFov(trueFov, width, height) {
   const reticlePx = TELESCOPE.RETICLE_SCREEN_FRACTION * Math.min(width, height);
-  return trueFov * height / reticlePx;
+  const half = skyToCameraAngle(trueFov) / 2 * Math.PI / 180;
+  return 2 * Math.atan(Math.tan(half) * height / reticlePx) * 180 / Math.PI;
 }
 
 /**
