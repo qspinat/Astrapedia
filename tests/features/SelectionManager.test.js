@@ -341,6 +341,26 @@ describe('SelectionManager', () => {
     });
   });
 
+  describe('observing lists', () => {
+    it('adds the shown object to the want-to-see list', () => {
+      localStorage.clear();
+      manager.showObjectInfo_({name: 'M42', type: 'HII', ra: 83.8, dec: -5.4, mag: 4});
+      const want = document.getElementById('want-btn');
+      want.click();
+      expect(want.getAttribute('aria-pressed')).toBe('true');
+      expect(want.textContent).toContain('On my list');
+      want.click();
+    });
+
+    it('marks the shown object as seen', () => {
+      manager.showObjectInfo_({name: 'M45', type: 'OCl', ra: 56.8, dec: 24.1, mag: 1.6});
+      const seen = document.getElementById('seen-btn');
+      seen.click();
+      expect(seen.textContent).toMatch(/Seen/);
+      seen.click();
+    });
+  });
+
   describe('when to look', () => {
     const vega = {name: 'Vega', type: 'Star', ra: 279.2347, dec: 38.7837, mag: 0.03};
 

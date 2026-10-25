@@ -13,6 +13,7 @@ import {nightWindow} from '../astronomy/Observability.js';
 import {planningWindow, rankTonight} from './TonightPlanner.js';
 import {dewRisk} from '../services/WeatherService.js';
 import {domCache} from '../ui/DOMCache.js';
+import {observingLists} from './ObservingLists.js';
 
 const PANEL_ID = 'visible-tonight-panel';
 const PREFS_KEY = 'astrapedia_tonight_prefs';
@@ -211,8 +212,11 @@ export class TonightPanel {
    */
   visibleEntries_() {
     const {filter, sort} = this.prefs_;
+    const keep = filter === 'all' ? () => true :
+        filter === 'wanted' ? (e) => observingLists.isWanted(e.object.name) :
+        (e) => e.category === filter;
     return this.ranked_
-        .filter((e) => filter === 'all' || e.category === filter)
+        .filter(keep)
         .sort(SORTS[sort] || SORTS.best)
         .slice(0, MAX_ROWS);
   }
@@ -229,21 +233,42 @@ export class TonightPanel {
     const list = domCache.get('tonight-list');
     if (!list) return;
     const entries = this.visibleEntries_();
+    const missing = this.prefs_.filter === 'wanted' ? this.wantedNotUp_() : '';
+    if (this.prefs_.filter === 'wanted' && observingLists.getWanted().length === 0) {
+      list.innerHTML = '<li class="tonight-muted">Your list is empty. Open any object ' +
+          'and tap "Want to see" to plan it here.</li>';
+      return;
+    }
     if (entries.length === 0) {
       list.innerHTML = this.ranked_.length || !this.deps_.getLocation() ?
           '<li class="tonight-muted">Nothing of this kind rises high enough tonight.</li>' :
           '<li class="tonight-muted">Nothing to plan for this night.</li>';
+      list.innerHTML += missing;
       return;
     }
     list.innerHTML = entries.map((e, i) => {
       const o = e.object;
       const alias = o.common_names ? ` · ${escapeHtml(o.common_names.split(',')[0])}` : '';
+      const seen = observingLists.seenOn(o.name) ? ' ✓' : '';
       return `<li><button class="tonight-row" data-index="${i}">` +
-          `<span class="tonight-row__name">${escapeHtml(o.name)}${alias}</span>` +
+          `<span class="tonight-row__name">${escapeHtml(o.name)}${alias}${seen}</span>` +
           `<span class="tonight-row__meta">${escapeHtml(o.type)} · mag ${o.mag.toFixed(1)}</span>` +
           `<span class="tonight-row__when">best ${clock(e.bestTime)} · ` +
           `${Math.round(e.peakAltitude)}°</span></button></li>`;
-    }).join('');
+    }).join('') + missing;
+  }
+
+  /**
+   * Wanted objects missing from tonight's ranking, as a list note.
+   * @returns {string} HTML, empty when every wanted object is up
+   * @private
+   */
+  wantedNotUp_() {
+    const up = new Set(this.ranked_.map((e) => e.object.name));
+    const missing = observingLists.getWanted().filter((name) => !up.has(name));
+    if (missing.length === 0) return '';
+    return `<li class="tonight-muted">Not well placed tonight, or too faint: ` +
+        `${missing.map(escapeHtml).join(', ')}</li>`;
   }
 
   /**

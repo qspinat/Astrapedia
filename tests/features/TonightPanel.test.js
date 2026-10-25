@@ -6,6 +6,7 @@
 import {jest} from '@jest/globals';
 import {installAstronomy} from '../helpers/astronomy.js';
 import {TonightPanel} from '../../modules/features/TonightPanel.js';
+import {observingLists} from '../../modules/features/ObservingLists.js';
 
 installAstronomy();
 
@@ -35,6 +36,7 @@ describe('TonightPanel', () => {
       </div>
       <div id="tonight-filter">
         <button data-filter="all"></button><button data-filter="galaxies"></button>
+        <button data-filter="wanted"></button>
       </div>
       <ol id="tonight-list"></ol>
       <input type="checkbox" id="weather-toggle">`;
@@ -124,6 +126,17 @@ describe('TonightPanel', () => {
     expect(document.getElementById('tonight-weather').textContent)
         .toContain('No cloud forecast');
     expect(rowNames().length).toBeGreaterThan(0);
+  });
+
+  test('My list shows wanted objects and names those not up tonight', () => {
+    observingLists.toggleWanted('M31');
+    observingLists.toggleWanted('M83');
+    openCallback();
+    document.querySelector('[data-filter="wanted"]').click();
+    expect(rowNames()).toEqual(['M31']);
+    expect(document.getElementById('tonight-list').textContent).toContain('M83');
+    observingLists.toggleWanted('M31');
+    observingLists.toggleWanted('M83');
   });
 
   test('the location link opens the location dialog', () => {

@@ -1237,6 +1237,19 @@ select:focus {
 /* Info panel hierarchy: the type headline and the plain-language description
    lead; the facts sit in an even label/value grid; precise coordinates fold
    away in a <details>. */
+.info-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 6px 0 10px;
+}
+
+.info-actions .eyepiece-chip[aria-pressed="true"] {
+    color: var(--accent-warm);
+    border-color: var(--border-accent);
+    background: var(--accent);
+}
+
 .info-type {
     color: var(--accent-warm);
     font-size: 14px;

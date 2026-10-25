@@ -17,7 +17,8 @@ import {isImageSizeAcceptable} from '../rendering/ImageRenderer.js';
 import {getPlanetImageInfo} from '../data/PlanetImages.js';
 import {altitudeCurve, nightWindow, riseTransitSet} from '../astronomy/Observability.js';
 import {altitudeChartSvg} from '../ui/AltitudeChart.js';
-import {formatClockTime} from '../core/Utils.js';
+import {APP_LOCALE, addMobileButtonListener, formatClockTime} from '../core/Utils.js';
+import {observingLists} from './ObservingLists.js';
 
 const logger = createLogger('SelectionManager');
 
@@ -299,6 +300,9 @@ export class SelectionManager {
     // Lead with what it is and a plain-language description, not coordinates.
     // A newcomer meets the object before the astronomer-grade numbers.
     html += `<p class="info-type">${escapeHtml(typeFullName)}${subtype}</p>`;
+    html += `<div class="info-actions">` +
+        `<button class="eyepiece-chip" id="want-btn" aria-pressed="false"></button>` +
+        `<button class="eyepiece-chip" id="seen-btn" aria-pressed="false"></button></div>`;
     html += `<div id="object-description" class="object-description">`;
     html += `<em>Loading description...</em></div>`;
 
@@ -354,10 +358,42 @@ export class SelectionManager {
     html += `</div>`;
 
     content.innerHTML = html;
+    this.wireListButtons_(displayName);
 
     // Async extras: the description fetch fills the placeholder above, and the
     // best image loads into #main-image.
     this.addExtraObjectInfo_(obj);
+  }
+
+  /**
+   * Hook up "Want to see" and "Seen" for the shown object.
+   * @param {string} name - Key in the observing lists
+   * @private
+   */
+  wireListButtons_(name) {
+    const want = domCache.get('want-btn');
+    const seen = domCache.get('seen-btn');
+    if (!want || !seen) return;
+
+    const sync = () => {
+      const wanted = observingLists.isWanted(name);
+      want.setAttribute('aria-pressed', String(wanted));
+      want.textContent = wanted ? '★ On my list' : '☆ Want to see';
+      const seenOn = observingLists.seenOn(name);
+      seen.setAttribute('aria-pressed', String(!!seenOn));
+      seen.textContent = seenOn ?
+        `✓ Seen ${seenOn.toLocaleDateString(APP_LOCALE, {day: 'numeric', month: 'short'})}` :
+        'Mark as seen';
+    };
+    addMobileButtonListener(want, () => {
+      observingLists.toggleWanted(name);
+      sync();
+    });
+    addMobileButtonListener(seen, () => {
+      observingLists.toggleSeen(name, this.deps_.getTime?.() ?? new Date());
+      sync();
+    });
+    sync();
   }
 
   /**

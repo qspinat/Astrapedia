@@ -55,6 +55,7 @@ const STATIC_ASSETS = [
     '/modules/features/CenterIdentify.js',
     '/modules/features/TonightPlanner.js',
     '/modules/features/TonightPanel.js',
+    '/modules/features/ObservingLists.js',
     '/modules/services/WeatherService.js',
     '/modules/features/TimeController.js',
     '/modules/features/TimeUI.js',
