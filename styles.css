@@ -399,6 +399,8 @@ canvas:active {
     z-index: var(--z-floating);
     border: 1px solid var(--border);
     border-left: 3px solid var(--accent-warm-dim);
+    min-height: 32px;
+    cursor: pointer;
 }
 
 .badge-separator {
@@ -410,6 +412,12 @@ canvas:active {
     color: var(--data-color);
     font-weight: 600;
     letter-spacing: 0.5px;
+}
+
+/* Tapping the badge toggles the finder circles; the mark shows they're on. */
+.info-badge--finder #fov-badge::before {
+    content: '◎ ';
+    color: var(--error);
 }
 
 #coords-badge {

@@ -108,6 +108,7 @@ function initializeUI_(appInstance) {
 
   initializeFinderOverlay({
     getEyepieces: () => telescopeController.getEyepieces(),
+    notify: (message) => panelManager.showNotification(message, 1500),
   });
 
   // Lets resetView() leave telescope mode and zoom input respect its lock.

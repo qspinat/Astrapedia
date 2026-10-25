@@ -258,7 +258,9 @@
         </div>
 
         <!-- Floating Info Badge (replaces full info panel on mobile) -->
-        <div class="info-badge" id="info-badge">
+        <div class="info-badge" id="info-badge" role="button" aria-pressed="false"
+             aria-label="Field of view and coordinates; tap to show or hide finder circles"
+             title="Tap to show or hide finder circles">
             <span id="fov-badge">60°</span>
             <span class="badge-separator">|</span>
             <span id="coords-badge">RA 0° Dec 0°</span>
@@ -538,6 +540,7 @@
                      drawn over the normal sky view for planning star hops. -->
                 <div class="telescope-inputs">
                     <h4 class="telescope-section-title">Finder Circles</h4>
+                    <p class="helper-text">Tip: tap the zoom badge at the top left to show or hide them.</p>
                     <label class="toggle-row">
                         <span class="toggle-row__label">Show on sky</span>
                         <input type="checkbox" id="finder-toggle">

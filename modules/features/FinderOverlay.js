@@ -8,7 +8,7 @@
 import {FINDER} from '../core/Constants.js';
 import {skyToCameraAngle} from '../core/CoordinateUtils.js';
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {safeGetJson, safeSetJson} from '../core/Utils.js';
+import {addMobileButtonListener, safeGetJson, safeSetJson} from '../core/Utils.js';
 import {domCache} from '../ui/DOMCache.js';
 import {createLogger} from '../core/Logger.js';
 
@@ -62,6 +62,7 @@ export class FinderOverlay {
    * @param {!Object} dependencies
    * @param {function(): !Array<{focalLength: number, realFieldOfView: number}>}
    *     dependencies.getEyepieces - The eyepiece kit with each true field
+   * @param {function(string)=} dependencies.notify - Shows a short message
    */
   constructor(dependencies) {
     /** @private @const */
@@ -99,6 +100,10 @@ export class FinderOverlay {
       input.checked = this.settings_[key];
       input.addEventListener('change', () => this.setSettings({[key]: input.checked}));
     }
+    // The zoom badge is the quick switch: the rings are sized by the zoom.
+    const badge = domCache.get('info-badge');
+    if (badge) addMobileButtonListener(badge, () => this.toggle());
+    this.syncSwitches_();
     const fovInput = domCache.get('finder-scope-fov');
     if (fovInput) {
       fovInput.value = this.settings_.finderFov;
@@ -130,7 +135,30 @@ export class FinderOverlay {
   setSettings(changes) {
     this.settings_ = {...this.settings_, ...changes};
     safeSetJson(FINDER.STORAGE_KEY, this.settings_);
+    this.syncSwitches_();
     this.redraw_();
+  }
+
+  /**
+   * Show or hide the circles, saying which happened.
+   */
+  toggle() {
+    const enabled = !this.settings_.enabled;
+    this.setSettings({enabled});
+    this.deps_.notify?.(enabled ? 'Finder circles on' : 'Finder circles off');
+  }
+
+  /**
+   * Keep the panel switch and the badge mark in step with the on/off setting.
+   * @private
+   */
+  syncSwitches_() {
+    const {enabled} = this.settings_;
+    const toggle = domCache.get(TOGGLE_IDS.enabled);
+    if (toggle) toggle.checked = enabled;
+    const badge = domCache.get('info-badge');
+    badge?.classList.toggle('info-badge--finder', enabled);
+    badge?.setAttribute('aria-pressed', String(enabled));
   }
 
   /**

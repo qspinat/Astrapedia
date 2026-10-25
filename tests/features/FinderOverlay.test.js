@@ -27,6 +27,7 @@ describe('ringRadiusPx', () => {
 describe('FinderOverlay', () => {
   let overlay;
   let eyepieces;
+  let notify;
 
   const rings = () => [...document.querySelectorAll('#finder-overlay circle')];
   const ringClasses = () => rings().map((c) => c.getAttribute('class'));
@@ -36,6 +37,7 @@ describe('FinderOverlay', () => {
     globalEventBus.clear();
     document.body.innerHTML = `
       <svg id="finder-overlay"></svg>
+      <div id="info-badge"></div>
       <input type="checkbox" id="finder-toggle">
       <input type="checkbox" id="finder-telrad-toggle">
       <input type="checkbox" id="finder-scope-toggle">
@@ -44,7 +46,8 @@ describe('FinderOverlay', () => {
     window.innerWidth = 400;
     window.innerHeight = 800;
     eyepieces = [{focalLength: 25, realFieldOfView: 1.3}];
-    overlay = new FinderOverlay({getEyepieces: () => eyepieces});
+    notify = jest.fn();
+    overlay = new FinderOverlay({getEyepieces: () => eyepieces, notify});
     overlay.initialize();
   });
 
@@ -113,6 +116,24 @@ describe('FinderOverlay', () => {
     reloaded.initialize();
     expect(reloaded.getSettings().enabled).toBe(true);
     reloaded.dispose();
+  });
+
+  test('tapping the zoom badge shows the circles and marks the badge', () => {
+    const badge = document.getElementById('info-badge');
+    badge.click();
+    overlay.update(20);
+    expect(rings().length).toBeGreaterThan(0);
+    expect(badge.classList.contains('info-badge--finder')).toBe(true);
+    expect(document.getElementById('finder-toggle').checked).toBe(true);
+    expect(notify).toHaveBeenCalledWith('Finder circles on');
+  });
+
+  test('tapping the zoom badge again hides them', () => {
+    overlay.setSettings({enabled: true});
+    overlay.update(20);
+    document.getElementById('info-badge').click();
+    expect(rings()).toHaveLength(0);
+    expect(document.getElementById('finder-toggle').checked).toBe(false);
   });
 
   test('the finder field input resizes the finder ring', () => {
