@@ -232,6 +232,16 @@ export function addLongPressListener(el, onLongPress, ms = 500) {
 export const APP_LOCALE = 'en-US';
 
 /**
+ * Clock time of day in the device's time zone, e.g. "21:47".
+ * @param {!Date} date
+ * @returns {string}
+ */
+export function formatClockTime(date) {
+  return date.toLocaleTimeString(APP_LOCALE,
+      {hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
+}
+
+/**
  * Human "today / tomorrow / in N days" label for an upcoming date.
  * @param {!Date} date - The future date.
  * @param {!Date=} now - Reference "now" (defaults to the current time).

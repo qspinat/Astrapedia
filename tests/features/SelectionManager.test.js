@@ -9,6 +9,7 @@ import {
 } from '../../modules/features/SelectionManager.js';
 import {domCache} from '../../modules/ui/DOMCache.js';
 import {globalEventBus, Events} from '../../modules/core/EventBus.js';
+import {installAstronomy} from '../helpers/astronomy.js';
 
 describe('SelectionManager', () => {
   let manager;
@@ -337,6 +338,42 @@ describe('SelectionManager', () => {
       // Should show DSS source text
       const sourceDiv = container.querySelector('.image-source');
       expect(sourceDiv.textContent).toBe('📜 Digitized Sky Survey (fallback)');
+    });
+  });
+
+  describe('when to look', () => {
+    const vega = {name: 'Vega', type: 'Star', ra: 279.2347, dec: 38.7837, mag: 0.03};
+
+    beforeAll(() => installAstronomy());
+
+    const panelWith = (deps) => {
+      const m = new SelectionManager({...mockDeps, ...deps});
+      m.showObjectInfo_(vega);
+      m.dispose();
+      return document.getElementById('info-content');
+    };
+
+    it('lists rise, highest point and set for the observer', () => {
+      const panel = panelWith({
+        getObserverLocation: () => ({lat: 48.8566, lon: 2.3522}),
+        getTime: () => new Date('2026-12-21T20:00:00Z'),
+      });
+      const labels = [...panel.querySelectorAll('.info-fact-label')].map((e) => e.textContent);
+      expect(labels).toEqual(expect.arrayContaining(['Rises', 'Highest', 'Sets']));
+      expect(panel.querySelector('.alt-chart')).not.toBeNull();
+    });
+
+    it('says when an object never rises', () => {
+      const panel = panelWith({
+        getObserverLocation: () => ({lat: -60, lon: 0}),
+        getTime: () => new Date('2026-12-21T20:00:00Z'),
+      });
+      expect(panel.textContent).toContain('Never rises from here');
+    });
+
+    it('leaves the times out without a location', () => {
+      const panel = panelWith({getObserverLocation: () => null, getTime: () => new Date()});
+      expect(panel.textContent).not.toContain('Highest');
     });
   });
 

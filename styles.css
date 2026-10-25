@@ -2409,6 +2409,135 @@ select:focus-visible {
     margin-bottom: 10px;
 }
 
+/* Tonight panel */
+.tonight {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.tonight p {
+    margin: 0 0 4px;
+}
+
+.tonight-muted {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.tonight-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--accent-warm);
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+}
+
+.tonight-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tonight-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tonight-clouds {
+    display: flex;
+    gap: 2px;
+    height: 28px;
+    align-items: flex-end;
+}
+
+/* Bar height is the cloud cover: tall means cloudy. */
+.tonight-cloud {
+    flex: 1;
+    height: max(2px, var(--cloud));
+    background: var(--text-muted);
+    border-radius: 2px 2px 0 0;
+}
+
+.tonight-clouds__axis {
+    display: flex;
+    justify-content: space-between;
+}
+
+.tonight-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tonight-row {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 8px;
+    padding: 8px 10px;
+    text-align: left;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font: inherit;
+}
+
+.tonight-row__name {
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tonight-row__meta {
+    grid-column: 1;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.tonight-row__when {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    font-size: 12px;
+    color: var(--data-color);
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+/* Altitude through the night, in the info panel */
+.info-altitude {
+    margin: 8px 0 4px;
+}
+
+.alt-chart {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.alt-chart__dark { fill: var(--bg-secondary); }
+.alt-chart__horizon { stroke: var(--border-accent); stroke-width: 1; }
+.alt-chart__guide { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 3; }
+.alt-chart__line { fill: none; stroke: var(--accent-warm); stroke-width: 2; }
+.alt-chart__now { stroke: var(--text-secondary); stroke-width: 1; stroke-dasharray: 2 2; }
+
+.alt-chart__label {
+    font-size: 9px;
+    fill: var(--text-muted);
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
 /* Compass mode: crosshair at the screen centre and the name of what is
    under it. Only the label takes taps, so the sky can still be dragged. */
 #ui-overlay > .center-identify {

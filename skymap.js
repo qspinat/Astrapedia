@@ -429,6 +429,8 @@ export class AstrapediaApp {
       fetchBestImage: (name, ra, dec, type, size, forPanel) =>
         this.fetchBestImage(name, ra, dec, type, size, forPanel),
       renderBodyImage,
+      getObserverLocation: () => this.observerLocation,
+      getTime: () => this.timeController_?.getTime() ?? new Date(),
       navigateToRaDec: (ra, dec) => this.animateCameraTo(ra, dec),
       highlightConstellation: (name) => this.highlightConstellation(name),
       unhighlightConstellation: () => this.unhighlightConstellation(),
@@ -1579,6 +1581,14 @@ export class AstrapediaApp {
    */
   getPlanetDescription(planetName) {
     return this.tourController_.getPlanetDescription(planetName);
+  }
+
+  /**
+   * Sun, Moon and planets at the simulated time.
+   * @returns {!Array<!Object>} {name, ra, dec, mag, angularSize, phase?}
+   */
+  getPlanets() {
+    return this.planetRenderer_?.getPlanets() || [];
   }
 
   /**

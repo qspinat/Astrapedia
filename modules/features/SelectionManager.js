@@ -15,6 +15,9 @@ import {domCache} from '../ui/DOMCache.js';
 import {moonIllumination, moonPhaseName} from '../core/MoonPhase.js';
 import {isImageSizeAcceptable} from '../rendering/ImageRenderer.js';
 import {getPlanetImageInfo} from '../data/PlanetImages.js';
+import {altitudeCurve, nightWindow, riseTransitSet} from '../astronomy/Observability.js';
+import {altitudeChartSvg} from '../ui/AltitudeChart.js';
+import {formatClockTime} from '../core/Utils.js';
 
 const logger = createLogger('SelectionManager');
 
@@ -70,6 +73,9 @@ export class SelectionManager {
    * @param {function(): string=} dependencies.getConstellationLanguage - Get current language
    * @param {function(string): string=} dependencies.getConstellationFullName - Get full constellation name
    * @param {function(string, number, number, string, number): Promise=} dependencies.fetchBestImage - Fetch best image
+   * @param {function(): ?{lat: number, lon: number}=} dependencies.getObserverLocation -
+   *     For rise/set times and the altitude chart
+   * @param {function(): !Date=} dependencies.getTime - Current (simulated) time
    * @param {function(string, ?number): !Promise<?string>=} dependencies.renderBodyImage -
    *     Solar-system body photo (Moon shaded to phase), or null if it has none
    * @param {function(number, number, string, number): string=} dependencies.getSkyViewImageUrl - Get DSS image URL
@@ -316,7 +322,9 @@ export class SelectionManager {
     if (obj.messier) {
       html += this.factRow_('Messier', `M${Math.floor(obj.messier)}`);
     }
+    html += this.observingRows_(obj);
     html += `</div>`;
+    html += this.altitudeChart_(obj);
 
     // Precise coordinates and catalog data — kept, but folded away so they
     // don't dominate. Open on demand.
@@ -350,6 +358,53 @@ export class SelectionManager {
     // Async extras: the description fetch fills the placeholder above, and the
     // best image loads into #main-image.
     this.addExtraObjectInfo_(obj);
+  }
+
+  /**
+   * Rise, highest point and set for the observer, as fact rows.
+   * @param {!Object} obj - Selected object
+   * @returns {string} HTML, empty without a location
+   * @private
+   */
+  observingRows_(obj) {
+    const location = this.deps_.getObserverLocation?.();
+    const now = this.deps_.getTime?.();
+    if (!location || !now) return '';
+    const times = riseTransitSet(obj, location, now);
+    if (!times) return '';
+    if (times.neverUp) return this.factRow_('Visibility', 'Never rises from here');
+
+    let html = '';
+    if (times.alwaysUp) {
+      html += this.factRow_('Visibility', 'Always above the horizon');
+    } else if (times.rise) {
+      html += this.factRow_('Rises', formatClockTime(times.rise));
+    }
+    html += this.factRow_('Highest',
+        `${formatClockTime(times.transit)} · ${times.transitAltitude.toFixed(0)}°`);
+    if (times.set) html += this.factRow_('Sets', formatClockTime(times.set));
+    return html;
+  }
+
+  /**
+   * Altitude from sunset to sunrise, as a small chart.
+   * @param {!Object} obj - Selected object
+   * @returns {string} HTML, empty without a location or for the Sun
+   * @private
+   */
+  altitudeChart_(obj) {
+    const location = this.deps_.getObserverLocation?.();
+    const now = this.deps_.getTime?.();
+    if (!location || !now || obj.name === 'Sun') return '';
+    const night = nightWindow(location, now);
+    if (!night) return '';
+    const HOUR = 3600 * 1000;
+    const from = new Date((night.sunset ?? new Date(night.start.getTime() + 6 * HOUR))
+        .getTime() - HOUR / 2);
+    const to = new Date((night.sunrise ?? new Date(night.start.getTime() + 18 * HOUR))
+        .getTime() + HOUR / 2);
+    const svg = altitudeChartSvg(altitudeCurve(obj, location, from, to), night, now);
+    return svg ? `<div class="info-altitude">${svg}</div>` : '';
   }
 
   /**

@@ -117,6 +117,7 @@ export function toSelectableDso(dso) {
     mag: dso.mag,
     size_major: dso.size_major,
     size_minor: dso.size_minor,
+    common_names: dso.common_names,
   };
 }
 

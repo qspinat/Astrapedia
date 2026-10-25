@@ -9,7 +9,7 @@
         script-src 'self';
         style-src 'self' 'unsafe-inline';
         img-src 'self' https: data: blob:;
-        connect-src 'self'
+        connect-src 'self' https://api.open-meteo.com
             https://en.wikipedia.org
             https://commons.wikimedia.org
             https://upload.wikimedia.org
@@ -296,6 +296,11 @@
                 <label class="toggle-row" id="keep-awake-row">
                     <span class="toggle-row__label">Keep screen on</span>
                     <input type="checkbox" id="keep-awake-toggle" checked>
+                    <span class="toggle-switch"></span>
+                </label>
+                <label class="toggle-row">
+                    <span class="toggle-row__label">Cloud forecast (Open-Meteo)</span>
+                    <input type="checkbox" id="weather-toggle" checked>
                     <span class="toggle-switch"></span>
                 </label>
                 <div class="input-row night-only">
@@ -744,10 +749,32 @@
         <!-- Visible Tonight Panel -->
         <div id="visible-tonight-panel" class="slide-panel">
             <div class="panel-header">
-                <h2>Visible Tonight</h2>
+                <h2 class="panel-title--accent">Tonight</h2>
                 <button class="close-btn close-btn--panel" id="visible-tonight-close-btn" aria-label="Close">✕</button>
             </div>
-            <div class="panel-content"></div>
+            <div class="panel-content tonight">
+                <div class="tonight-summary" id="tonight-summary"></div>
+                <div class="tonight-weather" id="tonight-weather"></div>
+                <div class="tonight-controls">
+                    <div class="tonight-chips" role="radiogroup" aria-label="Seeing with" id="tonight-instrument">
+                        <button class="eyepiece-chip" data-instrument="eye" role="radio">Naked eye</button>
+                        <button class="eyepiece-chip" data-instrument="telescope" role="radio">Telescope</button>
+                    </div>
+                    <div class="tonight-chips" role="radiogroup" aria-label="Sort" id="tonight-sort">
+                        <button class="eyepiece-chip" data-sort="best" role="radio">Best</button>
+                        <button class="eyepiece-chip" data-sort="highest" role="radio">Highest</button>
+                        <button class="eyepiece-chip" data-sort="brightest" role="radio">Brightest</button>
+                    </div>
+                    <div class="tonight-chips" role="radiogroup" aria-label="Show" id="tonight-filter">
+                        <button class="eyepiece-chip" data-filter="all" role="radio">All</button>
+                        <button class="eyepiece-chip" data-filter="planets" role="radio">Planets</button>
+                        <button class="eyepiece-chip" data-filter="galaxies" role="radio">Galaxies</button>
+                        <button class="eyepiece-chip" data-filter="nebulae" role="radio">Nebulae</button>
+                        <button class="eyepiece-chip" data-filter="clusters" role="radio">Clusters</button>
+                    </div>
+                </div>
+                <ol class="tonight-list" id="tonight-list"></ol>
+            </div>
         </div>
 
         <!-- Events Calendar Panel -->
@@ -833,6 +860,10 @@
             <button class="bottom-nav__item is-active" id="nav-sky" data-panel="" aria-current="page">
                 <svg class="bottom-nav__icon"><use href="#icon-star"/></svg>
                 <span class="bottom-nav__label">Sky</span>
+            </button>
+            <button class="bottom-nav__item" id="nav-tonight" data-panel="visible-tonight-panel">
+                <svg class="bottom-nav__icon"><use href="#icon-calendar"/></svg>
+                <span class="bottom-nav__label">Tonight</span>
             </button>
             <button class="bottom-nav__item" id="nav-tours" data-panel="tours-panel">
                 <svg class="bottom-nav__icon"><use href="#icon-moon"/></svg>

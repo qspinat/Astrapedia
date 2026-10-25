@@ -27,13 +27,14 @@ describe('UI Layout - HTML Structure', () => {
 
     test('bottom navigation exists with the five feature tabs', () => {
       expect(htmlContent).toContain('class="bottom-nav"');
-      for (const id of ['nav-sky', 'nav-tours', 'nav-telescope',
+      for (const id of ['nav-sky', 'nav-tonight', 'nav-tours', 'nav-telescope',
         'nav-quiz', 'nav-settings']) {
         expect(htmlContent).toContain(`id="${id}"`);
       }
     });
 
     test('nav tabs point at the right panels', () => {
+      expect(htmlContent).toContain('id="nav-tonight" data-panel="visible-tonight-panel"');
       expect(htmlContent).toContain('id="nav-tours" data-panel="tours-panel"');
       expect(htmlContent).toContain(
           'id="nav-telescope" data-panel="telescope-panel"');

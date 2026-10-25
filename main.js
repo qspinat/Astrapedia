@@ -15,6 +15,8 @@ import {globalEventBus, Events} from './modules/core/EventBus.js';
 
 // Feature modules
 import {TelescopeController} from './modules/features/TelescopeController.js';
+import {initializeTonightPanel} from './modules/features/TonightPanel.js';
+import {weatherService} from './modules/services/WeatherService.js';
 import {initializeFinderOverlay} from './modules/features/FinderOverlay.js';
 import {SkyConditionsHandler} from './modules/features/SkyConditionsHandler.js';
 
@@ -193,6 +195,19 @@ function initializeUI_(appInstance) {
       telescopeController?.computeVisibilityForDiameters(obj, diameters) || [],
     computeDiffuseVisibility: (obj) =>
       telescopeController?.computeDiffuseVisibility(obj) || null,
+  });
+
+  initializeTonightPanel({
+    getLocation: () => appInstance.observerLocation,
+    getTime: () => appInstance.getSimulationTime(),
+    getPlanets: () => appInstance.getPlanets(),
+    getDSOs: () => appInstance.deepSkyObjects || [],
+    getNakedEyeLimit: () => skyConditionsHandler.getNakedEyeLimit(),
+    getTelescopeLimit: () => telescopeController.getComputedProperties()?.limitingMagnitude ?? null,
+    selectObject: (obj) => appInstance.selectObject(obj),
+    openLocationDialog: () => appInstance.setObserverLocation(),
+    weather: weatherService,
+    panelManager,
   });
 }
 
