@@ -78,6 +78,16 @@ describe('nightWindow', () => {
     expectNear(night.sunrise, '2026-12-22T07:42:00Z');
   });
 
+  test('only reports Moon events between sunset and sunrise', () => {
+    for (const day of ['2026-12-01', '2026-12-08', '2026-12-15', '2026-12-24']) {
+      const night = nightWindow(PARIS, new Date(`${day}T22:00:00Z`));
+      for (const event of [night.moonrise, night.moonset].filter(Boolean)) {
+        expect(event.getTime()).toBeGreaterThanOrEqual(night.sunset.getTime());
+        expect(event.getTime()).toBeLessThanOrEqual(night.sunrise.getTime());
+      }
+    }
+  });
+
   test('midsummer in Paris never gets astronomically dark', () => {
     const night = nightWindow(PARIS, new Date('2026-06-21T22:00:00Z'));
     expect(night.sunset).not.toBeNull();

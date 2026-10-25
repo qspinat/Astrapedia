@@ -25,7 +25,7 @@ export class CenterIdentifier {
    * @param {!Object} dependencies
    * @param {function(): {ra: number, dec: number}} dependencies.getViewCenterRaDec
    * @param {function(): number} dependencies.getFov - Vertical FOV in degrees
-   * @param {function(): !Array<!Object>} dependencies.getCandidates - Selectable
+   * @param {function(): !Iterable<!Object>} dependencies.getCandidates - Selectable
    *     objects (name, type, ra, dec, mag) worth naming
    * @param {function(!Object): void} dependencies.selectObject
    */
@@ -81,6 +81,9 @@ export class CenterIdentifier {
     this.active_ = false;
     this.current_ = null;
     domCache.get('center-identify')?.classList.remove('visible');
+    // Cleared so the next start does not show this session's last name.
+    const label = domCache.get('center-label');
+    if (label) label.hidden = true;
   }
 
   /**

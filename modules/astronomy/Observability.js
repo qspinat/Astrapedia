@@ -105,13 +105,15 @@ export function nightStart(date, lon) {
 
 /**
  * The night `date` falls in: sunset, end of evening twilight, start of
- * morning twilight, sunrise, and the Moon's rise and set in between.
+ * morning twilight, sunrise, whether the Moon is up at sunset, and its rise
+ * and set between sunset and sunrise (null when they fall outside it).
  * Fields are null when the event does not happen (summer at high latitude
  * never gets astronomically dark).
  * @param {{lat: number, lon: number}} location
  * @param {!Date} date
  * @returns {?{start: !Date, sunset: ?Date, dusk: ?Date, dawn: ?Date,
- *     sunrise: ?Date, moonrise: ?Date, moonset: ?Date}} Null if unavailable
+ *     sunrise: ?Date, moonUpAtDusk: boolean, moonrise: ?Date,
+ *     moonset: ?Date}} Null if unavailable
  */
 export function nightWindow(location, date) {
   if (typeof Astronomy === 'undefined' || !location) return null;
@@ -142,15 +144,22 @@ function computeNightWindow_(location, start) {
         ASTRONOMICAL_TWILIGHT_DEG));
     const dawn = dusk ? toDate(Astronomy.SearchAltitude(sun, observer, +1, dusk, 1,
         ASTRONOMICAL_TWILIGHT_DEG)) : null;
+    // The Moon's events during the night only: from sunset (or solar 18:00)
+    // to sunrise (or the next solar 06:00). Searching from noon found
+    // daytime events and put them in the wrong order.
     const moon = Astronomy.Body.Moon;
+    const from = sunset ?? new Date(start.getTime() + 6 * HOUR_MS);
+    const to = sunrise ?? new Date(start.getTime() + 18 * HOUR_MS);
+    const nightDays = (to.getTime() - from.getTime()) / DAY_MS;
     return {
       start,
       sunset,
       dusk,
       dawn,
       sunrise,
-      moonrise: toDate(Astronomy.SearchRiseSet(moon, observer, +1, start, 1)),
-      moonset: toDate(Astronomy.SearchRiseSet(moon, observer, -1, start, 1)),
+      moonUpAtDusk: altitudeOf(moon, observer, from) > 0,
+      moonrise: toDate(Astronomy.SearchRiseSet(moon, observer, +1, from, nightDays)),
+      moonset: toDate(Astronomy.SearchRiseSet(moon, observer, -1, from, nightDays)),
     };
   } catch (error) {
     logger.warn('Night window failed:', error);

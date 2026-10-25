@@ -127,6 +127,33 @@ describe('InputController', () => {
     });
   });
 
+  describe('inertia', () => {
+    const touch = (type, points) => {
+      const ev = new Event(type, {bubbles: true, cancelable: true});
+      Object.defineProperty(ev, 'touches', {value: points.map(([x, y]) => ({clientX: x, clientY: y}))});
+      canvas.dispatchEvent(ev);
+    };
+    const flick = () => {
+      touch('touchstart', [[100, 100]]);
+      touch('touchmove', [[160, 100]]);
+      touch('touchmove', [[220, 100]]);
+      touch('touchend', []);
+    };
+
+    test('a flick keeps the sky gliding', () => {
+      flick();
+      expect(controller.inertiaAnimationId_).not.toBeNull();
+    });
+
+    test('no glide when the app says the sky must stay put', () => {
+      controller.dispose();
+      controller = new InputController({...deps, allowsInertia: () => false});
+      controller.initialize();
+      flick();
+      expect(controller.inertiaAnimationId_).toBeNull();
+    });
+  });
+
   describe('double-click zoom', () => {
     test('zooms in by half', () => {
       mouse('dblclick', 512, 384);

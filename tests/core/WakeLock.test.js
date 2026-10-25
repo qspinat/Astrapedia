@@ -95,4 +95,20 @@ describe('ScreenWakeLock', () => {
     await flush();
     expect(lock.isEnabled()).toBe(true);
   });
+
+  test('turning it off while a request is pending leaves the screen free', async () => {
+    lock = new ScreenWakeLock({wakeLock: api, storage: fakeStorage()});
+    lock.initialize();
+    lock.setEnabled(false); // before the request resolves
+    await flush();
+    expect(api.sentinels[0].released).toBe(true);
+  });
+
+  test('asks for one lock even when asked twice at once', async () => {
+    lock = new ScreenWakeLock({wakeLock: api, storage: fakeStorage()});
+    lock.initialize();
+    document.dispatchEvent(new Event('visibilitychange'));
+    await flush();
+    expect(api.request).toHaveBeenCalledTimes(1);
+  });
 });

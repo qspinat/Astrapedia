@@ -159,6 +159,20 @@ describe('CompassController', () => {
       expectSameAngle(settle(), sensorHeading + 0.2);
     });
 
+    test('a phone turned during the drag does not skew the correction', async () => {
+      await controller.enable();
+      settle(); // sensor at alpha 90
+      controller.beginAlignment();
+      // The phone turns while the user drags; the sky stays where dragged.
+      controller.handleDeviceOrientation_({alpha: 60, beta: 90, gamma: 0});
+      const sensorNow = controller.sensorHeading_;
+      controller.endAlignment(sensorNow + 0.2);
+      for (let i = 0; i < 200; i++) {
+        controller.handleDeviceOrientation_({alpha: 60, beta: 90, gamma: 0});
+      }
+      expectSameAngle(controller.getHeading(), sensorNow + 0.2);
+    });
+
     test('remembers the correction next time', async () => {
       await controller.enable();
       const sensorHeading = settle();

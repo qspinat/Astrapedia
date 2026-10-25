@@ -5,7 +5,7 @@
 
 import {jest} from '@jest/globals';
 import {installAstronomy} from '../helpers/astronomy.js';
-import {TonightPanel} from '../../modules/features/TonightPanel.js';
+import {TonightPanel, moonTonight} from '../../modules/features/TonightPanel.js';
 import {observingLists} from '../../modules/features/ObservingLists.js';
 
 installAstronomy();
@@ -45,6 +45,7 @@ describe('TonightPanel', () => {
       getTime: () => new Date('2026-12-21T20:00:00Z'),
       getPlanets: () => [JUPITER, MOON],
       getDSOs: () => [M42, M31],
+      getStars: () => [{proper: 'Capella', ra: 79.17, dec: 45.99, mag: 0.08}],
       getNakedEyeLimit: () => 6,
       getTelescopeLimit: () => 13,
       selectObject: jest.fn(),
@@ -139,9 +140,44 @@ describe('TonightPanel', () => {
     observingLists.toggleWanted('M83');
   });
 
+  test('My list includes wanted stars', () => {
+    observingLists.toggleWanted('Capella');
+    openCallback();
+    document.querySelector('[data-filter="wanted"]').click();
+    expect(rowNames()).toEqual(['Capella']);
+    observingLists.toggleWanted('Capella');
+  });
+
+  test('turning the forecast off hides it at once', async () => {
+    openCallback();
+    await flush();
+    deps.weather.getForecast.mockResolvedValue(null);
+    const toggle = document.getElementById('weather-toggle');
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change'));
+    await flush();
+    expect(deps.weather.setEnabled).toHaveBeenCalledWith(false);
+    expect(document.getElementById('tonight-weather').textContent).toContain('No cloud forecast');
+  });
+
   test('the location link opens the location dialog', () => {
     openCallback();
     document.querySelector('[data-action="location"]').click();
     expect(deps.openLocationDialog).toHaveBeenCalled();
+  });
+});
+
+describe('moonTonight', () => {
+  const at = (iso) => new Date(iso);
+
+  test('lists the night\'s events in time order', () => {
+    expect(moonTonight({moonUpAtDusk: true, moonrise: at('2026-12-22T05:00:00Z'),
+      moonset: at('2026-12-21T23:00:00Z')})).toMatch(/^sets .*, rises /);
+  });
+
+  test('says when the Moon stays up or down all night', () => {
+    expect(moonTonight({moonUpAtDusk: true, moonrise: null, moonset: null})).toBe('up all night');
+    expect(moonTonight({moonUpAtDusk: false, moonrise: null, moonset: null}))
+        .toBe('down all night');
   });
 });

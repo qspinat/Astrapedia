@@ -65,6 +65,9 @@ export class CompassController {
     /** @private {boolean} The user is dragging the sky to correct the heading */
     this.aligning_ = false;
 
+    /** @private {?number} Latest sensor heading (offset applied), radians */
+    this.sensorHeading_ = null;
+
     /** @private {boolean} */
     this.compassMode_ = false;
 
@@ -246,7 +249,9 @@ export class CompassController {
   endAlignment(theta) {
     if (!this.aligning_) return;
     this.aligning_ = false;
-    const correction = wrapAngle(theta - this.compassHeading_);
+    // Compare with where the sensor points now, not where it pointed when
+    // the drag began: the phone may have turned during the drag.
+    const correction = wrapAngle(theta - (this.sensorHeading_ ?? this.compassHeading_));
     this.headingOffset_ = wrapAngle(this.headingOffset_ + correction);
     this.compassHeading_ = theta;
     safeSetJson(OFFSET_STORAGE_KEY, this.headingOffset_);
@@ -314,7 +319,6 @@ export class CompassController {
 
     // Update timestamp for stale data detection
     this.lastOrientationTime_ = performance.now();
-    if (this.aligning_) return;
 
     let alpha = event.alpha; // Compass direction (0-360)
     const beta = event.beta;   // Front/back tilt (-180 to 180)
@@ -347,6 +351,10 @@ export class CompassController {
 
     // Compass heading (azimuth) from horizontal components
     const targetTheta = -Math.atan2(vx, vz) + Math.PI / 2 + this.headingOffset_;
+    this.sensorHeading_ = targetTheta;
+    // While the sky is being dragged into place, track the sensor but leave
+    // the view to the user.
+    if (this.aligning_) return;
 
     // Altitude angle from vertical component
     const clampedVy = clamp(-vy, -1, 1);

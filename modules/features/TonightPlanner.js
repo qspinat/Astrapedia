@@ -9,7 +9,7 @@ import {angularDistance, calculateAltitude, calculateLST} from '../core/Coordina
 import {EXCLUDE_STELLAR_TYPES} from './VisibilityCalculator.js';
 import {toSelectablePlanet} from '../astronomy/SolarSystem.js';
 import {HOUR_MS} from '../astronomy/Observability.js';
-import {toSelectableDso} from '../interaction/ClickHandler.js';
+import {toSelectableDso, toSelectableStar} from '../interaction/ClickHandler.js';
 
 
 /** Altitude samples per hour of the window. */
@@ -28,7 +28,8 @@ export const CATEGORIES = {
 
 /**
  * The span to plan over: astronomical darkness, or from an hour after
- * sunset to an hour before sunrise when the sky never gets fully dark.
+ * sunset to an hour before sunrise when the sky never gets fully dark (the
+ * whole night when it lasts under three hours).
  * @param {?{dusk: ?Date, dawn: ?Date, sunset: ?Date, sunrise: ?Date, start: !Date}} night
  * @returns {?{from: !Date, to: !Date, fullyDark: boolean}} Null if the Sun
  *     never sets
@@ -37,9 +38,12 @@ export function planningWindow(night) {
   if (!night) return null;
   if (night.dusk && night.dawn) return {from: night.dusk, to: night.dawn, fullyDark: true};
   if (night.sunset && night.sunrise) {
+    // Skip the brightest hour at each end, unless the night is too short
+    // for that to leave anything.
+    const margin = night.sunrise.getTime() - night.sunset.getTime() > 3 * HOUR_MS ? HOUR_MS : 0;
     return {
-      from: new Date(night.sunset.getTime() + HOUR_MS),
-      to: new Date(night.sunrise.getTime() - HOUR_MS),
+      from: new Date(night.sunset.getTime() + margin),
+      to: new Date(night.sunrise.getTime() - margin),
       fullyDark: false,
     };
   }
@@ -70,11 +74,14 @@ function peakOf(obj, lat, samples) {
  * @param {number} input.limitMag - Faintest magnitude the observer can see
  * @param {!Array<!Object>} input.planets - Planet records (name, ra, dec, mag)
  * @param {!Array<!Object>} input.dsos - Deep-sky catalog records
+ * @param {!Array<!Object>=} input.stars - Star records to include (e.g. the
+ *     ones on the observer's list)
  * @param {?{ra: number, dec: number, illumination: number}=} input.moon
  * @returns {!Array<{object: !Object, category: string, peakAltitude: number,
  *     bestTime: !Date, score: number}>} Best first
  */
-export function rankTonight({location, window, limitMag, planets, dsos, moon = null}) {
+export function rankTonight({location, window, limitMag, planets, dsos, stars = [],
+  moon = null}) {
   const hours = (window.to.getTime() - window.from.getTime()) / HOUR_MS;
   const count = Math.max(2, Math.ceil(hours * SAMPLES_PER_HOUR) + 1);
   const step = (window.to.getTime() - window.from.getTime()) / (count - 1);
@@ -89,6 +96,8 @@ export function rankTonight({location, window, limitMag, planets, dsos, moon = n
     ...dsos.filter((d) => Number.isFinite(d.mag) && d.mag <= limitMag &&
         !EXCLUDE_STELLAR_TYPES.includes(d.type))
         .map((d) => ({record: d, toObject: toSelectableDso, category: categoryOf(d.type)})),
+    ...stars.filter((star) => star.mag <= limitMag)
+        .map((star) => ({record: star, toObject: toSelectableStar, category: 'stars'})),
   ];
 
   const ranked = [];
@@ -133,6 +142,8 @@ function scoreOf(object, category, peakAltitude, limitMag, moon) {
   const height = Math.sin(peakAltitude * Math.PI / 180);
   const margin = Math.max(0.5, limitMag - object.mag + 1);
   if (category === 'planets') return height * (margin + 4);
+  // Point sources: moonlight barely matters.
+  if (category === 'stars') return height * margin;
   let moonFactor = 1;
   if (moon) {
     const separation = angularDistance(object.ra, object.dec, moon.ra, moon.dec);

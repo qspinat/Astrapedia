@@ -39,6 +39,21 @@ function clock(date) {
 }
 
 /**
+ * What the Moon does during the night, in time order: "sets 02:10",
+ * "rises 22:40", "up all night"...
+ * @param {{moonUpAtDusk: boolean, moonrise: ?Date, moonset: ?Date}} night
+ * @returns {string}
+ */
+export function moonTonight(night) {
+  const events = [
+    night.moonrise && {time: night.moonrise, text: `rises ${clock(night.moonrise)}`},
+    night.moonset && {time: night.moonset, text: `sets ${clock(night.moonset)}`},
+  ].filter(Boolean).sort((a, b) => a.time - b.time);
+  if (events.length === 0) return night.moonUpAtDusk ? 'up all night' : 'down all night';
+  return events.map((e) => e.text).join(', ');
+}
+
+/**
  * Renders the Tonight panel.
  */
 export class TonightPanel {
@@ -48,6 +63,7 @@ export class TonightPanel {
    * @param {function(): !Date} dependencies.getTime - Current (simulated) time
    * @param {function(): !Array<!Object>} dependencies.getPlanets - Incl. Moon
    * @param {function(): !Array<!Object>} dependencies.getDSOs
+   * @param {function(): !Array<!Object>} dependencies.getStars - Star catalog
    * @param {function(): number} dependencies.getNakedEyeLimit
    * @param {function(): ?number} dependencies.getTelescopeLimit
    * @param {function(!Object): void} dependencies.selectObject
@@ -118,6 +134,7 @@ export class TonightPanel {
       weatherToggle.checked = this.deps_.weather.isEnabled();
       weatherToggle.addEventListener('change', () => {
         this.deps_.weather.setEnabled(weatherToggle.checked);
+        if (this.deps_.panelManager.isPanelOpen(PANEL_ID)) this.render();
       });
     }
   }
@@ -149,6 +166,8 @@ export class TonightPanel {
       limitMag: this.limitMag_(),
       planets,
       dsos: this.deps_.getDSOs(),
+      // Stars are ranked only when on the observer's list.
+      stars: this.deps_.getStars().filter((s) => s.proper && observingLists.isWanted(s.proper)),
       moon: moon ? {...moon, illumination: moonIllumination(moon.phase ?? 0)} : null,
     });
     this.renderList_();
@@ -204,7 +223,7 @@ export class TonightPanel {
 
     if (moon && night) {
       html += `<p class="tonight-muted">Moon: ${escapeHtml(moonPhaseLabel(moon.phase ?? 0))} ` +
-          `· rises ${clock(night.moonrise)}, sets ${clock(night.moonset)}</p>`;
+          `· ${moonTonight(night)}</p>`;
     }
     summary.innerHTML = html;
   }
@@ -242,7 +261,7 @@ export class TonightPanel {
       return;
     }
     if (entries.length === 0) {
-      list.innerHTML = this.ranked_.length || !this.deps_.getLocation() ?
+      list.innerHTML = this.ranked_.length ?
           '<li class="tonight-muted">Nothing of this kind rises high enough tonight.</li>' :
           '<li class="tonight-muted">Nothing to plan for this night.</li>';
       list.innerHTML += missing;

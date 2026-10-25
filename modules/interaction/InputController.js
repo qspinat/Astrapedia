@@ -26,6 +26,8 @@ export class InputController {
    * @param {function(): boolean=} dependencies.isZoomLocked - Check if zoom is locked
    * @param {function(): void=} dependencies.onDragStart - Called when drag starts
    * @param {function(): void=} dependencies.onDragEnd - Called when drag ends
+   * @param {function(): boolean=} dependencies.allowsInertia - False to stop
+   *     the sky gliding on after a flick (it must stay where it was let go)
    * @param {function({x: number, y: number}): void=} dependencies.onClick - Called on click
    */
   constructor(dependencies) {
@@ -67,6 +69,9 @@ export class InputController {
 
     /** @private @const */
     this.onDragEnd_ = dependencies.onDragEnd;
+
+    /** @private @const */
+    this.allowsInertia_ = dependencies.allowsInertia || (() => true);
 
     /** @private @const */
     this.onClick_ = dependencies.onClick;
@@ -493,7 +498,7 @@ export class InputController {
           this.pendingTapTimeout_ = null;
           this.onClick_?.({x, y});
         }, INPUT.DOUBLE_TAP_MS);
-      } else if (this.isDragging_ && this.dragMoved_) {
+      } else if (this.isDragging_ && this.dragMoved_ && this.allowsInertia_()) {
         // Start inertia if we were dragging with movement
         this.startInertia_();
       }

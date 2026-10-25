@@ -201,6 +201,7 @@ function initializeUI_(appInstance) {
     getTime: () => appInstance.getSimulationTime(),
     getPlanets: () => appInstance.getPlanets(),
     getDSOs: () => appInstance.deepSkyObjects || [],
+    getStars: () => appInstance.stars || [],
     getNakedEyeLimit: () => skyConditionsHandler.getNakedEyeLimit(),
     getTelescopeLimit: () => telescopeController.getComputedProperties()?.limitingMagnitude ?? null,
     selectObject: (obj) => appInstance.selectObject(obj),

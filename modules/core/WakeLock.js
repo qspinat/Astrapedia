@@ -34,6 +34,9 @@ export class ScreenWakeLock {
     /** @private {?Object} The held WakeLockSentinel */
     this.sentinel_ = null;
 
+    /** @private {boolean} A request is in flight */
+    this.requesting_ = false;
+
     /** @private {boolean} Defaults to on: outdoors a sleeping screen is the norm. */
     this.enabled_ = this.readStored_();
 
@@ -97,16 +100,25 @@ export class ScreenWakeLock {
 
   /** @private */
   async acquire_() {
-    if (!this.api_ || !this.enabled_ || this.sentinel_) return;
+    if (!this.api_ || !this.enabled_ || this.sentinel_ || this.requesting_) return;
     if (this.doc_.visibilityState && this.doc_.visibilityState !== 'visible') return;
+    this.requesting_ = true;
     try {
-      this.sentinel_ = await this.api_.request('screen');
-      this.sentinel_.addEventListener?.('release', () => {
-        this.sentinel_ = null;
+      const sentinel = await this.api_.request('screen');
+      // Turned off while the request was pending: let it go straight away.
+      if (!this.enabled_) {
+        sentinel.release?.();
+        return;
+      }
+      this.sentinel_ = sentinel;
+      sentinel.addEventListener?.('release', () => {
+        if (this.sentinel_ === sentinel) this.sentinel_ = null;
       });
     } catch (e) {
       // Denied (battery saver, not visible yet): the screen just sleeps.
       logger.debug(`Wake lock unavailable: ${e.message}`);
+    } finally {
+      this.requesting_ = false;
     }
   }
 

@@ -84,6 +84,14 @@ describe('CenterIdentifier', () => {
     expect(deps.selectObject).toHaveBeenCalledWith(vega);
   });
 
+  test('does not show the last name when compass mode restarts on empty sky', () => {
+    globalEventBus.emit(Events.COMPASS_ENABLED, {enabled: true});
+    globalEventBus.emit(Events.COMPASS_DISABLED, {enabled: false});
+    deps.getViewCenterRaDec.mockReturnValue({ra: 100, dec: -40});
+    globalEventBus.emit(Events.COMPASS_ENABLED, {enabled: true});
+    expect(label().hidden).toBe(true);
+  });
+
   test('stops when compass mode ends', () => {
     globalEventBus.emit(Events.COMPASS_ENABLED, {enabled: true});
     globalEventBus.emit(Events.COMPASS_DISABLED, {enabled: false});

@@ -527,7 +527,7 @@ export class AstrapediaApp {
   /**
    * Objects worth naming at the screen centre: planets, named stars and
    * deep-sky objects within the magnitude limit.
-   * @returns {!Array<!Object>} Selectable objects
+   * @returns {!Iterable<!Object>} Selectable objects
    * @private
    */
   identifiableObjects_() {
@@ -544,7 +544,12 @@ export class AstrapediaApp {
       };
     }
     const planets = (this.planetRenderer_?.getPlanets() || []).map(toSelectablePlanet);
-    return [...planets, ...this.identifiableCache_.objects];
+    const cached = this.identifiableCache_.objects;
+    // Iterated, not concatenated: this runs on every compass update.
+    return (function* () {
+      yield* planets;
+      yield* cached;
+    })();
   }
 
   /**
@@ -635,6 +640,8 @@ export class AstrapediaApp {
       // sensor pauses during it and keeps the difference as a correction.
       onDragStart: () => this.compassController_?.beginAlignment(),
       onDragEnd: () => this.compassController_?.endAlignment(this.cameraRotation.theta),
+      // A flick would carry the sky past where the user lined it up.
+      allowsInertia: () => !this.isCompassModeEnabled(),
       onClick: (coords) => this.clickHandler_?.handleClick(coords.x, coords.y),
     });
   }

@@ -34,6 +34,14 @@ describe('planningWindow', () => {
     expect(span.from.toISOString()).toBe('2026-06-21T20:58:00.000Z');
   });
 
+  test('uses the whole night when it is too short to trim', () => {
+    const night = {dusk: null, dawn: null,
+      sunset: new Date('2026-06-21T21:50:00Z'), sunrise: new Date('2026-06-21T23:10:00Z')};
+    const span = planningWindow(night);
+    expect(span.from).toEqual(night.sunset);
+    expect(span.to).toEqual(night.sunrise);
+  });
+
   test('is null when the Sun never sets', () => {
     expect(planningWindow({dusk: null, dawn: null, sunset: null, sunrise: null})).toBeNull();
   });
