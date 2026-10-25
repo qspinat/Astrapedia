@@ -15,6 +15,7 @@ import {globalEventBus, Events} from './modules/core/EventBus.js';
 
 // Feature modules
 import {TelescopeController} from './modules/features/TelescopeController.js';
+import {initializeFinderOverlay} from './modules/features/FinderOverlay.js';
 import {SkyConditionsHandler} from './modules/features/SkyConditionsHandler.js';
 
 // UI modules
@@ -98,8 +99,15 @@ function initializeUI_(appInstance) {
     getSkyLimitingMagnitude: () => skyConditionsHandler?.getNakedEyeLimit(),
     getViewCenterRaDec: () => appInstance.getViewCenterRaDec(),
     getDSOs: () => appInstance.deepSkyObjects || [],
+    getViewportSize: () => ({width: window.innerWidth, height: window.innerHeight}),
   });
   telescopeController.initialize();
+  window.addEventListener('resize', () => telescopeController.refitView());
+
+  const finderOverlay = initializeFinderOverlay({
+    getEyepieces: () => telescopeController.getEyepieces(),
+  });
+  appInstance.setFovListener((fov) => finderOverlay.update(fov));
 
   // Lets resetView() leave telescope mode and zoom input respect its lock.
   appInstance.setTelescopeController(telescopeController);
@@ -170,6 +178,10 @@ function initializeUI_(appInstance) {
     setTelescope: (settings) => telescopeController?.setTelescope(settings),
     getEyepiece: () => telescopeController?.getEyepiece() || null,
     setEyepiece: (settings) => telescopeController?.setEyepiece(settings),
+    getEyepieces: () => telescopeController?.getEyepieces() || [],
+    setActiveEyepiece: (id) => telescopeController?.setActiveEyepiece(id),
+    addEyepiece: (config) => telescopeController?.addEyepiece(config),
+    removeEyepiece: (id) => telescopeController?.removeEyepiece(id),
     toggleTelescopeMode: () => telescopeController?.toggleTelescopeMode(),
     isTelescopeModeActive: () => telescopeController?.isActive() || false,
     saveTelescopePreset: (name) => telescopeController?.savePreset(name),

@@ -373,6 +373,90 @@ describe('TelescopeUI', () => {
     });
   });
 
+  describe('header button', () => {
+    test('a tap toggles telescope mode', () => {
+      telescopeUI.initialize();
+      document.getElementById('telescope-quick-toggle').click();
+      expect(mockDeps.toggleMode).toHaveBeenCalledTimes(1);
+    });
+
+    test('a hold opens the telescope settings without toggling', () => {
+      jest.useFakeTimers();
+      try {
+        mockDeps.openPanel = jest.fn();
+        telescopeUI.initialize();
+        const button = document.getElementById('telescope-quick-toggle');
+        button.dispatchEvent(new MouseEvent('mousedown'));
+        jest.advanceTimersByTime(600);
+        button.dispatchEvent(new MouseEvent('mouseup'));
+        button.click();
+
+        expect(mockDeps.openPanel).toHaveBeenCalledTimes(1);
+        expect(mockDeps.toggleMode).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('reports its pressed state', () => {
+      telescopeUI.initialize();
+      globalEventBus.emit(Events.TELESCOPE_MODE_ACTIVATED, {});
+      expect(document.getElementById('telescope-quick-toggle')
+          .getAttribute('aria-pressed')).toBe('true');
+    });
+  });
+
+  describe('eyepiece kit', () => {
+    beforeEach(() => {
+      document.body.insertAdjacentHTML('beforeend', `
+        <div id="eyepiece-kit"></div>
+        <div id="reticle-eyepieces"></div>
+        <button id="eyepiece-add-btn"></button>
+        <button id="eyepiece-remove-btn"></button>`);
+      mockDeps.getEyepieces = jest.fn(() => [
+        {id: 'a', focalLength: 25, magnification: 40, realFieldOfView: 1.3, active: true},
+        {id: 'b', focalLength: 10, magnification: 100, realFieldOfView: 0.52, active: false},
+      ]);
+      mockDeps.setActiveEyepiece = jest.fn();
+      mockDeps.addEyepiece = jest.fn();
+      mockDeps.removeEyepiece = jest.fn();
+    });
+
+    test('shows each eyepiece with its magnification and field', () => {
+      telescopeUI.initialize();
+      const chips = [...document.querySelectorAll('#reticle-eyepieces .eyepiece-chip')];
+      expect(chips.map((c) => c.textContent)).toEqual(['25mm 40× 1.30°', '10mm 100× 0.52°']);
+      expect(chips.map((c) => c.getAttribute('aria-checked'))).toEqual(['true', 'false']);
+    });
+
+    test('tapping a chip switches eyepiece', () => {
+      telescopeUI.initialize();
+      document.querySelector('#reticle-eyepieces [data-eyepiece-id="b"]').click();
+      expect(mockDeps.setActiveEyepiece).toHaveBeenCalledWith('b');
+    });
+
+    test('re-renders when the optics change', () => {
+      telescopeUI.initialize();
+      mockDeps.getEyepieces.mockReturnValue([
+        {id: 'a', focalLength: 25, magnification: 48, realFieldOfView: 1.08, active: true},
+      ]);
+      globalEventBus.emit(Events.TELESCOPE_COMPUTED, {});
+      expect(document.querySelector('#eyepiece-kit').textContent).toBe('25mm 48× 1.08°');
+    });
+
+    test('adds a copy of the eyepiece in use', () => {
+      telescopeUI.initialize();
+      document.getElementById('eyepiece-add-btn').click();
+      expect(mockDeps.addEyepiece).toHaveBeenCalledWith({focalLength: 25, apparentFov: 52});
+    });
+
+    test('removes the eyepiece in use', () => {
+      telescopeUI.initialize();
+      document.getElementById('eyepiece-remove-btn').click();
+      expect(mockDeps.removeEyepiece).toHaveBeenCalledWith('a');
+    });
+  });
+
   describe('handles missing DOM elements gracefully', () => {
     test('works without DOM elements', () => {
       document.body.innerHTML = '';

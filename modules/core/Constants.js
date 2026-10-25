@@ -240,6 +240,21 @@ export const API_ENDPOINTS = {
 };
 
 /**
+ * Finder circle overlay constants.
+ * @const {!Object}
+ */
+export const FINDER = {
+  /** Telrad reticle ring diameters in degrees. */
+  TELRAD_RINGS_DEG: [0.5, 2, 4],
+  /** Typical 8x50 finder scope field in degrees. */
+  DEFAULT_FINDER_FOV: 5,
+  /** Rings smaller than this radius (CSS px) are not drawn. */
+  MIN_RING_PX: 3,
+  /** localStorage key for the overlay settings. */
+  STORAGE_KEY: 'astrapedia_finder_settings',
+};
+
+/**
  * Telescope simulation constants.
  * @const {!Object}
  */
@@ -254,6 +269,8 @@ export const TELESCOPE = {
   DEFAULT_EYEPIECE_AFOV: 52,
   /** Minimum telescope field of view in degrees. */
   MIN_TELESCOPE_FOV: 0.1,
+  /** Reticle diameter as a fraction of the screen's short side (CSS 70vmin). */
+  RETICLE_SCREEN_FRACTION: 0.7,
   /** Maximum useful magnification multiplier (times aperture in mm). */
   MAX_MAG_MULTIPLIER: 2,
   /** localStorage key for telescope settings. */

@@ -164,6 +164,67 @@ export function addMobileButtonListener(button, handler) {
 }
 
 /**
+ * Fire a handler when a control is held down. Pair it with
+ * addMobileButtonListener for the tap: the tap that ends a long press still
+ * arrives, so the tap handler should start with `if (press.consume()) return;`.
+ *
+ * @param {!HTMLElement} el - Control element
+ * @param {function(): void} onLongPress - Called once the hold lasts `ms`
+ * @param {number=} ms - Hold duration
+ * @returns {{consume: function(): boolean}} `consume()` is true once after
+ *     each long press, so the tap that ends it can be ignored
+ */
+export function addLongPressListener(el, onLongPress, ms = 500) {
+  const MOVE_TOLERANCE = 10; // pixels
+  let timer = null;
+  let fired = false;
+  let startX = 0;
+  let startY = 0;
+
+  const cancel = () => {
+    clearTimeout(timer);
+    timer = null;
+  };
+  const start = (x, y) => {
+    cancel();
+    fired = false;
+    startX = x;
+    startY = y;
+    timer = setTimeout(() => {
+      timer = null;
+      fired = true;
+      onLongPress();
+    }, ms);
+  };
+
+  el.addEventListener('touchstart', (e) => {
+    const t = e.touches?.[0];
+    start(t?.clientX ?? 0, t?.clientY ?? 0);
+  }, {passive: true});
+  el.addEventListener('touchmove', (e) => {
+    const t = e.touches?.[0];
+    if (t && (Math.abs(t.clientX - startX) > MOVE_TOLERANCE ||
+        Math.abs(t.clientY - startY) > MOVE_TOLERANCE)) {
+      cancel();
+    }
+  }, {passive: true});
+  el.addEventListener('mousedown', (e) => start(e.clientX, e.clientY));
+  for (const type of ['touchend', 'touchcancel', 'mouseup', 'mouseleave']) {
+    el.addEventListener(type, cancel);
+  }
+  // Android shows a context menu on a held button.
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  return {
+    consume() {
+      const wasLongPress = fired;
+      fired = false;
+      return wasLongPress;
+    },
+  };
+}
+
+/**
  * The app UI is English regardless of the device locale, so date formatting is
  * pinned here rather than rendering as e.g. "28 août".
  * @const {string}

@@ -32,6 +32,16 @@ let TelescopeConfig;
 let EyepieceConfig;
 
 /**
+ * An eyepiece in the user's kit.
+ * @typedef {{
+ *   id: string,
+ *   focalLength: number,
+ *   apparentFov: number
+ * }}
+ */
+let KitEyepiece;
+
+/**
  * Computed optical properties.
  * @typedef {{
  *   magnification: number,
@@ -246,6 +256,48 @@ function pickPositiveNumbers(source, keys) {
 }
 
 /**
+ * What an eyepiece gives in a telescope.
+ * @param {!TelescopeConfig} telescope
+ * @param {!EyepieceConfig} eyepiece
+ * @returns {{magnification: number, realFieldOfView: number, exitPupil: number}}
+ */
+export function eyepieceOptics(telescope, eyepiece) {
+  const magnification = telescope.focalLength / eyepiece.focalLength;
+  return {
+    magnification,
+    realFieldOfView: eyepiece.apparentFov / magnification,
+    exitPupil: telescope.diameter / magnification,
+  };
+}
+
+/**
+ * Camera vertical FOV that makes the on-screen reticle circle span exactly
+ * the eyepiece's true field. The reticle is TELESCOPE.RETICLE_SCREEN_FRACTION
+ * of the screen's short side, while the camera FOV spans the full height.
+ * @param {number} trueFov - Eyepiece true field in degrees
+ * @param {number} width - Viewport width in px
+ * @param {number} height - Viewport height in px
+ * @returns {number} Camera vertical FOV in degrees
+ */
+export function reticleCameraFov(trueFov, width, height) {
+  const reticlePx = TELESCOPE.RETICLE_SCREEN_FRACTION * Math.min(width, height);
+  return trueFov * height / reticlePx;
+}
+
+/**
+ * Validate a stored eyepiece kit, dropping malformed entries.
+ * @param {*} stored - Untrusted, from localStorage
+ * @returns {!Array<!KitEyepiece>} Possibly empty
+ */
+function sanitizeKit(stored) {
+  if (!Array.isArray(stored)) return [];
+  return stored
+      .map((e) => ({id: typeof e?.id === 'string' ? e.id : '',
+        ...pickPositiveNumbers(e, ['focalLength', 'apparentFov'])}))
+      .filter((e) => e.id && e.focalLength && e.apparentFov);
+}
+
+/**
  * TelescopeController manages telescope simulation mode.
  */
 export class TelescopeController {
@@ -259,6 +311,8 @@ export class TelescopeController {
    * @param {function(): number=} dependencies.getSkyLimitingMagnitude - Get sky NELM
    * @param {function(): {ra: number, dec: number}=} dependencies.getViewCenterRaDec - Get camera center
    * @param {function(): !Array=} dependencies.getDSOs - Get loaded DSO list
+   * @param {function(): {width: number, height: number}=} dependencies.getViewportSize -
+   *     Screen size, to fit the eyepiece field to the reticle circle
    */
   constructor(dependencies = {}) {
     /** @private @const */
@@ -270,11 +324,15 @@ export class TelescopeController {
       focalLength: TELESCOPE.DEFAULT_FOCAL_LENGTH,
     };
 
-    /** @private {!EyepieceConfig} */
-    this.eyepiece_ = {
+    /** @private {!Array<!KitEyepiece>} The user's eyepieces; never empty */
+    this.eyepieces_ = [{
+      id: 'ep1',
       focalLength: TELESCOPE.DEFAULT_EYEPIECE_FL,
       apparentFov: TELESCOPE.DEFAULT_EYEPIECE_AFOV,
-    };
+    }];
+
+    /** @private {string} */
+    this.activeEyepieceId_ = 'ep1';
 
     /** @private {?OpticalProperties} */
     this.computedProperties_ = null;
@@ -322,20 +380,12 @@ export class TelescopeController {
    * @private
    */
   computeProperties_() {
-    const {diameter, focalLength} = this.telescope_;
-    const {focalLength: eyepieceFl, apparentFov} = this.eyepiece_;
-
-    // Magnification = Telescope focal length / Eyepiece focal length
-    const magnification = focalLength / eyepieceFl;
+    const {diameter} = this.telescope_;
+    const {magnification, realFieldOfView, exitPupil} =
+        eyepieceOptics(this.telescope_, this.activeEyepiece_());
 
     // Maximum useful magnification = 2 × Diameter (mm)
     const maxUsefulMagnification = TELESCOPE.MAX_MAG_MULTIPLIER * diameter;
-
-    // Exit pupil = Diameter / Magnification
-    const exitPupil = diameter / magnification;
-
-    // Real field of view = Apparent FOV / Magnification
-    const realFieldOfView = apparentFov / magnification;
 
     // Theoretical limiting magnitude — the telescope's optical limit under
     // perfect conditions.
@@ -563,19 +613,101 @@ export class TelescopeController {
   }
 
   /**
-   * Get current eyepiece configuration.
-   * @returns {!EyepieceConfig} Current eyepiece config
+   * The eyepiece in use.
+   * @returns {!KitEyepiece}
+   * @private
    */
-  getEyepiece() {
-    return {...this.eyepiece_};
+  activeEyepiece_() {
+    return this.eyepieces_.find((e) => e.id === this.activeEyepieceId_) ||
+        this.eyepieces_[0];
   }
 
   /**
-   * Set eyepiece configuration.
+   * Get the eyepiece in use.
+   * @returns {!EyepieceConfig} Current eyepiece config
+   */
+  getEyepiece() {
+    const {focalLength, apparentFov} = this.activeEyepiece_();
+    return {focalLength, apparentFov};
+  }
+
+  /**
+   * Edit the eyepiece in use.
    * @param {!EyepieceConfig} config - Eyepiece configuration
    */
   setEyepiece(config) {
-    this.eyepiece_ = {...this.eyepiece_, ...config};
+    Object.assign(this.activeEyepiece_(),
+        pickPositiveNumbers(config, ['focalLength', 'apparentFov']));
+    this.eyepiecesChanged_();
+  }
+
+  /**
+   * The eyepiece kit, each with what it gives in the current telescope.
+   * @returns {!Array<{id: string, focalLength: number, apparentFov: number,
+   *     magnification: number, realFieldOfView: number, active: boolean}>}
+   */
+  getEyepieces() {
+    return this.eyepieces_.map((e) => ({
+      ...e,
+      ...eyepieceOptics(this.telescope_, e),
+      active: e.id === this.activeEyepieceId_,
+    }));
+  }
+
+  /**
+   * Add an eyepiece to the kit and switch to it.
+   * @param {!EyepieceConfig} config
+   * @returns {string} The new eyepiece's id
+   */
+  addEyepiece(config) {
+    const id = `ep${Date.now().toString(36)}${this.eyepieces_.length}`;
+    this.eyepieces_.push({
+      id,
+      focalLength: TELESCOPE.DEFAULT_EYEPIECE_FL,
+      apparentFov: TELESCOPE.DEFAULT_EYEPIECE_AFOV,
+      ...pickPositiveNumbers(config, ['focalLength', 'apparentFov']),
+    });
+    this.activeEyepieceId_ = id;
+    this.eyepiecesChanged_();
+    return id;
+  }
+
+  /**
+   * Remove an eyepiece. The last one stays: the simulation needs one.
+   * @param {string} id
+   * @returns {boolean} Whether it was removed
+   */
+  removeEyepiece(id) {
+    if (this.eyepieces_.length <= 1) return false;
+    const index = this.eyepieces_.findIndex((e) => e.id === id);
+    if (index < 0) return false;
+    this.eyepieces_.splice(index, 1);
+    if (this.activeEyepieceId_ === id) {
+      this.activeEyepieceId_ = this.eyepieces_[Math.max(0, index - 1)].id;
+    }
+    this.eyepiecesChanged_();
+    return true;
+  }
+
+  /**
+   * Switch to another eyepiece of the kit; in telescope mode the view
+   * changes to its field at once.
+   * @param {string} id
+   * @returns {boolean} Whether the id is in the kit
+   */
+  setActiveEyepiece(id) {
+    if (!this.eyepieces_.some((e) => e.id === id)) return false;
+    this.activeEyepieceId_ = id;
+    this.eyepiecesChanged_();
+    return true;
+  }
+
+  /**
+   * Recompute (which announces TELESCOPE_COMPUTED), re-apply to the live
+   * view and persist after the kit or the eyepiece in use changed.
+   * @private
+   */
+  eyepiecesChanged_() {
     this.computeProperties_();
     if (this.isActive_) this.applyTelescopeView_();
     this.saveToStorage_();
@@ -591,13 +723,25 @@ export class TelescopeController {
   }
 
   /**
+   * Re-fit the eyepiece field to the reticle after the screen changed size
+   * or orientation.
+   */
+  refitView() {
+    if (this.isActive_) this.applyTelescopeView_();
+  }
+
+  /**
    * Applies the computed FOV (clamped) and magnitude limit to the live view.
    * @return {number} The applied field of view in degrees.
    * @private
    */
   applyTelescopeView_() {
     const {realFieldOfView, limitingMagnitude} = this.computedProperties_;
-    const fov = Math.max(realFieldOfView, TELESCOPE.MIN_TELESCOPE_FOV);
+    const viewport = this.deps_.getViewportSize?.();
+    const cameraFov = viewport ?
+        reticleCameraFov(realFieldOfView, viewport.width, viewport.height) :
+        realFieldOfView;
+    const fov = Math.max(cameraFov, TELESCOPE.MIN_TELESCOPE_FOV);
     this.deps_.setFOV?.(fov);
     this.deps_.setMagnitudeLimit?.(limitingMagnitude);
     return fov;
@@ -696,7 +840,7 @@ export class TelescopeController {
   savePreset(name) {
     this.presets_[name] = {
       telescope: {...this.telescope_},
-      eyepiece: {...this.eyepiece_},
+      eyepiece: this.getEyepiece(),
     };
     this.saveToStorage_();
   }
@@ -720,13 +864,20 @@ export class TelescopeController {
       focalLength: TELESCOPE.DEFAULT_FOCAL_LENGTH,
       ...pickPositiveNumbers(preset.telescope, ['diameter', 'focalLength']),
     };
-    this.eyepiece_ = {
+    // A preset names one eyepiece: use it from the kit, adding it if the
+    // kit does not have it yet.
+    const eyepiece = {
       focalLength: TELESCOPE.DEFAULT_EYEPIECE_FL,
       apparentFov: TELESCOPE.DEFAULT_EYEPIECE_AFOV,
       ...pickPositiveNumbers(preset.eyepiece, ['focalLength', 'apparentFov']),
     };
-    this.computeProperties_();
-    this.saveToStorage_();
+    const owned = this.eyepieces_.find((e) =>
+      e.focalLength === eyepiece.focalLength && e.apparentFov === eyepiece.apparentFov);
+    if (owned) {
+      this.setActiveEyepiece(owned.id);
+    } else {
+      this.addEyepiece(eyepiece);
+    }
 
     return true;
   }
@@ -768,7 +919,8 @@ export class TelescopeController {
     safeSetJson(TELESCOPE.STORAGE_KEY, {
       currentConfig: {
         telescope: this.telescope_,
-        eyepiece: this.eyepiece_,
+        eyepieces: this.eyepieces_,
+        activeEyepieceId: this.activeEyepieceId_,
       },
       presets: this.presets_,
     });
@@ -794,11 +946,17 @@ export class TelescopeController {
         ...pickPositiveNumbers(data.currentConfig.telescope,
             ['diameter', 'focalLength']),
       };
-      this.eyepiece_ = {
-        ...this.eyepiece_,
-        ...pickPositiveNumbers(data.currentConfig.eyepiece,
-            ['focalLength', 'apparentFov']),
-      };
+      const kit = sanitizeKit(data.currentConfig.eyepieces);
+      if (kit.length) {
+        this.eyepieces_ = kit;
+        this.activeEyepieceId_ =
+            kit.some((e) => e.id === data.currentConfig.activeEyepieceId) ?
+            data.currentConfig.activeEyepieceId : kit[0].id;
+      } else {
+        // Settings saved before the kit existed held a single eyepiece.
+        Object.assign(this.eyepieces_[0], pickPositiveNumbers(
+            data.currentConfig.eyepiece, ['focalLength', 'apparentFov']));
+      }
     }
 
     // presets_ is an object keyed by preset name, so reject anything that

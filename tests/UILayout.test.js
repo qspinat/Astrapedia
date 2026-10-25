@@ -56,7 +56,6 @@ describe('UI Layout - HTML Structure', () => {
 
     test('the overloaded header buttons were removed', () => {
       expect(htmlContent).not.toContain('id="settings-toggle"');
-      expect(htmlContent).not.toContain('id="telescope-quick-toggle"');
     });
 
     test('control bar exists (unified time + magnitude)', () => {

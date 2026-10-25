@@ -49,6 +49,7 @@ const STATIC_ASSETS = [
     '/modules/features/SkyConditionsHandler.js',
     '/modules/features/TelescopeController.js',
     '/modules/features/TelescopeUI.js',
+    '/modules/features/FinderOverlay.js',
     '/modules/features/TimeController.js',
     '/modules/features/TimeUI.js',
     '/modules/features/TourController.js',

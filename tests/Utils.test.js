@@ -3,7 +3,7 @@
  */
 
 import {jest} from '@jest/globals';
-import {debounce, throttle, clamp, lerp} from '../modules/core/Utils.js';
+import {debounce, throttle, clamp, lerp, addLongPressListener} from '../modules/core/Utils.js';
 
 describe('Utils', () => {
   describe('debounce', () => {
@@ -301,5 +301,64 @@ describe('Utils', () => {
       expect(lerp(-10, -5, 0.5)).toBe(-7.5);
       expect(lerp(-10, 10, 0.5)).toBe(0);
     });
+  });
+});
+
+describe('addLongPressListener', () => {
+  let button;
+  let onLongPress;
+  let press;
+
+  const touch = (type, x = 0, y = 0) => {
+    const ev = new Event(type);
+    Object.defineProperty(ev, 'touches', {value: type === 'touchend' ? [] : [{clientX: x, clientY: y}]});
+    button.dispatchEvent(ev);
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    button = document.createElement('button');
+    onLongPress = jest.fn();
+    press = addLongPressListener(button, onLongPress, 500);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('fires after the button is held', () => {
+    touch('touchstart');
+    jest.advanceTimersByTime(500);
+    expect(onLongPress).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not fire on a short tap', () => {
+    touch('touchstart');
+    jest.advanceTimersByTime(200);
+    touch('touchend');
+    jest.advanceTimersByTime(500);
+    expect(onLongPress).not.toHaveBeenCalled();
+    expect(press.consume()).toBe(false);
+  });
+
+  test('does not fire when the finger slides away', () => {
+    touch('touchstart', 0, 0);
+    touch('touchmove', 30, 0);
+    jest.advanceTimersByTime(500);
+    expect(onLongPress).not.toHaveBeenCalled();
+  });
+
+  test('lets the tap that ends a long press be ignored once', () => {
+    touch('touchstart');
+    jest.advanceTimersByTime(500);
+    touch('touchend');
+    expect(press.consume()).toBe(true);
+    expect(press.consume()).toBe(false);
+  });
+
+  test('works with a mouse', () => {
+    button.dispatchEvent(new MouseEvent('mousedown'));
+    jest.advanceTimersByTime(500);
+    expect(onLongPress).toHaveBeenCalled();
   });
 });

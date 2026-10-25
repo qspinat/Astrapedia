@@ -227,6 +227,13 @@
                             <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/>
                         </svg>
                     </button>
+                    <button class="icon-btn icon-btn--telescope" id="telescope-quick-toggle" aria-label="Telescope mode (hold for settings)" aria-pressed="false" title="Telescope mode (hold for settings)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 13.5l13-6 2 4.3-13 6z"/>
+                            <path d="M16 7.5l3.2-1.5 2 4.3-3.2 1.5"/>
+                            <path d="M10 15.5l-3 6.5M12 15l3 7"/>
+                        </svg>
+                    </button>
                     <button class="icon-btn icon-btn--nightvision" id="night-vision-toggle" aria-label="Night Vision Mode" aria-pressed="false" title="Night Vision Mode">
                         <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
                             <path d="M13 2a9 9 0 108.9 10.5A7.2 7.2 0 0113 2z"/>
@@ -435,7 +442,12 @@
                         <input type="number" id="telescope-focal-length" value="1000" min="100" max="10000" step="10">
                     </div>
 
-                    <h4 class="telescope-section-title">Eyepiece</h4>
+                    <h4 class="telescope-section-title">My Eyepieces</h4>
+                    <div class="eyepiece-kit" id="eyepiece-kit" role="radiogroup" aria-label="Eyepiece in use"></div>
+                    <div class="eyepiece-kit-actions">
+                        <button class="telescope-preset-btn" id="eyepiece-add-btn">Add eyepiece</button>
+                        <button class="telescope-preset-btn" id="eyepiece-remove-btn">Remove selected</button>
+                    </div>
                     <div class="input-row">
                         <label for="eyepiece-focal-length">Focal Length (mm)</label>
                         <input type="number" id="eyepiece-focal-length" value="25" min="2" max="100" step="0.5">
@@ -506,6 +518,36 @@
 
                 <div class="telescope-warning" id="telescope-warning">
                     Over-magnified! Image quality will be reduced.
+                </div>
+
+                <!-- Finder circles: the aiming aids mounted on the telescope,
+                     drawn over the normal sky view for planning star hops. -->
+                <div class="telescope-inputs">
+                    <h4 class="telescope-section-title">Finder Circles</h4>
+                    <label class="toggle-row">
+                        <span class="toggle-row__label">Show on sky</span>
+                        <input type="checkbox" id="finder-toggle">
+                        <span class="toggle-switch"></span>
+                    </label>
+                    <label class="toggle-row">
+                        <span class="toggle-row__label">Telrad rings (0.5° · 2° · 4°)</span>
+                        <input type="checkbox" id="finder-telrad-toggle" checked>
+                        <span class="toggle-switch"></span>
+                    </label>
+                    <label class="toggle-row">
+                        <span class="toggle-row__label">Finder scope</span>
+                        <input type="checkbox" id="finder-scope-toggle" checked>
+                        <span class="toggle-switch"></span>
+                    </label>
+                    <div class="input-row">
+                        <label for="finder-scope-fov">Finder field (deg)</label>
+                        <input type="number" id="finder-scope-fov" value="5" min="1" max="15" step="0.5">
+                    </div>
+                    <label class="toggle-row">
+                        <span class="toggle-row__label">My eyepieces</span>
+                        <input type="checkbox" id="finder-eyepieces-toggle" checked>
+                        <span class="toggle-switch"></span>
+                    </label>
                 </div>
                 
             </div>
@@ -746,26 +788,14 @@
         <!-- Telescope Reticle Overlay -->
         <div id="telescope-reticle" class="telescope-reticle">
             <svg viewBox="0 0 200 200" class="reticle-svg">
-                <!-- Concentric circles for different apparent FOVs -->
-                <!-- Radius = (afov / 120) * 95 to fit in viewBox -->
-                <circle cx="100" cy="100" r="31.7" class="reticle-circle reticle-afov" data-afov="40"/>
-                <circle cx="100" cy="100" r="41.2" class="reticle-circle reticle-afov" data-afov="52"/>
-                <circle cx="100" cy="100" r="53.8" class="reticle-circle reticle-afov" data-afov="68"/>
-                <circle cx="100" cy="100" r="65.0" class="reticle-circle reticle-afov" data-afov="82"/>
-                <circle cx="100" cy="100" r="79.2" class="reticle-circle reticle-afov" data-afov="100"/>
-                <circle cx="100" cy="100" r="95.0" class="reticle-circle reticle-afov" data-afov="120"/>
+                <!-- The eyepiece's field edge: the camera FOV is fitted so this
+                     circle spans exactly the true field (reticleCameraFov). -->
+                <circle cx="100" cy="100" r="99" class="reticle-circle reticle-field"/>
                 <!-- Crosshairs -->
                 <line x1="100" y1="5" x2="100" y2="25" class="reticle-line"/>
                 <line x1="100" y1="175" x2="100" y2="195" class="reticle-line"/>
                 <line x1="5" y1="100" x2="25" y2="100" class="reticle-line"/>
                 <line x1="175" y1="100" x2="195" y2="100" class="reticle-line"/>
-                <!-- AFOV labels -->
-                <text x="100" y="70" class="reticle-label" data-afov="40">40°</text>
-                <text x="100" y="60" class="reticle-label" data-afov="52">52°</text>
-                <text x="100" y="48" class="reticle-label" data-afov="68">68°</text>
-                <text x="100" y="37" class="reticle-label" data-afov="82">82°</text>
-                <text x="100" y="23" class="reticle-label" data-afov="100">100°</text>
-                <text x="100" y="8" class="reticle-label" data-afov="120">120°</text>
             </svg>
             <div class="reticle-info">
                 <span id="reticle-fov">0.52°</span>
@@ -777,7 +807,11 @@
                 <span class="reticle-dso-sb" id="reticle-dso-sb"></span>
                 <span class="reticle-dso-eyepiece" id="reticle-dso-eyepiece"></span>
             </div>
+            <div class="reticle-eyepieces" id="reticle-eyepieces" role="radiogroup" aria-label="Switch eyepiece"></div>
         </div>
+
+        <!-- Finder circles overlay (FinderOverlay.js) -->
+        <svg id="finder-overlay" class="finder-overlay" aria-hidden="true"></svg>
 
         <!-- Bottom navigation: the app's primary sections, in the thumb zone -->
         <nav class="bottom-nav" id="bottom-nav" aria-label="Main">

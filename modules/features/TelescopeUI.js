@@ -6,7 +6,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TELESCOPE} from '../core/Constants.js';
-import {addMobileButtonListener} from '../core/Utils.js';
+import {addLongPressListener, addMobileButtonListener} from '../core/Utils.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {domCache} from '../ui/DOMCache.js';
 import {TelescopeController, isDiffuseObject} from './TelescopeController.js';
@@ -78,7 +78,12 @@ export class TelescopeUI {
    * @param {function(): !Object=} dependencies.getTelescope - Get telescope config
    * @param {function(!Object): void=} dependencies.setTelescope - Set telescope config
    * @param {function(): !Object=} dependencies.getEyepiece - Get eyepiece config
-   * @param {function(!Object): void=} dependencies.setEyepiece - Set eyepiece config
+   * @param {function(!Object): void=} dependencies.setEyepiece - Edit the eyepiece in use
+   * @param {function(): !Array<!Object>=} dependencies.getEyepieces - The eyepiece kit
+   * @param {function(string): boolean=} dependencies.setActiveEyepiece - Switch eyepiece
+   * @param {function(!Object): string=} dependencies.addEyepiece - Add to the kit
+   * @param {function(string): boolean=} dependencies.removeEyepiece - Remove from the kit
+   * @param {function(): void=} dependencies.openPanel - Open the telescope panel
    * @param {function(): void=} dependencies.toggleMode - Toggle telescope mode
    * @param {function(): boolean=} dependencies.isActive - Check if mode is active
    * @param {function(string): void=} dependencies.savePreset - Save preset
@@ -112,6 +117,7 @@ export class TelescopeUI {
     this.populatePresets_();
     this.loadCurrentValues_();
     this.updateComputedDisplay_();
+    this.renderEyepieces_();
   }
 
   /**
@@ -127,11 +133,42 @@ export class TelescopeUI {
       });
     }
 
-    // Quick toggle button
+    // Header button: tap toggles the mode, a hold opens the settings.
     const quickToggle = domCache.get('telescope-quick-toggle');
     if (quickToggle) {
+      const press = addLongPressListener(quickToggle, () => this.deps_.openPanel?.());
       addMobileButtonListener(quickToggle, () => {
+        if (press.consume()) return;
         this.deps_.toggleMode?.();
+      });
+    }
+
+    // Eyepiece kit: the panel list and the chips under the reticle both
+    // switch eyepiece.
+    for (const id of ['eyepiece-kit', 'reticle-eyepieces']) {
+      domCache.get(id)?.addEventListener('click', (e) => {
+        const chip = e.target.closest?.('[data-eyepiece-id]');
+        if (!chip) return;
+        this.deps_.setActiveEyepiece?.(chip.dataset.eyepieceId);
+        this.loadCurrentValues_();
+      });
+    }
+
+    const addEyepieceBtn = domCache.get('eyepiece-add-btn');
+    if (addEyepieceBtn) {
+      // Starts as a copy of the one in use, to edit in the fields below.
+      addMobileButtonListener(addEyepieceBtn, () => {
+        this.deps_.addEyepiece?.(this.deps_.getEyepiece?.() || {});
+        this.loadCurrentValues_();
+      });
+    }
+
+    const removeEyepieceBtn = domCache.get('eyepiece-remove-btn');
+    if (removeEyepieceBtn) {
+      addMobileButtonListener(removeEyepieceBtn, () => {
+        const active = this.deps_.getEyepieces?.().find((e) => e.active);
+        if (active) this.deps_.removeEyepiece?.(active.id);
+        this.loadCurrentValues_();
       });
     }
 
@@ -333,6 +370,35 @@ export class TelescopeUI {
   }
 
   /**
+   * Render the eyepiece kit as chips, in the panel and under the reticle:
+   * "25mm 40× 1.30°".
+   * @private
+   */
+  renderEyepieces_() {
+    const eyepieces = this.deps_.getEyepieces?.();
+    if (!eyepieces) return;
+
+    for (const id of ['eyepiece-kit', 'reticle-eyepieces']) {
+      const container = domCache.get(id);
+      if (!container) continue;
+      container.replaceChildren(...eyepieces.map((e) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'eyepiece-chip';
+        chip.dataset.eyepieceId = e.id;
+        chip.setAttribute('role', 'radio');
+        chip.setAttribute('aria-checked', String(e.active));
+        chip.textContent = `${e.focalLength}mm ${e.magnification.toFixed(0)}× ` +
+            `${e.realFieldOfView.toFixed(2)}°`;
+        return chip;
+      }));
+    }
+
+    const removeBtn = domCache.get('eyepiece-remove-btn');
+    if (removeBtn) removeBtn.disabled = eyepieces.length <= 1;
+  }
+
+  /**
    * Update the DSO HUD overlay.
    * @param {?Object} visibility - Visibility info or null to hide
    * @private
@@ -518,6 +584,7 @@ export class TelescopeUI {
     this.subscriptions_.push(
       globalEventBus.on(Events.TELESCOPE_COMPUTED, () => {
         this.updateComputedDisplay_();
+        this.renderEyepieces_();
         this.refreshVisibilitySections_();
       }),
 
@@ -560,7 +627,10 @@ export class TelescopeUI {
     if (toggle) toggle.checked = isActive;
 
     const quickToggle = domCache.get('telescope-quick-toggle');
-    if (quickToggle) quickToggle.classList.toggle('active', isActive);
+    if (quickToggle) {
+      quickToggle.classList.toggle('active', isActive);
+      quickToggle.setAttribute('aria-pressed', String(isActive));
+    }
 
     const reticle = domCache.get('telescope-reticle');
     if (reticle) reticle.classList.toggle('visible', isActive);

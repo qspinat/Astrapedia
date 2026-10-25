@@ -6,6 +6,8 @@ import {jest} from '@jest/globals';
 import {
   TelescopeController,
   isDiffuseObject,
+  eyepieceOptics,
+  reticleCameraFov,
 } from '../modules/features/TelescopeController.js';
 import {globalEventBus, Events} from '../modules/core/EventBus.js';
 import {TELESCOPE} from '../modules/core/Constants.js';
@@ -1009,7 +1011,7 @@ describe('TelescopeController loading corrupt stored settings', () => {
     });
 
     expect(controller.telescope_.diameter).toBe(150);
-    expect(controller.eyepiece_.focalLength).toBe(10);
+    expect(controller.getEyepiece().focalLength).toBe(10);
   });
 
   // A stored diameter of 0 gives 2.7 + 5*log10(0) = -Infinity, which
@@ -1035,8 +1037,8 @@ describe('TelescopeController loading corrupt stored settings', () => {
     for (const value of [
       controller.telescope_.diameter,
       controller.telescope_.focalLength,
-      controller.eyepiece_.focalLength,
-      controller.eyepiece_.apparentFov,
+      controller.getEyepiece().focalLength,
+      controller.getEyepiece().apparentFov,
     ]) {
       expect(typeof value).toBe('number');
       expect(Number.isFinite(value)).toBe(true);
@@ -1110,7 +1112,7 @@ describe('loading a preset from storage', () => {
     controller.loadPreset('Good');
 
     expect(controller.telescope_).toEqual({diameter: 150, focalLength: 750});
-    expect(controller.eyepiece_).toEqual({focalLength: 10, apparentFov: 60});
+    expect(controller.getEyepiece()).toEqual({focalLength: 10, apparentFov: 60});
   });
 
   test('fills in fields a preset omits entirely', () => {
@@ -1120,6 +1122,131 @@ describe('loading a preset from storage', () => {
     controller.loadPreset('Partial');
 
     expect(controller.telescope_.focalLength).toBeGreaterThan(0);
-    expect(controller.eyepiece_.apparentFov).toBeGreaterThan(0);
+    expect(controller.getEyepiece().apparentFov).toBeGreaterThan(0);
+  });
+});
+
+describe('eyepiece kit', () => {
+  const getItemImpl = localStorageMock.getItem.getMockImplementation();
+  let controller;
+  let deps;
+
+  beforeEach(() => {
+    // Drop mockReturnValueOnce values earlier suites queued but never used.
+    localStorageMock.getItem.mockReset().mockImplementation(getItemImpl);
+    localStorageMock.clear();
+    jest.clearAllMocks();
+    globalEventBus.clear();
+    deps = {
+      setFOV: jest.fn(),
+      setMagnitudeLimit: jest.fn(),
+      getCurrentFOV: jest.fn().mockReturnValue(60),
+      getCurrentMagnitude: jest.fn().mockReturnValue(8.0),
+    };
+    controller = new TelescopeController(deps);
+    controller.initialize();
+  });
+
+  test('starts with the default eyepiece', () => {
+    const kit = controller.getEyepieces();
+    expect(kit).toHaveLength(1);
+    expect(kit[0]).toMatchObject({focalLength: 25, apparentFov: 52, active: true});
+  });
+
+  test('lists what each eyepiece gives in the telescope', () => {
+    controller.addEyepiece({focalLength: 10, apparentFov: 68});
+    const [wide, high] = controller.getEyepieces();
+    expect(wide.magnification).toBe(40);
+    expect(high.magnification).toBe(100);
+    expect(high.realFieldOfView).toBeCloseTo(0.68);
+  });
+
+  test('a new eyepiece becomes the one in use', () => {
+    controller.addEyepiece({focalLength: 10, apparentFov: 68});
+    expect(controller.getEyepiece()).toEqual({focalLength: 10, apparentFov: 68});
+    expect(controller.getComputedProperties().magnification).toBe(100);
+  });
+
+  test('switching eyepiece in telescope mode changes the view', () => {
+    const highId = controller.addEyepiece({focalLength: 10, apparentFov: 68});
+    const wideId = controller.getEyepieces()[0].id;
+    controller.setActiveEyepiece(wideId);
+    controller.activateTelescopeMode();
+    deps.setFOV.mockClear();
+
+    controller.setActiveEyepiece(highId);
+
+    expect(deps.setFOV).toHaveBeenCalledWith(expect.closeTo(0.68, 5));
+  });
+
+  test('removing the eyepiece in use falls back to another', () => {
+    const id = controller.addEyepiece({focalLength: 10, apparentFov: 68});
+    expect(controller.removeEyepiece(id)).toBe(true);
+    expect(controller.getEyepiece().focalLength).toBe(25);
+  });
+
+  test('keeps at least one eyepiece', () => {
+    const [only] = controller.getEyepieces();
+    expect(controller.removeEyepiece(only.id)).toBe(false);
+    expect(controller.getEyepieces()).toHaveLength(1);
+  });
+
+  test('ignores an unknown eyepiece id', () => {
+    expect(controller.setActiveEyepiece('nope')).toBe(false);
+  });
+
+  test('persists the kit and the eyepiece in use', () => {
+    controller.addEyepiece({focalLength: 10, apparentFov: 68});
+    const reloaded = new TelescopeController(deps);
+    expect(reloaded.getEyepieces()).toHaveLength(2);
+    expect(reloaded.getEyepiece().focalLength).toBe(10);
+  });
+
+  test('migrates settings saved with a single eyepiece', () => {
+    localStorageMock.getItem.mockReturnValueOnce(JSON.stringify({
+      currentConfig: {telescope: {diameter: 150, focalLength: 750},
+        eyepiece: {focalLength: 9, apparentFov: 82}},
+    }));
+    const migrated = new TelescopeController(deps);
+    expect(migrated.getEyepieces()).toEqual([
+      expect.objectContaining({focalLength: 9, apparentFov: 82, active: true}),
+    ]);
+  });
+
+  test('drops malformed stored eyepieces', () => {
+    localStorageMock.getItem.mockReturnValueOnce(JSON.stringify({
+      currentConfig: {eyepieces: [{id: 'a', focalLength: 0, apparentFov: 52},
+        {id: 'b', focalLength: 12, apparentFov: 60}], activeEyepieceId: 'a'},
+    }));
+    const loaded = new TelescopeController(deps);
+    expect(loaded.getEyepieces().map((e) => e.id)).toEqual(['b']);
+    expect(loaded.getEyepiece().focalLength).toBe(12);
+  });
+
+  test('loading a preset uses the matching kit eyepiece', () => {
+    controller.savePreset('wide');
+    controller.addEyepiece({focalLength: 10, apparentFov: 68});
+    controller.loadPreset('wide');
+    expect(controller.getEyepieces()).toHaveLength(2);
+    expect(controller.getEyepiece().focalLength).toBe(25);
+  });
+});
+
+describe('eyepieceOptics', () => {
+  test('gives magnification, true field and exit pupil', () => {
+    const optics = eyepieceOptics({diameter: 200, focalLength: 1000},
+        {focalLength: 25, apparentFov: 52});
+    expect(optics).toEqual({magnification: 40, realFieldOfView: 1.3, exitPupil: 5});
+  });
+});
+
+describe('reticleCameraFov', () => {
+  test('fits the true field to a reticle of 70% of a portrait screen width', () => {
+    // 400x800: reticle is 280px; 1 degree must span 280px of 800px height.
+    expect(reticleCameraFov(1, 400, 800)).toBeCloseTo(800 / 280);
+  });
+
+  test('uses the height on a landscape screen', () => {
+    expect(reticleCameraFov(1, 800, 400)).toBeCloseTo(1 / 0.7);
   });
 });

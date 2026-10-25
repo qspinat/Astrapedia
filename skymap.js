@@ -160,6 +160,9 @@ export class AstrapediaApp {
      */
     this.telescope_ = null;
 
+    /** @private {?function(number): void} See setFovListener(). */
+    this.fovListener_ = null;
+
     // Time simulation (state managed by TimeController)
 
     // Search (state managed by SearchManager)
@@ -1166,6 +1169,16 @@ export class AstrapediaApp {
     const fov = formatAngle(this.camera.fov);
     setTextIfChanged(domCache.fovDisplay, fov);
     setTextIfChanged(domCache.fovBadge, fov);
+    this.fovListener_?.(this.camera.fov);
+  }
+
+  /**
+   * Be told the camera's vertical FOV whenever it, or the screen size,
+   * changes — for overlays drawn to the sky's scale.
+   * @param {function(number): void} listener
+   */
+  setFovListener(listener) {
+    this.fovListener_ = listener;
   }
 
   /**
@@ -1615,6 +1628,7 @@ export class AstrapediaApp {
     // Sprite sizes are derived from the canvas height, so a resize needs the
     // same recalculation a zoom does.
     this._fovDirty = true;
+    this.fovListener_?.(this.camera.fov);
     this.requestRender();
   }
 
