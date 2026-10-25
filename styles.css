@@ -110,7 +110,23 @@ body.night-vision {
    (a plain dark-red multiply left faint stars invisible). pointer-events:none
    so it never blocks panning or selection. */
 body.night-vision #canvas-container {
-    filter: grayscale(1);
+    filter: grayscale(1) brightness(var(--nv-brightness, 1));
+}
+
+/* The brightness setting dims the UI too. #ui-overlay is a fixed full-screen
+   box, so the filter (which makes it the containing block of its fixed
+   panels) moves nothing. */
+body.night-vision #ui-overlay {
+    filter: brightness(var(--nv-brightness, 1));
+}
+
+/* Settings that only apply in night vision. */
+.night-only {
+    display: none !important;
+}
+
+body.night-vision .night-only {
+    display: flex !important;
 }
 
 #night-vision-overlay {
@@ -2391,6 +2407,58 @@ select:focus-visible {
     display: flex;
     gap: 8px;
     margin-bottom: 10px;
+}
+
+/* Compass mode: crosshair at the screen centre and the name of what is
+   under it. Only the label takes taps, so the sky can still be dragged. */
+#ui-overlay > .center-identify {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    display: none;
+    pointer-events: none;
+}
+
+.center-identify.visible {
+    display: block;
+}
+
+.center-crosshair {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    left: -18px;
+    top: -18px;
+    border: 1.5px solid var(--accent-warm-dim);
+    border-radius: 50%;
+}
+
+.center-crosshair::before,
+.center-crosshair::after {
+    content: '';
+    position: absolute;
+    background: var(--accent-warm-dim);
+}
+
+.center-crosshair::before { left: 50%; top: -8px; bottom: -8px; width: 1.5px; transform: translateX(-50%); }
+.center-crosshair::after { top: 50%; left: -8px; right: -8px; height: 1.5px; transform: translateY(-50%); }
+
+.center-label {
+    position: absolute;
+    top: 30px;
+    left: 0;
+    transform: translateX(-50%);
+    padding: 6px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-accent);
+    border-radius: 999px;
+    cursor: pointer;
+    pointer-events: auto;
 }
 
 /* Finder circles: Telrad rings, finder scope and eyepiece fields drawn

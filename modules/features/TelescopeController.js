@@ -6,7 +6,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TELESCOPE} from '../core/Constants.js';
-import {angularDistance} from '../core/CoordinateUtils.js';
+import {findNearestObject} from './CenterIdentify.js';
 import {telescopeLimitingMagnitude, telescopeGain} from '../core/MagnitudeUtils.js';
 import {createLogger} from '../core/Logger.js';
 import {safeSetJson, safeGetJson} from '../core/Utils.js';
@@ -559,24 +559,9 @@ export class TelescopeController {
       return;
     }
 
-    const fov = this.computedProperties_.realFieldOfView;
-    const halfFov = fov / 2;
-
-    let nearest = null;
-    let nearestDist = Infinity;
-
-    const magLimit = this.computedProperties_.limitingMagnitude;
-
-    for (const dso of dsos) {
-      if (!isDiffuseObject(dso) || dso.size_major <= 0) continue;
-      if (dso.mag > magLimit) continue;
-
-      const dist = angularDistance(center.ra, center.dec, dso.ra, dso.dec);
-      if (dist < halfFov && dist < nearestDist) {
-        nearestDist = dist;
-        nearest = dso;
-      }
-    }
+    const {realFieldOfView, limitingMagnitude} = this.computedProperties_;
+    const nearest = findNearestObject(center, realFieldOfView / 2, dsos.filter((dso) =>
+      isDiffuseObject(dso) && dso.size_major > 0 && dso.mag <= limitingMagnitude));
 
     if (nearest) {
       const dsoName = nearest.name || nearest.proper || 'Unknown';

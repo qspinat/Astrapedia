@@ -16,6 +16,7 @@ import {PanelManager, panelManager} from './PanelManager.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {addMobileButtonListener, relativeDayLabel, APP_LOCALE} from '../core/Utils.js';
 import {initializeNightVision} from './NightVision.js';
+import {ScreenWakeLock} from '../core/WakeLock.js';
 import {initializeLocationDialog} from './LocationDialog.js';
 import {initializeOnboarding, getOnboarding} from './Onboarding.js';
 import {initializeGameUI} from '../features/GameUI.js';
@@ -458,6 +459,10 @@ export class UIController {
 
     /** @private {!NightVision} */
     this.nightVision_ = initializeNightVision();
+
+    /** @private {!ScreenWakeLock} */
+    this.wakeLock_ = new ScreenWakeLock();
+    this.wakeLock_.initialize();
   }
 
   /**
@@ -567,6 +572,24 @@ export class UIController {
       addMobileButtonListener(nightVisionToggle, () => {
         this.nightVision_.toggle();
       });
+    }
+
+    const brightness = domCache.get('night-brightness');
+    if (brightness) {
+      brightness.value = Math.round(this.nightVision_.getBrightness() * 100);
+      brightness.addEventListener('input', () => {
+        this.nightVision_.setBrightness(brightness.value / 100);
+      });
+    }
+
+    // Keep screen on: hidden where the device cannot do it.
+    const keepAwake = domCache.get('keep-awake-toggle');
+    if (keepAwake) {
+      if (!this.wakeLock_.isSupported()) {
+        domCache.get('keep-awake-row')?.setAttribute('hidden', '');
+      }
+      keepAwake.checked = this.wakeLock_.isEnabled();
+      keepAwake.addEventListener('change', () => this.wakeLock_.setEnabled(keepAwake.checked));
     }
 
     // "How to use" reopens the onboarding overlay.
@@ -770,6 +793,7 @@ export class UIController {
   dispose() {
     this.settingsHandler_?.dispose();
     this.panelManager_.dispose();
+    this.wakeLock_.dispose();
   }
 }
 

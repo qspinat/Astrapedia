@@ -65,7 +65,14 @@ import {getLocationDialog} from './modules/ui/LocationDialog.js';
 import {CompassController} from './modules/interaction/CompassController.js';
 import {DynamicObjectManager} from './modules/rendering/DynamicObjectManager.js';
 import {initializeInputController} from './modules/interaction/InputController.js';
-import {initializeClickHandler} from './modules/interaction/ClickHandler.js';
+import {
+  initializeClickHandler,
+  toSelectableDso,
+  toSelectableStar,
+} from './modules/interaction/ClickHandler.js';
+import {CenterIdentifier} from './modules/features/CenterIdentify.js';
+import {isWithinMagnitudeLimit} from './modules/core/MagnitudeUtils.js';
+import {toSelectablePlanet} from './modules/astronomy/SolarSystem.js';
 import {PowerManager} from './modules/core/PowerManager.js';
 import {globalEventBus, Events} from './modules/core/EventBus.js';
 import {
@@ -162,6 +169,12 @@ export class AstrapediaApp {
 
     /** @private {?function(number): void} See setFovListener(). */
     this.fovListener_ = null;
+
+    /** @private {?CenterIdentifier} */
+    this.centerIdentifier_ = null;
+
+    /** @private {?{limit: number, objects: !Array<!Object>}} */
+    this.identifiableCache_ = null;
 
     // Time simulation (state managed by TimeController)
 
@@ -481,6 +494,7 @@ export class AstrapediaApp {
   initCompassController_() {
     this.compassController_ = new CompassController({
       requestRender: () => this.requestRender(),
+      notify: (message, ms) => panelManager.showNotification(message, ms),
       updateCameraPosition: () => {
         // Sync compass values to camera rotation
         if (this.compassController_) {
@@ -492,6 +506,43 @@ export class AstrapediaApp {
         }
       },
     });
+  }
+
+  /**
+   * Name what the phone points at while compass mode follows it.
+   * @private
+   */
+  initCenterIdentifier_() {
+    this.centerIdentifier_ = new CenterIdentifier({
+      getViewCenterRaDec: () => this.getViewCenterRaDec(),
+      getFov: () => this.camera.fov,
+      getCandidates: () => this.identifiableObjects_(),
+      selectObject: (obj) => this.selectObject(obj),
+    });
+    this.centerIdentifier_.initialize();
+  }
+
+  /**
+   * Objects worth naming at the screen centre: planets, named stars and
+   * deep-sky objects within the magnitude limit.
+   * @returns {!Array<!Object>} Selectable objects
+   * @private
+   */
+  identifiableObjects_() {
+    const limit = this.currentMagnitude;
+    if (this.identifiableCache_?.limit !== limit) {
+      this.identifiableCache_ = {
+        limit,
+        objects: [
+          ...this.stars.filter((s) => s.proper && isWithinMagnitudeLimit(s.mag, limit))
+              .map(toSelectableStar),
+          ...this.deepSkyObjects.filter((d) => isWithinMagnitudeLimit(d.mag, limit))
+              .map(toSelectableDso),
+        ],
+      };
+    }
+    const planets = (this.planetRenderer_?.getPlanets() || []).map(toSelectablePlanet);
+    return [...planets, ...this.identifiableCache_.objects];
   }
 
   /**
@@ -578,12 +629,10 @@ export class AstrapediaApp {
       getCanvasHeight: () => this.renderer.domElement.clientHeight,
       getAspect: () => this.camera.aspect,
       isZoomLocked: () => this.isTelescopeActive(),
-      onDragStart: () => {
-        // Disable compass mode when user manually drags
-        if (this.isCompassModeEnabled()) {
-          this.disableCompassMode();
-        }
-      },
+      // In compass mode a drag lines the sky up with the real one: the
+      // sensor pauses during it and keeps the difference as a correction.
+      onDragStart: () => this.compassController_?.beginAlignment(),
+      onDragEnd: () => this.compassController_?.endAlignment(this.cameraRotation.theta),
       onClick: (coords) => this.clickHandler_?.handleClick(coords.x, coords.y),
     });
   }
@@ -786,6 +835,7 @@ export class AstrapediaApp {
     this.initSelectionManager_();
     this.initVisibilityCalculator_();
     this.initCompassController_();
+    this.initCenterIdentifier_();
 
     // Initialize search index (Feature 5)
     this.buildSearchIndex();

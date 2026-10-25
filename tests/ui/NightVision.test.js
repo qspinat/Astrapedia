@@ -129,4 +129,31 @@ describe('NightVision', () => {
       expect(body.classList.contains('night-vision')).toBe(true);
     });
   });
+
+  describe('brightness', () => {
+    test('defaults to full', () => {
+      const nv = new NightVision({storage: fakeStorage(), body});
+      expect(nv.getBrightness()).toBe(1);
+      expect(body.style.getPropertyValue('--nv-brightness')).toBe('1');
+    });
+
+    test('dims and remembers the level', () => {
+      const storage = fakeStorage();
+      new NightVision({storage, body}).setBrightness(0.4);
+      expect(body.style.getPropertyValue('--nv-brightness')).toBe('0.4');
+      expect(new NightVision({storage, body}).getBrightness()).toBe(0.4);
+    });
+
+    test('never goes dark enough to hide the sky', () => {
+      const nv = new NightVision({storage: fakeStorage(), body});
+      nv.setBrightness(0);
+      expect(nv.getBrightness()).toBe(0.2);
+    });
+
+    test('ignores a corrupt stored level', () => {
+      const nv = new NightVision({
+        storage: fakeStorage({'astrapedia-night-brightness': 'dim'}), body});
+      expect(nv.getBrightness()).toBe(1);
+    });
+  });
 });

@@ -85,6 +85,42 @@ function isDisplayed(object) {
 let ClickHandlerDependencies;
 
 /**
+ * The selectable object for a catalog star, as the info panel shows it.
+ * @param {!Object} star - Star record
+ * @returns {!Object}
+ */
+export function toSelectableStar(star) {
+  return {
+    name: star.proper || star.bf || (star.hip ? `HIP ${star.hip}` : 'Unknown Star'),
+    type: 'Star',
+    subtype: star.spect ? `Spectral type ${star.spect}` : null,
+    ra: star.ra,
+    dec: star.dec,
+    mag: star.mag,
+    distance: star.dist ? `${star.dist.toFixed(1)} ly` : null,
+    angularSize: null,
+  };
+}
+
+/**
+ * The selectable object for a catalog deep-sky object.
+ * @param {!Object} dso - Deep-sky object record
+ * @returns {!Object}
+ */
+export function toSelectableDso(dso) {
+  return {
+    name: catalogDesignation(dso),
+    type: getDsoTypeName(dso.type),
+    subtype: dso.type,
+    ra: dso.ra,
+    dec: dso.dec,
+    mag: dso.mag,
+    size_major: dso.size_major,
+    size_minor: dso.size_minor,
+  };
+}
+
+/**
  * ClickHandler handles click detection for celestial objects.
  */
 export class ClickHandler {
@@ -247,32 +283,13 @@ export class ClickHandler {
       if (index < stars.length) {
         const star = stars[index];
         if (!isWithinMagnitudeLimit(star.mag, magnitudeLimit)) continue;
-        clickedObject = {
-          name: star.proper || star.bf ||
-            (star.hip ? `HIP ${star.hip}` : 'Unknown Star'),
-          type: 'Star',
-          subtype: star.spect ? `Spectral type ${star.spect}` : null,
-          ra: star.ra,
-          dec: star.dec,
-          mag: star.mag,
-          distance: star.dist ? `${star.dist.toFixed(1)} ly` : null,
-          angularSize: null,
-        };
+        clickedObject = toSelectableStar(star);
       } else {
         const dsoIndex = index - stars.length;
         if (dsoIndex < dsos.length) {
           const dso = dsos[dsoIndex];
           if (!isWithinMagnitudeLimit(dso.mag, magnitudeLimit)) continue;
-          clickedObject = {
-            name: catalogDesignation(dso),
-            type: getDsoTypeName(dso.type),
-            subtype: dso.type,
-            ra: dso.ra,
-            dec: dso.dec,
-            mag: dso.mag,
-            size_major: dso.size_major,
-            size_minor: dso.size_minor,
-          };
+          clickedObject = toSelectableDso(dso);
         }
       }
 

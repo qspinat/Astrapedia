@@ -4,7 +4,10 @@
  */
 
 import {jest} from '@jest/globals';
-import {CompassController} from '../../modules/interaction/CompassController.js';
+import {
+  CompassController,
+  adaptiveSmoothing,
+} from '../../modules/interaction/CompassController.js';
 
 describe('CompassController', () => {
   let deps;
@@ -14,11 +17,12 @@ describe('CompassController', () => {
     // jsdom lacks DeviceOrientationEvent; provide a minimal stub (no
     // requestPermission, so the iOS permission branch is skipped).
     window.DeviceOrientationEvent = function DeviceOrientationEvent() {};
-    window.alert = jest.fn();
+    localStorage.clear();
 
     deps = {
       requestRender: jest.fn(),
       updateCameraPosition: jest.fn(),
+      notify: jest.fn(),
     };
     controller = new CompassController(deps);
   });
@@ -103,5 +107,88 @@ describe('CompassController', () => {
       expect(controller.getHeading()).toBeCloseTo(settled, 6);
       expect(deps.updateCameraPosition).not.toHaveBeenCalled();
     });
+  });
+
+  describe('telling the user', () => {
+    test('says so when the device has no sensor', async () => {
+      delete window.DeviceOrientationEvent;
+      await controller.enable();
+      expect(deps.notify).toHaveBeenCalledWith(expect.stringContaining('orientation sensor'));
+    });
+
+    test('explains drag-to-correct the first time only', async () => {
+      await controller.enable();
+      controller.disable();
+      await controller.enable();
+      const hints = deps.notify.mock.calls.filter(([m]) => m.includes('Drag'));
+      expect(hints).toHaveLength(1);
+    });
+  });
+
+  describe('heading correction by dragging', () => {
+    /**
+     * Angles equal modulo 2pi. Each settle stops within the 0.009 rad jitter
+     * dead zone of its target, possibly on opposite sides, so allow twice it.
+     */
+    const expectSameAngle = (a, b) => {
+      expect(Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)))).toBeLessThan(0.02);
+    };
+
+    /** Feed one sensor reading and return the resulting heading. */
+    const settle = () => {
+      for (let i = 0; i < 200; i++) {
+        controller.handleDeviceOrientation_({alpha: 90, beta: 90, gamma: 0});
+      }
+      return controller.getHeading();
+    };
+
+    test('ignores the sensor while the sky is dragged', async () => {
+      await controller.enable();
+      const before = settle();
+      controller.beginAlignment();
+      controller.handleDeviceOrientation_({alpha: 0, beta: 90, gamma: 0});
+      expect(controller.getHeading()).toBe(before);
+    });
+
+    test('keeps the dragged difference as a correction', async () => {
+      await controller.enable();
+      const sensorHeading = settle();
+      controller.beginAlignment();
+      controller.endAlignment(sensorHeading + 0.2);
+
+      expectSameAngle(settle(), sensorHeading + 0.2);
+    });
+
+    test('remembers the correction next time', async () => {
+      await controller.enable();
+      const sensorHeading = settle();
+      controller.beginAlignment();
+      controller.endAlignment(sensorHeading + 0.2);
+      controller.dispose();
+
+      controller = new CompassController(deps);
+      await controller.enable();
+      expectSameAngle(settle(), sensorHeading + 0.2);
+    });
+
+    test('a drag outside compass mode changes nothing', () => {
+      controller.beginAlignment();
+      controller.endAlignment(1);
+      expect(controller.getHeading()).toBe(0);
+    });
+  });
+});
+
+describe('adaptiveSmoothing', () => {
+  test('damps small jitter heavily', () => {
+    expect(adaptiveSmoothing(0.002)).toBe(0.05);
+  });
+
+  test('follows a fast sweep closely', () => {
+    expect(adaptiveSmoothing(0.3)).toBe(0.5);
+  });
+
+  test('is symmetric', () => {
+    expect(adaptiveSmoothing(-0.05)).toBe(adaptiveSmoothing(0.05));
   });
 });

@@ -5,10 +5,36 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {createLogger} from '../core/Logger.js';
-import {clamp} from '../core/Utils.js';
+import {clamp, safeGetJson, safeSetJson} from '../core/Utils.js';
 import {domCache} from '../ui/DOMCache.js';
 
 const logger = createLogger('CompassController');
+
+/** Persisted heading correction, in radians. */
+const OFFSET_STORAGE_KEY = 'astrapedia_compass_offset';
+
+/** Set once the drag-to-correct hint has been shown. */
+const HINT_STORAGE_KEY = 'astrapedia_compass_hint_shown';
+
+/**
+ * Wrap an angle difference into [-PI, PI].
+ * @param {number} rad
+ * @returns {number}
+ */
+function wrapAngle(rad) {
+  return Math.atan2(Math.sin(rad), Math.cos(rad));
+}
+
+/**
+ * Smoothing factor for a sensor step: heavy for the small jitter of a phone
+ * held still, light for a deliberate sweep so the sky keeps up without lag.
+ * @param {number} diffRad - Distance from the shown to the measured direction
+ * @returns {number} Fraction of the step to apply, 0.05..0.5
+ */
+export function adaptiveSmoothing(diffRad) {
+  // A 0.1 rad (~6 degree) jump gets the fastest response.
+  return clamp(Math.abs(diffRad) * 5, 0.05, 0.5);
+}
 
 /**
  * CompassController manages device orientation for AR sky viewing.
@@ -20,6 +46,8 @@ export class CompassController {
    * @param {!Object} dependencies - Required dependencies
    * @param {function(): void} dependencies.requestRender - Request render callback
    * @param {function(): void} dependencies.updateCameraPosition - Update camera callback
+   * @param {function(string, number=): void=} dependencies.notify - Show a
+   *     short message, optionally for a duration in ms
    */
   constructor(dependencies) {
     /** @private @const */
@@ -27,6 +55,15 @@ export class CompassController {
 
     /** @private @const */
     this.updateCameraPosition_ = dependencies.updateCameraPosition || (() => {});
+
+    /** @private @const */
+    this.notify_ = dependencies.notify || ((message) => logger.warn(message));
+
+    /** @private {number} Correction added to the sensor heading, radians */
+    this.headingOffset_ = Number(safeGetJson(OFFSET_STORAGE_KEY)) || 0;
+
+    /** @private {boolean} The user is dragging the sky to correct the heading */
+    this.aligning_ = false;
 
     /** @private {boolean} */
     this.compassMode_ = false;
@@ -55,8 +92,6 @@ export class CompassController {
     /** @private {number} Dead zone for jitter reduction */
     this.DEAD_ZONE_ = 0.009;
 
-    /** @private {number} Smoothing factor for interpolation */
-    this.SMOOTH_FACTOR_ = 0.1;
   }
 
   /**
@@ -104,7 +139,7 @@ export class CompassController {
   async enable() {
     // Check if DeviceOrientationEvent is available
     if (!window.DeviceOrientationEvent) {
-      alert('Device orientation is not supported on this device.');
+      this.notify_('This device has no orientation sensor.');
       return false;
     }
 
@@ -113,12 +148,12 @@ export class CompassController {
       try {
         const permission = await DeviceOrientationEvent.requestPermission();
         if (permission !== 'granted') {
-          alert('Compass mode requires device orientation permission.');
+          this.notify_('Compass mode needs permission to use the orientation sensor.');
           return false;
         }
       } catch (err) {
         logger.error('Error requesting device orientation permission:', err);
-        alert('Could not enable compass mode. Please try again.');
+        this.notify_('Could not enable compass mode. Please try again.');
         return false;
       }
     }
@@ -152,6 +187,11 @@ export class CompassController {
     // Start timeout to detect if orientation events stop firing
     this.startOrientationTimeout_();
 
+    if (!safeGetJson(HINT_STORAGE_KEY)) {
+      safeSetJson(HINT_STORAGE_KEY, true);
+      this.notify_('Sky not lined up? Drag it into place to correct the compass.', 6000);
+    }
+
     logger.info('Compass mode enabled');
     globalEventBus.emit(Events.COMPASS_ENABLED, {enabled: true});
     this.requestRender_();
@@ -181,12 +221,35 @@ export class CompassController {
     }
 
     this.compassMode_ = false;
+    this.aligning_ = false;
 
     // Update button visual state
     this.updateButtonState_(false);
 
     logger.info('Compass mode disabled');
     globalEventBus.emit(Events.COMPASS_DISABLED, {enabled: false});
+  }
+
+  /**
+   * The user started dragging the sky: stop following the sensor so the drag
+   * is not fought.
+   */
+  beginAlignment() {
+    if (this.compassMode_) this.aligning_ = true;
+  }
+
+  /**
+   * The drag ended with the sky where the user says it belongs: keep the
+   * difference from the sensor heading as a lasting correction.
+   * @param {number} theta - Camera azimuth the drag left, radians
+   */
+  endAlignment(theta) {
+    if (!this.aligning_) return;
+    this.aligning_ = false;
+    const correction = wrapAngle(theta - this.compassHeading_);
+    this.headingOffset_ = wrapAngle(this.headingOffset_ + correction);
+    this.compassHeading_ = theta;
+    safeSetJson(OFFSET_STORAGE_KEY, this.headingOffset_);
   }
 
   /**
@@ -251,6 +314,7 @@ export class CompassController {
 
     // Update timestamp for stale data detection
     this.lastOrientationTime_ = performance.now();
+    if (this.aligning_) return;
 
     let alpha = event.alpha; // Compass direction (0-360)
     const beta = event.beta;   // Front/back tilt (-180 to 180)
@@ -282,7 +346,7 @@ export class CompassController {
     const vz = sA * sG - cA * sB * cG;
 
     // Compass heading (azimuth) from horizontal components
-    const targetTheta = -Math.atan2(vx, vz) + Math.PI / 2;
+    const targetTheta = -Math.atan2(vx, vz) + Math.PI / 2 + this.headingOffset_;
 
     // Altitude angle from vertical component
     const clampedVy = clamp(-vy, -1, 1);
@@ -292,9 +356,7 @@ export class CompassController {
     const clampedPhi = clamp(targetPhi, 0.1, Math.PI - 0.1);
 
     // Handle theta wraparound for smooth interpolation
-    let thetaDiff = targetTheta - this.compassHeading_;
-    if (thetaDiff > Math.PI) thetaDiff -= 2 * Math.PI;
-    if (thetaDiff < -Math.PI) thetaDiff += 2 * Math.PI;
+    const thetaDiff = wrapAngle(targetTheta - this.compassHeading_);
 
     const phiDiff = clampedPhi - this.compassTilt_;
 
@@ -303,9 +365,9 @@ export class CompassController {
       return;
     }
 
-    // Smooth the compass values to reduce jitter
-    this.compassHeading_ += thetaDiff * this.SMOOTH_FACTOR_;
-    this.compassTilt_ += phiDiff * this.SMOOTH_FACTOR_;
+    // Smooth the compass values: steady when held still, quick on a sweep
+    this.compassHeading_ += thetaDiff * adaptiveSmoothing(thetaDiff);
+    this.compassTilt_ += phiDiff * adaptiveSmoothing(phiDiff);
 
     // Emit event with new orientation values
     globalEventBus.emit(Events.COMPASS_HEADING, {

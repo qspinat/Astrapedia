@@ -293,6 +293,15 @@
                     <input type="checkbox" id="grid-toggle">
                     <span class="toggle-switch"></span>
                 </label>
+                <label class="toggle-row" id="keep-awake-row">
+                    <span class="toggle-row__label">Keep screen on</span>
+                    <input type="checkbox" id="keep-awake-toggle" checked>
+                    <span class="toggle-switch"></span>
+                </label>
+                <div class="input-row night-only">
+                    <label for="night-brightness">Night vision brightness</label>
+                    <input type="range" id="night-brightness" min="20" max="100" step="5" value="100">
+                </div>
             </div>
 
             <!-- PREFERENCES - Collapsible -->
@@ -808,6 +817,12 @@
                 <span class="reticle-dso-eyepiece" id="reticle-dso-eyepiece"></span>
             </div>
             <div class="reticle-eyepieces" id="reticle-eyepieces" role="radiogroup" aria-label="Switch eyepiece"></div>
+        </div>
+
+        <!-- Compass mode: what the phone points at (CenterIdentify.js) -->
+        <div id="center-identify" class="center-identify">
+            <div class="center-crosshair" aria-hidden="true"></div>
+            <button class="center-label" id="center-label" hidden></button>
         </div>
 
         <!-- Finder circles overlay (FinderOverlay.js) -->

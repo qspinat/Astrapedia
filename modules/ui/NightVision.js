@@ -14,7 +14,11 @@
 import {safeLocalStorage} from '../core/Utils.js';
 
 const STORAGE_KEY = 'astrapedia-night-vision';
+const BRIGHTNESS_KEY = 'astrapedia-night-brightness';
 const BODY_CLASS = 'night-vision';
+
+/** Dimmest allowed setting: below this the sky is unreadable. */
+export const MIN_NIGHT_BRIGHTNESS = 0.2;
 
 /**
  * Controls Night Vision mode and keeps every registered toggle in sync.
@@ -36,6 +40,9 @@ export class NightVision {
     /** @private {boolean} */
     this.enabled_ = this.readStored_();
 
+    /** @private {number} 0.2..1, applied through --nv-brightness */
+    this.brightness_ = this.readBrightness_();
+
     this.apply_();
   }
 
@@ -56,6 +63,30 @@ export class NightVision {
       this.storage_?.setItem(STORAGE_KEY, String(this.enabled_));
     } catch (e) {
       // Private-mode / disabled storage: mode still works for this session.
+    }
+    this.apply_();
+  }
+
+  /**
+   * @returns {number} Night-mode brightness, MIN_NIGHT_BRIGHTNESS..1
+   */
+  getBrightness() {
+    return this.brightness_;
+  }
+
+  /**
+   * Dim the night-mode sky and UI further, and remember it. Even red light
+   * costs dark adaptation, so the dimmest usable setting is the best one.
+   * @param {number} level - 0.2..1 (clamped)
+   */
+  setBrightness(level) {
+    const value = Number(level);
+    if (!Number.isFinite(value)) return;
+    this.brightness_ = Math.min(1, Math.max(MIN_NIGHT_BRIGHTNESS, value));
+    try {
+      this.storage_?.setItem(BRIGHTNESS_KEY, String(this.brightness_));
+    } catch (e) {
+      // Storage unavailable: the level holds for this session.
     }
     this.apply_();
   }
@@ -93,9 +124,24 @@ export class NightVision {
     }
   }
 
+  /**
+   * @returns {number} Persisted brightness, defaulting to full.
+   * @private
+   */
+  readBrightness_() {
+    try {
+      const stored = parseFloat(this.storage_?.getItem(BRIGHTNESS_KEY));
+      return Number.isFinite(stored) ?
+          Math.min(1, Math.max(MIN_NIGHT_BRIGHTNESS, stored)) : 1;
+    } catch (e) {
+      return 1;
+    }
+  }
+
   /** @private */
   apply_() {
     this.body_?.classList.toggle(BODY_CLASS, this.enabled_);
+    this.body_?.style?.setProperty('--nv-brightness', String(this.brightness_));
     for (const el of this.toggles_) this.syncControl_(el);
   }
 
