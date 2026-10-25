@@ -11,7 +11,6 @@ import {
   getCuratedImageKeys,
   parseCatalogDesignation,
 } from '../data/CuratedImages.js';
-import {PLANET_IMAGES, getPlanetImageInfo} from '../data/PlanetImages.js';
 import {clamp} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
 import {freezeTransform} from './SceneUtils.js';
@@ -597,15 +596,6 @@ export class ImageRenderer {
    */
   async resolveBestImage_(objectName, normalizedName, cacheKey, ra, dec,
       type, angularSizeArcmin, skipToFallback) {
-    // Check special objects (planets) - use centralized PLANET_IMAGES
-    const planetInfo = normalizedName ? getPlanetImageInfo(normalizedName) : null;
-    if (planetInfo) {
-      const result = {url: planetInfo.url, loading: false, source: planetInfo.source, tier: planetInfo.tier};
-      this.dynamicImageCache_.set(cacheKey, result);
-      logger.debug(`Using dedicated image for ${normalizedName}`);
-      return result;
-    }
-
     // Determine object category
     const isCatalogObject = objectName?.match(/^(IC|NGC|M)\d+$/i);
     const isDeepSkyObject = type && DYNAMIC_TARGET_TYPES.includes(type);

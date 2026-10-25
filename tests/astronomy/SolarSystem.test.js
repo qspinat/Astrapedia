@@ -144,7 +144,6 @@ describe('SolarSystem', () => {
       planetNames.forEach((name) => {
         const planet = PLANET_DEFAULTS.find((p) => p.name === name);
         expect(planet).toBeDefined();
-        expect(planet.imageUrl).toBeDefined();
       });
     });
 

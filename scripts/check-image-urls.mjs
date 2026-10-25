@@ -24,10 +24,8 @@ const targets = [
   ...Object.entries(CURATED_IMAGES)
       .filter(([, entry]) => entry.url)
       .map(([name, entry]) => ({name, url: entry.url})),
-  ...Object.entries(PLANET_IMAGES).flatMap(([name, entry]) => [
-    {name, url: entry.primary},
-    ...(entry.fallback ? [{name: `${name} (fallback)`, url: entry.fallback}] : []),
-  ]),
+  ...Object.entries(PLANET_IMAGES).flatMap(([name, entry]) =>
+    entry.sources.map(({url}, i) => ({name: i ? `${name} (fallback ${i})` : name, url}))),
 ];
 
 /**

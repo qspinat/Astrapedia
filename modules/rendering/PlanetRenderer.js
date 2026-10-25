@@ -21,6 +21,13 @@ import {composeBodyDisc, drawMoonShadow} from './BodyImage.js';
 const logger = createLogger('PlanetRenderer');
 
 /**
+ * Smallest phase change worth repainting the Moon for: ~1.4 hours of lunar
+ * motion, invisible at sprite size. Planet updates arrive every couple of
+ * seconds, and each repaint re-uploads the texture.
+ */
+const MOON_REDRAW_PHASE_STEP = 0.002;
+
+/**
  * On-screen size of a planet sprite: its real angular size once that is
  * larger than the magnitude-based dot. ClickHandler sizes tap targets with
  * this too, so what can be tapped matches what is drawn.
@@ -233,7 +240,8 @@ export class PlanetRenderer {
       mag: planet.mag,
       angularSize: planet.angularSize,
       phase: planet.phase,
-      imageUrl: planet.imageUrl,
+      // Phase the Moon's canvas was last painted at (createPlanetSprite_ paints it).
+      drawnPhase: planet.phase,
       imageLoaded: false,
       imageLoading: false,
       // Checked by applyTexture_ to discard loads that outlive their sprite.
@@ -274,6 +282,7 @@ export class PlanetRenderer {
    * @private
    */
   redrawMoonPhase_(sprite, phase) {
+    sprite.userData.drawnPhase = phase;
     const canvas = sprite.material.map?.image;
     const {photo, disc} = sprite.userData;
     if (photo && disc) {
@@ -390,7 +399,8 @@ export class PlanetRenderer {
           // from the transform, so repositioning alone leaves the crescent
           // frozen at whatever it was when create() last ran. At 1000x that
           // is days of simulated time showing one stale shape.
-          if (name === 'Moon' && pos.phase !== sprite.userData.phase) {
+          if (name === 'Moon' &&
+              Math.abs(pos.phase - (sprite.userData.drawnPhase ?? -1)) > MOON_REDRAW_PHASE_STEP) {
             this.redrawMoonPhase_(sprite, pos.phase);
           }
           sprite.userData.phase = pos.phase;
@@ -428,8 +438,8 @@ export class PlanetRenderer {
       }
 
       // Load real image when at real size and large enough
-      if (useRealSize && realSizePixels > 20 && !data.imageLoaded && !data.imageFailed && data.imageUrl) {
-        this.loadPlanetImage_(sprite, data.imageUrl);
+      if (useRealSize && realSizePixels > 20 && !data.imageLoaded && !data.imageFailed) {
+        this.loadPlanetImage_(sprite);
       }
     }
   }
@@ -437,16 +447,19 @@ export class PlanetRenderer {
   /**
    * Load the body's photograph, trying each source in turn.
    * @param {!THREE.Sprite} sprite - Sprite to update
-   * @param {string} imageUrl - Used when the body has no entry in PlanetImages
    * @private
    */
-  loadPlanetImage_(sprite, imageUrl) {
+  loadPlanetImage_(sprite) {
     const data = sprite.userData;
     if (data.imageLoading || data.imageLoaded || data.imageFailed) return;
 
-    data.imageLoading = true;
     const sources = getPlanetImageSources(data.name);
-    this.loadImageFrom_(sprite, sources.length ? sources : [{url: imageUrl, disc: null}]);
+    if (sources.length === 0) {
+      data.imageFailed = true;
+      return;
+    }
+    data.imageLoading = true;
+    this.loadImageFrom_(sprite, sources);
   }
 
   /**

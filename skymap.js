@@ -167,8 +167,8 @@ export class AstrapediaApp {
      */
     this.telescope_ = null;
 
-    /** @private {?function(number): void} See setFovListener(). */
-    this.fovListener_ = null;
+    /** @private {?number} FOV last announced with FOV_CHANGED */
+    this.announcedFov_ = null;
 
     /** @private {?CenterIdentifier} */
     this.centerIdentifier_ = null;
@@ -1221,16 +1221,17 @@ export class AstrapediaApp {
     const fov = formatAngle(this.camera.fov);
     setTextIfChanged(domCache.fovDisplay, fov);
     setTextIfChanged(domCache.fovBadge, fov);
-    this.fovListener_?.(this.camera.fov);
+    // Pans call this on every move; only a real zoom is news.
+    if (this.camera.fov !== this.announcedFov_) this.announceFov_();
   }
 
   /**
-   * Be told the camera's vertical FOV whenever it, or the screen size,
-   * changes — for overlays drawn to the sky's scale.
-   * @param {function(number): void} listener
+   * Tell overlays drawn to the sky's scale the camera's vertical FOV.
+   * @private
    */
-  setFovListener(listener) {
-    this.fovListener_ = listener;
+  announceFov_() {
+    this.announcedFov_ = this.camera.fov;
+    globalEventBus.emit(Events.FOV_CHANGED, {fov: this.camera.fov});
   }
 
   /**
@@ -1688,7 +1689,7 @@ export class AstrapediaApp {
     // Sprite sizes are derived from the canvas height, so a resize needs the
     // same recalculation a zoom does.
     this._fovDirty = true;
-    this.fovListener_?.(this.camera.fov);
+    this.announceFov_();
     this.requestRender();
   }
 

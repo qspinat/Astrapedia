@@ -12,10 +12,15 @@ import {catalogDesignation} from '../data/CuratedImages.js';
 import {createLogger} from '../core/Logger.js';
 import {API_ENDPOINTS} from '../core/Constants.js';
 import {domCache} from '../ui/DOMCache.js';
-import {moonIllumination, moonPhaseName} from '../core/MoonPhase.js';
+import {moonPhaseLabel} from '../core/MoonPhase.js';
 import {isImageSizeAcceptable} from '../rendering/ImageRenderer.js';
-import {getPlanetImageInfo} from '../data/PlanetImages.js';
-import {altitudeCurve, nightWindow, riseTransitSet} from '../astronomy/Observability.js';
+import {getPlanetImageCredit} from '../data/PlanetImages.js';
+import {
+  altitudeCurve,
+  chartSpan,
+  nightWindow,
+  riseTransitSet,
+} from '../astronomy/Observability.js';
 import {altitudeChartSvg} from '../ui/AltitudeChart.js';
 import {APP_LOCALE, addMobileButtonListener, formatClockTime} from '../core/Utils.js';
 import {observingLists} from './ObservingLists.js';
@@ -28,7 +33,7 @@ const logger = createLogger('SelectionManager');
  * @returns {boolean}
  */
 function isSolarSystemBody(obj) {
-  return ['Star', 'Moon', 'Planet'].includes(obj.type) && !!getPlanetImageInfo(obj.name);
+  return ['Star', 'Moon', 'Planet'].includes(obj.type) && !!getPlanetImageCredit(obj.name);
 }
 
 /**
@@ -88,6 +93,9 @@ export class SelectionManager {
 
     /** @private {?Object} */
     this.selectedObject_ = null;
+
+    /** @private {number} Bumped per info panel render, to drop stale fills */
+    this.infoToken_ = 0;
 
     /** @private {?number} */
     this.highlightTimeout_ = null;
@@ -318,7 +326,7 @@ export class SelectionManager {
     const constName = this.deps_.getConstellation?.(obj.ra, obj.dec);
     if (constName) html += this.factRow_('Constellation', escapeHtml(constName));
     if (obj.name === 'Moon' && obj.phase !== undefined) {
-      html += this.factRow_('Phase', this.moonPhaseLabel_(obj.phase));
+      html += this.factRow_('Phase', moonPhaseLabel(obj.phase));
     }
     if (obj.common_names) {
       html += this.factRow_('Also known as', escapeHtml(obj.common_names));
@@ -326,9 +334,9 @@ export class SelectionManager {
     if (obj.messier) {
       html += this.factRow_('Messier', `M${Math.floor(obj.messier)}`);
     }
-    html += this.observingRows_(obj);
+    html += `<div id="observing-facts"></div>`;
     html += `</div>`;
-    html += this.altitudeChart_(obj);
+    html += `<div class="info-altitude" id="info-altitude"></div>`;
 
     // Precise coordinates and catalog data — kept, but folded away so they
     // don't dominate. Open on demand.
@@ -359,6 +367,13 @@ export class SelectionManager {
 
     content.innerHTML = html;
     this.wireListButtons_(displayName);
+
+    // Rise/set searches and the altitude curve take tens of ms on a phone:
+    // show the panel first, fill them in on the next task.
+    const token = ++this.infoToken_;
+    setTimeout(() => {
+      if (token === this.infoToken_) this.fillObserving_(obj);
+    }, 0);
 
     // Async extras: the description fetch fills the placeholder above, and the
     // best image loads into #main-image.
@@ -397,17 +412,35 @@ export class SelectionManager {
   }
 
   /**
-   * Rise, highest point and set for the observer, as fact rows.
+   * When to look: rise, highest point and set rows, and the altitude chart
+   * for the night. Left empty without a location.
    * @param {!Object} obj - Selected object
-   * @returns {string} HTML, empty without a location
    * @private
    */
-  observingRows_(obj) {
+  fillObserving_(obj) {
     const location = this.deps_.getObserverLocation?.();
     const now = this.deps_.getTime?.();
-    if (!location || !now) return '';
+    if (!location || !now) return;
+
+    const facts = domCache.get('observing-facts');
     const times = riseTransitSet(obj, location, now);
-    if (!times) return '';
+    if (facts && times) facts.outerHTML = this.observingRows_(times);
+
+    const chart = domCache.get('info-altitude');
+    const night = obj.name === 'Sun' ? null : nightWindow(location, now);
+    if (chart && night) {
+      const {from, to} = chartSpan(night);
+      chart.innerHTML = altitudeChartSvg(altitudeCurve(obj, location, from, to), night, now);
+    }
+  }
+
+  /**
+   * Rise, highest point and set as fact rows.
+   * @param {!Object} times - From riseTransitSet
+   * @returns {string} HTML
+   * @private
+   */
+  observingRows_(times) {
     if (times.neverUp) return this.factRow_('Visibility', 'Never rises from here');
 
     let html = '';
@@ -420,27 +453,6 @@ export class SelectionManager {
         `${formatClockTime(times.transit)} · ${times.transitAltitude.toFixed(0)}°`);
     if (times.set) html += this.factRow_('Sets', formatClockTime(times.set));
     return html;
-  }
-
-  /**
-   * Altitude from sunset to sunrise, as a small chart.
-   * @param {!Object} obj - Selected object
-   * @returns {string} HTML, empty without a location or for the Sun
-   * @private
-   */
-  altitudeChart_(obj) {
-    const location = this.deps_.getObserverLocation?.();
-    const now = this.deps_.getTime?.();
-    if (!location || !now || obj.name === 'Sun') return '';
-    const night = nightWindow(location, now);
-    if (!night) return '';
-    const HOUR = 3600 * 1000;
-    const from = new Date((night.sunset ?? new Date(night.start.getTime() + 6 * HOUR))
-        .getTime() - HOUR / 2);
-    const to = new Date((night.sunrise ?? new Date(night.start.getTime() + 18 * HOUR))
-        .getTime() + HOUR / 2);
-    const svg = altitudeChartSvg(altitudeCurve(obj, location, from, to), night, now);
-    return svg ? `<div class="info-altitude">${svg}</div>` : '';
   }
 
   /**
@@ -465,17 +477,6 @@ export class SelectionManager {
   formatLightYears_(ly) {
     if (ly < 100) return ly.toFixed(1);
     return Math.round(ly).toLocaleString();
-  }
-
-  /**
-   * Human label for a moon phase fraction, e.g. "Waxing Gibbous (63%)".
-   * @param {number} phase - Moon phase 0..1 (0 = new, 0.5 = full)
-   * @returns {string}
-   * @private
-   */
-  moonPhaseLabel_(phase) {
-    const lit = (moonIllumination(phase) * 100).toFixed(0);
-    return `${moonPhaseName(phase).name} (${lit}% lit)`;
   }
 
   /**
@@ -720,8 +721,8 @@ export class SelectionManager {
       this.displayUnavailable_(container);
       return;
     }
-    const info = getPlanetImageInfo(obj.name);
-    this.displayImage_(container, obj, url, info.source, 'tier-iconic', info.source);
+    const credit = getPlanetImageCredit(obj.name);
+    this.displayImage_(container, obj, url, credit, 'tier-iconic', credit);
   }
 
   /**

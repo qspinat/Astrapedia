@@ -11,7 +11,7 @@
  * State is persisted so the mode survives reloads and app restarts.
  */
 
-import {safeLocalStorage} from '../core/Utils.js';
+import {clamp, safeLocalStorage} from '../core/Utils.js';
 
 const STORAGE_KEY = 'astrapedia-night-vision';
 const BRIGHTNESS_KEY = 'astrapedia-night-brightness';
@@ -75,18 +75,21 @@ export class NightVision {
   }
 
   /**
-   * Dim the night-mode sky and UI further, and remember it. Even red light
-   * costs dark adaptation, so the dimmest usable setting is the best one.
+   * Dim the night-mode sky and UI further. Even red light costs dark
+   * adaptation, so the dimmest usable setting is the best one.
    * @param {number} level - 0.2..1 (clamped)
+   * @param {boolean=} persist - False while a slider is still moving
    */
-  setBrightness(level) {
+  setBrightness(level, persist = true) {
     const value = Number(level);
     if (!Number.isFinite(value)) return;
-    this.brightness_ = Math.min(1, Math.max(MIN_NIGHT_BRIGHTNESS, value));
-    try {
-      this.storage_?.setItem(BRIGHTNESS_KEY, String(this.brightness_));
-    } catch (e) {
-      // Storage unavailable: the level holds for this session.
+    this.brightness_ = clamp(value, MIN_NIGHT_BRIGHTNESS, 1);
+    if (persist) {
+      try {
+        this.storage_?.setItem(BRIGHTNESS_KEY, String(this.brightness_));
+      } catch (e) {
+        // Storage unavailable: the level holds for this session.
+      }
     }
     this.apply_();
   }
@@ -131,8 +134,7 @@ export class NightVision {
   readBrightness_() {
     try {
       const stored = parseFloat(this.storage_?.getItem(BRIGHTNESS_KEY));
-      return Number.isFinite(stored) ?
-          Math.min(1, Math.max(MIN_NIGHT_BRIGHTNESS, stored)) : 1;
+      return Number.isFinite(stored) ? clamp(stored, MIN_NIGHT_BRIGHTNESS, 1) : 1;
     } catch (e) {
       return 1;
     }
@@ -142,6 +144,7 @@ export class NightVision {
   apply_() {
     this.body_?.classList.toggle(BODY_CLASS, this.enabled_);
     this.body_?.style?.setProperty('--nv-brightness', String(this.brightness_));
+    this.body_?.classList.toggle('nv-dimmed', this.brightness_ < 1);
     for (const el of this.toggles_) this.syncControl_(el);
   }
 

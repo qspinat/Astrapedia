@@ -136,8 +136,8 @@ describe('PlanetRenderer during time playback', () => {
      * @return {!Object} The sprite the load targets.
      */
     function startImageLoad() {
-      const sprite = renderer.sprites_.find((s) => s.userData.imageUrl);
-      renderer.loadPlanetImage_(sprite, sprite.userData.imageUrl);
+      const sprite = renderer.sprites_.find((s) => s.userData.name === 'Mars');
+      renderer.loadPlanetImage_(sprite);
       return sprite;
     }
 
@@ -181,7 +181,7 @@ describe('PlanetRenderer during time playback', () => {
 
     test('cuts a round body out of its photograph at true size', () => {
       const moon = renderer.sprites_.find((s) => s.userData.name === 'Moon');
-      renderer.loadPlanetImage_(moon, moon.userData.imageUrl);
+      renderer.loadPlanetImage_(moon);
       TextureLoader.resolveAll();
 
       expect(moon.material.map.isCanvasTexture).toBe(true);
@@ -191,7 +191,7 @@ describe('PlanetRenderer during time playback', () => {
 
     test('draws Saturn additively, since its rings do not fit a disc', () => {
       const saturn = renderer.sprites_.find((s) => s.userData.name === 'Saturn');
-      renderer.loadPlanetImage_(saturn, saturn.userData.imageUrl);
+      renderer.loadPlanetImage_(saturn);
       TextureLoader.resolveAll();
 
       expect(saturn.material.map.isCanvasTexture).toBeFalsy();
@@ -200,7 +200,7 @@ describe('PlanetRenderer during time playback', () => {
 
     test('falls back to the next photograph when one fails', () => {
       const moon = renderer.sprites_.find((s) => s.userData.name === 'Moon');
-      renderer.loadPlanetImage_(moon, moon.userData.imageUrl);
+      renderer.loadPlanetImage_(moon);
       const [first] = TextureLoader.pending.splice(0);
       first.onError(new Error('404'));
 

@@ -106,8 +106,10 @@ export class FinderOverlay {
       });
     }
 
-    // Eyepiece kit or telescope changed: the eyepiece circles change size.
     this.subscriptions_.push(
+        // Zoom or screen size changed.
+        globalEventBus.on(Events.FOV_CHANGED, ({fov}) => this.update(fov)),
+        // Eyepiece kit or telescope changed: the eyepiece circles change size.
         globalEventBus.on(Events.TELESCOPE_COMPUTED, () => this.redraw_()));
     logger.info('Initialized');
   }
@@ -130,8 +132,7 @@ export class FinderOverlay {
   }
 
   /**
-   * Called with the camera's vertical FOV whenever it or the screen size
-   * changes.
+   * Redraw for the camera's vertical FOV (on FOV_CHANGED).
    * @param {number} fov - Degrees
    */
   update(fov) {

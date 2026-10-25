@@ -82,8 +82,9 @@ export function drawMoonShadow(ctx, cx, cy, r, phase) {
  * @returns {boolean} False if the canvas has no 2D context
  */
 export function composeBodyDisc(canvas, image, disc, phase = null) {
-  canvas.width = COMPOSED_SIZE;
-  canvas.height = COMPOSED_SIZE;
+  // Resizing reallocates the canvas; skip it on a repaint.
+  if (canvas.width !== COMPOSED_SIZE) canvas.width = COMPOSED_SIZE;
+  if (canvas.height !== COMPOSED_SIZE) canvas.height = COMPOSED_SIZE;
   const ctx = canvas.getContext?.('2d');
   if (!ctx) return false;
 
@@ -123,25 +124,46 @@ export function loadCorsImage(url) {
   });
 }
 
+/** @type {!Map<string, !Promise<?{image: !HTMLImageElement, disc: ?Object}>>} */
+const photoCache = new Map();
+
 /**
- * The body's photograph as a PNG data URL, disc cut out and (for the Moon)
- * shaded to the phase — for the info panel. Tries each source in turn.
+ * Load a body's first photograph that works, once per session.
+ * @param {string} name - Body name
+ * @returns {!Promise<?{image: !HTMLImageElement, disc: ?Object}>} Null when
+ *     no source loads (a failure is retried on the next call)
+ */
+function loadBodyPhoto(name) {
+  if (!photoCache.has(name)) {
+    const load = (async () => {
+      for (const {url, disc} of getPlanetImageSources(name)) {
+        try {
+          return {image: await loadCorsImage(url), disc};
+        } catch (e) {
+          // Try the next source.
+        }
+      }
+      photoCache.delete(name);
+      return null;
+    })();
+    photoCache.set(name, load);
+  }
+  return photoCache.get(name);
+}
+
+/**
+ * The body's photograph for the info panel: disc cut out and, for the Moon,
+ * shaded to the phase.
  * @param {string} name - Body name
  * @param {?number=} phase - Lunar phase, or null for none
- * @returns {!Promise<?string>} Data URL, or null when no source loads
+ * @returns {!Promise<?string>} Image URL (a PNG data URL when composed), or
+ *     null when no source loads
  */
 export async function renderBodyImage(name, phase = null) {
-  for (const {url, disc} of getPlanetImageSources(name)) {
-    let image;
-    try {
-      image = await loadCorsImage(url);
-    } catch (e) {
-      continue;
-    }
-    if (!disc) return url;
-    const canvas = document.createElement('canvas');
-    if (composeBodyDisc(canvas, image, disc, phase)) return canvas.toDataURL('image/png');
-    return url;
-  }
-  return null;
+  const photo = await loadBodyPhoto(name);
+  if (!photo) return null;
+  if (!photo.disc) return photo.image.src;
+  const canvas = document.createElement('canvas');
+  return composeBodyDisc(canvas, photo.image, photo.disc, phase) ?
+      canvas.toDataURL('image/png') : photo.image.src;
 }

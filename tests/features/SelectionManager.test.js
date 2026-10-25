@@ -366,15 +366,16 @@ describe('SelectionManager', () => {
 
     beforeAll(() => installAstronomy());
 
-    const panelWith = (deps) => {
+    const panelWith = async (deps) => {
       const m = new SelectionManager({...mockDeps, ...deps});
       m.showObjectInfo_(vega);
+      await new Promise((resolve) => setTimeout(resolve, 0));
       m.dispose();
       return document.getElementById('info-content');
     };
 
-    it('lists rise, highest point and set for the observer', () => {
-      const panel = panelWith({
+    it('lists rise, highest point and set for the observer', async () => {
+      const panel = await panelWith({
         getObserverLocation: () => ({lat: 48.8566, lon: 2.3522}),
         getTime: () => new Date('2026-12-21T20:00:00Z'),
       });
@@ -383,16 +384,16 @@ describe('SelectionManager', () => {
       expect(panel.querySelector('.alt-chart')).not.toBeNull();
     });
 
-    it('says when an object never rises', () => {
-      const panel = panelWith({
+    it('says when an object never rises', async () => {
+      const panel = await panelWith({
         getObserverLocation: () => ({lat: -60, lon: 0}),
         getTime: () => new Date('2026-12-21T20:00:00Z'),
       });
       expect(panel.textContent).toContain('Never rises from here');
     });
 
-    it('leaves the times out without a location', () => {
-      const panel = panelWith({getObserverLocation: () => null, getTime: () => new Date()});
+    it('leaves the times out without a location', async () => {
+      const panel = await panelWith({getObserverLocation: () => null, getTime: () => new Date()});
       expect(panel.textContent).not.toContain('Highest');
     });
   });

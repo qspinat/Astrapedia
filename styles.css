@@ -110,13 +110,14 @@ body.night-vision {
    (a plain dark-red multiply left faint stars invisible). pointer-events:none
    so it never blocks panning or selection. */
 body.night-vision #canvas-container {
-    filter: grayscale(1) brightness(var(--nv-brightness, 1));
+    filter: grayscale(1);
 }
 
-/* The brightness setting dims the UI too. #ui-overlay is a fixed full-screen
-   box, so the filter (which makes it the containing block of its fixed
-   panels) moves nothing. */
-body.night-vision #ui-overlay {
+/* The brightness setting also dims the UI, only when below full so an
+   undimmed UI is not given its own filter layer. #ui-overlay is a fixed
+   full-screen box, so the filter (which makes it the containing block of its
+   fixed panels) moves nothing. */
+body.night-vision.nv-dimmed #ui-overlay {
     filter: brightness(var(--nv-brightness, 1));
 }
 
@@ -133,7 +134,8 @@ body.night-vision .night-only {
     position: fixed;
     inset: 0;
     z-index: var(--z-nightvision);
-    background: #d00000;
+    /* Brightness scales the red the sky is multiplied by: one layer does both. */
+    background: rgb(calc(208 * var(--nv-brightness, 1)) 0 0);
     mix-blend-mode: multiply;
     pointer-events: none;
     display: none;

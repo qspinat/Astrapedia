@@ -417,16 +417,8 @@ export class ClickHandler {
     }
 
     if (closestDSO) {
-      const clickedObject = {
-        name: closestDSO.name || `DSO at RA ${closestDSO.ra.toFixed(2)}`,
-        type: getDsoTypeName(closestDSO.type),
-        subtype: closestDSO.type,
-        ra: closestDSO.ra,
-        dec: closestDSO.dec,
-        mag: closestDSO.mag,
-        size_major: closestDSO.size_major,
-        size_minor: closestDSO.size_minor,
-      };
+      const clickedObject = toSelectableDso(closestDSO);
+      if (!closestDSO.name) clickedObject.name = `DSO at RA ${closestDSO.ra.toFixed(2)}`;
       this.handleObjectClick_(clickedObject);
       return true;
     }

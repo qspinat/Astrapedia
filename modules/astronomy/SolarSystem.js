@@ -6,7 +6,6 @@
 import {dateToJulianDate} from '../core/CoordinateUtils.js';
 import {ASTRONOMY} from '../core/Constants.js';
 import {createLogger} from '../core/Logger.js';
-import {getPlanetImageUrl} from '../data/PlanetImages.js';
 
 const logger = createLogger('SolarSystem');
 
@@ -319,62 +318,53 @@ export const PLANET_DEFAULTS = [
     mag: -26.7,
     color: 0xffff00,
     angularSize: 32,
-    get imageUrl() { return getPlanetImageUrl('Sun'); },
   },
   {
     name: 'Moon',
     mag: -12.7,
     color: 0xc0c0c0,
     angularSize: 31,
-    get imageUrl() { return getPlanetImageUrl('Moon'); },
   },
   {
     name: 'Mercury',
     mag: 0.5,
     color: 0xb5b5b5,
     angularSize: 0.1,
-    get imageUrl() { return getPlanetImageUrl('Mercury'); },
   },
   {
     name: 'Venus',
     mag: -4.0,
     color: 0xfffacd,
     angularSize: 0.4,
-    get imageUrl() { return getPlanetImageUrl('Venus'); },
   },
   {
     name: 'Mars',
     mag: 1.2,
     color: 0xcd5c5c,
     angularSize: 0.1,
-    get imageUrl() { return getPlanetImageUrl('Mars'); },
   },
   {
     name: 'Jupiter',
     mag: -2.5,
     color: 0xffe4b5,
     angularSize: 0.7,
-    get imageUrl() { return getPlanetImageUrl('Jupiter'); },
   },
   {
     name: 'Saturn',
     mag: 0.8,
     color: 0xf4d03f,
     angularSize: 0.3,
-    get imageUrl() { return getPlanetImageUrl('Saturn'); },
   },
   {
     name: 'Uranus',
     mag: 5.7,
     color: 0xafeeee,
     angularSize: 0.06,
-    get imageUrl() { return getPlanetImageUrl('Uranus'); },
   },
   {
     name: 'Neptune',
     mag: 7.9,
     color: 0x4169e1,
     angularSize: 0.04,
-    get imageUrl() { return getPlanetImageUrl('Neptune'); },
   },
 ];

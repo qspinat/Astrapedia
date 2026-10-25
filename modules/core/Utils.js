@@ -102,12 +102,17 @@ export function lerp(a, b, t) {
  *
  * @param {!HTMLElement} button - Button element
  * @param {function(): void} handler - Click handler
+ * @param {{onLongPress: (function(): void|undefined)}=} options - A hold
+ *     calls onLongPress instead of the click handler
  */
-export function addMobileButtonListener(button, handler) {
+export function addMobileButtonListener(button, handler, {onLongPress} = {}) {
   // Track if handler was recently called to prevent double execution
   let handlerCalled = false;
+  const press = onLongPress ? addLongPressListener(button, onLongPress) : null;
 
   const callHandler = () => {
+    // The tap that ends a hold still arrives; the hold already acted.
+    if (press?.consume()) return;
     if (handlerCalled) return;
     handlerCalled = true;
     // Reset after a short delay to allow future clicks
@@ -164,9 +169,9 @@ export function addMobileButtonListener(button, handler) {
 }
 
 /**
- * Fire a handler when a control is held down. Pair it with
- * addMobileButtonListener for the tap: the tap that ends a long press still
- * arrives, so the tap handler should start with `if (press.consume()) return;`.
+ * Fire a handler when a control is held down. For a button that also has a
+ * tap action, use addMobileButtonListener's onLongPress option instead,
+ * which ignores the tap that ends the hold.
  *
  * @param {!HTMLElement} el - Control element
  * @param {function(): void} onLongPress - Called once the hold lasts `ms`

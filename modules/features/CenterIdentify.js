@@ -5,36 +5,16 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {angularDistance} from '../core/CoordinateUtils.js';
+import {findNearestObject} from '../core/CoordinateUtils.js';
 import {addMobileButtonListener} from '../core/Utils.js';
 import {domCache} from '../ui/DOMCache.js';
 
-/** How often the centre is re-identified while pointing, in ms. */
-const IDENTIFY_INTERVAL_MS = 300;
+/** Least time between identifications while the phone moves, in ms. */
+const IDENTIFY_THROTTLE_MS = 300;
 
 /** Search radius as a fraction of the vertical FOV, with a floor in degrees. */
 const RADIUS_FOV_FRACTION = 0.06;
 const MIN_RADIUS_DEG = 0.3;
-
-/**
- * The object nearest to a sky position, within a radius.
- * @param {{ra: number, dec: number}} center - Degrees
- * @param {number} radiusDeg - Search radius in degrees
- * @param {!Iterable<{ra: number, dec: number}>} candidates
- * @returns {?Object} The nearest candidate, or null if none is in range
- */
-export function findNearestObject(center, radiusDeg, candidates) {
-  let nearest = null;
-  let nearestDist = radiusDeg;
-  for (const candidate of candidates) {
-    const dist = angularDistance(center.ra, center.dec, candidate.ra, candidate.dec);
-    if (dist < nearestDist) {
-      nearestDist = dist;
-      nearest = candidate;
-    }
-  }
-  return nearest;
-}
 
 /**
  * Shows the crosshair and the name of the object at the screen centre while
@@ -53,8 +33,11 @@ export class CenterIdentifier {
     /** @private @const */
     this.deps_ = dependencies;
 
-    /** @private {?number} */
-    this.interval_ = null;
+    /** @private {boolean} */
+    this.active_ = false;
+
+    /** @private {number} When the centre was last identified */
+    this.lastIdentified_ = -Infinity;
 
     /** @private {?Object} Object currently named */
     this.current_ = null;
@@ -69,7 +52,14 @@ export class CenterIdentifier {
   initialize() {
     this.subscriptions_.push(
         globalEventBus.on(Events.COMPASS_ENABLED, () => this.start_()),
-        globalEventBus.on(Events.COMPASS_DISABLED, () => this.stop_()));
+        globalEventBus.on(Events.COMPASS_DISABLED, () => this.stop_()),
+        // The view only moves when the phone does: follow its heading
+        // updates, throttled, rather than polling.
+        globalEventBus.on(Events.COMPASS_HEADING, () => {
+          if (this.active_ && performance.now() - this.lastIdentified_ >= IDENTIFY_THROTTLE_MS) {
+            this.identify_();
+          }
+        }));
 
     const label = domCache.get('center-label');
     if (label) {
@@ -81,16 +71,14 @@ export class CenterIdentifier {
 
   /** @private */
   start_() {
-    this.stop_();
+    this.active_ = true;
     domCache.get('center-identify')?.classList.add('visible');
     this.identify_();
-    this.interval_ = setInterval(() => this.identify_(), IDENTIFY_INTERVAL_MS);
   }
 
   /** @private */
   stop_() {
-    clearInterval(this.interval_);
-    this.interval_ = null;
+    this.active_ = false;
     this.current_ = null;
     domCache.get('center-identify')?.classList.remove('visible');
   }
@@ -100,6 +88,7 @@ export class CenterIdentifier {
    * @private
    */
   identify_() {
+    this.lastIdentified_ = performance.now();
     const center = this.deps_.getViewCenterRaDec();
     const radius = Math.max(MIN_RADIUS_DEG, this.deps_.getFov() * RADIUS_FOV_FRACTION);
     const found = findNearestObject(center, radius, this.deps_.getCandidates());

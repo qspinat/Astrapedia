@@ -48,3 +48,13 @@ export function moonPhaseName(phase) {
   if (phase < T.WANING_CRESCENT_END) return {name: 'Waning Crescent', emoji: '🌘'};
   return {name: 'New Moon', emoji: '🌑'};
 }
+
+/**
+ * Human label for a phase, e.g. "Waxing Gibbous (63% lit)".
+ * @param {number} phase - Moon phase 0..1 (0 = new, 0.5 = full)
+ * @returns {string}
+ */
+export function moonPhaseLabel(phase) {
+  const lit = (moonIllumination(phase) * 100).toFixed(0);
+  return `${moonPhaseName(phase).name} (${lit}% lit)`;
+}

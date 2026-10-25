@@ -6,7 +6,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TELESCOPE} from '../core/Constants.js';
-import {findNearestObject} from './CenterIdentify.js';
+import {findNearestObject} from '../core/CoordinateUtils.js';
 import {telescopeLimitingMagnitude, telescopeGain} from '../core/MagnitudeUtils.js';
 import {createLogger} from '../core/Logger.js';
 import {safeSetJson, safeGetJson} from '../core/Utils.js';
@@ -285,6 +285,20 @@ export function reticleCameraFov(trueFov, width, height) {
 }
 
 /**
+ * An eyepiece from untrusted values (storage, presets, inputs): the usable
+ * fields of `source` over `base`.
+ * @param {*} source
+ * @param {!EyepieceConfig=} base - Fills fields `source` lacks
+ * @returns {!EyepieceConfig}
+ */
+function toEyepiece(source, base = {
+  focalLength: TELESCOPE.DEFAULT_EYEPIECE_FL,
+  apparentFov: TELESCOPE.DEFAULT_EYEPIECE_AFOV,
+}) {
+  return {...base, ...pickPositiveNumbers(source, ['focalLength', 'apparentFov'])};
+}
+
+/**
  * Validate a stored eyepiece kit, dropping malformed entries.
  * @param {*} stored - Untrusted, from localStorage
  * @returns {!Array<!KitEyepiece>} Possibly empty
@@ -292,9 +306,9 @@ export function reticleCameraFov(trueFov, width, height) {
 function sanitizeKit(stored) {
   if (!Array.isArray(stored)) return [];
   return stored
-      .map((e) => ({id: typeof e?.id === 'string' ? e.id : '',
-        ...pickPositiveNumbers(e, ['focalLength', 'apparentFov'])}))
-      .filter((e) => e.id && e.focalLength && e.apparentFov);
+      .filter((e) => typeof e?.id === 'string' && e.id &&
+        Object.keys(pickPositiveNumbers(e, ['focalLength', 'apparentFov'])).length === 2)
+      .map((e) => ({id: e.id, ...toEyepiece(e)}));
 }
 
 /**
@@ -325,11 +339,7 @@ export class TelescopeController {
     };
 
     /** @private {!Array<!KitEyepiece>} The user's eyepieces; never empty */
-    this.eyepieces_ = [{
-      id: 'ep1',
-      focalLength: TELESCOPE.DEFAULT_EYEPIECE_FL,
-      apparentFov: TELESCOPE.DEFAULT_EYEPIECE_AFOV,
-    }];
+    this.eyepieces_ = [{id: 'ep1', ...toEyepiece(null)}];
 
     /** @private {string} */
     this.activeEyepieceId_ = 'ep1';
@@ -621,8 +631,8 @@ export class TelescopeController {
    * @param {!EyepieceConfig} config - Eyepiece configuration
    */
   setEyepiece(config) {
-    Object.assign(this.activeEyepiece_(),
-        pickPositiveNumbers(config, ['focalLength', 'apparentFov']));
+    const active = this.activeEyepiece_();
+    Object.assign(active, toEyepiece(config, active));
     this.eyepiecesChanged_();
   }
 
@@ -646,12 +656,7 @@ export class TelescopeController {
    */
   addEyepiece(config) {
     const id = `ep${Date.now().toString(36)}${this.eyepieces_.length}`;
-    this.eyepieces_.push({
-      id,
-      focalLength: TELESCOPE.DEFAULT_EYEPIECE_FL,
-      apparentFov: TELESCOPE.DEFAULT_EYEPIECE_AFOV,
-      ...pickPositiveNumbers(config, ['focalLength', 'apparentFov']),
-    });
+    this.eyepieces_.push({id, ...toEyepiece(config)});
     this.activeEyepieceId_ = id;
     this.eyepiecesChanged_();
     return id;
@@ -851,11 +856,7 @@ export class TelescopeController {
     };
     // A preset names one eyepiece: use it from the kit, adding it if the
     // kit does not have it yet.
-    const eyepiece = {
-      focalLength: TELESCOPE.DEFAULT_EYEPIECE_FL,
-      apparentFov: TELESCOPE.DEFAULT_EYEPIECE_AFOV,
-      ...pickPositiveNumbers(preset.eyepiece, ['focalLength', 'apparentFov']),
-    };
+    const eyepiece = toEyepiece(preset.eyepiece);
     const owned = this.eyepieces_.find((e) =>
       e.focalLength === eyepiece.focalLength && e.apparentFov === eyepiece.apparentFov);
     if (owned) {
@@ -939,8 +940,7 @@ export class TelescopeController {
             data.currentConfig.activeEyepieceId : kit[0].id;
       } else {
         // Settings saved before the kit existed held a single eyepiece.
-        Object.assign(this.eyepieces_[0], pickPositiveNumbers(
-            data.currentConfig.eyepiece, ['focalLength', 'apparentFov']));
+        Object.assign(this.eyepieces_[0], toEyepiece(data.currentConfig.eyepiece));
       }
     }
 

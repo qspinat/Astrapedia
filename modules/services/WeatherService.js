@@ -22,15 +22,12 @@ const REFRESH_MS = 60 * 60 * 1000;
 /** A cached forecast this old is too stale to show. */
 const MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
-const HOURLY_FIELDS = ['cloud_cover', 'cloud_cover_low', 'cloud_cover_mid',
-  'cloud_cover_high', 'relative_humidity_2m', 'dew_point_2m', 'temperature_2m',
-  'wind_speed_10m'];
+const HOURLY_FIELDS = ['cloud_cover', 'dew_point_2m', 'temperature_2m'];
 
 /**
  * One forecast hour.
- * @typedef {{time: !Date, cloudCover: number, cloudLow: number,
- *     cloudMid: number, cloudHigh: number, humidity: number,
- *     dewPoint: number, temperature: number, windSpeed: number}}
+ * @typedef {{time: !Date, cloudCover: number, dewPoint: number,
+ *     temperature: number}}
  */
 let ForecastHour;
 
@@ -64,13 +61,8 @@ export function parseForecast(json) {
   return h.time.map((t, i) => ({
     time: new Date(t * 1000),
     cloudCover: h.cloud_cover?.[i],
-    cloudLow: h.cloud_cover_low?.[i],
-    cloudMid: h.cloud_cover_mid?.[i],
-    cloudHigh: h.cloud_cover_high?.[i],
-    humidity: h.relative_humidity_2m?.[i],
     dewPoint: h.dew_point_2m?.[i],
     temperature: h.temperature_2m?.[i],
-    windSpeed: h.wind_speed_10m?.[i],
   })).filter((hour) => Number.isFinite(hour.cloudCover));
 }
 

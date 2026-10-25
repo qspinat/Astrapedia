@@ -6,18 +6,22 @@
  */
 
 import {createLogger} from '../core/Logger.js';
+import {PLANET_DEFAULTS} from './SolarSystem.js';
 
 const logger = createLogger('Observability');
 
-const HOUR_MS = 3600 * 1000;
-const DAY_MS = 24 * HOUR_MS;
+export const HOUR_MS = 3600 * 1000;
+export const DAY_MS = 24 * HOUR_MS;
+
+/** Recent nightWindow results; the info panel and Tonight panel share them. */
+const nightCache = new Map();
+const NIGHT_CACHE_SIZE = 8;
 
 /** Sun altitude at the end of astronomical twilight, degrees. */
 export const ASTRONOMICAL_TWILIGHT_DEG = -18;
 
-/** Solar-system bodies astronomy-engine knows by name. */
-const BODY_NAMES = new Set(['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter',
-  'Saturn', 'Uranus', 'Neptune', 'Pluto']);
+/** Solar-system bodies the app tracks, which astronomy-engine knows by name. */
+const BODY_NAMES = new Set(PLANET_DEFAULTS.map((p) => p.name));
 
 /**
  * @param {{lat: number, lon: number, height: (number|undefined)}} location
@@ -111,10 +115,27 @@ export function nightStart(date, lon) {
  */
 export function nightWindow(location, date) {
   if (typeof Astronomy === 'undefined' || !location) return null;
+  const start = nightStart(date, location.lon);
+  const key = `${location.lat.toFixed(3)},${location.lon.toFixed(3)},${start.getTime()}`;
+  if (nightCache.has(key)) return nightCache.get(key);
+  const night = computeNightWindow_(location, start);
+  if (night) {
+    if (nightCache.size >= NIGHT_CACHE_SIZE) nightCache.delete(nightCache.keys().next().value);
+    nightCache.set(key, night);
+  }
+  return night;
+}
+
+/**
+ * @param {{lat: number, lon: number}} location
+ * @param {!Date} start - From nightStart
+ * @returns {?Object} See nightWindow
+ * @private
+ */
+function computeNightWindow_(location, start) {
   try {
     const observer = observerFor(location);
     const sun = Astronomy.Body.Sun;
-    const start = nightStart(date, location.lon);
     const sunset = toDate(Astronomy.SearchRiseSet(sun, observer, -1, start, 1));
     const sunrise = toDate(Astronomy.SearchRiseSet(sun, observer, +1, sunset || start, 1));
     const dusk = toDate(Astronomy.SearchAltitude(sun, observer, -1, start, 1,
@@ -135,6 +156,21 @@ export function nightWindow(location, date) {
     logger.warn('Night window failed:', error);
     return null;
   }
+}
+
+/**
+ * The span an altitude chart covers: sunset to sunrise with half an hour
+ * either side, or 18:00 to 06:00 solar time where the Sun does not set or
+ * rise that night.
+ * @param {{start: !Date, sunset: ?Date, sunrise: ?Date}} night - From nightWindow
+ * @returns {{from: !Date, to: !Date}}
+ */
+export function chartSpan(night) {
+  const start = night.start.getTime();
+  return {
+    from: new Date((night.sunset?.getTime() ?? start + 6 * HOUR_MS) - HOUR_MS / 2),
+    to: new Date((night.sunrise?.getTime() ?? start + 18 * HOUR_MS) + HOUR_MS / 2),
+  };
 }
 
 /**

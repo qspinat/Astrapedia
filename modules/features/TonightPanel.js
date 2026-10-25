@@ -8,8 +8,8 @@
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {formatClockTime, safeGetJson, safeSetJson} from '../core/Utils.js';
-import {moonIllumination, moonPhaseName} from '../core/MoonPhase.js';
-import {nightWindow} from '../astronomy/Observability.js';
+import {moonIllumination, moonPhaseLabel} from '../core/MoonPhase.js';
+import {HOUR_MS, nightWindow} from '../astronomy/Observability.js';
 import {planningWindow, rankTonight} from './TonightPlanner.js';
 import {dewRisk} from '../services/WeatherService.js';
 import {domCache} from '../ui/DOMCache.js';
@@ -18,6 +18,10 @@ import {observingLists} from './ObservingLists.js';
 const PANEL_ID = 'visible-tonight-panel';
 const PREFS_KEY = 'astrapedia_tonight_prefs';
 const MAX_ROWS = 40;
+
+/** Chip groups: container id and the preference each one sets. */
+const CHIP_GROUPS = [['tonight-instrument', 'instrument'], ['tonight-sort', 'sort'],
+  ['tonight-filter', 'filter']];
 
 /** @const {!Object<string, function(!Object, !Object): number>} */
 const SORTS = {
@@ -82,8 +86,7 @@ export class TonightPanel {
       if (this.deps_.panelManager.isPanelOpen(PANEL_ID)) this.render();
     }));
 
-    for (const [group, key] of [['tonight-instrument', 'instrument'],
-      ['tonight-sort', 'sort'], ['tonight-filter', 'filter']]) {
+    for (const [group, key] of CHIP_GROUPS) {
       domCache.get(group)?.addEventListener('click', (e) => {
         const chip = e.target.closest?.(`[data-${key}]`);
         if (!chip) return;
@@ -128,8 +131,10 @@ export class TonightPanel {
     const token = ++this.renderToken_;
     const night = location ? nightWindow(location, now) : null;
     const span = planningWindow(night);
+    const planets = this.deps_.getPlanets();
+    const moon = planets.find((p) => p.name === 'Moon');
 
-    this.renderSummary_(location, night, span);
+    this.renderSummary_(location, night, span, moon);
 
     if (!location || !span) {
       this.ranked_ = [];
@@ -138,14 +143,13 @@ export class TonightPanel {
       return;
     }
 
-    const moonBody = this.deps_.getPlanets().find((p) => p.name === 'Moon');
     this.ranked_ = rankTonight({
       location,
       window: span,
       limitMag: this.limitMag_(),
-      planets: this.deps_.getPlanets(),
+      planets,
       dsos: this.deps_.getDSOs(),
-      moon: moonBody ? {...moonBody, illumination: moonIllumination(moonBody.phase ?? 0)} : null,
+      moon: moon ? {...moon, illumination: moonIllumination(moon.phase ?? 0)} : null,
     });
     this.renderList_();
 
@@ -171,9 +175,10 @@ export class TonightPanel {
    * @param {?Object} location
    * @param {?Object} night
    * @param {?{from: !Date, to: !Date, fullyDark: boolean}} span - Planning window
+   * @param {?Object} moon - The Moon's position and phase
    * @private
    */
-  renderSummary_(location, night, span) {
+  renderSummary_(location, night, span, moon) {
     const summary = domCache.get('tonight-summary');
     if (!summary) return;
     const change = '<button class="tonight-link" data-action="location">Change</button>';
@@ -197,11 +202,9 @@ export class TonightPanel {
           `${clock(span.to)}</p>`;
     }
 
-    const moon = this.deps_.getPlanets().find((p) => p.name === 'Moon');
     if (moon && night) {
-      const lit = Math.round(moonIllumination(moon.phase ?? 0) * 100);
-      html += `<p class="tonight-muted">Moon: ${escapeHtml(moonPhaseName(moon.phase ?? 0).name)} ` +
-          `${lit}% · rises ${clock(night.moonrise)}, sets ${clock(night.moonset)}</p>`;
+      html += `<p class="tonight-muted">Moon: ${escapeHtml(moonPhaseLabel(moon.phase ?? 0))} ` +
+          `· rises ${clock(night.moonrise)}, sets ${clock(night.moonset)}</p>`;
     }
     summary.innerHTML = html;
   }
@@ -223,8 +226,7 @@ export class TonightPanel {
 
   /** @private */
   renderList_() {
-    for (const [group, key] of [['tonight-instrument', 'instrument'],
-      ['tonight-sort', 'sort'], ['tonight-filter', 'filter']]) {
+    for (const [group, key] of CHIP_GROUPS) {
       domCache.get(group)?.querySelectorAll(`[data-${key}]`).forEach((chip) => {
         chip.setAttribute('aria-checked', String(chip.dataset[key] === this.prefs_[key]));
       });
@@ -280,9 +282,8 @@ export class TonightPanel {
    */
   weatherHtml_(hours, span) {
     if (!hours) return '<p class="tonight-muted">No cloud forecast (offline or turned off).</p>';
-    const HOUR = 3600 * 1000;
     const night = hours.filter((h) =>
-      h.time.getTime() >= span.from.getTime() - HOUR && h.time.getTime() <= span.to.getTime());
+      h.time.getTime() >= span.from.getTime() - HOUR_MS && h.time.getTime() <= span.to.getTime());
     if (night.length === 0) return '<p class="tonight-muted">No forecast for tonight yet.</p>';
 
     const bars = night.map((h) => `<span class="tonight-cloud" ` +

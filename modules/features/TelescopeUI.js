@@ -6,7 +6,7 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {TELESCOPE} from '../core/Constants.js';
-import {addLongPressListener, addMobileButtonListener} from '../core/Utils.js';
+import {addMobileButtonListener} from '../core/Utils.js';
 import {escapeHtml} from '../core/SecurityUtils.js';
 import {domCache} from '../ui/DOMCache.js';
 import {TelescopeController, isDiffuseObject} from './TelescopeController.js';
@@ -136,11 +136,8 @@ export class TelescopeUI {
     // Header button: tap toggles the mode, a hold opens the settings.
     const quickToggle = domCache.get('telescope-quick-toggle');
     if (quickToggle) {
-      const press = addLongPressListener(quickToggle, () => this.deps_.openPanel?.());
-      addMobileButtonListener(quickToggle, () => {
-        if (press.consume()) return;
-        this.deps_.toggleMode?.();
-      });
+      addMobileButtonListener(quickToggle, () => this.deps_.toggleMode?.(),
+          {onLongPress: () => this.deps_.openPanel?.()});
     }
 
     // Eyepiece kit: the panel list and the chips under the reticle both

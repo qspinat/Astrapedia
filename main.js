@@ -106,10 +106,9 @@ function initializeUI_(appInstance) {
   telescopeController.initialize();
   window.addEventListener('resize', () => telescopeController.refitView());
 
-  const finderOverlay = initializeFinderOverlay({
+  initializeFinderOverlay({
     getEyepieces: () => telescopeController.getEyepieces(),
   });
-  appInstance.setFovListener((fov) => finderOverlay.update(fov));
 
   // Lets resetView() leave telescope mode and zoom input respect its lock.
   appInstance.setTelescopeController(telescopeController);

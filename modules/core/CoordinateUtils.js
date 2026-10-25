@@ -294,3 +294,23 @@ export const constellationCenter = (constData, getStarById) => {
   }
   return center;
 };
+
+/**
+ * The object nearest to a sky position, within a radius.
+ * @param {{ra: number, dec: number}} center - Degrees
+ * @param {number} radiusDeg - Search radius in degrees
+ * @param {!Iterable<{ra: number, dec: number}>} candidates
+ * @returns {?Object} The nearest candidate, or null if none is in range
+ */
+export function findNearestObject(center, radiusDeg, candidates) {
+  let nearest = null;
+  let nearestDist = radiusDeg;
+  for (const candidate of candidates) {
+    const dist = angularDistance(center.ra, center.dec, candidate.ra, candidate.dec);
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = candidate;
+    }
+  }
+  return nearest;
+}

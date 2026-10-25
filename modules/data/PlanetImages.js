@@ -1,7 +1,10 @@
 /**
- * @fileoverview Centralized planet image URLs with fallback support.
- * All primary URLs use CORS-friendly sources (Wikimedia Commons).
+ * @fileoverview Photographs of the Sun, Moon and planets, each with where its
+ * disc sits in the frame. All URLs are CORS-enabled (Wikimedia Commons), so
+ * they can be drawn to a canvas.
  */
+
+const COMMONS = 'https://upload.wikimedia.org/wikipedia/commons/thumb/';
 
 /**
  * Where a body's disc sits in its photograph: centre and diameter as
@@ -14,122 +17,105 @@
 let BodyDisc;
 
 /**
- * Planet image configuration with primary and fallback URLs.
+ * Photographs per body, in the order to try them, and their credit.
  *
  * Wikimedia thumbnails only exist at standard widths (330/500/960/1280/1920);
  * check edits with `node scripts/check-image-urls.mjs`. A new or replaced
  * photo needs its disc re-measured.
- * @const {!Object<string, {primary: string, fallback: ?string,
- *     primaryDisc: !BodyDisc, fallbackDisc: !BodyDisc, source: string,
- *     tier: string}>}
+ * @const {!Object<string, {sources: !Array<{url: string, disc: !BodyDisc}>,
+ *     credit: string}>}
  */
 export const PLANET_IMAGES = {
   Sun: {
-    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/' +
-      'The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_' +
-      '-_20100819.jpg/960px-The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_' +
-      'Dynamics_Observatory_-_20100819.jpg',
-    fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/' +
-      'The_Sun_in_white_light.jpg/960px-The_Sun_in_white_light.jpg',
-    primaryDisc: {x: 0.497, y: 0.499, diameter: 0.899},
-    fallbackDisc: {x: 0.503, y: 0.504, diameter: 0.842},
-    source: 'NASA/SDO via Wikimedia',
-    tier: 'iconic',
+    sources: [
+      {
+        url: `${COMMONS}b/b4/The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_` +
+          'Dynamics_Observatory_-_20100819.jpg/960px-The_Sun_by_the_Atmospheric_Imaging_' +
+          'Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg',
+        disc: {x: 0.497, y: 0.499, diameter: 0.899},
+      },
+      {
+        url: `${COMMONS}8/83/The_Sun_in_white_light.jpg/960px-The_Sun_in_white_light.jpg`,
+        disc: {x: 0.503, y: 0.504, diameter: 0.842},
+      },
+    ],
+    credit: 'NASA/SDO via Wikimedia',
   },
   Moon: {
-    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/' +
-      'FullMoon2010.jpg/1280px-FullMoon2010.jpg',
-    fallback: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/' +
-      'Full_Moon_Luc_Viatour.jpg/960px-Full_Moon_Luc_Viatour.jpg',
-    primaryDisc: {x: 0.500, y: 0.509, diameter: 0.831},
-    fallbackDisc: {x: 0.499, y: 0.507, diameter: 0.883},
-    source: 'Wikimedia Commons',
-    tier: 'high',
+    sources: [
+      {
+        url: `${COMMONS}e/e1/FullMoon2010.jpg/1280px-FullMoon2010.jpg`,
+        disc: {x: 0.500, y: 0.509, diameter: 0.831},
+      },
+      {
+        url: `${COMMONS}d/dd/Full_Moon_Luc_Viatour.jpg/960px-Full_Moon_Luc_Viatour.jpg`,
+        disc: {x: 0.499, y: 0.507, diameter: 0.883},
+      },
+    ],
+    credit: 'Gregory H. Revera / Luc Viatour via Wikimedia',
   },
   Mercury: {
-    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/' +
-      'Mercury_in_true_color.jpg/960px-Mercury_in_true_color.jpg',
-    fallback: null,
-    primaryDisc: {x: 0.495, y: 0.499, diameter: 0.920},
-    fallbackDisc: null,
-    source: 'NASA/MESSENGER via Wikimedia',
-    tier: 'iconic',
+    sources: [{
+      url: `${COMMONS}4/4a/Mercury_in_true_color.jpg/960px-Mercury_in_true_color.jpg`,
+      disc: {x: 0.495, y: 0.499, diameter: 0.920},
+    }],
+    credit: 'NASA/MESSENGER via Wikimedia',
   },
   Venus: {
-    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/' +
-      'PIA23791-Venus-NewlyProcessedView-20200608.jpg/960px-PIA23791-Venus-' +
-      'NewlyProcessedView-20200608.jpg',
-    fallback: null,
-    primaryDisc: {x: 0.513, y: 0.500, diameter: 0.855},
-    fallbackDisc: null,
-    source: 'NASA/Mariner via Wikimedia',
-    tier: 'iconic',
+    sources: [{
+      url: `${COMMONS}a/a9/PIA23791-Venus-NewlyProcessedView-20200608.jpg/` +
+        '960px-PIA23791-Venus-NewlyProcessedView-20200608.jpg',
+      disc: {x: 0.513, y: 0.500, diameter: 0.855},
+    }],
+    credit: 'NASA/Mariner 10 via Wikimedia',
   },
   Mars: {
-    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/' +
-      'Mars_-_August_30_2021_-_Flickr_-_Kevin_M._Gill.png/500px-Mars_-_August_30_2021' +
-      '_-_Flickr_-_Kevin_M._Gill.png',
-    fallback: null,
-    primaryDisc: {x: 0.507, y: 0.493, diameter: 0.844},
-    fallbackDisc: null,
-    source: 'NASA/Hubble via Wikimedia',
-    tier: 'iconic',
+    // 500px: the 960px PNG is 2.7 MB.
+    sources: [{
+      url: `${COMMONS}0/0c/Mars_-_August_30_2021_-_Flickr_-_Kevin_M._Gill.png/` +
+        '500px-Mars_-_August_30_2021_-_Flickr_-_Kevin_M._Gill.png',
+      disc: {x: 0.507, y: 0.493, diameter: 0.844},
+    }],
+    credit: 'NASA/Kevin M. Gill via Wikimedia',
   },
   Jupiter: {
-    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/' +
-      'Jupiter_OPAL_2024.png/1280px-Jupiter_OPAL_2024.png',
-    fallback: null,
-    primaryDisc: {x: 0.502, y: 0.500, diameter: 0.855},
-    fallbackDisc: null,
-    source: 'NASA/STScI (OPAL) via Wikimedia',
-    tier: 'iconic',
+    sources: [{
+      url: `${COMMONS}e/e2/Jupiter_OPAL_2024.png/1280px-Jupiter_OPAL_2024.png`,
+      disc: {x: 0.502, y: 0.500, diameter: 0.855},
+    }],
+    credit: 'NASA/STScI (OPAL) via Wikimedia',
   },
   Saturn: {
-    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/' +
-      'Saturn_during_Equinox.jpg/960px-Saturn_during_Equinox.jpg',
-    fallback: null,
-    primaryDisc: null,
-    fallbackDisc: null,
-    source: 'NASA/Cassini via Wikimedia',
-    tier: 'iconic',
+    sources: [{
+      url: `${COMMONS}c/c7/Saturn_during_Equinox.jpg/960px-Saturn_during_Equinox.jpg`,
+      disc: null,
+    }],
+    credit: 'NASA/Cassini via Wikimedia',
   },
   Uranus: {
-    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/' +
-      'Uranus2.jpg/960px-Uranus2.jpg',
-    fallback: null,
-    primaryDisc: {x: 0.495, y: 0.496, diameter: 0.811},
-    fallbackDisc: null,
-    source: 'NASA/Voyager via Wikimedia',
-    tier: 'iconic',
+    sources: [{
+      url: `${COMMONS}3/3d/Uranus2.jpg/960px-Uranus2.jpg`,
+      disc: {x: 0.495, y: 0.496, diameter: 0.811},
+    }],
+    credit: 'NASA/Voyager via Wikimedia',
   },
   Neptune: {
-    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/' +
-      'Neptune_Voyager2_color_calibrated.png/960px-Neptune_Voyager2_color_calibrated.png',
-    fallback: null,
-    primaryDisc: {x: 0.498, y: 0.504, diameter: 0.850},
-    fallbackDisc: null,
-    source: 'NASA/Voyager via Wikimedia',
-    tier: 'iconic',
+    sources: [{
+      url: `${COMMONS}b/b9/Neptune_Voyager2_color_calibrated.png/` +
+        '960px-Neptune_Voyager2_color_calibrated.png',
+      disc: {x: 0.498, y: 0.504, diameter: 0.850},
+    }],
+    credit: 'NASA/Voyager via Wikimedia',
   },
   Pluto: {
-    primary: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/' +
-      'Pluto_in_True_Color_-_High-Res.jpg/960px-Pluto_in_True_Color_-_High-Res.jpg',
-    fallback: null,
-    primaryDisc: {x: 0.503, y: 0.493, diameter: 0.865},
-    fallbackDisc: null,
-    source: 'NASA/New Horizons via Wikimedia',
-    tier: 'iconic',
+    sources: [{
+      url: `${COMMONS}e/ef/Pluto_in_True_Color_-_High-Res.jpg/` +
+        '960px-Pluto_in_True_Color_-_High-Res.jpg',
+      disc: {x: 0.503, y: 0.493, diameter: 0.865},
+    }],
+    credit: 'NASA/New Horizons via Wikimedia',
   },
 };
-
-/**
- * Get the primary image URL for a planet.
- * @param {string} name - Planet name
- * @returns {?string} Primary image URL or null
- */
-export function getPlanetImageUrl(name) {
-  return PLANET_IMAGES[name]?.primary || null;
-}
 
 /**
  * A body's photographs in the order to try them, each with its disc.
@@ -137,24 +123,14 @@ export function getPlanetImageUrl(name) {
  * @returns {!Array<{url: string, disc: !BodyDisc}>} Empty if none
  */
 export function getPlanetImageSources(name) {
-  const info = PLANET_IMAGES[name];
-  if (!info) return [];
-  const sources = [{url: info.primary, disc: info.primaryDisc}];
-  if (info.fallback) sources.push({url: info.fallback, disc: info.fallbackDisc});
-  return sources;
+  return PLANET_IMAGES[name]?.sources ?? [];
 }
 
 /**
- * Get planet image metadata.
- * @param {string} name - Planet name
- * @returns {?{url: string, source: string, tier: string}} Image info or null
+ * Credit line for a body's photographs.
+ * @param {string} name - Body name
+ * @returns {?string} Null if the body has no photographs
  */
-export function getPlanetImageInfo(name) {
-  const info = PLANET_IMAGES[name];
-  if (!info) return null;
-  return {
-    url: info.primary,
-    source: info.source,
-    tier: info.tier,
-  };
+export function getPlanetImageCredit(name) {
+  return PLANET_IMAGES[name]?.credit ?? null;
 }

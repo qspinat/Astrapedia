@@ -577,7 +577,11 @@ export class UIController {
     const brightness = domCache.get('night-brightness');
     if (brightness) {
       brightness.value = Math.round(this.nightVision_.getBrightness() * 100);
+      // Apply while sliding; save once on release.
       brightness.addEventListener('input', () => {
+        this.nightVision_.setBrightness(brightness.value / 100, false);
+      });
+      brightness.addEventListener('change', () => {
         this.nightVision_.setBrightness(brightness.value / 100);
       });
     }

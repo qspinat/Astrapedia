@@ -8,9 +8,9 @@
 import {angularDistance, calculateAltitude, calculateLST} from '../core/CoordinateUtils.js';
 import {EXCLUDE_STELLAR_TYPES} from './VisibilityCalculator.js';
 import {toSelectablePlanet} from '../astronomy/SolarSystem.js';
+import {HOUR_MS} from '../astronomy/Observability.js';
 import {toSelectableDso} from '../interaction/ClickHandler.js';
 
-const HOUR_MS = 3600 * 1000;
 
 /** Altitude samples per hour of the window. */
 const SAMPLES_PER_HOUR = 2;
@@ -85,22 +85,23 @@ export function rankTonight({location, window, limitMag, planets, dsos, moon = n
 
   const candidates = [
     ...planets.filter((p) => p.name !== 'Sun' && p.name !== 'Moon' && p.mag < 6)
-        .map((p) => ({object: toSelectablePlanet(p), category: 'planets', type: 'Planet'})),
+        .map((p) => ({record: p, toObject: toSelectablePlanet, category: 'planets'})),
     ...dsos.filter((d) => Number.isFinite(d.mag) && d.mag <= limitMag &&
         !EXCLUDE_STELLAR_TYPES.includes(d.type))
-        .map((d) => ({object: toSelectableDso(d), category: categoryOf(d.type), type: d.type})),
+        .map((d) => ({record: d, toObject: toSelectableDso, category: categoryOf(d.type)})),
   ];
 
   const ranked = [];
-  for (const {object, category, type} of candidates) {
-    const peak = peakOf(object, location.lat, samples);
+  for (const {record, toObject, category} of candidates) {
+    // Most candidates stay too low: only build display objects for the rest.
+    const peak = peakOf(record, location.lat, samples);
     if (peak.altitude < MIN_PEAK_ALTITUDE) continue;
     ranked.push({
-      object,
+      object: toObject(record),
       category,
       peakAltitude: peak.altitude,
       bestTime: peak.time,
-      score: scoreOf(object, type, peak.altitude, limitMag, moon),
+      score: scoreOf(record, category, peak.altitude, limitMag, moon),
     });
   }
   return ranked.sort((a, b) => b.score - a.score);
@@ -122,16 +123,16 @@ function categoryOf(type) {
  * avoids (sin of altitude); brightness by the margin over the limit; a
  * bright Moon nearby hurts faint diffuse objects, not planets.
  * @param {{ra: number, dec: number, mag: number}} object
- * @param {string} type
+ * @param {string} category - From CATEGORIES
  * @param {number} peakAltitude
  * @param {number} limitMag
  * @param {?{ra: number, dec: number, illumination: number}} moon
  * @returns {number}
  */
-function scoreOf(object, type, peakAltitude, limitMag, moon) {
+function scoreOf(object, category, peakAltitude, limitMag, moon) {
   const height = Math.sin(peakAltitude * Math.PI / 180);
   const margin = Math.max(0.5, limitMag - object.mag + 1);
-  if (type === 'Planet') return height * (margin + 4);
+  if (category === 'planets') return height * (margin + 4);
   let moonFactor = 1;
   if (moon) {
     const separation = angularDistance(object.ra, object.dec, moon.ra, moon.dec);
