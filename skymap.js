@@ -1193,6 +1193,7 @@ export class AstrapediaApp {
 
     // Delegate to StarFieldRenderer for main star field
     this.starFieldRenderer_.setMagnitudeLimit(magLimit);
+    this.constellationRenderer_?.setMagnitudeLimit(magLimit);
 
     // Deep sky object halos follow the same limit, so what is drawn matches
     // what can be clicked.

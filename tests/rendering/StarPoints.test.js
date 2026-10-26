@@ -10,8 +10,10 @@ installThreeMock();
 const {
   bvToTemperature,
   createStarMaterial,
+  segmentEndAttributes,
   starColor,
   starDisc,
+  trimLinesAtStars,
   updateStarScreen,
 } = await import('../../modules/rendering/StarPoints.js');
 
@@ -79,5 +81,30 @@ describe('createStarMaterial', () => {
     window.innerHeight = 800;
     updateStarScreen();
     expect(material.uniforms.screenScale.value).toBeLessThan(big);
+  });
+});
+
+describe('line trimming', () => {
+  test('each vertex carries both ends of its segment', () => {
+    const ends = segmentEndAttributes([0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, -1], [1, 2, 3, 4]);
+    expect(ends.segA).toEqual([0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0]);
+    expect(ends.segB).toEqual([1, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0, -1]);
+    expect(ends.magA).toEqual([1, 1, 3, 3]);
+    expect(ends.magB).toEqual([2, 2, 4, 4]);
+  });
+
+  test('the line shader clears a gap at each end', () => {
+    const material = new THREE.LineBasicMaterial();
+    const magLimit = {value: 5};
+    trimLinesAtStars(material, magLimit);
+    const shader = {
+      uniforms: {},
+      vertexShader: 'void main() {\n#include <project_vertex>\n}',
+      fragmentShader: 'void main() {\n#include <clipping_planes_fragment>\n}',
+    };
+    material.onBeforeCompile(shader);
+    expect(shader.uniforms.magLimit).toBe(magLimit);
+    expect(shader.vertexShader).toContain('vEndA');
+    expect(shader.fragmentShader).toContain('discard');
   });
 });

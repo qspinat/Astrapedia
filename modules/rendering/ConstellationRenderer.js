@@ -5,8 +5,9 @@
 
 import {globalEventBus, Events} from '../core/EventBus.js';
 import {raDecToCartesian, angularDistance, sphericalMean} from '../core/CoordinateUtils.js';
-import {SPHERE, CONSTELLATIONS} from '../core/Constants.js';
+import {SPHERE, STARS, CONSTELLATIONS} from '../core/Constants.js';
 import {freezeTransform} from './SceneUtils.js';
+import {segmentEndAttributes, trimLinesAtStars} from './StarPoints.js';
 import {REFERENCE_FRAME_MS, easeFactor} from '../core/Utils.js';
 
 /**
@@ -69,6 +70,13 @@ export class ConstellationRenderer {
 
     /** @private {number} */
     this.radius_ = SPHERE.CONSTELLATION_RADIUS;
+
+    /**
+     * Star magnitude limit, which sets how big the stars at the line ends
+     * are drawn and so how far short of them the lines stop.
+     * @private @const {{value: number}}
+     */
+    this.magLimit_ = {value: STARS.DEFAULT_MAGNITUDE};
 
     /** @private {string} - Current display mode */
     this.mode_ = CONSTELLATIONS.MODE_ALL;
@@ -158,14 +166,21 @@ export class ConstellationRenderer {
     // a whole constellation, never on one segment.
     Object.entries(constellations).forEach(([constName, constellation]) => {
       const vertices = [];
+      const starPositions = [];
+      const mags = [];
       constellation.lines.forEach(([hip1, hip2]) => {
         const star1 = starByHip.get(hip1);
         const star2 = starByHip.get(hip2);
         if (!star1 || !star2) return;
 
-        const a = raDecToCartesian(star1.ra, star1.dec, this.radius_);
-        const b = raDecToCartesian(star2.ra, star2.dec, this.radius_);
-        vertices.push(a.x, a.y, a.z, b.x, b.y, b.z);
+        for (const star of [star1, star2]) {
+          const p = raDecToCartesian(star.ra, star.dec, this.radius_);
+          vertices.push(p.x, p.y, p.z);
+          // Where the star itself is drawn, for the gap at the line's end.
+          const s = raDecToCartesian(star.ra, star.dec, SPHERE.RADIUS);
+          starPositions.push(s.x, s.y, s.z);
+          mags.push(star.mag);
+        }
         linesCreated++;
       });
 
@@ -174,6 +189,11 @@ export class ConstellationRenderer {
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute(
           'position', new THREE.Float32BufferAttribute(vertices, 3));
+      const ends = segmentEndAttributes(starPositions, mags);
+      geometry.setAttribute('segA', new THREE.Float32BufferAttribute(ends.segA, 3));
+      geometry.setAttribute('segB', new THREE.Float32BufferAttribute(ends.segB, 3));
+      geometry.setAttribute('magA', new THREE.Float32BufferAttribute(ends.magA, 1));
+      geometry.setAttribute('magB', new THREE.Float32BufferAttribute(ends.magB, 1));
       // Required for the raycaster to detect clicks on the lines.
       geometry.computeBoundingSphere();
 
@@ -184,6 +204,7 @@ export class ConstellationRenderer {
         linewidth: 1,
         depthWrite: false,
       });
+      trimLinesAtStars(material, this.magLimit_);
       this.lineMaterials_.push(material);
 
       const lines = new THREE.LineSegments(geometry, material);
@@ -295,6 +316,16 @@ export class ConstellationRenderer {
   }
 
   /**
+   * Follow the star magnitude limit: it changes how big the stars are drawn,
+   * so how far short of them the lines stop.
+   * @param {number} magLimit
+   */
+  setMagnitudeLimit(magLimit) {
+    this.magLimit_.value = magLimit;
+    this.requestRender_();
+  }
+
+  /**
    * Remove all constellation highlighting.
    */
   unhighlight() {
@@ -336,6 +367,7 @@ export class ConstellationRenderer {
       linewidth: 3,
       depthWrite: false,
     });
+    trimLinesAtStars(glowMaterial, this.magLimit_);
 
     const glowLine =
         new THREE.LineSegments(line.geometry.clone(), glowMaterial);

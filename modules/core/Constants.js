@@ -90,6 +90,8 @@ export const STAR_LOOK = {
   MAX_RADIUS_PX: 8.0,
   /** Glow radius as a multiple of the core radius. */
   GLOW_EXTENT: 3.0,
+  /** Clear space (CSS px) between a constellation line's end and its star. */
+  LINE_GAP_PX: 3.0,
   /** Glow brightness relative to the core. */
   GLOW_STRENGTH: 0.12,
   /** How much of the black-body colour shows (0 white, 1 full). */
