@@ -84,7 +84,7 @@ import {
   slerpDirection,
   viewDirection,
 } from './modules/core/CoordinateUtils.js';
-import {CAMERA, STARS, CONSTELLATIONS} from './modules/core/Constants.js';
+import {CAMERA, STARS, CONSTELLATIONS, SKY} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
 import {dataLoader} from './modules/services/DataLoader.js';
 import {
@@ -92,6 +92,8 @@ import {
 } from './modules/core/Utils.js';
 import {getRenderPixelRatio, worldDirectionToRaDec} from './modules/rendering/SceneUtils.js';
 import {updateStarScreen} from './modules/rendering/StarPoints.js';
+import {SkyBackground} from './modules/rendering/SkyBackground.js';
+import {sunAndMoon} from './modules/astronomy/Observability.js';
 import {createLogger} from './modules/core/Logger.js';
 
 const logger = createLogger('Astrapedia');
@@ -231,6 +233,10 @@ export class AstrapediaApp {
     // Throttling for expensive operations
     this._lastImageVisUpdate = 0;
     this._lastDynamicCheck = 0;
+    /** @private {?SkyBackground} */
+    this.skyBackground_ = null;
+    /** @private {number} When the sky background last followed the Sun */
+    this.lastSkyUpdate_ = 0;
 
     // === DEVICE DETECTION ===
     // Detect mobile/touch devices for UX adjustments
@@ -819,6 +825,15 @@ export class AstrapediaApp {
     this.initStarFieldRenderer_();
     this.createStarField();  // Delegated to StarFieldRenderer
 
+    // Sky colour and the Milky Way, behind everything
+    this.skyBackground_ = new SkyBackground({
+      scene: this.scene,
+      celestialSphere: this.celestialSphere,
+      requestRender: () => this.requestRender(),
+    });
+    this.skyBackground_.initialize();
+    this.updateSkyBackground_();
+
     // Initialize GridRenderer module after celestialSphere is ready
     this.initGridRenderer_();
     this.createGrid();  // Delegated to GridRenderer
@@ -1377,6 +1392,17 @@ export class AstrapediaApp {
     }
     this.updateCameraPosition();
     return true;
+  }
+
+  /**
+   * Colour the sky and set the Milky Way for where the Sun and Moon stand at
+   * the simulated time.
+   * @private
+   */
+  updateSkyBackground_() {
+    const location = this.observerLocation;
+    if (!this.skyBackground_ || !location) return;
+    this.skyBackground_.setSky(sunAndMoon(location, this.timeController_?.getTime() ?? new Date()));
   }
 
   updateVisibleCount(count) {
@@ -2002,9 +2028,20 @@ export class AstrapediaApp {
       this.updateCardinalLabelSizes();
     }
 
+    if (this._fovDirty) {
+      this.skyBackground_?.setViewFov(cameraToSkyAngle(this.camera.fov));
+    }
+
     // Clear FOV dirty flag
     if (this._fovDirty) needsRender = true;
     this._fovDirty = false;
+
+    // The Sun and Moon move slowly; their effect on the sky is updated
+    // about once a second.
+    if (now - this.lastSkyUpdate_ > SKY.UPDATE_MS) {
+      this.updateSkyBackground_();
+      this.lastSkyUpdate_ = now;
+    }
 
     // Dynamic star loading - throttled to every 500ms to reduce API calls
     if (now - this._lastDynamicCheck > 1000) {

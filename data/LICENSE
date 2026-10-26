@@ -37,6 +37,14 @@ https://creativecommons.org/licenses/by-sa/4.0/
 - Source: https://github.com/Stellarium/stellarium
 - License: GPL v2+ (constellation line data used with attribution)
 
+### Milky Way (milkyway.jpg)
+
+**ESO/S. Brunier, "The Milky Way panorama" (eso0932a)**
+- License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+- Source: https://www.eso.org/public/images/eso0932a/
+- Changes: reprojected from galactic to equatorial coordinates, point stars
+  removed, background levels adjusted (scripts/make_milkyway.py)
+
 ### Named Objects (named_objects.json)
 
 Derived from HYG Database - CC BY-SA 4.0

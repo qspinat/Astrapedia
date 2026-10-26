@@ -195,6 +195,27 @@ function altitudeOf(body, observer, date) {
 }
 
 /**
+ * Where the Sun and Moon stand: what decides how dark the sky is.
+ * @param {{lat: number, lon: number}} location
+ * @param {!Date} date
+ * @returns {?{sunAltitude: number, moonAltitude: number, moonLit: number}}
+ *     Degrees, degrees, and the Moon's lit fraction (0-1); null on failure
+ */
+export function sunAndMoon(location, date) {
+  try {
+    const observer = observerFor(location);
+    return {
+      sunAltitude: altitudeOf(Astronomy.Body.Sun, observer, date),
+      moonAltitude: altitudeOf(Astronomy.Body.Moon, observer, date),
+      moonLit: Astronomy.Illumination(Astronomy.Body.Moon, date).phase_fraction,
+    };
+  } catch (error) {
+    logger.warn('Sun and Moon positions failed:', error);
+    return null;
+  }
+}
+
+/**
  * Altitude samples between two moments.
  * @param {{name: string, ra: number, dec: number}} obj
  * @param {{lat: number, lon: number}} location

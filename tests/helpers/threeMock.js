@@ -494,6 +494,17 @@ class PerspectiveCamera extends Object3D {
   lookAt() {}
 }
 
+class SphereGeometry extends BufferGeometry {
+  constructor(radius = 1, widthSegments = 32, heightSegments = 16) {
+    super();
+    this.parameters = {radius, widthSegments, heightSegments};
+  }
+}
+
+const RepeatWrapping = 1000;
+const ClampToEdgeWrapping = 1001;
+const LinearFilter = 1006;
+
 const NormalBlending = 1;
 const AdditiveBlending = 2;
 const SubtractiveBlending = 3;
@@ -514,6 +525,7 @@ const SCENE_GRAPH_MOCK = {
   Mesh,
   PerspectiveCamera,
   BufferGeometry,
+  SphereGeometry,
   BufferAttribute,
   Float32BufferAttribute,
   Texture,
@@ -534,6 +546,9 @@ const SCENE_GRAPH_MOCK = {
   FrontSide,
   BackSide,
   DoubleSide,
+  RepeatWrapping,
+  ClampToEdgeWrapping,
+  LinearFilter,
 };
 
 /**

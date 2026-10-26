@@ -104,6 +104,33 @@ export const STAR_LOOK = {
 };
 
 /**
+ * Sky background: twilight colour and the Milky Way.
+ * @const {!Object}
+ */
+export const SKY = {
+  /** Milky Way image, equirectangular in RA/Dec (see make_milkyway.py). */
+  MILKY_WAY_URL: 'data/milkyway.jpg',
+  /** localStorage key for the Milky Way on/off setting. */
+  MILKY_WAY_STORAGE_KEY: 'astrapedia_milky_way',
+  /** Overall Milky Way brightness on a dark, moonless night (0-1). */
+  MILKY_WAY_BRIGHTNESS: 0.3,
+  /** Share of the image's colour kept (0 grey, 1 as photographed). */
+  MILKY_WAY_SATURATION: 0.6,
+  /** Sun altitude (deg) from which the Milky Way shows fully. */
+  MILKY_WAY_DARK_DEG: -18,
+  /** Sun altitude (deg) above which it is gone. */
+  MILKY_WAY_GONE_DEG: -10,
+  /** Share of the Milky Way a full Moon high in the sky washes out. */
+  MOON_WASHOUT: 0.7,
+  /** Sky field of view (deg) below which the Milky Way is hidden. */
+  MILKY_WAY_MIN_VIEW_DEG: 10,
+  /** Sky field of view (deg) from which it shows fully. */
+  MILKY_WAY_FULL_VIEW_DEG: 60,
+  /** How often the Sun and Moon are recomputed (real ms). */
+  UPDATE_MS: 1000,
+};
+
+/**
  * Constellation line configuration.
  * @const {!Object}
  */

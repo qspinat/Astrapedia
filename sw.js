@@ -2,7 +2,7 @@
 // responses have no TTL and are evicted only when this name changes, so a
 // returning user otherwise keeps the old JS, the old modules and the old star
 // catalog indefinitely.
-const CACHE_NAME = 'astrapedia-v13';
+const CACHE_NAME = 'astrapedia-v14';
 
 // Cache TTL in milliseconds (24 hours for external resources)
 const EXTERNAL_CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -75,6 +75,7 @@ const STATIC_ASSETS = [
     '/modules/rendering/BodyImage.js',
     '/modules/rendering/SceneUtils.js',
     '/modules/rendering/StarFieldRenderer.js',
+    '/modules/rendering/SkyBackground.js',
     '/modules/rendering/StarPoints.js',
     '/modules/rendering/TourHighlight.js',
     '/modules/services/DataLoader.js',
@@ -97,6 +98,7 @@ const STATIC_ASSETS = [
     '/icon-512.png',
     '/manifest.json',
     '/data/stars_medium.json',
+    '/data/milkyway.jpg',
     '/data/constellations.json',
     '/data/deep_sky_objects.json',
     '/data/named_objects.json'
