@@ -29,6 +29,10 @@ describe('TimeUI', () => {
       </div>
       <div id="time-display"></div>
       <div id="time-speed-display"></div>
+      <section id="control-bar">
+        <button id="time-chip" aria-expanded="false"></button>
+        <button id="mag-chip" aria-expanded="false"></button>
+      </section>
     `;
 
     mockDeps = {
@@ -54,6 +58,23 @@ describe('TimeUI', () => {
     test('initializes state correctly', () => {
       expect(timeUI.isPlaying()).toBe(false);
       expect(timeUI.getCurrentSpeed()).toBe(0);
+    });
+  });
+
+  describe('time and magnitude chips', () => {
+    test('tapping the time chip opens the full controls', () => {
+      timeUI.initialize();
+      document.getElementById('time-chip').click();
+      expect(timeUI.areControlsOpen()).toBe(true);
+      expect(document.getElementById('control-bar').classList.contains('is-open')).toBe(true);
+      expect(document.getElementById('mag-chip').getAttribute('aria-expanded')).toBe('true');
+    });
+
+    test('tapping a chip again folds them away', () => {
+      timeUI.initialize();
+      timeUI.setControlsOpen(true);
+      document.getElementById('mag-chip').click();
+      expect(timeUI.areControlsOpen()).toBe(false);
     });
   });
 

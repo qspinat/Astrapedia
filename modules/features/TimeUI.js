@@ -90,6 +90,30 @@ export class TimeUI {
 
     // Time picker
     this.setupTimePicker_();
+
+    // The time and magnitude chips open the full controls and close them.
+    for (const id of ['time-chip', 'mag-chip']) {
+      const chip = domCache.get(id);
+      if (chip) addMobileButtonListener(chip, () => this.setControlsOpen(!this.areControlsOpen()));
+    }
+  }
+
+  /**
+   * @returns {boolean} Whether the full time and magnitude controls show
+   */
+  areControlsOpen() {
+    return domCache.get('control-bar')?.classList.contains('is-open') ?? false;
+  }
+
+  /**
+   * Show the full time and magnitude controls, or fold them back to chips.
+   * @param {boolean} open
+   */
+  setControlsOpen(open) {
+    domCache.get('control-bar')?.classList.toggle('is-open', open);
+    for (const id of ['time-chip', 'mag-chip']) {
+      domCache.get(id)?.setAttribute('aria-expanded', String(open));
+    }
   }
 
   /**

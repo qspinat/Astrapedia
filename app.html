@@ -204,57 +204,63 @@
                 <li><span class="onboarding-gesture">Pinch</span>, or double-tap and slide, to zoom</li>
                 <li><span class="onboarding-gesture">Tap</span> a star or object to identify it</li>
             </ul>
-            <p class="onboarding-hint">Along the bottom: the Sky, guided Tours, the Telescope simulator, a Quiz, and Settings. Up top: constellation lines, compass, and night vision. Stargazing outside? Turn on night vision to protect your dark-adapted eyes.</p>
+            <p class="onboarding-hint">Along the bottom: the Sky, guided Tours, the Telescope simulator, a Quiz, and Settings. Up top: search and night vision. Down the right edge: constellation lines, compass and telescope. Tap the clock at the bottom for time controls. Stargazing outside? Turn on night vision to protect your dark-adapted eyes.</p>
             <button id="onboarding-dismiss" class="action-btn">Start exploring</button>
         </div>
     </div>
 
     <!-- UI Overlay -->
     <div id="ui-overlay">
-        <!-- Compact Header with Search -->
+        <!-- Header: one row, search plus night vision, over the sky -->
         <div class="header">
+            <h1 class="visually-hidden">Astrapedia</h1>
             <div class="header-top">
-                <h1>Astrapedia</h1>
-                <div class="header-buttons">
-                    <button class="icon-btn icon-btn--constellations active" id="constellations-quick-toggle" aria-label="Toggle Constellation Lines">
-                        ★
-                    </button>
-                    <button class="icon-btn icon-btn--compass" id="compass-toggle" aria-label="Compass Mode">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                            <circle cx="12" cy="12" r="10.5"/>
-                            <polygon points="12,1.5 16,11.5 12,9 8,11.5" fill="currentColor" stroke="none"/>
-                            <polygon points="12,22.5 16,12.5 12,15 8,12.5" fill="currentColor" stroke="none" opacity="0.35"/>
-                            <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/>
-                        </svg>
-                    </button>
-                    <button class="icon-btn icon-btn--telescope" id="telescope-quick-toggle" aria-label="Telescope mode (hold for settings)" aria-pressed="false" title="Telescope mode (hold for settings)">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 13.5l13-6 2 4.3-13 6z"/>
-                            <path d="M16 7.5l3.2-1.5 2 4.3-3.2 1.5"/>
-                            <path d="M10 15.5l-3 6.5M12 15l3 7"/>
-                        </svg>
-                    </button>
-                    <button class="icon-btn icon-btn--nightvision" id="night-vision-toggle" aria-label="Night Vision Mode" aria-pressed="false" title="Night Vision Mode">
-                        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                            <path d="M13 2a9 9 0 108.9 10.5A7.2 7.2 0 0113 2z"/>
+                <div class="search-bar">
+                    <svg class="search-bar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7"/>
+                        <line x1="16.5" y1="16.5" x2="21" y2="21"/>
+                    </svg>
+                    <input type="text" id="search-input" placeholder="Search the sky" aria-label="Search the sky">
+                    <button class="icon-btn icon-btn--location" id="auto-location-btn" aria-label="My Location">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"/>
+                            <circle cx="12" cy="12" r="3.5"/>
+                            <line x1="12" y1="1" x2="12" y2="5"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="1" y1="12" x2="5" y2="12"/>
+                            <line x1="19" y1="12" x2="23" y2="12"/>
                         </svg>
                     </button>
                 </div>
-            </div>
-            <div class="search-bar">
-                <input type="text" id="search-input" placeholder="Search stars, galaxies, nebulae...">
-                <button class="icon-btn icon-btn--location" id="auto-location-btn" aria-label="My Location">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="9"/>
-                        <circle cx="12" cy="12" r="3.5"/>
-                        <line x1="12" y1="1" x2="12" y2="5"/>
-                        <line x1="12" y1="19" x2="12" y2="23"/>
-                        <line x1="1" y1="12" x2="5" y2="12"/>
-                        <line x1="19" y1="12" x2="23" y2="12"/>
+                <button class="icon-btn icon-btn--nightvision" id="night-vision-toggle" aria-label="Night Vision Mode" aria-pressed="false" title="Night Vision Mode">
+                    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                        <path d="M13 2a9 9 0 108.9 10.5A7.2 7.2 0 0113 2z"/>
                     </svg>
                 </button>
             </div>
             <div class="search-results" id="search-results"></div>
+        </div>
+
+        <!-- Sky view toggles, down the right edge -->
+        <div class="header-buttons">
+            <button class="icon-btn icon-btn--constellations active" id="constellations-quick-toggle" aria-label="Toggle Constellation Lines">
+                ★
+            </button>
+            <button class="icon-btn icon-btn--compass" id="compass-toggle" aria-label="Compass Mode">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10.5"/>
+                    <polygon points="12,1.5 16,11.5 12,9 8,11.5" fill="currentColor" stroke="none"/>
+                    <polygon points="12,22.5 16,12.5 12,15 8,12.5" fill="currentColor" stroke="none" opacity="0.35"/>
+                    <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/>
+                </svg>
+            </button>
+            <button class="icon-btn icon-btn--telescope" id="telescope-quick-toggle" aria-label="Telescope mode (hold for settings)" aria-pressed="false" title="Telescope mode (hold for settings)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 13.5l13-6 2 4.3-13 6z"/>
+                    <path d="M16 7.5l3.2-1.5 2 4.3-3.2 1.5"/>
+                    <path d="M10 15.5l-3 6.5M12 15l3 7"/>
+                </svg>
+            </button>
         </div>
 
         <!-- Floating Info Badge (replaces full info panel on mobile) -->
@@ -675,53 +681,68 @@
             <div id="info-content"></div>
         </div>
 
-        <!-- Observatory Control Bar (unified time + magnitude) -->
-        <div class="control-bar">
-            <!-- Magnitude Row (top) -->
-            <div class="control-bar__row control-bar__magnitude">
-                <span class="control-bar__label">MAG</span>
-                <input type="range" id="magnitude-slider" min="0" max="25" step="0.1">
-                <span id="mag-value" class="control-bar__value">--</span>
+        <!-- Observatory Control Bar: two chips (time, magnitude) that open
+             into the full time and magnitude controls -->
+        <section class="control-bar" id="control-bar" aria-label="Time and magnitude">
+            <div class="control-bar__summary">
+                <button class="control-chip" id="time-chip" aria-expanded="false" aria-controls="control-bar-body" aria-label="Time controls">
+                    <svg class="control-chip__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"/>
+                        <polyline points="12 7 12 12 15 14"/>
+                    </svg>
+                    <span class="time-display">
+                        <span id="time-display">Loading...</span>
+                        <span id="time-speed-display">Paused</span>
+                    </span>
+                </button>
+                <button class="control-chip" id="mag-chip" aria-expanded="false" aria-controls="control-bar-body" aria-label="Faintest stars shown">
+                    <span class="control-bar__label">Mag</span>
+                    <span id="mag-value" class="control-bar__value">--</span>
+                </button>
             </div>
 
-            <!-- Time Row (bottom) -->
-            <div class="control-bar__row control-bar__time">
-                <button class="time-btn" id="time-rewind-btn" aria-label="Rewind">
-                    <svg viewBox="0 0 24 24">
-                        <polygon points="12,2 12,22 1,12"/>
-                        <polygon points="23,2 23,22 12,12"/>
-                    </svg>
-                </button>
-                <button class="time-btn" id="time-play-btn" aria-label="Play/Pause">
-                    <svg class="play-icon" viewBox="0 0 24 24">
-                        <polygon points="4,2 22,12 4,22"/>
-                    </svg>
-                    <svg class="pause-icon" viewBox="0 0 24 24">
-                        <rect x="4" y="2" width="6" height="20"/>
-                        <rect x="14" y="2" width="6" height="20"/>
-                    </svg>
-                </button>
-                <div class="time-display">
-                    <div id="time-display">Loading...</div>
-                    <div id="time-speed-display">Paused</div>
+            <div class="control-bar__body" id="control-bar-body">
+                <!-- Time Row -->
+                <div class="control-bar__row control-bar__time">
+                    <button class="time-btn" id="time-rewind-btn" aria-label="Rewind">
+                        <svg viewBox="0 0 24 24">
+                            <polygon points="12,2 12,22 1,12"/>
+                            <polygon points="23,2 23,22 12,12"/>
+                        </svg>
+                    </button>
+                    <button class="time-btn" id="time-play-btn" aria-label="Play/Pause">
+                        <svg class="play-icon" viewBox="0 0 24 24">
+                            <polygon points="4,2 22,12 4,22"/>
+                        </svg>
+                        <svg class="pause-icon" viewBox="0 0 24 24">
+                            <rect x="4" y="2" width="6" height="20"/>
+                            <rect x="14" y="2" width="6" height="20"/>
+                        </svg>
+                    </button>
+                    <button class="time-btn" id="time-forward-btn" aria-label="Fast Forward">
+                        <svg viewBox="0 0 24 24">
+                            <polygon points="1,2 1,22 12,12"/>
+                            <polygon points="12,2 12,22 23,12"/>
+                        </svg>
+                    </button>
+                    <button class="time-btn small" id="time-now-btn">Now</button>
+                    <button class="time-btn small" id="time-picker-btn" title="Set date/time" aria-label="Date picker">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                        </svg>
+                    </button>
                 </div>
-                <button class="time-btn" id="time-forward-btn" aria-label="Fast Forward">
-                    <svg viewBox="0 0 24 24">
-                        <polygon points="1,2 1,22 12,12"/>
-                        <polygon points="12,2 12,22 23,12"/>
-                    </svg>
-                </button>
-                <button class="time-btn small" id="time-now-btn">Now</button>
-                <button class="time-btn small" id="time-picker-btn" title="Set date/time" aria-label="Date picker">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <rect x="3" y="4" width="18" height="18" rx="2"/>
-                        <line x1="3" y1="10" x2="21" y2="10"/>
-                        <line x1="8" y1="2" x2="8" y2="6"/>
-                        <line x1="16" y1="2" x2="16" y2="6"/>
-                    </svg>
-                </button>
+
+                <!-- Magnitude Row -->
+                <label class="control-bar__row control-bar__magnitude">
+                    <span class="control-bar__label">Faintest stars</span>
+                    <input type="range" id="magnitude-slider" min="0" max="25" step="0.1">
+                </label>
             </div>
-        </div>
+        </section>
 
         <!-- Date/Time Picker Panel -->
         <div class="time-picker-panel" id="time-picker-panel">
