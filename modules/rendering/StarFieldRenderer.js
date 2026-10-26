@@ -4,10 +4,10 @@
  */
 
 import {globalEventBus, Events} from '../core/EventBus.js';
-import {SHADERS, SPHERE, STARS} from '../core/Constants.js';
+import {SPHERE, STARS} from '../core/Constants.js';
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
-import {magnitudeToSize} from '../core/MagnitudeUtils.js';
-import {freezeTransform, getPointScale} from './SceneUtils.js';
+import {freezeTransform} from './SceneUtils.js';
+import {createStarMaterial, starColor} from './StarPoints.js';
 
 /**
  * DSO type to color mapping.
@@ -99,7 +99,6 @@ export class StarFieldRenderer {
     const geometry = new THREE.BufferGeometry();
     const positions = [];
     const colors = [];
-    const sizes = [];
     const magnitudes = [];
 
     // Add stars
@@ -107,12 +106,7 @@ export class StarFieldRenderer {
       const pos = raDecToCartesian(star.ra, star.dec, this.radius_);
       positions.push(pos.x, pos.y, pos.z);
 
-      const starColor = this.spectralTypeToColor(star.spect, star.ci);
-      colors.push(starColor[0], starColor[1], starColor[2]);
-
-      const size = this.magnitudeToSize(star.mag);
-      sizes.push(size);
-
+      colors.push(...starColor(star.ci, star.spect));
       magnitudes.push(star.mag);
     });
 
@@ -123,32 +117,15 @@ export class StarFieldRenderer {
 
       const color = DSO_COLORS[dso.type] || DSO_COLORS['default'];
       colors.push(color[0], color[1], color[2]);
-
-      const size = this.magnitudeToSize(dso.mag);
-      sizes.push(size);
-
       magnitudes.push(dso.mag);
     });
 
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
     geometry.setAttribute('magnitude', new THREE.Float32BufferAttribute(magnitudes, 1));
 
-    // Create shader material with magnitude-based visibility
-    this.material_ = new THREE.ShaderMaterial({
-      uniforms: {
-        opacity: {value: 0.9},
-        magLimit: {value: this.magnitudeLimit_},
-        magFadeRange: {value: 1.5},
-        pointScale: {value: getPointScale()},
-      },
-      vertexShader: SHADERS.VERTEX,
-      fragmentShader: SHADERS.FRAGMENT,
-      transparent: true,
-      vertexColors: true,
-      depthWrite: false,
-    });
+    // Size, brightness and the fade past the limit come from the magnitude.
+    this.material_ = createStarMaterial(this.magnitudeLimit_);
 
     // Remove old star field if exists (dispose the old material via the old
     // Points, since this.material_ was already reassigned above).
@@ -226,80 +203,6 @@ export class StarFieldRenderer {
       else hi = mid;
     }
     return lo;
-  }
-
-  /**
-   * Convert magnitude to point size.
-   * @param {number} mag - Magnitude value
-   * @returns {number} Point size
-   */
-  magnitudeToSize(mag) {
-    return magnitudeToSize(mag);
-  }
-
-  /**
-   * Convert spectral type and color index to RGB color.
-   * @param {?string} spectralType - Spectral type (e.g., 'G2V')
-   * @param {?number} colorIndex - B-V color index
-   * @returns {!Array<number>} RGB color array [r, g, b]
-   */
-  spectralTypeToColor(spectralType, colorIndex) {
-    // Use color index if available (B-V color)
-    if (colorIndex !== null && colorIndex !== undefined) {
-      let r, g, b;
-
-      if (colorIndex < -0.1) {
-        // Hot blue stars (O, B)
-        r = 0.9 + colorIndex * 0.2;
-        g = 0.95 + colorIndex * 0.1;
-        b = 1.0;
-      } else if (colorIndex < 0.4) {
-        // White stars (A, F)
-        r = 1.0;
-        g = 1.0;
-        b = 1.0 - colorIndex * 0.1;
-      } else if (colorIndex < 1.0) {
-        // Yellow-white stars (G)
-        r = 1.0;
-        g = 1.0 - (colorIndex - 0.4) * 0.15;
-        b = 0.95 - (colorIndex - 0.4) * 0.25;
-      } else if (colorIndex < 1.5) {
-        // Orange stars (K)
-        r = 1.0;
-        g = 0.9 - (colorIndex - 1.0) * 0.15;
-        b = 0.85 - (colorIndex - 1.0) * 0.2;
-      } else {
-        // Red stars (M)
-        r = 1.0;
-        g = Math.max(0.7, 0.85 - (colorIndex - 1.5) * 0.2);
-        b = Math.max(0.6, 0.75 - (colorIndex - 1.5) * 0.2);
-      }
-      return [r, g, b];
-    }
-
-    // Fallback to spectral type parsing
-    if (spectralType && spectralType.length > 0) {
-      const type = spectralType.charAt(0).toUpperCase();
-      switch (type) {
-        case 'O':
-        case 'B':
-          return [0.9, 0.95, 1.0];
-        case 'A':
-          return [0.98, 0.98, 1.0];
-        case 'F':
-          return [1.0, 1.0, 0.98];
-        case 'G':
-          return [1.0, 1.0, 0.95];
-        case 'K':
-          return [1.0, 0.95, 0.85];
-        case 'M':
-          return [1.0, 0.85, 0.75];
-        default:
-          return [1.0, 1.0, 1.0];
-      }
-    }
-
-    return [1.0, 1.0, 1.0]; // Default white
   }
 
   /**

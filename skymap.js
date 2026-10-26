@@ -91,6 +91,7 @@ import {
   MAX_FRAME_MS, REFERENCE_FRAME_MS, clamp, easeFactor, setTextIfChanged, smoothstep,
 } from './modules/core/Utils.js';
 import {getRenderPixelRatio, worldDirectionToRaDec} from './modules/rendering/SceneUtils.js';
+import {updateStarScreen} from './modules/rendering/StarPoints.js';
 import {createLogger} from './modules/core/Logger.js';
 
 const logger = createLogger('Astrapedia');
@@ -342,6 +343,7 @@ export class AstrapediaApp {
    * @private
    */
   initStarFieldRenderer_() {
+    updateStarScreen();
     this.starFieldRenderer_ = new StarFieldRenderer({
       celestialSphere: this.celestialSphere,
       getStars: () => this.stars,
@@ -611,7 +613,6 @@ export class AstrapediaApp {
     this.dynamicObjectManager_ = new DynamicObjectManager({
       getCelestialSphere: () => this.celestialSphere,
       getCamera: () => this.camera,
-      getStarFieldRenderer: () => this.starFieldRenderer_,
       getExtendedObjectSprites: () => this.extendedObjectRenderer_.getSprites(),
       addExtendedSprite: (sprite) => {
         this.extendedObjectRenderer_.addSprite(sprite);
@@ -1756,6 +1757,7 @@ export class AstrapediaApp {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    updateStarScreen();
     // Sprite sizes are derived from the canvas height, so a resize needs the
     // same recalculation a zoom does.
     this._fovDirty = true;

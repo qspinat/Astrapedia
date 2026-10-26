@@ -67,16 +67,38 @@ export const STARS = {
   MAX_MAGNITUDE: 20,
   /** Magnitude fade range for smooth transitions. */
   FADE_RANGE: 1.5,
-  /** Minimum star visibility in shader. */
-  MIN_VISIBILITY: 0.35,
-  /** Base star opacity. */
-  OPACITY: 0.9,
-  /** Base size multiplier for stars. */
-  BASE_SIZE: 300.0,
-  /** Minimum size for faint stars. */
-  MIN_SIZE: 0.8,
-  /** Maximum size for bright stars. */
-  MAX_SIZE: 8.0,
+};
+
+/**
+ * How stars are drawn (see StarPoints.js for the model).
+ * @const {!Object}
+ */
+export const STAR_LOOK = {
+  /** Contrast of the logarithmic tone curve: higher squeezes bright stars. */
+  TONE_CONTRAST: 2.2,
+  /** Magnitude drawn at full size and brightness (about Sirius). */
+  REFERENCE_MAG: -1.0,
+  /** Core radius (CSS px) of the reference star on a reference screen. */
+  RADIUS_PX: 4.0,
+  /** How fast size grows with tone-mapped brightness. */
+  RADIUS_EXPONENT: 0.55,
+  /** Smallest core drawn (CSS px); smaller stars dim instead. */
+  MIN_RADIUS_PX: 0.6,
+  /** Cores below this (CSS px) aren't drawn at all. */
+  CULL_RADIUS_PX: 0.25,
+  /** Largest core (CSS px). */
+  MAX_RADIUS_PX: 8.0,
+  /** Glow radius as a multiple of the core radius. */
+  GLOW_EXTENT: 3.0,
+  /** Glow brightness relative to the core. */
+  GLOW_STRENGTH: 0.12,
+  /** How much of the black-body colour shows (0 white, 1 full). */
+  COLOR_SATURATION: 0.75,
+  /** Screen's shorter side (CSS px) that gets screen scale 1. */
+  REFERENCE_SCREEN_PX: 500,
+  /** Screen scale bounds. */
+  MIN_SCREEN_SCALE: 0.8,
+  MAX_SCREEN_SCALE: 1.4,
 };
 
 /**
@@ -181,54 +203,6 @@ export const ASTRONOMY = {
   OBLIQUITY_J2000: 23.439,
   /** Hours to degrees conversion. */
   HOURS_TO_DEGREES: 15.0,
-};
-
-/**
- * Shader code for star rendering.
- * @const {!Object}
- */
-export const SHADERS = {
-  VERTEX: `
-    attribute float size;
-    attribute float magnitude;
-    uniform float magLimit;
-    uniform float magFadeRange;
-    uniform float pointScale;
-    varying vec3 vColor;
-    varying float vVisibility;
-    void main() {
-      vColor = color;
-      float magDiff = magnitude - magLimit;
-      float intensityRange = max(12.0, magLimit + 2.0);
-      if (magDiff <= 0.0) {
-        float magIntensity = 1.0 - (magnitude + 2.0) / intensityRange;
-        vVisibility = clamp(0.35 + 0.65 * magIntensity, 0.35, 1.0);
-      } else if (magDiff < magFadeRange) {
-        float fadeProgress = magDiff / magFadeRange;
-        float baseMagIntensity = 1.0 - (magnitude + 2.0) / intensityRange;
-        float baseVis = clamp(0.35 + 0.65 * baseMagIntensity, 0.35, 1.0);
-        vVisibility = baseVis * (1.0 - smoothstep(0.0, 1.0, fadeProgress));
-      } else {
-        vVisibility = 0.0;
-      }
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = size * pointScale * (300.0 / -mvPosition.z) * (vVisibility > 0.01 ? 1.0 : 0.0);
-      gl_Position = projectionMatrix * mvPosition;
-    }
-  `,
-  FRAGMENT: `
-    uniform float opacity;
-    varying vec3 vColor;
-    varying float vVisibility;
-    void main() {
-      if (vVisibility < 0.01) discard;
-      float dist = length(gl_PointCoord - vec2(0.5));
-      if (dist > 0.5) discard;
-      float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
-      vec3 brightColor = vColor * (0.5 + 0.5 * vVisibility);
-      gl_FragColor = vec4(brightColor, alpha * opacity * vVisibility);
-    }
-  `,
 };
 
 /**

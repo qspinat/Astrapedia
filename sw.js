@@ -75,6 +75,7 @@ const STATIC_ASSETS = [
     '/modules/rendering/BodyImage.js',
     '/modules/rendering/SceneUtils.js',
     '/modules/rendering/StarFieldRenderer.js',
+    '/modules/rendering/StarPoints.js',
     '/modules/rendering/TourHighlight.js',
     '/modules/services/DataLoader.js',
     '/modules/services/DynamicDataLoader.js',

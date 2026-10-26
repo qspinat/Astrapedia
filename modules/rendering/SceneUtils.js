@@ -27,16 +27,6 @@ export function getRenderPixelRatio() {
   return Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
 }
 
-/**
- * Factor that keeps point sprites the same physical size when the render
- * pixel ratio is capped below the device's: gl_PointSize is in framebuffer
- * pixels, which grow when fewer of them cover the screen.
- * @returns {number} Multiplier for gl_PointSize.
- */
-export function getPointScale() {
-  return getRenderPixelRatio() / (window.devicePixelRatio || 1);
-}
-
 /** @type {?{dir: !THREE.Vector3, inverse: !THREE.Matrix4, rotation: !THREE.Matrix3}} */
 let directionTemps = null;
 

@@ -16,8 +16,7 @@
 /* global THREE */
 
 import {raDecToCartesian} from '../core/CoordinateUtils.js';
-import {magnitudeToSize} from '../core/MagnitudeUtils.js';
-import {SHADERS, SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
+import {SPHERE, DYNAMIC_DATA} from '../core/Constants.js';
 import {dynamicDataLoader} from '../services/DynamicDataLoader.js';
 import {domCache} from '../ui/DOMCache.js';
 import {createLogger} from '../core/Logger.js';
@@ -25,10 +24,10 @@ import {
   createHaloSprite,
   disposeSpriteTexture,
   freezeTransform,
-  getPointScale,
   getSharedHaloTexture,
   worldDirectionToRaDec,
 } from './SceneUtils.js';
+import {createStarMaterial, starColor} from './StarPoints.js';
 
 const logger = createLogger('DynamicObjectManager');
 
@@ -41,7 +40,6 @@ export class DynamicObjectManager {
    * @param {Object} callbacks - Callback functions for accessing app state
    * @param {function(): THREE.Group} callbacks.getCelestialSphere - Get celestial sphere group
    * @param {function(): THREE.Camera} callbacks.getCamera - Get camera for FOV/matrix
-   * @param {function(): Object} callbacks.getStarFieldRenderer - Get StarFieldRenderer for color
    * @param {function(): Array} callbacks.getExtendedObjectSprites - Get sprite array
    * @param {function(THREE.Sprite): void} callbacks.addExtendedSprite - Add sprite to array
    * @param {function(THREE.Sprite): void} callbacks.removeExtendedSprite - Remove sprite from array
@@ -398,11 +396,9 @@ export class DynamicObjectManager {
     const geometry = new THREE.BufferGeometry();
     const positions = [];
     const colors = [];
-    const sizes = [];
     const magnitudes = [];
     const radius = SPHERE.RADIUS;
 
-    const starFieldRenderer = this.callbacks_.getStarFieldRenderer();
     this.visibleDynamicStarIndices = [];
 
     this.dynamicStars.forEach((star, originalIndex) => {
@@ -411,34 +407,15 @@ export class DynamicObjectManager {
       const pos = raDecToCartesian(star.ra, star.dec, radius);
       positions.push(pos.x, pos.y, pos.z);
 
-      const color = starFieldRenderer.spectralTypeToColor(null, star.ci);
-      colors.push(color[0], color[1], color[2]);
-
-      const size = magnitudeToSize(star.mag);
-      sizes.push(size);
-
+      colors.push(...starColor(star.ci));
       magnitudes.push(star.mag);
     });
 
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
     geometry.setAttribute('magnitude', new THREE.Float32BufferAttribute(magnitudes, 1));
 
-    const magLimit = this.callbacks_.getMagnitude();
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        opacity: { value: 0.9 },
-        magLimit: { value: magLimit },
-        magFadeRange: { value: 1.5 },
-        pointScale: { value: getPointScale() }
-      },
-      vertexShader: SHADERS.VERTEX,
-      fragmentShader: SHADERS.FRAGMENT,
-      transparent: true,
-      vertexColors: true,
-      depthWrite: false
-    });
+    const material = createStarMaterial(this.callbacks_.getMagnitude());
 
     this.dynamicStarField = new THREE.Points(geometry, material);
     freezeTransform(this.dynamicStarField);

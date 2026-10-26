@@ -58,7 +58,6 @@ describe('DynamicObjectManager dynamic DSOs', () => {
     manager = new DynamicObjectManager({
       getCelestialSphere: () => celestialSphere,
       getCamera: () => new global.THREE.PerspectiveCamera(),
-      getStarFieldRenderer: () => null,
       getExtendedObjectSprites: () => extendedSprites,
       addExtendedSprite: (sprite) => extendedSprites.push(sprite),
       removeExtendedSprite: (sprite) => {
