@@ -3,7 +3,9 @@
  */
 
 import {jest} from '@jest/globals';
-import {debounce, throttle, clamp, lerp, addLongPressListener} from '../modules/core/Utils.js';
+import {
+  REFERENCE_FRAME_MS, addLongPressListener, clamp, debounce, easeFactor, lerp, smoothstep, throttle,
+} from '../modules/core/Utils.js';
 
 describe('Utils', () => {
   describe('debounce', () => {
@@ -261,6 +263,32 @@ describe('Utils', () => {
       expect(clamp(0.5, 0, 1)).toBe(0.5);
       expect(clamp(1.5, 0, 1)).toBe(1);
       expect(clamp(-0.5, 0, 1)).toBe(0);
+    });
+  });
+
+  describe('easeFactor', () => {
+    test('two half-length frames cover what one full frame does', () => {
+      const half = easeFactor(0.12, REFERENCE_FRAME_MS / 2);
+      const remaining = (1 - half) * (1 - half);
+      expect(1 - remaining).toBeCloseTo(easeFactor(0.12, REFERENCE_FRAME_MS), 10);
+    });
+
+    test('a 60 Hz frame covers the tuned rate', () => {
+      expect(easeFactor(0.12, REFERENCE_FRAME_MS)).toBeCloseTo(0.12, 10);
+    });
+  });
+
+  describe('smoothstep', () => {
+    test('starts and ends at rest and passes the middle at half way', () => {
+      expect(smoothstep(0)).toBe(0);
+      expect(smoothstep(1)).toBe(1);
+      expect(smoothstep(0.5)).toBe(0.5);
+      expect(smoothstep(0.05)).toBeLessThan(0.05);
+    });
+
+    test('holds outside 0-1', () => {
+      expect(smoothstep(-1)).toBe(0);
+      expect(smoothstep(2)).toBe(1);
     });
   });
 

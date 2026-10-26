@@ -3,7 +3,7 @@
  * Manages dragging, zooming, and click detection.
  */
 
-import {clamp} from '../core/Utils.js';
+import {MAX_FRAME_MS, REFERENCE_FRAME_MS, clamp} from '../core/Utils.js';
 import {CAMERA, INPUT} from '../core/Constants.js';
 
 /**
@@ -546,10 +546,18 @@ export class InputController {
     }
     this.recentMoves_ = [];
 
-    const animate = () => {
+    // Velocity is per 60 Hz frame; step it by the real frame time so the
+    // glide lasts as long and goes as far at any refresh rate.
+    let lastTime = null;
+    const animate = (time) => {
+      const frames = lastTime === null ? 1 :
+          Math.min(time - lastTime, MAX_FRAME_MS) / REFERENCE_FRAME_MS;
+      lastTime = time;
+
       // Apply friction
-      this.velocity_.x *= INPUT.INERTIA_FRICTION;
-      this.velocity_.y *= INPUT.INERTIA_FRICTION;
+      const friction = Math.pow(INPUT.INERTIA_FRICTION, frames);
+      this.velocity_.x *= friction;
+      this.velocity_.y *= friction;
 
       // Stop if velocity is too low
       if (Math.abs(this.velocity_.x) < INPUT.MIN_VELOCITY &&
@@ -560,7 +568,7 @@ export class InputController {
       }
 
       // Apply rotation
-      this.applyDragRotation_(this.velocity_.x, this.velocity_.y);
+      this.applyDragRotation_(this.velocity_.x * frames, this.velocity_.y * frames);
       this.updateCamera_();
       this.requestRender_();
 

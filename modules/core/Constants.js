@@ -42,8 +42,14 @@ export const CAMERA = {
   MIN_DISTANCE: 0.5,
   /** Maximum camera distance (inside sphere). */
   MAX_DISTANCE: 95,
-  /** Smoothing factor for zoom interpolation (0-1). */
+  /** Smoothing factor for zoom interpolation, per 60 Hz frame (0-1). */
   ZOOM_LERP_SPEED: 0.12,
+  /** Shortest fly-to animation (ms), for a target already near the view. */
+  FLIGHT_MIN_MS: 500,
+  /** Extra fly-to time per radian of travel (ms). */
+  FLIGHT_MS_PER_RAD: 350,
+  /** Longest fly-to animation (ms). */
+  FLIGHT_MAX_MS: 1400,
   /** Default initial theta rotation. */
   DEFAULT_THETA: 0,
   /** Default initial phi rotation (equator). */

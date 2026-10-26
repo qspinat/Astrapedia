@@ -7,6 +7,7 @@ import {globalEventBus, Events} from '../core/EventBus.js';
 import {raDecToCartesian, angularDistance, sphericalMean} from '../core/CoordinateUtils.js';
 import {SPHERE, CONSTELLATIONS} from '../core/Constants.js';
 import {freezeTransform} from './SceneUtils.js';
+import {REFERENCE_FRAME_MS, easeFactor} from '../core/Utils.js';
 
 /**
  * Index stars by HIP number for O(1) lookup.
@@ -386,9 +387,10 @@ export class ConstellationRenderer {
    * Update focus mode - fade in nearest constellation, fade out others.
    * @param {number} viewRa - View center RA in degrees
    * @param {number} viewDec - View center Dec in degrees
+   * @param {number=} frameMs - Time since the last frame
    * @returns {boolean} True if any opacity is still changing (needs more frames)
    */
-  updateFocusMode(viewRa, viewDec) {
+  updateFocusMode(viewRa, viewDec, frameMs = REFERENCE_FRAME_MS) {
     if (!this.linesGroup_) return false;
 
     // Find nearest constellation center
@@ -408,7 +410,7 @@ export class ConstellationRenderer {
     }
 
     let needsRender = false;
-    const lerpSpeed = CONSTELLATIONS.FOCUS_LERP_SPEED;
+    const lerpSpeed = easeFactor(CONSTELLATIONS.FOCUS_LERP_SPEED, frameMs);
 
     // Update opacities for each constellation
     this.constellationOpacities_.forEach((currentOpacity, name) => {

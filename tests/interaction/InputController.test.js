@@ -152,6 +152,38 @@ describe('InputController', () => {
       flick();
       expect(controller.inertiaAnimationId_).toBeNull();
     });
+
+    /**
+     * Run a glide to the end with frames frameMs apart.
+     * @param {number} frameMs
+     * @returns {{distance: number, durationMs: number}} Total rotation and time
+     */
+    const glide = (frameMs) => {
+      const frames = [];
+      jest.spyOn(global, 'requestAnimationFrame').mockImplementation((cb) => {
+        frames.push(cb);
+        return frames.length;
+      });
+      controller.recentMoves_ = [{x: 0, y: 0, t: 0}, {x: 40, y: 0, t: 16}];
+      controller.startInertia_();
+      let distance = 0;
+      let time = 0;
+      while (frames.length && time < 10000) {
+        deps.setRotation.mockClear();
+        time += frameMs;
+        frames.shift()(time);
+        if (deps.setRotation.mock.calls.length) distance -= deps.setRotation.mock.calls[0][0];
+      }
+      global.requestAnimationFrame.mockRestore();
+      return {distance, durationMs: time};
+    };
+
+    test('a glide goes as far and lasts as long on a 120 Hz screen', () => {
+      const at60 = glide(1000 / 60);
+      const at120 = glide(1000 / 120);
+      expect(at120.distance).toBeCloseTo(at60.distance, 1);
+      expect(Math.abs(at120.durationMs - at60.durationMs)).toBeLessThan(40);
+    });
   });
 
   describe('double-click zoom', () => {

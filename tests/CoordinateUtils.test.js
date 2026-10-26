@@ -50,6 +50,9 @@ import {
   sphericalMean,
   skyToCameraAngle,
   cameraToSkyAngle,
+  viewDirection,
+  orbitAnglesFor,
+  slerpDirection,
 } from '../modules/core/CoordinateUtils.js';
 
 describe('CoordinateUtils', () => {
@@ -304,5 +307,27 @@ describe('sky and camera angles', () => {
 
   test.each([0.5, 10, 60, 120])('camera and sky angles convert back (%p deg)', (deg) => {
     expect(cameraToSkyAngle(skyToCameraAngle(deg))).toBeCloseTo(deg, 6);
+  });
+});
+
+describe('camera directions', () => {
+  test('orbit angles and view direction convert back', () => {
+    const {theta, phi} = orbitAnglesFor(viewDirection(2.1, 0.7));
+    expect(theta).toBeCloseTo(2.1, 10);
+    expect(phi).toBeCloseTo(0.7, 10);
+  });
+
+  test('half way along the great circle is the midpoint', () => {
+    const mid = slerpDirection([1, 0, 0], [0, 1, 0], 0.5);
+    expect(mid[0]).toBeCloseTo(Math.SQRT1_2, 10);
+    expect(mid[1]).toBeCloseTo(Math.SQRT1_2, 10);
+    expect(mid[2]).toBeCloseTo(0, 10);
+  });
+
+  test('ends exactly at each end', () => {
+    expect(slerpDirection([1, 0, 0], [0, 0, 1], 0)).toEqual([1, 0, 0]);
+    const end = slerpDirection([1, 0, 0], [0, 0, 1], 1);
+    expect(end[0]).toBeCloseTo(0, 10);
+    expect(end[2]).toBeCloseTo(1, 10);
   });
 });

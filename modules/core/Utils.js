@@ -93,6 +93,33 @@ export function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+/** Frame length the per-frame easing rates were tuned at (60 Hz). */
+export const REFERENCE_FRAME_MS = 1000 / 60;
+
+/** Longest frame an animation steps over at once, so a stall doesn't jump. */
+export const MAX_FRAME_MS = 50;
+
+/**
+ * Fraction of the remaining distance an exponential ease covers in one frame,
+ * so it takes the same time on a 60, 90 or 120 Hz screen.
+ * @param {number} ratePerFrame - Fraction covered per 60 Hz frame (0-1)
+ * @param {number} frameMs - Time since the last frame
+ * @returns {number} Fraction to cover this frame
+ */
+export function easeFactor(ratePerFrame, frameMs) {
+  return 1 - Math.pow(1 - ratePerFrame, frameMs / REFERENCE_FRAME_MS);
+}
+
+/**
+ * Smoothstep easing: starts and ends gently.
+ * @param {number} t - Progress (0-1)
+ * @returns {number} Eased progress (0-1)
+ */
+export function smoothstep(t) {
+  const x = clamp(t, 0, 1);
+  return x * x * (3 - 2 * x);
+}
+
 /**
  * Add both click and touch listeners to a button for mobile compatibility.
  * On mobile, click events can be unreliable or delayed. This ensures buttons

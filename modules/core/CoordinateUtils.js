@@ -349,3 +349,45 @@ export function cameraToSkyAngle(cameraDeg) {
       Math.sqrt(VIEW_RADIUS ** 2 - (VIEW_OFFSET * Math.sin(half)) ** 2);
   return 2 * Math.atan2(reach * Math.sin(half), reach * Math.cos(half) - VIEW_OFFSET) / DEG;
 }
+
+/**
+ * Direction the camera looks along for a camera orbit angle pair. The camera
+ * sits at (sin(phi)cos(theta), cos(phi), sin(phi)sin(theta)) and looks back
+ * through the centre.
+ * @param {number} theta - Azimuth of the camera position (radians)
+ * @param {number} phi - Polar angle of the camera position (radians)
+ * @returns {!Array<number>} Unit vector [x, y, z]
+ */
+export function viewDirection(theta, phi) {
+  return [-Math.sin(phi) * Math.cos(theta), -Math.cos(phi), -Math.sin(phi) * Math.sin(theta)];
+}
+
+/**
+ * Camera orbit angles that look along a direction (inverse of viewDirection).
+ * @param {!Array<number>} dir - Unit vector [x, y, z]
+ * @returns {{theta: number, phi: number}}
+ */
+export function orbitAnglesFor(dir) {
+  return {
+    theta: Math.atan2(-dir[2], -dir[0]),
+    phi: Math.acos(Math.max(-1, Math.min(1, -dir[1]))),
+  };
+}
+
+/**
+ * Spherical interpolation between two unit vectors: the point a fraction t of
+ * the way along the great circle from a to b.
+ * @param {!Array<number>} a - Unit vector
+ * @param {!Array<number>} b - Unit vector
+ * @param {number} t - Fraction (0-1)
+ * @returns {!Array<number>} Unit vector
+ */
+export function slerpDirection(a, b, t) {
+  const dot = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]));
+  const angle = Math.acos(dot);
+  if (angle < 1e-6) return [...b];
+  const sin = Math.sin(angle);
+  const wa = Math.sin((1 - t) * angle) / sin;
+  const wb = Math.sin(t * angle) / sin;
+  return [a[0] * wa + b[0] * wb, a[1] * wa + b[1] * wb, a[2] * wa + b[2] * wb];
+}

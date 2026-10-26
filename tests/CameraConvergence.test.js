@@ -13,6 +13,7 @@ import {installThreeMock} from './helpers/threeMock.js';
 installThreeMock();
 
 const {AstrapediaApp} = await import('../skymap.js');
+const {viewDirection} = await import('../modules/core/CoordinateUtils.js');
 
 /**
  * Builds the minimal slice of app state the convergence predicates read,
@@ -153,6 +154,68 @@ describe('camera convergence', () => {
       }
 
       expect(app.camera.fov).toBeCloseTo(0.0001, 5);
+    });
+  });
+
+  describe('refresh rate', () => {
+    /**
+     * Frames until a zoom from 60 to 5 degrees settles within 1%.
+     * @param {number} frameMs
+     * @returns {number} Elapsed ms
+     */
+    const zoomTime = (frameMs) => {
+      const app = cameraState({targetFov: 5, camera: {fov: 60, updateProjectionMatrix: () => {}}});
+      let elapsed = 0;
+      while (Math.abs(app.camera.fov - 5) > 0.05) {
+        app.updateSmoothZoom(frameMs);
+        elapsed += frameMs;
+      }
+      return elapsed;
+    };
+
+    test('a zoom takes as long on a 120 Hz screen as on a 60 Hz one', () => {
+      expect(Math.abs(zoomTime(1000 / 120) - zoomTime(1000 / 60))).toBeLessThan(20);
+    });
+  });
+
+  describe('fly-to', () => {
+    /** @returns {!AstrapediaApp} An app flying a quarter turn in theta. */
+    function flyingApp() {
+      const app = cameraState({
+        cameraRotation: {theta: 0, phi: Math.PI / 2},
+        isCompassModeEnabled: () => false,
+      });
+      const to = {theta: Math.PI / 2, phi: Math.PI / 2};
+      app.targetTheta = to.theta;
+      app.targetPhi = to.phi;
+      app.flight_ = {
+        from: viewDirection(0, Math.PI / 2), to: viewDirection(to.theta, to.phi),
+        theta: to.theta, phi: to.phi, elapsed: 0, duration: 1000,
+      };
+      return app;
+    }
+
+    test('arrives exactly at the target when the time is up', () => {
+      const app = flyingApp();
+      for (let t = 0; t < 1100; t += 16) app.updateSmoothZoom(16);
+      expect(app.cameraRotation.theta).toBe(Math.PI / 2);
+      expect(app.flight_).toBeNull();
+      expect(app.isCameraConverging_()).toBe(false);
+    });
+
+    test('starts gently', () => {
+      const app = flyingApp();
+      app.updateSmoothZoom(50);
+      // Linear would be 5% of the way after 50 of 1000 ms.
+      expect(app.cameraRotation.theta).toBeLessThan(0.05 * Math.PI / 2);
+    });
+
+    test('a drag during the flight takes over', () => {
+      const app = flyingApp();
+      app.updateSmoothZoom(100);
+      app.targetTheta = 0.2;
+      app.updateSmoothZoom(16);
+      expect(app.flight_).toBeNull();
     });
   });
 

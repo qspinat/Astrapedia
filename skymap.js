@@ -80,11 +80,16 @@ import {
   calculateLST,
   formatAngle,
   cameraToSkyAngle,
+  orbitAnglesFor,
+  slerpDirection,
+  viewDirection,
 } from './modules/core/CoordinateUtils.js';
 import {CAMERA, STARS, CONSTELLATIONS} from './modules/core/Constants.js';
 import {domCache} from './modules/ui/DOMCache.js';
 import {dataLoader} from './modules/services/DataLoader.js';
-import {clamp, setTextIfChanged} from './modules/core/Utils.js';
+import {
+  MAX_FRAME_MS, REFERENCE_FRAME_MS, clamp, easeFactor, setTextIfChanged, smoothstep,
+} from './modules/core/Utils.js';
 import {getRenderPixelRatio, worldDirectionToRaDec} from './modules/rendering/SceneUtils.js';
 import {createLogger} from './modules/core/Logger.js';
 
@@ -194,6 +199,15 @@ export class AstrapediaApp {
     this.targetFov = null;  // Will be set after camera init
     this.targetTheta = null;
     this.targetPhi = null;
+    /**
+     * Fly-to in progress: the rotation follows a great circle from `from` to
+     * the target over `duration` ms, instead of easing each angle on its own.
+     * @private {?{from: !Array<number>, to: !Array<number>, theta: number,
+     *     phi: number, elapsed: number, duration: number}}
+     */
+    this.flight_ = null;
+    /** @private {?number} Time of the previous animate() call */
+    this.lastAnimateTime_ = null;
     this.zoomLerpSpeed = CAMERA.ZOOM_LERP_SPEED;
 
     // Dynamic star/DSO loading (delegated to DynamicObjectManager)
@@ -1295,14 +1309,21 @@ export class AstrapediaApp {
     return this.isFovConverging_() || this.isRotationConverging_();
   }
 
-  updateSmoothZoom() {
+  /**
+   * Ease the zoom and rotation toward their targets.
+   * @param {number=} frameMs - Time since the last frame; easing is by time,
+   *     not by frame, so it runs at the same speed at any refresh rate.
+   * @returns {boolean} Whether the camera moved
+   */
+  updateSmoothZoom(frameMs = REFERENCE_FRAME_MS) {
     if (this.targetFov === null) return false;
 
-    let changed = false;
+    let changed = this.updateFlight_(frameMs);
+    const ease = easeFactor(this.zoomLerpSpeed, frameMs);
 
     // Smoothly interpolate FOV
     if (this.isFovConverging_()) {
-      this.camera.fov += (this.targetFov - this.camera.fov) * this.zoomLerpSpeed;
+      this.camera.fov += (this.targetFov - this.camera.fov) * ease;
       this.camera.updateProjectionMatrix();
       changed = true;
 
@@ -1310,11 +1331,11 @@ export class AstrapediaApp {
       this.gridRenderer_?.updateForFov(this.camera.fov);
     }
 
-    // Smoothly interpolate rotation
-    if (this.isRotationConverging_()) {
-      this.cameraRotation.theta += this.thetaDiffToTarget_() * this.zoomLerpSpeed;
+    // Smoothly interpolate rotation (a fly-to moves it instead)
+    if (!this.flight_ && this.isRotationConverging_()) {
+      this.cameraRotation.theta += this.thetaDiffToTarget_() * ease;
       this.cameraRotation.phi +=
-          (this.targetPhi - this.cameraRotation.phi) * this.zoomLerpSpeed;
+          (this.targetPhi - this.cameraRotation.phi) * ease;
 
       // Clamp phi
       this.cameraRotation.phi = clamp(this.cameraRotation.phi, 0.1, Math.PI - 0.1);
@@ -1324,6 +1345,36 @@ export class AstrapediaApp {
     }
 
     return changed;
+  }
+
+  /**
+   * Advance a fly-to along its great circle.
+   * @param {number} frameMs - Time since the last frame
+   * @returns {boolean} Whether the camera moved
+   * @private
+   */
+  updateFlight_(frameMs) {
+    const flight = this.flight_;
+    if (!flight) return false;
+    // A drag, reset or compass reading retargeted the camera: let it.
+    if (this.targetTheta !== flight.theta || this.targetPhi !== flight.phi ||
+        this.isCompassModeEnabled()) {
+      this.flight_ = null;
+      return false;
+    }
+    flight.elapsed += frameMs;
+    const progress = flight.elapsed / flight.duration;
+    if (progress >= 1) {
+      this.cameraRotation.theta = flight.theta;
+      this.cameraRotation.phi = flight.phi;
+      this.flight_ = null;
+    } else {
+      const {theta, phi} = orbitAnglesFor(slerpDirection(flight.from, flight.to, smoothstep(progress)));
+      this.cameraRotation.theta = theta;
+      this.cameraRotation.phi = clamp(phi, 0.1, Math.PI - 0.1);
+    }
+    this.updateCameraPosition();
+    return true;
   }
 
   updateVisibleCount(count) {
@@ -1513,10 +1564,20 @@ export class AstrapediaApp {
     //     cos(phi) = -dir.y
     //     sin(phi)*sin(theta) = -dir.z
 
-    const targetPhi = Math.acos(clamp(-dir.y, -1, 1));
-    const targetTheta = Math.atan2(-dir.z, -dir.x);
+    const target = orbitAnglesFor([dir.x, dir.y, dir.z]);
+    const targetTheta = target.theta;
+    const targetPhi = clamp(target.phi, 0.1, Math.PI - 0.1);
 
-    // Use smooth animation via the existing target system
+    // Fly along the great circle, slowly at both ends, for longer the further
+    // it goes.
+    const from = viewDirection(this.cameraRotation.theta, this.cameraRotation.phi);
+    const to = viewDirection(targetTheta, targetPhi);
+    const travel = Math.acos(clamp(from[0] * to[0] + from[1] * to[1] + from[2] * to[2], -1, 1));
+    this.flight_ = {
+      from, to, theta: targetTheta, phi: targetPhi, elapsed: 0,
+      duration: Math.min(CAMERA.FLIGHT_MAX_MS,
+          CAMERA.FLIGHT_MIN_MS + CAMERA.FLIGHT_MS_PER_RAD * travel),
+    };
     this.targetTheta = targetTheta;
     this.targetPhi = targetPhi;
 
@@ -1887,6 +1948,11 @@ export class AstrapediaApp {
    */
   animate() {
     const now = performance.now();
+    // Animations step by elapsed time; a long pause (the loop idled) counts
+    // as one ordinary frame rather than a jump.
+    const frameMs = this.lastAnimateTime_ === null ? REFERENCE_FRAME_MS :
+        Math.min(now - this.lastAnimateTime_, MAX_FRAME_MS);
+    this.lastAnimateTime_ = now;
     let needsRender = this._renderRequested;
     this._renderRequested = false;
 
@@ -1900,7 +1966,7 @@ export class AstrapediaApp {
     }
 
     // Smooth zoom interpolation
-    const zoomChanged = this.updateSmoothZoom();
+    const zoomChanged = this.updateSmoothZoom(frameMs);
 
     // Check if FOV changed (for dirty flag)
     const fovChanged = this._lastFov !== this.camera.fov;
@@ -1951,7 +2017,7 @@ export class AstrapediaApp {
     if (this.constellationRenderer_?.getMode() === CONSTELLATIONS.MODE_FOCUS) {
       const viewCenter = this.getViewCenterRaDec();
       const stillFading = this.constellationRenderer_?.updateFocusMode(
-        viewCenter.ra, viewCenter.dec
+        viewCenter.ra, viewCenter.dec, frameMs
       );
       if (stillFading) {
         this.requestRender();
