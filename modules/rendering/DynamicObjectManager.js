@@ -27,7 +27,8 @@ import {
   getSharedHaloTexture,
   worldDirectionToRaDec,
 } from './SceneUtils.js';
-import {createStarMaterial, starColor} from './StarPoints.js';
+import {createStarMaterial, starClock, starColor} from './StarPoints.js';
+import {FADE_MS} from '../core/Utils.js';
 
 const logger = createLogger('DynamicObjectManager');
 
@@ -53,6 +54,8 @@ export class DynamicObjectManager {
     this.dynamicStars = [];
     this.dynamicStarField = null;
     this.visibleDynamicStarIndices = [];
+    /** @private {?number} starClock() when the latest batch arrived */
+    this.newestStarAt_ = null;
 
     // Dynamic DSO loading state
     this.dynamicDSOs = [];
@@ -114,6 +117,21 @@ export class DynamicObjectManager {
     if (this.dynamicStarField?.material?.uniforms?.magLimit) {
       this.dynamicStarField.material.uniforms.magLimit.value = magLimit;
     }
+  }
+
+  /**
+   * Advance the fade-in of newly loaded stars.
+   * @param {number=} nowMs - performance.now()
+   * @returns {boolean} Whether stars are still fading in
+   */
+  updateFadeIn(nowMs = performance.now()) {
+    const uniforms = this.dynamicStarField?.material?.uniforms;
+    if (!uniforms) return false;
+    const was = uniforms.now.value;
+    uniforms.now.value = starClock(nowMs);
+    const newest = this.newestStarAt_ ?? 0;
+    // One more frame after the fade ends, so it is drawn at full brightness.
+    return was - newest <= FADE_MS / 1000;
   }
 
   /**
@@ -344,11 +362,12 @@ export class DynamicObjectManager {
       if (seen.has(k)) return;
       seen.add(k);
 
-      newStars.push({ ra, dec, mag, ci: colorIndex });
+      newStars.push({ ra, dec, mag, ci: colorIndex, bornAt: starClock() });
     });
 
     if (newStars.length === 0) return;
 
+    this.newestStarAt_ = newStars[0].bornAt;
     this.dynamicStars.push(...newStars);
 
     // Enforce limit
@@ -397,6 +416,7 @@ export class DynamicObjectManager {
     const positions = [];
     const colors = [];
     const magnitudes = [];
+    const bornAt = [];
     const radius = SPHERE.RADIUS;
 
     this.visibleDynamicStarIndices = [];
@@ -409,13 +429,15 @@ export class DynamicObjectManager {
 
       colors.push(...starColor(star.ci));
       magnitudes.push(star.mag);
+      bornAt.push(star.bornAt ?? 0);
     });
 
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geometry.setAttribute('magnitude', new THREE.Float32BufferAttribute(magnitudes, 1));
 
-    const material = createStarMaterial(this.callbacks_.getMagnitude());
+    geometry.setAttribute('bornAt', new THREE.Float32BufferAttribute(bornAt, 1));
+    const material = createStarMaterial(this.callbacks_.getMagnitude(), {fadeIn: true});
 
     this.dynamicStarField = new THREE.Points(geometry, material);
     freezeTransform(this.dynamicStarField);

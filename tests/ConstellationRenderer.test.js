@@ -147,12 +147,24 @@ describe('ConstellationRenderer focus mode', () => {
       renderer.createLines();
 
       renderer.setMode(CONSTELLATIONS.MODE_OFF);
+      renderer.update(1000);
       expect(renderer.getLinesGroup().visible).toBe(false);
       expect(renderer.isVisible()).toBe(false);
 
       renderer.setMode(CONSTELLATIONS.MODE_FOCUS);
       expect(renderer.getLinesGroup().visible).toBe(true);
       expect(renderer.isVisible()).toBe(true);
+    });
+
+    test('switching off fades the lines out rather than hiding them at once', () => {
+      renderer.createLines();
+      renderer.setMode(CONSTELLATIONS.MODE_OFF);
+      expect(renderer.getLinesGroup().visible).toBe(true);
+      expect(renderer.update(100)).toBe(true);
+      expect(renderer.getLinesGroup().visible).toBe(true);
+      renderer.update(1000);
+      expect(renderer.getLinesGroup().visible).toBe(false);
+      expect(renderer.update(16)).toBe(false);
     });
 
     test('lines created while off stay hidden', () => {

@@ -11,7 +11,7 @@ import {
   getCuratedImageKeys,
   parseCatalogDesignation,
 } from '../data/CuratedImages.js';
-import {clamp} from '../core/Utils.js';
+import {FADE_MS, clamp} from '../core/Utils.js';
 import {createLogger} from '../core/Logger.js';
 import {freezeTransform} from './SceneUtils.js';
 
@@ -100,6 +100,9 @@ export class ImageRenderer {
   constructor(dependencies) {
     /** @private @const */
     this.celestialSphere_ = dependencies.celestialSphere;
+
+    /** @private {boolean} Whether a picture was mid fade-in last update */
+    this.fadingIn_ = false;
 
     /** @private @const */
     this.getDSOs_ = dependencies.getDSOs;
@@ -266,10 +269,20 @@ export class ImageRenderer {
   }
 
   /**
-   * Update visibility of image sprites based on zoom level.
+   * @returns {boolean} Whether a newly loaded picture is still fading in, so
+   *     visibility needs updating every frame rather than on the usual timer
+   */
+  isFadingIn() {
+    return this.fadingIn_;
+  }
+
+  /**
+   * Show, size and fade the pictures for the current view.
    */
   updateVisibility() {
+    this.fadingIn_ = false;
     if (!this.imageSprites_ || this.imageSprites_.length === 0) return;
+    const now = performance.now();
 
     const fov = this.camera_.fov;
     const canvasHeight = this.renderer_.domElement.height;
@@ -368,6 +381,12 @@ export class ImageRenderer {
           opacity = 1 - (realSizePixels - fadeOutStart) / (fadeOutEnd - fadeOutStart);
         }
         opacity = clamp(opacity * 0.9, 0, 0.9);
+        // A picture that just finished loading fades in rather than popping.
+        const sinceShown = now - (sprite.userData.shownAt ?? -Infinity);
+        if (sinceShown < FADE_MS) {
+          opacity *= sinceShown / FADE_MS;
+          this.fadingIn_ = true;
+        }
 
         sprite.material.opacity = opacity;
         sprite.visible = opacity > 0.05 && sprite.material.map !== null;
@@ -378,7 +397,6 @@ export class ImageRenderer {
     });
 
     // Load the single most-centered object with cooldown
-    const now = performance.now();
     const cooldownMs = 2000;
     if (
       this.bestCandidateSprite_ &&
@@ -434,6 +452,7 @@ export class ImageRenderer {
           texture.magFilter = THREE.LinearFilter;
           sprite.material.map = texture;
           sprite.material.needsUpdate = true;
+          sprite.userData.shownAt = performance.now();
           sprite.userData.needsDynamicLoad = false;
           sprite.userData.imageSource = result.source;
           sprite.userData.imageTier = result.tier;
@@ -472,6 +491,7 @@ export class ImageRenderer {
                 texture.magFilter = THREE.LinearFilter;
                 sprite.material.map = texture;
                 sprite.material.needsUpdate = true;
+                sprite.userData.shownAt = performance.now();
                 sprite.userData.imageSource = 'DSS';
                 sprite.userData.imageTier = 'vintage';
                 sprite.userData.aspectRatio = w / h;

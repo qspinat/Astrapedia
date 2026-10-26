@@ -21,6 +21,7 @@
 
 import {STAR_LOOK, STARS} from '../core/Constants.js';
 import {getRenderPixelRatio} from './SceneUtils.js';
+import {FADE_MS} from '../core/Utils.js';
 
 /**
  * Uniforms every star material shares, so one resize updates them all.
@@ -139,6 +140,10 @@ const STAR_LEVEL_GLSL = `
 
 const VERTEX_SHADER = `
   attribute float magnitude;
+  #ifdef FADE_IN
+  attribute float bornAt;
+  uniform float now;
+  #endif
   uniform float magLimit;
   uniform float magFadeRange;
   uniform float screenScale;
@@ -160,6 +165,10 @@ const VERTEX_SHADER = `
     if (radius < ${STAR_LOOK.MIN_RADIUS_PX.toFixed(3)}) intensity *= small * small;
     radius = clamp(radius, ${STAR_LOOK.MIN_RADIUS_PX.toFixed(3)}, ${STAR_LOOK.MAX_RADIUS_PX.toFixed(3)});
     vIntensity = intensity * fade;
+    #ifdef FADE_IN
+    // Stars that just arrived fade in rather than popping up.
+    vIntensity *= smoothstep(0.0, ${(FADE_MS / 1000).toFixed(3)}, now - bornAt);
+    #endif
     // The sprite spans the glow; the core is a fraction of it.
     vCore = 1.0 / ${STAR_LOOK.GLOW_EXTENT.toFixed(3)};
     gl_PointSize = vIntensity > 0.004 ?
@@ -184,16 +193,31 @@ const FRAGMENT_SHADER = `
 `;
 
 /**
+ * Seconds on the clock fade-ins are measured by (see starClock).
+ * @param {number=} nowMs - performance.now()
+ * @returns {number}
+ */
+export function starClock(nowMs = performance.now()) {
+  // Seconds, not ms: a float32 attribute keeps sub-ms precision for days.
+  return nowMs / 1000;
+}
+
+/**
  * Material for a field of star points with `position`, `color` and
  * `magnitude` attributes.
  * @param {number} magLimit - Faintest magnitude shown
+ * @param {{fadeIn: boolean}=} options - fadeIn: each star also has a
+ *     `bornAt` attribute (starClock() when it arrived) and fades in from
+ *     then, following the `now` uniform
  * @returns {!THREE.ShaderMaterial}
  */
-export function createStarMaterial(magLimit) {
+export function createStarMaterial(magLimit, {fadeIn = false} = {}) {
   return new THREE.ShaderMaterial({
+    defines: fadeIn ? {FADE_IN: ''} : {},
     uniforms: {
       magLimit: {value: magLimit},
       magFadeRange: {value: STARS.FADE_RANGE},
+      now: {value: starClock()},
       ...SHARED_UNIFORMS,
     },
     vertexShader: VERTEX_SHADER,
@@ -228,10 +252,12 @@ export function updateStarScreen() {
  * `magB` (their magnitudes); see segmentEndAttributes.
  * @param {!THREE.Material} material - A LineBasicMaterial
  * @param {{value: number}} magLimit - Shared magnitude limit uniform
+ * @param {{value: number}} lineFade - Shared 0-1 multiplier on the lines'
+ *     opacity, for fading them all in or out together
  */
-export function trimLinesAtStars(material, magLimit) {
+export function trimLinesAtStars(material, magLimit, lineFade) {
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, SHARED_UNIFORMS, {magLimit});
+    Object.assign(shader.uniforms, SHARED_UNIFORMS, {magLimit, lineFade});
     shader.vertexShader = `
       attribute vec3 segA;
       attribute vec3 segB;
@@ -258,13 +284,16 @@ export function trimLinesAtStars(material, magLimit) {
       // An end behind the camera has no place on screen to keep clear of.
       vGap = vec2(clipA.w > 0.0 ? endGap(magA) : 0.0, clipB.w > 0.0 ? endGap(magB) : 0.0);`);
     shader.fragmentShader = `
+      uniform float lineFade;
       varying vec2 vEndA;
       varying vec2 vEndB;
       varying vec2 vGap;
       ${shader.fragmentShader}`.replace('#include <clipping_planes_fragment>', `
       if (distance(gl_FragCoord.xy, vEndA) < vGap.x ||
           distance(gl_FragCoord.xy, vEndB) < vGap.y) discard;
-      #include <clipping_planes_fragment>`);
+      #include <clipping_planes_fragment>`).replace('#include <tonemapping_fragment>', `
+      gl_FragColor.a *= lineFade;
+      #include <tonemapping_fragment>`);
   };
 }
 

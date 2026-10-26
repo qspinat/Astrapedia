@@ -1981,10 +1981,13 @@ export class AstrapediaApp {
 
     // Update visibility functions only when needed or throttled
     // Image visibility - throttled to every 500ms (reduced from 100ms to avoid excessive loading)
-    if (this._fovDirty || (now - this._lastImageVisUpdate > 500)) {
+    if (this._fovDirty || this.imageRenderer_?.isFadingIn() ||
+        (now - this._lastImageVisUpdate > 500)) {
       this.updateImageVisibility();
       this._lastImageVisUpdate = now;
       needsRender = true;
+      // Keep the loop running until a picture's fade-in has finished.
+      if (this.imageRenderer_?.isFadingIn()) this.requestRender();
     }
 
     // Extended objects - only when something they depend on changed.
@@ -2013,6 +2016,18 @@ export class AstrapediaApp {
     // Update tour highlight animation (cheap, runs every frame when active)
     if (this.tourHighlightModule_?.isActive()) {
       this.updateTourHighlight();
+      needsRender = true;
+    }
+
+    // Stars loaded while zooming fade in
+    if (this.dynamicObjectManager_?.updateFadeIn(now)) {
+      this.requestRender();
+      needsRender = true;
+    }
+
+    // Lines fading in or out after being switched on or off
+    if (this.constellationRenderer_?.update(frameMs)) {
+      this.requestRender();
       needsRender = true;
     }
 

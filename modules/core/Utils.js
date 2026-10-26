@@ -110,6 +110,47 @@ export function easeFactor(ratePerFrame, frameMs) {
   return 1 - Math.pow(1 - ratePerFrame, frameMs / REFERENCE_FRAME_MS);
 }
 
+/** How long things take to fade in or out (ms). */
+export const FADE_MS = 300;
+
+/**
+ * A value that fades toward a target over a fixed time, so what appears or
+ * disappears doesn't pop. Step it once per frame.
+ */
+export class Fade {
+  /**
+   * @param {number=} value - Starting value (0 hidden, 1 shown)
+   * @param {number=} durationMs - Time for a full 0-1 fade
+   */
+  constructor(value = 1, durationMs = FADE_MS) {
+    /** @type {number} */
+    this.value = value;
+    /** @type {number} */
+    this.target = value;
+    /** @private @const {number} */
+    this.durationMs_ = durationMs;
+  }
+
+  /** @returns {boolean} Whether it has yet to reach its target */
+  isFading() {
+    return this.value !== this.target;
+  }
+
+  /**
+   * Move toward the target.
+   * @param {number} frameMs - Time since the last frame
+   * @returns {boolean} Whether the value changed
+   */
+  step(frameMs) {
+    if (!this.isFading()) return false;
+    const delta = frameMs / this.durationMs_;
+    this.value = this.value < this.target ?
+        Math.min(this.target, this.value + delta) :
+        Math.max(this.target, this.value - delta);
+    return true;
+  }
+}
+
 /**
  * Smoothstep easing: starts and ends gently.
  * @param {number} t - Progress (0-1)

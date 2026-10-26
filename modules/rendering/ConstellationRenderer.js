@@ -8,7 +8,7 @@ import {raDecToCartesian, angularDistance, sphericalMean} from '../core/Coordina
 import {SPHERE, STARS, CONSTELLATIONS} from '../core/Constants.js';
 import {freezeTransform} from './SceneUtils.js';
 import {segmentEndAttributes, trimLinesAtStars} from './StarPoints.js';
-import {REFERENCE_FRAME_MS, easeFactor} from '../core/Utils.js';
+import {Fade, REFERENCE_FRAME_MS, easeFactor, smoothstep} from '../core/Utils.js';
 
 /**
  * Index stars by HIP number for O(1) lookup.
@@ -78,6 +78,12 @@ export class ConstellationRenderer {
      */
     this.magLimit_ = {value: STARS.DEFAULT_MAGNITUDE};
 
+    /** @private @const {!Fade} Fades the lines in and out with the mode */
+    this.fade_ = new Fade(1);
+
+    /** @private @const {{value: number}} The fade, as the shader sees it */
+    this.lineFade_ = {value: 1};
+
     /** @private {string} - Current display mode */
     this.mode_ = CONSTELLATIONS.MODE_ALL;
 
@@ -114,9 +120,38 @@ export class ConstellationRenderer {
     if (!this.linesGroup_) return;
     // A highlight that forced hidden lines visible keeps them up until it is
     // cleared; unhighlight() restores the group to the mode.
-    if (!this.forcedVisible_) this.linesGroup_.visible = this.isVisible();
+    if (!this.forcedVisible_) {
+      this.fade_.target = this.isVisible() ? 1 : 0;
+      this.linesGroup_.visible = this.isVisible() || this.fade_.value > 0;
+    }
     if (mode === CONSTELLATIONS.MODE_ALL) this.resetOpacities();
     this.requestRender_();
+  }
+
+  /**
+   * Advance the fade after the lines were switched on or off.
+   * @param {number} frameMs - Time since the last frame
+   * @returns {boolean} Whether the lines changed and need another frame
+   */
+  update(frameMs) {
+    if (!this.fade_.step(frameMs)) return false;
+    this.lineFade_.value = smoothstep(this.fade_.value);
+    if (this.linesGroup_ && !this.forcedVisible_ && this.fade_.value === 0) {
+      this.linesGroup_.visible = false;
+    }
+    return true;
+  }
+
+  /**
+   * Show or hide the lines at once, with no fade (highlighting needs them
+   * up immediately).
+   * @param {boolean} visible
+   * @private
+   */
+  snapVisibility_(visible) {
+    this.fade_.value = this.fade_.target = visible ? 1 : 0;
+    this.lineFade_.value = this.fade_.value;
+    if (this.linesGroup_) this.linesGroup_.visible = visible;
   }
 
   /**
@@ -204,7 +239,7 @@ export class ConstellationRenderer {
         linewidth: 1,
         depthWrite: false,
       });
-      trimLinesAtStars(material, this.magLimit_);
+      trimLinesAtStars(material, this.magLimit_, this.lineFade_);
       this.lineMaterials_.push(material);
 
       const lines = new THREE.LineSegments(geometry, material);
@@ -213,7 +248,7 @@ export class ConstellationRenderer {
       this.linesGroup_.add(lines);
     });
 
-    this.linesGroup_.visible = this.isVisible();
+    this.snapVisibility_(this.isVisible());
     freezeTransform(this.linesGroup_);
     this.celestialSphere_.add(this.linesGroup_);
 
@@ -241,11 +276,11 @@ export class ConstellationRenderer {
     this.restoreHighlightedLines_();
 
     // Check if lines were hidden (game mode) - only dim others in this case
-    const linesWereHidden = !this.linesGroup_.visible;
+    const linesWereHidden = !this.linesGroup_.visible || this.fade_.target === 0;
 
     // Force lines visible if currently hidden (for game mode)
     if (linesWereHidden) {
-      this.linesGroup_.visible = true;
+      this.snapVisibility_(true);
       this.forcedVisible_ = true;
 
       // Dim all lines when forcing visibility (game mode)
@@ -337,7 +372,7 @@ export class ConstellationRenderer {
 
     // Restore original visibility if we forced it (game mode)
     if (this.forcedVisible_ && this.linesGroup_) {
-      this.linesGroup_.visible = this.isVisible();
+      this.snapVisibility_(this.isVisible());
       this.forcedVisible_ = false;
 
       // Restore all lines to original state when hiding
@@ -367,7 +402,7 @@ export class ConstellationRenderer {
       linewidth: 3,
       depthWrite: false,
     });
-    trimLinesAtStars(glowMaterial, this.magLimit_);
+    trimLinesAtStars(glowMaterial, this.magLimit_, this.lineFade_);
 
     const glowLine =
         new THREE.LineSegments(line.geometry.clone(), glowMaterial);

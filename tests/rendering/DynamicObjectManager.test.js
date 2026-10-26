@@ -234,3 +234,33 @@ describe('DynamicObjectManager dynamic DSOs', () => {
     });
   });
 });
+
+describe('DynamicObjectManager dynamic stars', () => {
+  let manager;
+
+  beforeEach(() => {
+    manager = new DynamicObjectManager({
+      getCelestialSphere: () => new global.THREE.Group(),
+      getCamera: () => new global.THREE.PerspectiveCamera(),
+      getExtendedObjectSprites: () => [],
+      addExtendedSprite: () => {},
+      removeExtendedSprite: () => {},
+      getMagnitude: () => 12,
+      requestRender: jest.fn(),
+    });
+  });
+
+  test('newly loaded stars fade in, then the animation stops', () => {
+    const t0 = performance.now();
+    manager.addDynamicStars([[10, 20, 9, 0.5]]);
+    expect(manager.updateFadeIn(t0 + 50)).toBe(true);
+    manager.updateFadeIn(t0 + 2000);
+    expect(manager.updateFadeIn(t0 + 2016)).toBe(false);
+  });
+
+  test('each star remembers when it arrived', () => {
+    manager.addDynamicStars([[10, 20, 9, 0.5]]);
+    const born = manager.getDynamicStarField().geometry.attributes.bornAt;
+    expect(born.array[0]).toBeGreaterThan(0);
+  });
+});
