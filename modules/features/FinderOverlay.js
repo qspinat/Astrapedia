@@ -100,9 +100,11 @@ export class FinderOverlay {
       input.checked = this.settings_[key];
       input.addEventListener('change', () => this.setSettings({[key]: input.checked}));
     }
-    // The zoom badge is the quick switch: the rings are sized by the zoom.
-    const badge = domCache.get('info-badge');
-    if (badge) addMobileButtonListener(badge, () => this.toggle());
+    // Quick switches: the edge button, and the zoom badge the rings are sized by.
+    for (const id of ['finder-quick-toggle', 'info-badge']) {
+      const el = domCache.get(id);
+      if (el) addMobileButtonListener(el, () => this.toggle());
+    }
     this.syncSwitches_();
     const fovInput = domCache.get('finder-scope-fov');
     if (fovInput) {
@@ -149,7 +151,8 @@ export class FinderOverlay {
   }
 
   /**
-   * Keep the panel switch and the badge mark in step with the on/off setting.
+   * Keep the panel switch, edge button and badge mark in step with the on/off
+   * setting.
    * @private
    */
   syncSwitches_() {
@@ -159,6 +162,7 @@ export class FinderOverlay {
     const badge = domCache.get('info-badge');
     badge?.classList.toggle('info-badge--finder', enabled);
     badge?.setAttribute('aria-pressed', String(enabled));
+    domCache.get('finder-quick-toggle')?.setAttribute('aria-pressed', String(enabled));
   }
 
   /**

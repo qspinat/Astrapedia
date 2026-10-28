@@ -38,6 +38,7 @@ describe('FinderOverlay', () => {
     document.body.innerHTML = `
       <svg id="finder-overlay"></svg>
       <div id="info-badge"></div>
+      <button id="finder-quick-toggle"></button>
       <input type="checkbox" id="finder-toggle">
       <input type="checkbox" id="finder-telrad-toggle">
       <input type="checkbox" id="finder-scope-toggle">
@@ -134,6 +135,14 @@ describe('FinderOverlay', () => {
     document.getElementById('info-badge').click();
     expect(rings()).toHaveLength(0);
     expect(document.getElementById('finder-toggle').checked).toBe(false);
+  });
+
+  test('the edge button shows the circles and shows itself pressed', () => {
+    const button = document.getElementById('finder-quick-toggle');
+    button.click();
+    overlay.update(20);
+    expect(rings().length).toBeGreaterThan(0);
+    expect(button.getAttribute('aria-pressed')).toBe('true');
   });
 
   test('the finder field input resizes the finder ring', () => {
